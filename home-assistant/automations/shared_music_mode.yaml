@@ -8,7 +8,9 @@ description: >-
   repainting on every new track. Areas whose toggle is off are left alone.
   Toggling an area while Music Mode is on joins or restores it immediately,
   and turning Music Mode off restores every area still taking part. The
-  toggles keep their last values between sessions. The living room LED strip
+  toggles keep their last values between sessions. The mushroom lamp has no
+  toggle: Music Mode always switches it off and restores it afterwards, and a
+  manual switch-on during Music Mode is left alone. The living room LED strip
   (input_boolean.music_mode_led_strip) is driven by the music_director
   integration through LedFx, not here.
 mode: queued
@@ -29,7 +31,6 @@ triggers:
       - input_boolean.music_mode_floor_lamp
       - input_boolean.music_mode_tulip_lamp
       - input_boolean.music_mode_ceiling_strip
-      - input_boolean.music_mode_mushroom_lamp
     to:
       - "on"
       - "off"
@@ -46,7 +47,6 @@ actions:
         - floor_lamp
         - tulip_lamp
         - ceiling_strip
-        - mushroom_lamp
       taking_part: >-
         {% set ns = namespace(on=[]) %}
         {% for area in areas if is_state('input_boolean.music_mode_' ~ area, 'on') %}
@@ -58,6 +58,14 @@ actions:
           - condition: trigger
             id: "mode_on"
         sequence:
+          - action: scene.create
+            data:
+              scene_id: pre_music_mushroom_lamp
+              snapshot_entities:
+                - light.kitchen_mushroom_lamp
+          - action: light.turn_off
+            target:
+              entity_id: light.kitchen_mushroom_lamp
           - repeat:
               for_each: "{{ taking_part }}"
               sequence:
@@ -76,6 +84,14 @@ actions:
                   data:
                     area: "{{ repeat.item }}"
                     step: leave
+          - if:
+              - condition: template
+                value_template: >-
+                  {{ state_attr('scene.pre_music_mushroom_lamp', 'entity_id') is not none }}
+            then:
+              - action: scene.turn_on
+                target:
+                  entity_id: scene.pre_music_mushroom_lamp
       - conditions:
           - condition: trigger
             id: "area"

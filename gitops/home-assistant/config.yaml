@@ -338,6 +338,8 @@ data:
     # Shared music mode: per-track album-art palette and LedFx effect for the
     # living room strip; the shared_music_mode automation paints bulb areas from
     # sensor.music_director. Area order sets which shade each area gets.
+    # input_select.music_mode_effect overrides the automatic effect until it is
+    # set back to Auto; transition_time is the strip's crossfade in seconds.
     music_director:
       player: media_player.homelab_05_satellite_media_player_2
       spotify: media_player.spotify_rupan
@@ -352,7 +354,8 @@ data:
         - floor_lamp
         - tulip_lamp
         - ceiling_strip
-        - mushroom_lamp
+      effect_select: input_select.music_mode_effect
+      transition_time: 1.5
 
     input_boolean:
       bedroom_matrix_power:
@@ -365,6 +368,19 @@ data:
         initial: true
 
     input_select:
+      music_mode_effect:
+        name: "Music Mode: Effect"
+        icon: mdi:auto-fix
+        options:
+          - Auto
+          - Energy
+          - Power
+          - Melt
+          - Lava Lamp
+          - Scroll
+          - Bands
+          - Wavelength
+          - Strobe
       bedroom_matrix_mode:
         name: Bedroom Matrix Mode
         icon: mdi:view-dashboard-outline
@@ -2485,6 +2501,10 @@ data:
                     vol.Required("ledfx_virtual"): cv.string,
                     vol.Required("library_url"): cv.url,
                     vol.Required("areas"): vol.All(cv.ensure_list, [cv.slug]),
+                    vol.Required("effect_select"): cv.entity_id,
+                    vol.Optional("transition_time", default=1.5): vol.All(
+                        vol.Coerce(float), vol.Range(min=0, max=5)
+                    ),
                 }
             )
         },
@@ -2505,6 +2525,8 @@ data:
                 ledfx_virtual=conf["ledfx_virtual"],
                 library_url=conf["library_url"].rstrip("/"),
                 areas=tuple(conf["areas"]),
+                effect_select=conf["effect_select"],
+                transition_time=conf["transition_time"],
                 lastfm_key=os.environ.get("LASTFM_API_KEY") or None,
             ),
         )
@@ -2563,7 +2585,7 @@ data:
         spotify_track_id,
     )
     from .palette import Palette, area_colors, extract_palette, genre_palette, gradient
-    from .rules import choose_effect, classify, effect_config
+    from .rules import EFFECTS, choose_effect, classify, effect_config
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -2588,6 +2610,8 @@ data:
         ledfx_virtual: str
         library_url: str
         areas: tuple[str, ...]
+        effect_select: str
+        transition_time: float
         lastfm_key: str | None = field(default=None, repr=False)
 
 
@@ -2598,8 +2622,13 @@ data:
         info: TrackInfo
         palette: Palette
         family: str
+        auto_effect: str
         effect: str
         config: dict[str, Any]
+
+        @property
+        def manual(self) -> bool:
+            return self.effect != self.auto_effect
 
 
     def _track_key(state: State | None) -> str | None:
@@ -2635,12 +2664,18 @@ data:
             self._track_key: str | None = None
             self._last_effect: str | None = None
             self._decision: Decision | None = None
+            self._transition_set = False
 
         @callback
         def async_start(self) -> None:
             async_track_state_change_event(
                 self.hass,
-                [self.config.player, self.config.enabled, self.config.strip],
+                [
+                    self.config.player,
+                    self.config.enabled,
+                    self.config.strip,
+                    self.config.effect_select,
+                ],
                 self._on_change,
             )
             if self._is_on(self.config.enabled):
@@ -2663,6 +2698,12 @@ data:
                 return
             if not self._is_on(self.config.enabled):
                 return
+            if entity_id == self.config.effect_select:
+                if self._decision is not None:
+                    self.hass.async_create_task(
+                        self._apply(self._recompose(self._decision))
+                    )
+                return
             if entity_id == self.config.strip:
                 if new_state is not None and new_state.state == STATE_ON:
                     if self._decision is not None:
@@ -2684,7 +2725,46 @@ data:
             self._cancel()
             self._task = self.hass.async_create_task(self._run(force))
 
+        def _override(self) -> str | None:
+            """The dropdown's effect, or None for Auto or an unknown option."""
+            state = self.hass.states.get(self.config.effect_select)
+            option = (state.state if state else "").strip().lower().replace(" ", "_")
+            return option if option in EFFECTS else None
+
+        def _compose(
+            self,
+            title: str,
+            artist: str,
+            info: TrackInfo,
+            palette: Palette,
+            family: str,
+            auto_effect: str,
+        ) -> Decision:
+            effect = self._override() or auto_effect
+            config = effect_config(effect, palette, info.features())
+            return Decision(
+                title, artist, info, palette, family, auto_effect, effect, config
+            )
+
+        def _recompose(self, decision: Decision) -> Decision:
+            return self._compose(
+                decision.title,
+                decision.artist,
+                decision.info,
+                decision.palette,
+                decision.family,
+                decision.auto_effect,
+            )
+
+        async def _apply(self, decision: Decision) -> None:
+            self._decision = decision
+            self._publish(decision)
+            if self._is_on(self.config.strip):
+                await self._push_strip(decision)
+
         async def _run(self, force: bool) -> None:
+            if not self._transition_set:
+                self._transition_set = await self._ensure_transition()
             player = self.hass.states.get(self.config.player)
             key = _track_key(player)
             if key is None:
@@ -2698,17 +2778,13 @@ data:
                 self._track_key = key
                 assert player is not None
                 decision = await self._decide(player, key)
-            self._decision = decision
-            self._last_effect = decision.effect
-            self._publish(decision)
-            if self._is_on(self.config.strip):
-                await self._push_strip(decision)
+            # Repeat avoidance follows the automatic choice, not the override.
+            self._last_effect = decision.auto_effect
+            await self._apply(decision)
 
         def _idle_decision(self) -> Decision:
-            info = TrackInfo()
-            palette = genre_palette(())
-            return Decision(
-                "", "", info, palette, "default", "energy", effect_config("energy", palette)
+            return self._compose(
+                "", "", TrackInfo(), genre_palette(()), "default", "energy"
             )
 
         async def _decide(self, player: State, key: str) -> Decision:
@@ -2729,19 +2805,19 @@ data:
             effect = choose_effect(family, key, self._last_effect)
             title = player.attributes.get("media_title") or ""
             artist = player.attributes.get("media_artist") or ""
+            decision = self._compose(title, artist, info, palette, family, effect)
             _LOGGER.info(
-                "%s - %s: %s/%s, palette %s (hue %.0f), sources %s",
+                "%s - %s: %s/%s%s, palette %s (hue %.0f), sources %s",
                 artist,
                 title,
                 family,
-                effect,
+                decision.effect,
+                " (manual)" if decision.manual else "",
                 palette.source,
                 palette.hue,
                 ",".join(info.sources) or "none",
             )
-            return Decision(
-                title, artist, info, palette, family, effect, effect_config(effect, palette)
-            )
+            return decision
 
         async def _get_json(self, url: str, params: dict[str, str], label: str) -> Any:
             try:
@@ -2855,6 +2931,11 @@ data:
                     "energy": info.energy,
                     "family": decision.family,
                     "effect": decision.effect,
+                    "auto_effect": decision.auto_effect,
+                    "effect_mode": "manual" if decision.manual else "auto",
+                    "effect_config": {
+                        k: v for k, v in decision.config.items() if k != "gradient"
+                    },
                     "palette_source": decision.palette.source,
                     "metadata_sources": list(info.sources),
                     "area_colors": {
@@ -2882,6 +2963,40 @@ data:
                         )
             except (aiohttp.ClientError, TimeoutError) as error:
                 _LOGGER.warning("LedFx %s failed: %s", method, error)
+
+        async def _ensure_transition(self) -> bool:
+            """Set the strip's crossfade between effects. LedFx keeps virtual
+            config on POST /api/virtuals with an id, so send the full config back
+            with only transition_time changed. Returns True once it is in place."""
+            base = f"{self.config.ledfx_url}/api/virtuals"
+            virtual = self.config.ledfx_virtual
+            try:
+                async with self._session.get(
+                    f"{base}/{virtual}", timeout=HTTP_TIMEOUT
+                ) as response:
+                    body = await response.json(content_type=None)
+                config = dict(body[virtual]["config"])
+                if config.get("transition_time") == self.config.transition_time:
+                    return True
+                config["transition_time"] = self.config.transition_time
+                async with self._session.post(
+                    base, json={"id": virtual, "config": config}, timeout=HTTP_TIMEOUT
+                ) as response:
+                    if response.status >= 400:
+                        _LOGGER.warning(
+                            "LedFx transition update returned %s", response.status
+                        )
+                        return False
+                return True
+            except (
+                aiohttp.ClientError,
+                TimeoutError,
+                ValueError,
+                KeyError,
+                TypeError,
+            ) as error:
+                _LOGGER.warning("LedFx transition update failed: %s", type(error).__name__)
+                return False
 
         async def _push_strip(self, decision: Decision) -> None:
             await self._ledfx("POST", {"type": decision.effect, "config": decision.config})
@@ -3302,10 +3417,20 @@ data:
         "calm": ("melt", "lava_lamp"),
         "smooth": ("melt", "energy"),
         "bass": ("power", "energy"),
-        "drive": ("scroll", "bands"),
+        "drive": ("scroll", "bands", "strobe"),
         "rock": ("wavelength", "bands"),
         "default": ("energy",),
     }
+
+    # Every effect the director can set, in family order; the manual override
+    # dropdown offers exactly these.
+    EFFECTS: tuple[str, ...] = tuple(
+        dict.fromkeys(effect for effects in FAMILIES.values() for effect in effects)
+    )
+
+    # BPM mapped onto each effect's speed range: 70 BPM is slowest, 160 fastest.
+    SLOW_BPM = 70.0
+    FAST_BPM = 160.0
 
     # Ordered: within one genre string the first matching family wins.
     GENRE_FAMILIES: tuple[tuple[tuple[str, ...], str], ...] = (
@@ -3358,7 +3483,9 @@ data:
         (("r&b", "rnb", "soul", "funk", "jazz", "reggae", "blues"), "smooth"),
     )
 
-    GRADIENT_EFFECTS = frozenset({"melt", "lava_lamp", "power", "bands", "wavelength"})
+    GRADIENT_EFFECTS = frozenset(
+        {"melt", "lava_lamp", "power", "bands", "wavelength", "strobe"}
+    )
     TRIAD_EFFECTS = frozenset({"energy", "scroll"})
 
 
@@ -3412,22 +3539,65 @@ data:
         return candidates[index]
 
 
-    def effect_config(effect: str, palette: Palette) -> dict[str, Any]:
-        """Colour settings for the effect; LedFx fills every other key with its
-        schema default."""
+    def _unit(value: float) -> float:
+        return min(1.0, max(0.0, value))
+
+
+    def tempo_level(bpm: float | None) -> float | None:
+        """0 at SLOW_BPM or below, 1 at FAST_BPM or above."""
+        if bpm is None:
+            return None
+        return _unit((bpm - SLOW_BPM) / (FAST_BPM - SLOW_BPM))
+
+
+    def dynamics(effect: str, features: Features) -> dict[str, Any]:
+        """Speed from tempo and responsiveness from energy, inside each LedFx
+        schema range; unknown inputs leave the LedFx default in place."""
+        config: dict[str, Any] = {}
+        tempo = tempo_level(features.bpm)
+        if tempo is not None:
+            if effect == "melt":
+                config["speed"] = round(0.2 + 0.6 * tempo, 3)  # schema 0.001-1
+            elif effect == "lava_lamp":
+                config["speed"] = round(3.0 + 9.0 * tempo, 2)  # schema 0.1-15
+            elif effect == "scroll":
+                config["speed"] = round(2 + 6 * tempo)  # integer, schema 1-10
+        if features.energy is not None:
+            energy = _unit(features.energy)
+            if effect == "melt":
+                config["reactivity"] = round(0.3 + 0.6 * energy, 3)  # 0.0001-1
+            elif effect == "lava_lamp":
+                config["reactivity"] = round(0.15 + 0.6 * energy, 3)  # 0.00001-0.9
+            elif effect == "energy":
+                config["sensitivity"] = round(0.45 + 0.45 * energy, 3)  # 0.3-0.99
+            elif effect == "power":
+                config["bass_decay_rate"] = round(0.03 + 0.12 * energy, 3)  # 0-1
+            elif effect == "scroll":
+                config["decay"] = round(0.99 - 0.06 * energy, 3)  # 0.8-1
+        return config
+
+
+    def effect_config(
+        effect: str, palette: Palette, features: Features | None = None
+    ) -> dict[str, Any]:
+        """Colours plus tempo and energy dynamics for the effect; LedFx fills
+        every other key with its schema default."""
         if effect in GRADIENT_EFFECTS:
             config: dict[str, Any] = {"gradient": gradient(palette)}
             if effect == "power":
                 config["sparks_color"] = to_hex(triad(palette)[2])
-            return config
-        if effect in TRIAD_EFFECTS:
+        elif effect in TRIAD_EFFECTS:
             lows, mids, high = triad(palette)
-            return {
+            config = {
                 "color_lows": to_hex(lows),
                 "color_mids": to_hex(mids),
                 "color_high": to_hex(high),
             }
-        raise ValueError(f"no colour mapping for LedFx effect {effect!r}")
+        else:
+            raise ValueError(f"no colour mapping for LedFx effect {effect!r}")
+        if features is not None:
+            config.update(dynamics(effect, features))
+        return config
   component.music_director.services.yaml: |
     refresh:
       name: Refresh

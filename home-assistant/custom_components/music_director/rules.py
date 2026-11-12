@@ -17,10 +17,20 @@ FAMILIES: dict[str, tuple[str, ...]] = {
     "calm": ("melt", "lava_lamp"),
     "smooth": ("melt", "energy"),
     "bass": ("power", "energy"),
-    "drive": ("scroll", "bands"),
+    "drive": ("scroll", "bands", "strobe"),
     "rock": ("wavelength", "bands"),
     "default": ("energy",),
 }
+
+# Every effect the director can set, in family order; the manual override
+# dropdown offers exactly these.
+EFFECTS: tuple[str, ...] = tuple(
+    dict.fromkeys(effect for effects in FAMILIES.values() for effect in effects)
+)
+
+# BPM mapped onto each effect's speed range: 70 BPM is slowest, 160 fastest.
+SLOW_BPM = 70.0
+FAST_BPM = 160.0
 
 # Ordered: within one genre string the first matching family wins.
 GENRE_FAMILIES: tuple[tuple[tuple[str, ...], str], ...] = (
@@ -73,7 +83,9 @@ GENRE_FAMILIES: tuple[tuple[tuple[str, ...], str], ...] = (
     (("r&b", "rnb", "soul", "funk", "jazz", "reggae", "blues"), "smooth"),
 )
 
-GRADIENT_EFFECTS = frozenset({"melt", "lava_lamp", "power", "bands", "wavelength"})
+GRADIENT_EFFECTS = frozenset(
+    {"melt", "lava_lamp", "power", "bands", "wavelength", "strobe"}
+)
 TRIAD_EFFECTS = frozenset({"energy", "scroll"})
 
 
@@ -127,19 +139,62 @@ def choose_effect(family: str, track_key: str, previous: str | None) -> str:
     return candidates[index]
 
 
-def effect_config(effect: str, palette: Palette) -> dict[str, Any]:
-    """Colour settings for the effect; LedFx fills every other key with its
-    schema default."""
+def _unit(value: float) -> float:
+    return min(1.0, max(0.0, value))
+
+
+def tempo_level(bpm: float | None) -> float | None:
+    """0 at SLOW_BPM or below, 1 at FAST_BPM or above."""
+    if bpm is None:
+        return None
+    return _unit((bpm - SLOW_BPM) / (FAST_BPM - SLOW_BPM))
+
+
+def dynamics(effect: str, features: Features) -> dict[str, Any]:
+    """Speed from tempo and responsiveness from energy, inside each LedFx
+    schema range; unknown inputs leave the LedFx default in place."""
+    config: dict[str, Any] = {}
+    tempo = tempo_level(features.bpm)
+    if tempo is not None:
+        if effect == "melt":
+            config["speed"] = round(0.2 + 0.6 * tempo, 3)  # schema 0.001-1
+        elif effect == "lava_lamp":
+            config["speed"] = round(3.0 + 9.0 * tempo, 2)  # schema 0.1-15
+        elif effect == "scroll":
+            config["speed"] = round(2 + 6 * tempo)  # integer, schema 1-10
+    if features.energy is not None:
+        energy = _unit(features.energy)
+        if effect == "melt":
+            config["reactivity"] = round(0.3 + 0.6 * energy, 3)  # 0.0001-1
+        elif effect == "lava_lamp":
+            config["reactivity"] = round(0.15 + 0.6 * energy, 3)  # 0.00001-0.9
+        elif effect == "energy":
+            config["sensitivity"] = round(0.45 + 0.45 * energy, 3)  # 0.3-0.99
+        elif effect == "power":
+            config["bass_decay_rate"] = round(0.03 + 0.12 * energy, 3)  # 0-1
+        elif effect == "scroll":
+            config["decay"] = round(0.99 - 0.06 * energy, 3)  # 0.8-1
+    return config
+
+
+def effect_config(
+    effect: str, palette: Palette, features: Features | None = None
+) -> dict[str, Any]:
+    """Colours plus tempo and energy dynamics for the effect; LedFx fills
+    every other key with its schema default."""
     if effect in GRADIENT_EFFECTS:
         config: dict[str, Any] = {"gradient": gradient(palette)}
         if effect == "power":
             config["sparks_color"] = to_hex(triad(palette)[2])
-        return config
-    if effect in TRIAD_EFFECTS:
+    elif effect in TRIAD_EFFECTS:
         lows, mids, high = triad(palette)
-        return {
+        config = {
             "color_lows": to_hex(lows),
             "color_mids": to_hex(mids),
             "color_high": to_hex(high),
         }
-    raise ValueError(f"no colour mapping for LedFx effect {effect!r}")
+    else:
+        raise ValueError(f"no colour mapping for LedFx effect {effect!r}")
+    if features is not None:
+        config.update(dynamics(effect, features))
+    return config

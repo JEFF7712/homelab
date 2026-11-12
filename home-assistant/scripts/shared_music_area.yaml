@@ -4,8 +4,7 @@ description: >-
   area to scene.pre_music_<area>, takes it off Adaptive Lighting and paints
   it; leaving restores the snapshot and hands it back to Adaptive Lighting.
   Painting uses the area's shade from sensor.music_director at a fixed
-  brightness, one write per track. On/off-only lights (the mushroom lamp)
-  switch off while they take part.
+  brightness, one write per track.
 mode: parallel
 max: 20
 fields:
@@ -21,7 +20,6 @@ fields:
           - floor_lamp
           - tulip_lamp
           - ceiling_strip
-          - mushroom_lamp
   step:
     description: join, leave or paint.
     required: true
@@ -40,33 +38,23 @@ sequence:
             - light.kitchen_ceiling_light_1
             - light.kitchen_ceiling_light_2
           adaptive: switch.adaptive_lighting_all_dimmable_lights
-          colour: true
         dining_table:
           lights:
             - light.kitchen_dining_table_ceiling_light_1
             - light.kitchen_dining_table_ceiling_light_2
           adaptive: switch.adaptive_lighting_govee_dining_bulbs
-          colour: true
         floor_lamp:
           lights:
             - light.living_room_floor_lamp
           adaptive: switch.adaptive_lighting_all_dimmable_lights
-          colour: true
         tulip_lamp:
           lights:
             - light.living_room_tulip_lamp
           adaptive: switch.adaptive_lighting_all_dimmable_lights
-          colour: true
         ceiling_strip:
           lights:
             - light.apollo_led_strip_apollo_led_strip
           adaptive: ""
-          colour: true
-        mushroom_lamp:
-          lights:
-            - light.kitchen_mushroom_lamp
-          adaptive: ""
-          colour: false
       config: "{{ areas.get(area) }}"
       snapshot: "scene.pre_music_{{ area }}"
       rgb: "{{ (state_attr('sensor.music_director', 'area_colors') or {}).get(area) }}"
@@ -118,20 +106,12 @@ sequence:
           - stop: Area restored
   - if:
       - condition: template
-        value_template: "{{ not config.colour }}"
+        value_template: "{{ rgb is sequence and rgb is not string and rgb | length == 3 }}"
     then:
-      - action: light.turn_off
+      - action: light.turn_on
         target:
           entity_id: "{{ config.lights }}"
-    else:
-      - if:
-          - condition: template
-            value_template: "{{ rgb is sequence and rgb is not string and rgb | length == 3 }}"
-        then:
-          - action: light.turn_on
-            target:
-              entity_id: "{{ config.lights }}"
-            data:
-              rgb_color: "{{ rgb }}"
-              brightness_pct: 70
-              transition: 2
+        data:
+          rgb_color: "{{ rgb }}"
+          brightness_pct: 70
+          transition: 2

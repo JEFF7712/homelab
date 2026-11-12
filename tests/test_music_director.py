@@ -13,6 +13,10 @@ import types
 import unittest
 from pathlib import Path
 
+import yaml
+
+from scripts.home_assistant.canonical import DuplicateKeySafeLoader
+
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE_DIR = ROOT / "home-assistant" / "custom_components" / "music_director"
 
@@ -167,6 +171,80 @@ class TestRules(unittest.TestCase):
         self.assertIn("sparks_color", rules.effect_config("power", base))
         with self.assertRaises(ValueError):
             rules.effect_config("fire", base)
+
+
+class TestDynamics(unittest.TestCase):
+    BASE = palette.Palette(hue=120.0, chroma=0.12, accent_hue=None, source="cover")
+    # LedFx schema ranges for the keys the director sets.
+    RANGES = {
+        ("melt", "speed"): (0.001, 1.0),
+        ("lava_lamp", "speed"): (0.1, 15.0),
+        ("scroll", "speed"): (1, 10),
+        ("melt", "reactivity"): (0.0001, 1.0),
+        ("lava_lamp", "reactivity"): (0.00001, 0.9),
+        ("energy", "sensitivity"): (0.3, 0.99),
+        ("power", "bass_decay_rate"): (0.0, 1.0),
+        ("scroll", "decay"): (0.8, 1.0),
+    }
+
+    def test_faster_songs_run_faster(self) -> None:
+        for effect in ("melt", "lava_lamp", "scroll"):
+            slow = rules.effect_config(effect, self.BASE, rules.Features(bpm=60))
+            fast = rules.effect_config(effect, self.BASE, rules.Features(bpm=175))
+            self.assertLess(slow["speed"], fast["speed"], effect)
+        self.assertIsInstance(
+            rules.effect_config("scroll", self.BASE, rules.Features(bpm=120))["speed"],
+            int,
+        )
+
+    def test_energy_raises_responsiveness(self) -> None:
+        for effect, key in (
+            ("melt", "reactivity"),
+            ("lava_lamp", "reactivity"),
+            ("energy", "sensitivity"),
+            ("power", "bass_decay_rate"),
+        ):
+            quiet = rules.effect_config(effect, self.BASE, rules.Features(energy=0.1))
+            loud = rules.effect_config(effect, self.BASE, rules.Features(energy=0.95))
+            self.assertLess(quiet[key], loud[key], effect)
+
+    def test_values_stay_inside_ledfx_schema_ranges(self) -> None:
+        for bpm in (0, 40, 120, 300):
+            for energy in (-1.0, 0.0, 0.5, 1.0, 2.0):
+                features = rules.Features(bpm=bpm, energy=energy)
+                for effect in rules.EFFECTS:
+                    config = rules.effect_config(effect, self.BASE, features)
+                    for (name, key), (low, high) in self.RANGES.items():
+                        if name == effect:
+                            self.assertGreaterEqual(config[key], low, (effect, key))
+                            self.assertLessEqual(config[key], high, (effect, key))
+
+    def test_unknown_inputs_keep_ledfx_defaults(self) -> None:
+        for effect in rules.EFFECTS:
+            plain = rules.effect_config(effect, self.BASE)
+            unknown = rules.effect_config(effect, self.BASE, rules.Features())
+            self.assertEqual(plain, unknown, effect)
+
+    def test_strobe_is_a_drive_effect_with_track_colours(self) -> None:
+        self.assertIn("strobe", rules.FAMILIES["drive"])
+        self.assertRegex(
+            rules.effect_config("strobe", self.BASE)["gradient"], CSS_GRADIENT
+        )
+
+    def test_override_dropdown_offers_exactly_the_director_effects(self) -> None:
+        core = yaml.load(
+            (ROOT / "home-assistant" / "core" / "configuration.yaml").read_text(),
+            Loader=DuplicateKeySafeLoader,
+        )
+        options = core["input_select"]["music_mode_effect"]["options"]
+        self.assertEqual(options[0], "Auto")
+        self.assertEqual(
+            {option.lower().replace(" ", "_") for option in options[1:]},
+            set(rules.EFFECTS),
+        )
+        self.assertEqual(
+            core["music_director"]["effect_select"], "input_select.music_mode_effect"
+        )
 
 
 class TestMetadata(unittest.TestCase):

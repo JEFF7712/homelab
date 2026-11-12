@@ -20,7 +20,6 @@ AREAS = (
     "floor_lamp",
     "tulip_lamp",
     "ceiling_strip",
-    "mushroom_lamp",
 )
 
 
@@ -129,7 +128,6 @@ class TestSharedMusicMode(unittest.TestCase):
                 "light.kitchen_dining_table_ceiling_light_1",
                 "light.kitchen_dining_table_ceiling_light_2",
                 "light.apollo_led_strip_apollo_led_strip",
-                "light.kitchen_mushroom_lamp",
             },
         )
         # The Govee dining bulbs have their own Adaptive Lighting entry.
@@ -137,7 +135,35 @@ class TestSharedMusicMode(unittest.TestCase):
             areas["dining_table"]["adaptive"],
             "switch.adaptive_lighting_govee_dining_bulbs",
         )
-        self.assertFalse(areas["mushroom_lamp"]["colour"])
+
+    def test_mushroom_lamp_is_always_off_during_music_mode(self) -> None:
+        automation = self._automation()
+        branches = automation["actions"][1]["choose"]
+
+        def branch(trigger_id: str) -> list:
+            return next(
+                b["sequence"]
+                for b in branches
+                if {"condition": "trigger", "id": trigger_id} in b["conditions"]
+            )
+
+        mode_on = yaml.safe_dump(branch("mode_on"))
+        self.assertIn("scene_id: pre_music_mushroom_lamp", mode_on)
+        self.assertIn("light.turn_off", mode_on)
+        self.assertIn("light.kitchen_mushroom_lamp", mode_on)
+        self.assertIn(
+            "scene.pre_music_mushroom_lamp", yaml.safe_dump(branch("mode_off"))
+        )
+        # No toggle: it is not an area and nothing re-forces it off mid-session.
+        self.assertNotIn("music_mode_mushroom_lamp", yaml.safe_dump(automation))
+        self.assertFalse(
+            (
+                REPO_ROOT
+                / "home-assistant"
+                / "helpers"
+                / "input_boolean_music_mode_mushroom_lamp.yaml"
+            ).exists()
+        )
 
     def test_area_script_snapshots_restores_and_hands_back_adaptive_lighting(
         self,
@@ -187,7 +213,7 @@ class TestSharedMusicMode(unittest.TestCase):
             / "automations"
             / "watchman_missing_report.yaml"
         ).read_text(encoding="utf-8")
-        for area in AREAS:
+        for area in (*AREAS, "mushroom_lamp"):
             self.assertIn(f"scene.pre_music_{area}", raw)
 
     def test_voice_automation(self) -> None:

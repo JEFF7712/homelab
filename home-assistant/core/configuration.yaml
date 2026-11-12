@@ -331,6 +331,8 @@ template:
 # Shared music mode: per-track album-art palette and LedFx effect for the
 # living room strip; the shared_music_mode automation paints bulb areas from
 # sensor.music_director. Area order sets which shade each area gets.
+# input_select.music_mode_effect overrides the automatic effect until it is
+# set back to Auto; transition_time is the strip's crossfade in seconds.
 music_director:
   player: media_player.homelab_05_satellite_media_player_2
   spotify: media_player.spotify_rupan
@@ -345,7 +347,8 @@ music_director:
     - floor_lamp
     - tulip_lamp
     - ceiling_strip
-    - mushroom_lamp
+  effect_select: input_select.music_mode_effect
+  transition_time: 1.5
 
 input_boolean:
   bedroom_matrix_power:
@@ -358,6 +361,19 @@ input_boolean:
     initial: true
 
 input_select:
+  music_mode_effect:
+    name: "Music Mode: Effect"
+    icon: mdi:auto-fix
+    options:
+      - Auto
+      - Energy
+      - Power
+      - Melt
+      - Lava Lamp
+      - Scroll
+      - Bands
+      - Wavelength
+      - Strobe
   bedroom_matrix_mode:
     name: Bedroom Matrix Mode
     icon: mdi:view-dashboard-outline

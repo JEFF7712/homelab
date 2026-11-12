@@ -26,6 +26,10 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Required("ledfx_virtual"): cv.string,
                 vol.Required("library_url"): cv.url,
                 vol.Required("areas"): vol.All(cv.ensure_list, [cv.slug]),
+                vol.Required("effect_select"): cv.entity_id,
+                vol.Optional("transition_time", default=1.5): vol.All(
+                    vol.Coerce(float), vol.Range(min=0, max=5)
+                ),
             }
         )
     },
@@ -46,6 +50,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             ledfx_virtual=conf["ledfx_virtual"],
             library_url=conf["library_url"].rstrip("/"),
             areas=tuple(conf["areas"]),
+            effect_select=conf["effect_select"],
+            transition_time=conf["transition_time"],
             lastfm_key=os.environ.get("LASTFM_API_KEY") or None,
         ),
     )
