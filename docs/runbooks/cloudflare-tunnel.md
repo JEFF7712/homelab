@@ -301,7 +301,7 @@ were preserved; this cleanup did not change who can reach a hostname.
 
 | Application | Destinations |
 | --- | --- |
-| `Bypass - Requests and music tools` | `lidarr.rupan.dev`, `seerr.rupan.dev` |
+| `Bypass - Requests and music tools` | `seerr.rupan.dev` |
 | `Bypass - Tally tracker endpoints` | `tally.rupan.dev/t.js`, `tally.rupan.dev/api/send` |
 | `Bypass - Woodpecker CI` | `ci.rupan.dev` |
 | `Bypass - UWagent` | `uwagent.rupan.dev` |
@@ -317,6 +317,11 @@ were preserved; this cleanup did not change who can reach a hostname.
 LedFx (`ledfx.rupan.dev`) inherits the wildcard owner-only `Main - Rupan`
 Allow policy. It has no origin user authentication, so never add it to a public
 bypass. Its local Home Assistant integrations use the internal service address.
+
+Lidarr (`lidarr.rupan.dev`) also inherits the wildcard owner-only policy, like
+Sonarr, Radarr, Prowlarr and Bazarr; its public bypass was removed on
+2026-11-12. Its in-cluster consumers (Spotify sync, soularr, queue hygiene and
+the arr secret sync) use the `lidarr.media` service address.
 
 The separate `Tally - owner dashboard` application uses the owner-only
 `Main - Rupan` policy. The two tracker paths above bypass that hostname's login.

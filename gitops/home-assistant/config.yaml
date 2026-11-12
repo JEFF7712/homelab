@@ -338,9 +338,10 @@ data:
     # Shared music mode: per-track album-art palette and LedFx effect for the
     # living room strip; the shared_music_mode automation paints bulb areas from
     # sensor.music_director. Area order sets which shade each area gets.
-    # input_select.music_mode_effect and input_select.music_mode_color override
-    # the automatic effect and colour until set back to Auto; transition_time is
-    # the strip's crossfade in seconds. overrides pin a colour and/or effect for
+    # input_select.music_mode_effect overrides the automatic effect until set
+    # back to Auto; the integration's light.music_mode_colour (on = chosen colour,
+    # off = Auto) and number.music_mode_brightness set colour and brightness;
+    # transition_time is the strip's crossfade in seconds. overrides pin a colour and/or effect for
     # matching tracks (artist/album by prefix, title exactly, case ignored).
     music_director:
       player: media_player.homelab_05_satellite_media_player_2
@@ -357,7 +358,6 @@ data:
         - tulip_lamp
         - ceiling_strip
       effect_select: input_select.music_mode_effect
-      color_select: input_select.music_mode_color
       transition_time: 1.5
       overrides:
         - artist: The Weeknd
@@ -378,22 +378,6 @@ data:
         initial: true
 
     input_select:
-      music_mode_color:
-        name: "Music Mode: Colour"
-        icon: mdi:palette
-        options:
-          - Auto
-          - Red
-          - Orange
-          - Amber
-          - Pink
-          - Magenta
-          - Purple
-          - Violet
-          - Deep Blue
-          - Blue
-          - Teal
-          - Green
       music_mode_effect:
         name: "Music Mode: Effect"
         icon: mdi:auto-fix
@@ -2507,16 +2491,15 @@ data:
 
     import homeassistant.helpers.config_validation as cv
     import voluptuous as vol
-    from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+    from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
     from homeassistant.core import Event, HomeAssistant, ServiceCall
+    from homeassistant.helpers.discovery import async_load_platform
     from homeassistant.helpers.typing import ConfigType
 
-    from .director import Director, DirectorConfig
+    from .director import DOMAIN, Director, DirectorConfig
     from .metadata import SongOverride
     from .palette import NAMED_HUES
     from .rules import EFFECTS
-
-    DOMAIN = "music_director"
 
 
     def _colour_name(value: object) -> str:
@@ -2560,7 +2543,6 @@ data:
                     vol.Required("library_url"): cv.url,
                     vol.Required("areas"): vol.All(cv.ensure_list, [cv.slug]),
                     vol.Required("effect_select"): cv.entity_id,
-                    vol.Required("color_select"): cv.entity_id,
                     vol.Optional("overrides", default=[]): vol.All(
                         cv.ensure_list, [OVERRIDE_SCHEMA]
                     ),
@@ -2588,7 +2570,6 @@ data:
                 library_url=conf["library_url"].rstrip("/"),
                 areas=tuple(conf["areas"]),
                 effect_select=conf["effect_select"],
-                color_select=conf["color_select"],
                 overrides=tuple(SongOverride(**item) for item in conf["overrides"]),
                 transition_time=conf["transition_time"],
                 lastfm_key=os.environ.get("LASTFM_API_KEY") or None,
@@ -2600,6 +2581,9 @@ data:
             director.schedule(force=True)
 
         hass.services.async_register(DOMAIN, "refresh", refresh)
+        # Music Mode Colour (light) and Music Mode Brightness (number).
+        for platform in (Platform.LIGHT, Platform.NUMBER):
+            hass.async_create_task(async_load_platform(hass, platform, DOMAIN, {}, config))
 
         if hass.is_running:
             director.async_start()
@@ -2617,6 +2601,10 @@ data:
     The LED strip is driven here through the LedFx API. Bulb areas are painted
     by the shared music mode automation from sensor.music_director, so all
     snapshot and Adaptive Lighting handling stays in Home Assistant YAML.
+
+    The manual colour and the music brightness live here and are set by the
+    integration's light (Music Mode Colour) and number (Music Mode Brightness)
+    entities.
     """
 
     from __future__ import annotations
@@ -2638,6 +2626,7 @@ data:
         callback,
     )
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
+    from homeassistant.helpers.dispatcher import async_dispatcher_send
     from homeassistant.helpers.event import async_track_state_change_event
 
     from .metadata import (
@@ -2653,6 +2642,7 @@ data:
     from .palette import (
         Palette,
         area_colors,
+        chosen_palette,
         extract_palette,
         gradient,
         named_palette,
@@ -2670,7 +2660,13 @@ data:
 
     _LOGGER = logging.getLogger(__name__)
 
+    DOMAIN = "music_director"
     SENSOR = "sensor.music_director"
+    # Dispatcher signal for the light and number entities to refresh their state.
+    CONTROLS_UPDATED = f"{DOMAIN}_controls_updated"
+    MIN_BRIGHTNESS = 10
+    MAX_BRIGHTNESS = 100
+    DEFAULT_BRIGHTNESS = 70
     RECCOBEATS_URL = "https://api.reccobeats.com/v1/audio-features"
     LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
     HTTP_TIMEOUT = aiohttp.ClientTimeout(total=8)
@@ -2692,7 +2688,6 @@ data:
         library_url: str
         areas: tuple[str, ...]
         effect_select: str
-        color_select: str
         transition_time: float
         overrides: tuple[SongOverride, ...] = ()
         lastfm_key: str | None = field(default=None, repr=False)
@@ -2749,6 +2744,9 @@ data:
             self._last_effect: str | None = None
             self._decision: Decision | None = None
             self._transition_set = False
+            # Chosen colour (Music Mode Colour light on), or None for Auto.
+            self.manual_rgb: tuple[int, int, int] | None = None
+            self.brightness_pct = DEFAULT_BRIGHTNESS
 
         @callback
         def async_start(self) -> None:
@@ -2759,7 +2757,6 @@ data:
                     self.config.enabled,
                     self.config.strip,
                     self.config.effect_select,
-                    self.config.color_select,
                 ],
                 self._on_change,
             )
@@ -2783,11 +2780,8 @@ data:
                 return
             if not self._is_on(self.config.enabled):
                 return
-            if entity_id in (self.config.effect_select, self.config.color_select):
-                if self._decision is not None:
-                    self.hass.async_create_task(
-                        self._apply(self._recompose(self._decision))
-                    )
+            if entity_id == self.config.effect_select:
+                self._reapply()
                 return
             if entity_id == self.config.strip:
                 if new_state is not None and new_state.state == STATE_ON:
@@ -2799,6 +2793,26 @@ data:
             key = _track_key(new_state)
             if key is not None and key != self._track_key:
                 self.schedule(force=False)
+
+        @callback
+        def _reapply(self) -> None:
+            """Recompose the current track's decision after a manual control
+            changed, without fetching anything again."""
+            if self._decision is not None and self._is_on(self.config.enabled):
+                self.hass.async_create_task(self._apply(self._recompose(self._decision)))
+
+        @callback
+        def set_colour(self, rgb: tuple[int, int, int] | None) -> None:
+            """Hold a chosen colour on every light, or None to go back to Auto."""
+            self.manual_rgb = rgb
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            self._reapply()
+
+        @callback
+        def set_brightness(self, pct: int) -> None:
+            self.brightness_pct = min(MAX_BRIGHTNESS, max(MIN_BRIGHTNESS, pct))
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            self._reapply()
 
         def _cancel(self) -> None:
             if self._task is not None and not self._task.done():
@@ -2817,9 +2831,8 @@ data:
             return option if option in EFFECTS else None
 
         def _colour_override(self) -> Palette | None:
-            """The colour dropdown's palette, or None for Auto."""
-            state = self.hass.states.get(self.config.color_select)
-            return named_palette(state.state, "manual") if state else None
+            """The Music Mode Colour light's palette, or None for Auto."""
+            return chosen_palette(self.manual_rgb) if self.manual_rgb else None
 
         def _compose(
             self,
@@ -2832,7 +2845,10 @@ data:
         ) -> Decision:
             palette = self._colour_override() or auto_palette
             effect = self._override() or auto_effect
-            config = effect_config(effect, palette, info.features())
+            config = {
+                **effect_config(effect, palette, info.features()),
+                "brightness": round(self.brightness_pct / 100, 2),
+            }
             return Decision(
                 title,
                 artist,
@@ -3055,6 +3071,8 @@ data:
                         k: v for k, v in decision.config.items() if k != "gradient"
                     },
                     "palette_source": decision.palette.source,
+                    "colour_mode": "manual" if self.manual_rgb else "auto",
+                    "brightness_pct": self.brightness_pct,
                     "auto_palette_source": decision.auto_palette.source,
                     "intensity": decision.auto_palette.intensity,
                     "metadata_sources": list(info.sources),
@@ -3131,6 +3149,101 @@ data:
                 SENSOR, "off", {"friendly_name": "Music Director", "icon": "mdi:palette"}
             )
             await self._clear_strip()
+  component.music_director.light.py: |
+    """Music Mode Colour: a virtual light whose colour wheel picks the music colour.
+
+    Off means Auto (cover and vibe colours); on applies the chosen colour to the
+    strip and every taking-part area until it is switched off. Its brightness is
+    the music lights' brightness, shared with number.music_mode_brightness.
+    """
+
+    from __future__ import annotations
+
+    from typing import Any
+
+    from homeassistant.components.light import (
+        ATTR_BRIGHTNESS,
+        ATTR_HS_COLOR,
+        ColorMode,
+        LightEntity,
+    )
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.restore_state import RestoreEntity
+    from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+    from homeassistant.util.color import color_hs_to_RGB
+
+    from .director import CONTROLS_UPDATED, DOMAIN, Director
+
+    # Red, the colour the light offers before anything has been picked.
+    DEFAULT_HS = (0.0, 100.0)
+
+
+    async def async_setup_platform(
+        hass: HomeAssistant,
+        config: ConfigType,
+        async_add_entities: AddEntitiesCallback,
+        discovery_info: DiscoveryInfoType | None = None,
+    ) -> None:
+        if discovery_info is None:
+            return
+        async_add_entities([MusicColourLight(hass.data[DOMAIN])])
+
+
+    class MusicColourLight(LightEntity, RestoreEntity):
+        _attr_name = "Music Mode Colour"
+        _attr_unique_id = "music_director_colour"
+        _attr_icon = "mdi:palette"
+        _attr_should_poll = False
+        _attr_color_mode = ColorMode.HS
+
+        def __init__(self, director: Director) -> None:
+            self._attr_supported_color_modes = {ColorMode.HS}
+            self._director = director
+            self._hs: tuple[float, float] = DEFAULT_HS
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            last = await self.async_get_last_state()
+            if last is not None:
+                hs = last.attributes.get(ATTR_HS_COLOR)
+                if isinstance(hs, (list, tuple)) and len(hs) == 2:
+                    self._hs = (float(hs[0]), float(hs[1]))
+                if last.state == "on":
+                    self._director.set_colour(self._rgb())
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        def _rgb(self) -> tuple[int, int, int]:
+            r, g, b = color_hs_to_RGB(*self._hs)
+            return (r, g, b)
+
+        @property
+        def is_on(self) -> bool:
+            return self._director.manual_rgb is not None
+
+        @property
+        def hs_color(self) -> tuple[float, float]:
+            return self._hs
+
+        @property
+        def brightness(self) -> int:
+            return round(self._director.brightness_pct * 255 / 100)
+
+        async def async_turn_on(self, **kwargs: Any) -> None:
+            if ATTR_HS_COLOR in kwargs:
+                hue, saturation = kwargs[ATTR_HS_COLOR]
+                self._hs = (float(hue), float(saturation))
+            if ATTR_BRIGHTNESS in kwargs:
+                self._director.set_brightness(round(kwargs[ATTR_BRIGHTNESS] * 100 / 255))
+            self._director.set_colour(self._rgb())
+
+        async def async_turn_off(self, **kwargs: Any) -> None:
+            self._director.set_colour(None)
   component.music_director.manifest.json: |
     {
       "domain": "music_director",
@@ -3313,6 +3426,69 @@ data:
         if genres and not info.genres:
             info.genres = genres
             info.sources.append("lastfm")
+  component.music_director.number.py: |
+    """Music Mode Brightness: brightness of the strip and painted areas, in %."""
+
+    from __future__ import annotations
+
+    from homeassistant.components.number import NumberMode, RestoreNumber
+    from homeassistant.const import PERCENTAGE
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+
+    from .director import (
+        CONTROLS_UPDATED,
+        DOMAIN,
+        MAX_BRIGHTNESS,
+        MIN_BRIGHTNESS,
+        Director,
+    )
+
+
+    async def async_setup_platform(
+        hass: HomeAssistant,
+        config: ConfigType,
+        async_add_entities: AddEntitiesCallback,
+        discovery_info: DiscoveryInfoType | None = None,
+    ) -> None:
+        if discovery_info is None:
+            return
+        async_add_entities([MusicBrightness(hass.data[DOMAIN])])
+
+
+    class MusicBrightness(RestoreNumber):
+        _attr_name = "Music Mode Brightness"
+        _attr_unique_id = "music_director_brightness"
+        _attr_icon = "mdi:brightness-6"
+        _attr_should_poll = False
+        _attr_mode = NumberMode.SLIDER
+        _attr_native_min_value = MIN_BRIGHTNESS
+        _attr_native_max_value = MAX_BRIGHTNESS
+        _attr_native_step = 5
+        _attr_native_unit_of_measurement = PERCENTAGE
+
+        def __init__(self, director: Director) -> None:
+            self._director = director
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            last = await self.async_get_last_number_data()
+            if last is not None and last.native_value is not None:
+                self._director.set_brightness(round(last.native_value))
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        @property
+        def native_value(self) -> float:
+            return self._director.brightness_pct
+
+        async def async_set_native_value(self, value: float) -> None:
+            self._director.set_brightness(round(value))
   component.music_director.palette.py: |
     """Album-art palettes for music lighting.
 
@@ -3684,6 +3860,12 @@ data:
         if hue is None:
             return None
         return Palette(hue=hue, chroma=0.18, source=source, intensity=0.0)
+
+
+    def chosen_palette(rgb: RGB, source: str = "manual") -> Palette:
+        """A single-colour palette for a colour picked on the colour wheel."""
+        lab = rgb_to_oklab(rgb)
+        return Palette(hue=_hue(lab), chroma=_chroma(lab), source=source, intensity=0.0)
 
 
     def with_intensity(palette: Palette, intensity: float) -> Palette:

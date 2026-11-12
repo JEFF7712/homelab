@@ -6,16 +6,15 @@ import os
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import Event, HomeAssistant, ServiceCall
+from homeassistant.helpers.discovery import async_load_platform
 from homeassistant.helpers.typing import ConfigType
 
-from .director import Director, DirectorConfig
+from .director import DOMAIN, Director, DirectorConfig
 from .metadata import SongOverride
 from .palette import NAMED_HUES
 from .rules import EFFECTS
-
-DOMAIN = "music_director"
 
 
 def _colour_name(value: object) -> str:
@@ -59,7 +58,6 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Required("library_url"): cv.url,
                 vol.Required("areas"): vol.All(cv.ensure_list, [cv.slug]),
                 vol.Required("effect_select"): cv.entity_id,
-                vol.Required("color_select"): cv.entity_id,
                 vol.Optional("overrides", default=[]): vol.All(
                     cv.ensure_list, [OVERRIDE_SCHEMA]
                 ),
@@ -87,7 +85,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             library_url=conf["library_url"].rstrip("/"),
             areas=tuple(conf["areas"]),
             effect_select=conf["effect_select"],
-            color_select=conf["color_select"],
             overrides=tuple(SongOverride(**item) for item in conf["overrides"]),
             transition_time=conf["transition_time"],
             lastfm_key=os.environ.get("LASTFM_API_KEY") or None,
@@ -99,6 +96,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         director.schedule(force=True)
 
     hass.services.async_register(DOMAIN, "refresh", refresh)
+    # Music Mode Colour (light) and Music Mode Brightness (number).
+    for platform in (Platform.LIGHT, Platform.NUMBER):
+        hass.async_create_task(async_load_platform(hass, platform, DOMAIN, {}, config))
 
     if hass.is_running:
         director.async_start()

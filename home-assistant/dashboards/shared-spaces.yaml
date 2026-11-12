@@ -572,12 +572,38 @@ views:
             features:
               - type: select-options
             type: tile
-          - entity: input_select.music_mode_color
+          - type: custom:mushroom-light-card
+            entity: light.music_mode_colour
             name: Colour
+            secondary_info: none
             icon: mdi:palette
-            features:
-              - type: select-options
-            type: tile
+            use_light_color: true
+            show_color_control: true
+            collapsible_controls: true
+          - type: custom:mushroom-template-card
+            entity: light.music_mode_colour
+            primary: >-
+              {{ 'Your colour' if is_state('light.music_mode_colour', 'on')
+                 else 'Auto colour' }}
+            secondary: >-
+              {% if is_state('light.music_mode_colour', 'on') %}
+                Every light holds this colour · tap to go back to Auto
+              {% else %}
+                From the album cover · tap the palette to pick your own
+              {% endif %}
+            icon: mdi:auto-fix
+            icon_color: >-
+              {{ 'purple' if is_state('light.music_mode_colour', 'off') else 'grey' }}
+            tap_action:
+              action: perform-action
+              perform_action: light.turn_off
+              target:
+                entity_id: light.music_mode_colour
+          - type: custom:mushroom-number-card
+            entity: number.music_mode_brightness
+            name: Brightness
+            icon: mdi:brightness-6
+            display_mode: slider
           - heading: Lights that join Music Mode
             heading_style: subtitle
             type: heading

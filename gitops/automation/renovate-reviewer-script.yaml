@@ -872,8 +872,20 @@ data:
       if not sha:
         raise RuntimeError("Pull request has no source commit")
       statuses = forgejo("GET", f"/repos/{owner}/{repo}/commits/{sha}/status")
-      checks = next((item for item in statuses.get("statuses", []) if item.get("context") == "ci/woodpecker/validation-v2"), {})
-      checks_state = checks.get("status", "unknown")
+      # Combined status contains the latest result for each context. Missing
+      # checks must wait, including the policy check on a newly rebased head.
+      required = ("ci/woodpecker/validation-v2", "policy/merge")
+      checks = {item.get("context"): item.get("status", "unknown")
+        for item in (statuses.get("statuses") or [])}
+      required_checks = {name: checks.get(name, "unknown") for name in required}
+      checks_state = "success" if all(value == "success" for value in required_checks.values()) else "waiting"
+      # This only selects reporting ownership, never grants merge permission.
+      # Renovate and branch protection own automatic merges; this reviewer
+      # retains exact-head human approval for its own merges.
+      native_automerge = (
+        pr.get("user", {}).get("login", "").lower() == "homelab-renovate"
+        and "**Automerge**: Enabled." in (pr.get("body") or "")
+      )
       comments = forgejo("GET", f"/repos/{owner}/{repo}/issues/{number}/comments?limit=100")
       approval = next((comment for comment in reversed(comments)
         if comment.get("user", {}).get("login", "").lower() in APPROVERS
@@ -882,14 +894,21 @@ data:
       if existing.get("action") == "merged":
         return
       action = "waiting"
-      if checks_state == "success" and approval:
+      if checks_state == "success" and approval and not native_automerge:
         forgejo("POST", f"/repos/{owner}/{repo}/pulls/{number}/merge", {"Do": "merge", "head_commit_id": sha, "delete_branch_after_merge": True})
         action = "merged"
-      if existing.get("checks") == checks_state and existing.get("action") == action:
+      if (existing.get("required_checks") == required_checks
+          and existing.get("native_automerge") == native_automerge
+          and existing.get("action") == action):
         return
-      notify(f"Renovate Forgejo: {repo}#{number}", "default" if action == "merged" else "high",
-        f"{pr.get('title', '')}\nchecks: {checks_state}\naction: {action}\nApprove this exact commit in the PR: {APPROVAL_COMMAND} {sha}", click=pr.get("html_url"))
-      patch_state(key, json.dumps({"platform": "forgejo", "repo": f"{owner}/{repo}", "number": number, "sha": sha, "checks": checks_state, "approval": {"approved": bool(approval), "method": "comment" if approval else ""}, "action": action, "processed_at": int(time.time())}, sort_keys=True))
+      guidance = (
+        "Native automerge enabled; Renovate merges after required checks pass."
+        if native_automerge else f"Approve this exact commit in the PR: {APPROVAL_COMMAND} {sha}"
+      )
+      check_summary = ", ".join(f"{name}: {value}" for name, value in required_checks.items())
+      notify(f"Renovate Forgejo: {repo}#{number}", "default" if action == "merged" or native_automerge else "high",
+        f"{pr.get('title', '')}\nchecks: {check_summary}\naction: {action}\n{guidance}", click=pr.get("html_url"))
+      patch_state(key, json.dumps({"platform": "forgejo", "repo": f"{owner}/{repo}", "number": number, "sha": sha, "checks": checks_state, "required_checks": required_checks, "native_automerge": native_automerge, "approval": {"approved": bool(approval), "method": "comment" if approval else ""}, "action": action, "processed_at": int(time.time())}, sort_keys=True))
 
     def process_pr(owner, repo, pr, state):
       number = pr["number"]
