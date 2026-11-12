@@ -29,7 +29,6 @@ class MultiplayerGame(ABC):
 
     @abstractmethod
     def reset(self) -> None:
-
         """Reset the game state for a new round/match."""
 
     @abstractmethod

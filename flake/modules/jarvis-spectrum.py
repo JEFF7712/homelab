@@ -66,7 +66,9 @@ def resolve_source(pw_dump_bin: str, match: str, timeout: float = 5.0) -> str:
         _LOGGER.warning("pw-dump failed (%s); using cava auto source", exc)
         return "auto"
     if completed.returncode != 0:
-        _LOGGER.warning("pw-dump exited %s; using cava auto source", completed.returncode)
+        _LOGGER.warning(
+            "pw-dump exited %s; using cava auto source", completed.returncode
+        )
         return "auto"
     try:
         dump = json.loads(completed.stdout)
@@ -197,9 +199,7 @@ def run_cava_forever(
             backoff = min(30.0, backoff * 2.0)
 
 
-def make_handler(
-    state: SpectrumState, max_range: int
-) -> type[BaseHTTPRequestHandler]:
+def make_handler(state: SpectrumState, max_range: int) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         server_version = "JarvisSpectrum/1"
 
@@ -220,7 +220,9 @@ def make_handler(
                         "cava_alive": state.cava_alive,
                         "frames": state.frames,
                         "fps": round(state.fps(), 2),
-                        "last_frame_age_s": round(age, 3) if age != float("inf") else None,
+                        "last_frame_age_s": round(age, 3)
+                        if age != float("inf")
+                        else None,
                         "bars": state.bars,
                     }
                 ).encode()
@@ -303,7 +305,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     worker.start()
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(state, args.max_range))
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", args.port), make_handler(state, args.max_range)
+    )
     _LOGGER.info("serving spectrum on 127.0.0.1:%s", args.port)
     try:
         server.serve_forever()

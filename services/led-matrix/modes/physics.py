@@ -173,7 +173,9 @@ class PhysicsRenderer(ModeRenderer):
                 else:
                     self.fire_heat.fill(0)
                 # Seed base sparks so fire ignites immediately
-                self.fire_heat[size - 4 :, :] = self.rng.uniform(180.0, 255.0, (4, size))
+                self.fire_heat[size - 4 :, :] = self.rng.uniform(
+                    180.0, 255.0, (4, size)
+                )
             elif scene == 8:
                 self._reset_volcano(size)
 
@@ -451,9 +453,15 @@ class PhysicsRenderer(ModeRenderer):
         angles = np.arctan2(vy, vx)
         hues = (angles / (2 * np.pi) + 0.5) % 1.0
 
-        r_vals = np.clip(30 + 70 * (1.0 + np.cos(2 * np.pi * hues)), 0, 255).astype(np.uint8)
-        g_vals = np.clip(120 + 90 * (1.0 + np.sin(2 * np.pi * hues)), 0, 255).astype(np.uint8)
-        b_vals = np.clip(200 + 55 * (1.0 + np.cos(2 * np.pi * hues + np.pi / 2)), 0, 255).astype(np.uint8)
+        r_vals = np.clip(30 + 70 * (1.0 + np.cos(2 * np.pi * hues)), 0, 255).astype(
+            np.uint8
+        )
+        g_vals = np.clip(120 + 90 * (1.0 + np.sin(2 * np.pi * hues)), 0, 255).astype(
+            np.uint8
+        )
+        b_vals = np.clip(
+            200 + 55 * (1.0 + np.cos(2 * np.pi * hues + np.pi / 2)), 0, 255
+        ).astype(np.uint8)
 
         px = np.clip(np.round(self.flow_pos[:, 0]).astype(int), 0, size - 2)
         py = np.clip(np.round(self.flow_pos[:, 1]).astype(int), 0, size - 2)
@@ -498,9 +506,7 @@ class PhysicsRenderer(ModeRenderer):
         )
 
         flare = self.rng.random(size) < 0.25
-        self.fire_heat[size - 2, flare] = self.rng.uniform(
-            190.0, 250.0, np.sum(flare)
-        )
+        self.fire_heat[size - 2, flare] = self.rng.uniform(190.0, 250.0, np.sum(flare))
 
         heat_indices = np.clip(self.fire_heat, 0, 255).astype(np.uint8)
         frame_rgb = self.fire_palette[heat_indices]
