@@ -55,7 +55,7 @@ spec:
                             except OSError:
                                 continue
                     ")
-                    exec /usr/local/bin/go-librespot.orig \
+                    exec python3 /opt/spotify-connect/relay.py /usr/local/bin/go-librespot.orig \
                       -c "zeroconf_port=${PORT:-38901}" \
                       -c "zeroconf_interfaces_to_advertise=enp0s31f6" \
                       "$@"
@@ -69,6 +69,9 @@ spec:
               cpu: "2"
               memory: 2Gi
           volumeMounts:
+            - name: spotify-connect-relay
+              mountPath: /opt/spotify-connect
+              readOnly: true
             - name: data
               mountPath: /data
             - name: media
@@ -108,6 +111,9 @@ spec:
               cpu: 500m
               memory: 512Mi
       volumes:
+        - name: spotify-connect-relay
+          configMap:
+            name: spotify-connect-relay
         - name: data
           persistentVolumeClaim:
             claimName: music-assistant-data
