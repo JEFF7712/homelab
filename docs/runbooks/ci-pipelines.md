@@ -434,6 +434,13 @@ The maintenance schedule runs the webhook watchdog ungated: it fails when a rece
 push or pull request has no validation status past the grace period or a
 pending validation past the stuck threshold, which is how a broken
 Forgejo-to-Woodpecker delivery path shows up (Forgejo does not retry).
+It repairs either case once per commit: when Woodpecker has no active
+pipeline for the head and no manual one has run, it starts a manual
+pipeline on the branch, whose validation-v2 posts the missing status, and
+passes. It authenticates with the `woodpecker_token` secret (cron events
+only), a copy of the homelab-agent Woodpecker token, which has push but not
+admin permission; after regenerating that token, update the secret. A ref
+it cannot redeliver still fails the run with the reason.
 Branch protection applies: no direct pushes to main; merges require the
 green validation-v2 status. The external Obsidian publisher no longer writes
 homelab main; it publishes images only and the maintenance promotion PR
