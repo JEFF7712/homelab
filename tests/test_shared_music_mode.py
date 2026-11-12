@@ -225,6 +225,50 @@ class TestSharedMusicMode(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("input_boolean.shared_music_mode", lovelace_jarvis)
 
+    def test_area_toggles_sit_in_their_own_music_mode_section(self) -> None:
+        dashboard = yaml.safe_load(
+            (
+                REPO_ROOT / "home-assistant" / "dashboards" / "shared-spaces.yaml"
+            ).read_text(encoding="utf-8")
+        )
+
+        def sections(node: object):
+            if isinstance(node, dict):
+                if isinstance(node.get("cards"), list):
+                    yield node["cards"]
+                for value in node.values():
+                    yield from sections(value)
+            elif isinstance(node, list):
+                for value in node:
+                    yield from sections(value)
+
+        music = next(
+            cards
+            for cards in sections(dashboard)
+            if cards and cards[0].get("heading") == "Music Mode"
+        )
+        entities = [card.get("entity") for card in music]
+        self.assertEqual(entities[1], "input_boolean.shared_music_mode")
+        for area in ("led_strip", *AREAS):
+            entity = f"input_boolean.music_mode_{area}"
+            card = music[entities.index(entity)]
+            self.assertEqual(card["tap_action"]["action"], "toggle")
+            # Each card says whether its light takes part, not just on/off.
+            self.assertIn("Joins", card["secondary"])
+            self.assertIn("Not in music mode", card["secondary"])
+        # Area toggles no longer sit among the Adaptive Lighting switches.
+        adaptive = next(
+            cards
+            for cards in sections(dashboard)
+            if cards and cards[0].get("heading") == "Adaptive Lighting"
+        )
+        self.assertFalse(
+            any(
+                str(c.get("entity", "")).startswith("input_boolean.music_mode")
+                for c in adaptive
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
