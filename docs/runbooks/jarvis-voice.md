@@ -814,7 +814,7 @@ still cycles states.
   QuadCast nodes appear, confirm the USB source is listed first). For the exact
   Pulse source names the container sees, run it once with `LIST_DEVICES=1`.
 - Soundbar loses sound: output runs over the USB SPDIF optical adapter
-  (`alsa_output.usb-*SPDIF*`, pinned as default output at WirePlumber
+  (`~alsa_output.usb-.*SPDIF.*`, pinned as default output at WirePlumber
   priority 3000; onboard fallback at 1000, QuadCast headphone jack at 500).
   Optical needs no video clock, so there is no HDMI clock daemon and no ELD
   to repopulate. Check `wpctl status` on `homelab-05` as the kiosk user: the
@@ -822,3 +822,16 @@ still cycles states.
   is missing, reseat USB (card `Adapter` in `/proc/asound/cards`) and confirm
   the soundbar input is set to optical. `satellite-alsa-restore.service`
   unmutes the QuadCast `Mic` ALSA control when that card is present.
+- Soundbar volume stays low with HA/MA at maximum: the kiosk user's PipeWire
+  sink gain is a separate control. Read it with
+  `sudo -u kiosk env XDG_RUNTIME_DIR=/run/user/1001 wpctl get-volume @DEFAULT_AUDIO_SINK@`
+  on `homelab-05`. WirePlumber's default 40% slider value applies about -24 dB
+  of attenuation before the optical output. With playback stopped and the
+  satellite slider low, set the confirmed SPDIF sink to `1.0` using
+  `wpctl set-volume <sink-id> 1.0` under the same kiosk environment. The host
+  persists `.local/state/wireplumber` for kiosk so route and gain survive reboot.
+  Keep listening volume on the satellite and soundbar controls. Obtain permission
+  before playback tests, verify a very low satellite volume first, and stop both
+  the Spotify source and satellite after the test. Spotify Connect diagnostics
+  belong to MA's `spotify_connect` provider; selecting its source without an
+  active Spotify session does not reproduce a phone-initiated connection.
