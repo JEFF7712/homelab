@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jarvis-display
+  namespace: voice
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: jarvis-display
+  template:
+    metadata:
+      labels:
+        app: jarvis-display
+    spec:
+      containers:
+        - name: display
+          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d  # yamllint disable-line rule:line-length
+          command: [python3, /app/server.py]
+          env:
+            - name: PYTHONPATH
+              value: /protocol
+            - name: HA_URL
+              value: http://10.0.40.13:8123
+            - name: HA_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: jarvis-exporter-ha
+                  key: token
+          ports:
+            - {name: wyoming, containerPort: 10201}
+            - {name: responses, containerPort: 10202}
+          resources:
+            requests: {cpu: 25m, memory: 32Mi}
+            limits: {cpu: 250m, memory: 128Mi}
+          readinessProbe:
+            tcpSocket: {port: wyoming}
+          livenessProbe:
+            tcpSocket: {port: wyoming}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: code, mountPath: /app, readOnly: true}
+            - {name: protocol, mountPath: /protocol, readOnly: true}
+      volumes:
+        - name: code
+          configMap: {name: jarvis-display-code}
+        - name: protocol
+          configMap: {name: wyoming-gateway-code}
+---
+# Retain HA's existing engine and voice identity; this service emits no speech.
+apiVersion: v1
+kind: Service
+metadata:
+  name: wyoming-chatterbox
+  namespace: voice
+spec:
+  selector: {app: jarvis-display}
+  ports:
+    - {name: wyoming, port: 10201, targetPort: wyoming}
+    - {name: responses, port: 10202, targetPort: responses}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: allow-display-to-home-assistant
+  namespace: voice
+spec:
+  endpointSelector:
+    matchLabels:
+      app: jarvis-display
+  egress:
+    - toEntities: [host, remote-node, kube-apiserver]
+      toPorts:
+        - ports:
+            - {port: "8123", protocol: TCP}

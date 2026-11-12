@@ -28,6 +28,7 @@ function makeEl() {
 const appEl = makeEl();
 const statusEl = makeEl();
 const badgeEl = makeEl();
+const responseEl = makeEl();
 Object.defineProperty(badgeEl.classList, 'visible', { value: 'visible' });
 
 const sentMessages = [];
@@ -52,6 +53,7 @@ global.window = global;
 global.addEventListener = () => {};
 global.document = {
   getElementById: (id) => {
+    if (id === 'response-text') return responseEl;
     if (id === 'app') return appEl;
     if (id === 'status-text') return statusEl;
     if (id === 'connection-badge') return badgeEl;
@@ -87,7 +89,7 @@ function check(name, fn) {
   }
 }
 
-// Subscription is restricted to the three displayed entities.
+// Subscription is restricted to the four displayed entities.
 check('subscribes to exactly the displayed entities', () => {
   assert.ok(wsInstance, 'websocket was opened');
   wsInstance.onopen();
@@ -99,7 +101,7 @@ check('subscribes to exactly the displayed entities', () => {
   assert.ok(sub, 'subscribe_entities was sent');
   assert.deepStrictEqual(
     [...sub.entity_ids].sort(),
-    [SAT, MUTE, MEDIA].sort(),
+    [SAT, MUTE, MEDIA, cfg.responseEntity].sort(),
   );
   assert.ok(
     !sentMessages.some((m) => m.type === 'get_states' || m.type === 'subscribe_events'),
@@ -211,6 +213,14 @@ check('untracked entities are ignored and never retained', () => {
     'unrelated entity retained',
   );
   assert.strictEqual(global.Jarvis.getState(), 'idle');
+});
+
+check('response is displayed as safe text and retained across idle', () => {
+  T.handleEntityEvent({a: {[cfg.responseEntity]: {s: 'turn-1', a: {text: '<b>Done.</b>'}}}});
+  assert.strictEqual(responseEl.textContent, '<b>Done.</b>');
+  assert.strictEqual(responseEl.hidden, false);
+  T.handleEntityEvent({c: {[SAT]: {'+': {s: 'idle'}}}});
+  assert.strictEqual(responseEl.textContent, '<b>Done.</b>');
 });
 
 if (process.exitCode) {

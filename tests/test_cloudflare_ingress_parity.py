@@ -1,6 +1,6 @@
 """The OpenTofu stack must send the tunnel exactly the rules the ConfigMap mirror holds.
 
-`tofu/cloudflare/main.tf` decodes `gitops/cloudflare/ingress-config.yaml` with
+`tofu/cloudflare/main.tf.json` decodes `gitops/cloudflare/ingress-config.yaml` with
 `yamldecode` instead of restating the rules, which is what keeps the mirror and
 the edge from drifting. That only holds if the decode is still wired to that file
 and still produces the same ordered list, so this compares the evaluated
@@ -30,11 +30,15 @@ MIRROR = ROOT / "gitops" / "cloudflare" / "ingress-config.yaml"
 
 def evaluated_configuration(expression: str) -> Any:
     with tempfile.TemporaryDirectory() as directory:
-        # main.tf reads the mirror relative to path.module, so the copy keeps
+        # The generated stack reads the mirror relative to path.module, so the copy keeps
         # the repository layout. backend.tf is left out.
         stack = Path(directory) / STACK.relative_to(ROOT)
         stack.mkdir(parents=True)
-        for source in [*STACK.glob("*.tf"), STACK / ".terraform.lock.hcl"]:
+        for source in [
+            *STACK.glob("*.tf"),
+            *STACK.glob("*.tf.json"),
+            STACK / ".terraform.lock.hcl",
+        ]:
             if source.name != "backend.tf":
                 shutil.copy(source, stack / source.name)
         mirror = Path(directory) / MIRROR.relative_to(ROOT)

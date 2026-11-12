@@ -1,0 +1,149 @@
+{
+  "data": {
+    "tplinkeasysmart_system_info": {
+      "switch": {}
+    }
+  },
+  "import": [
+    {
+      "for_each": "${local.switch.description == null ? {} : { description = \"system\" }}",
+      "id": "${each.value}",
+      "to": "tplinkeasysmart_system.description[0]"
+    },
+    {
+      "for_each": "${var.adopt_existing ? { mode = \"vlan_mode\" } : {}}",
+      "id": "${each.value}",
+      "to": "tplinkeasysmart_vlan_mode.switch"
+    },
+    {
+      "for_each": "${var.adopt_existing ? local.switch.ports : {}}",
+      "id": "${each.key}",
+      "to": "tplinkeasysmart_port.ports[each.key]"
+    },
+    {
+      "for_each": "${var.adopt_existing ? local.switch.vlans : {}}",
+      "id": "${each.key}",
+      "to": "tplinkeasysmart_vlan_8021q_group.vlans[each.key]"
+    },
+    {
+      "for_each": "${var.adopt_existing ? local.switch.ports : {}}",
+      "id": "${each.key}",
+      "to": "tplinkeasysmart_vlan_8021q_pvid.pvids[each.key]"
+    }
+  ],
+  "locals": {
+    "inventory": "${jsondecode(file(\"${path.module}/inventory.json\"))}",
+    "switch": "${local.inventory.switches[var.switch_name]}"
+  },
+  "output": {
+    "switch": {
+      "value": {
+        "firmware": "${data.tplinkeasysmart_system_info.switch.firmware_version}",
+        "mac": "${data.tplinkeasysmart_system_info.switch.mac_address}",
+        "model": "${data.tplinkeasysmart_system_info.switch.model}",
+        "name": "${var.switch_name}",
+        "ports": "${data.tplinkeasysmart_system_info.switch.port_count}",
+        "vlans": "${length(tplinkeasysmart_vlan_8021q_group.vlans)}"
+      }
+    }
+  },
+  "provider": {
+    "tplinkeasysmart": [
+      {
+        "host": "${local.switch.host}",
+        "mac": "${local.switch.mac}"
+      }
+    ]
+  },
+  "resource": {
+    "tplinkeasysmart_port": {
+      "ports": {
+        "allow_disruptive": false,
+        "depends_on": [
+          "tplinkeasysmart_vlan_mode.switch"
+        ],
+        "enabled": "${each.value.enabled}",
+        "flow_control": "${each.value.flow_control}",
+        "for_each": "${local.switch.ports}",
+        "lifecycle": {
+          "prevent_destroy": true
+        },
+        "port": "${tonumber(each.key)}",
+        "speed": "${each.value.speed}"
+      }
+    },
+    "tplinkeasysmart_system": {
+      "description": {
+        "count": "${local.switch.description == null ? 0 : 1}",
+        "depends_on": [
+          "tplinkeasysmart_vlan_mode.switch"
+        ],
+        "hostname": "${coalesce(local.switch.description, \"unused\")}",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      }
+    },
+    "tplinkeasysmart_vlan_8021q_group": {
+      "vlans": {
+        "allow_disruptive": false,
+        "depends_on": [
+          "tplinkeasysmart_vlan_mode.switch"
+        ],
+        "for_each": "${local.switch.vlans}",
+        "lifecycle": {
+          "prevent_destroy": true
+        },
+        "name": "${each.value.name}",
+        "tagged_ports": "${each.value.tagged_ports}",
+        "untagged_ports": "${each.value.untagged_ports}",
+        "vlan": "${tonumber(each.key)}"
+      }
+    },
+    "tplinkeasysmart_vlan_8021q_pvid": {
+      "pvids": {
+        "allow_disruptive": false,
+        "depends_on": [
+          "tplinkeasysmart_vlan_8021q_group.vlans"
+        ],
+        "for_each": "${local.switch.ports}",
+        "lifecycle": {
+          "prevent_destroy": true
+        },
+        "port": "${tonumber(each.key)}",
+        "pvid": "${each.value.pvid}"
+      }
+    },
+    "tplinkeasysmart_vlan_mode": {
+      "switch": {
+        "lifecycle": {
+          "precondition": [
+            {
+              "condition": "${data.tplinkeasysmart_system_info.switch.mac_address == local.switch.mac && data.tplinkeasysmart_system_info.switch.ip_address == local.switch.host && data.tplinkeasysmart_system_info.switch.model == local.switch.model && data.tplinkeasysmart_system_info.switch.hardware_version == local.switch.hardware && data.tplinkeasysmart_system_info.switch.firmware_version == local.switch.firmware}",
+              "error_message": "Switch identity or firmware differs from the adopted inventory."
+            }
+          ],
+          "prevent_destroy": true
+        },
+        "mode": "802.1q"
+      }
+    }
+  },
+  "variable": {
+    "adopt_existing": {
+      "default": false,
+      "description": "Import existing objects; the runner permits only no-op import plans.",
+      "type": "bool"
+    },
+    "switch_name": {
+      "description": "The switch whose independent state is being managed.",
+      "type": "string",
+      "validation": [
+        {
+          "condition": "${contains([\"upstairs\", \"downstairs\"], var.switch_name)}",
+          "error_message": "Select upstairs or downstairs."
+        }
+      ]
+    }
+  }
+}

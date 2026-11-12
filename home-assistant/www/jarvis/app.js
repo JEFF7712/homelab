@@ -6,6 +6,7 @@
     satelliteEntity: 'assist_satellite.homelab_05_satellite_assist_satellite',
     muteEntity: 'switch.homelab_05_satellite_mute',
     mediaPlayerEntity: 'media_player.homelab_05_satellite_media_player_2',
+    responseEntity: 'sensor.jarvis_response',
     host: location.host,
     token: null,
     spectrumUrl: null
@@ -793,7 +794,7 @@
         ws.send(JSON.stringify({
           id: ++msgId,
           type: 'subscribe_entities',
-          entity_ids: [config.satelliteEntity, config.muteEntity, config.mediaPlayerEntity]
+          entity_ids: [config.satelliteEntity, config.muteEntity, config.mediaPlayerEntity, config.responseEntity]
         }));
       } else if (data.type === 'auth_invalid') {
         localStorage.removeItem('jarvis_token');
@@ -857,7 +858,7 @@
     watchdogTimer = null;
   }
 
-  // Entity-subscription event handling. The server only sends our three
+  // Entity-subscription event handling. The server only sends our four
   // entities; anything else is ignored and never retained. Shapes follow
   // HA 2026.9.1 websocket_api/messages._state_diff_event exactly: initial
   // states arrive as {"a": {entity: {s, a, c, lc, lu}}}, changes as
@@ -867,7 +868,7 @@
   function isTracked(entityId) {
     return entityId === config.satelliteEntity ||
       entityId === config.muteEntity ||
-      entityId === config.mediaPlayerEntity;
+      entityId === config.mediaPlayerEntity || entityId === config.responseEntity;
   }
 
   function storeFullState(entityId, compressed) {
@@ -936,6 +937,13 @@
 
   // --- Evaluate Entities to State ---
   function evaluateEntities() {
+    const response = lastEntityStates[config.responseEntity];
+    const responsePanel = document.getElementById('response-text');
+    if (responsePanel) {
+      const text = response && response.attributes && response.attributes.text;
+      responsePanel.textContent = typeof text === 'string' ? text : '';
+      responsePanel.hidden = !responsePanel.textContent;
+    }
     const muteState = lastEntityStates[config.muteEntity];
     const satelliteState = lastEntityStates[config.satelliteEntity];
     const mediaState = lastEntityStates[config.mediaPlayerEntity];
@@ -958,7 +966,7 @@
         return;
       }
       if (st === 'responding') {
-        setState('responding', 'JARVIS // SPEAKING');
+        setState('responding', 'JARVIS // REPLY');
         return;
       }
     }

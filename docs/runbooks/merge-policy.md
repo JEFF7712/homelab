@@ -1,11 +1,13 @@
 # Merge policy
 
 The merge policy posts a `policy/merge` commit status on every open PR to
-`main`. Agents have broad authority to change infrastructure, but not to
-redefine their own authority: a head passes on its own unless it changes a
-control that bounds agents, grants an operation to agents, destroys stored
-data or opens host-level access. Those need the operator's approval of that
-exact change. Mistakes the agent can repair go back to it; constrained
+`main`. The operator gates spending and enforcement code
+(`scripts/verifier/enforcement.py`); agents decide everything else. A head
+passes on its own unless it changes enforcement code, unmarks a catalog
+mutation, destroys stored data or opens host-level access. Those need the
+operator's approval of that exact change on the
+[approvals dashboard](approvals.md), the one place the operator approves
+anything. Forgejo reviews grant nothing. Mistakes the agent can repair go back to it; constrained
 exposure and unconventional implementations are allowed and recorded.
 
 ## What it decides
@@ -32,47 +34,86 @@ applies.
   [ship merge queue](ship.md#merge-queue)). The service re-judges every open
   PR whenever main moves. This outcome posts no comment: `just ship` updates
   the branch and revalidates.
-- Controls that bound agents need the operator: `scripts/verifier/`, the
-  merge-policy module, `scripts/ci/{policy,state,operation,deployment_risk}.py`,
-  the approvals service, `flake/modules/woodpecker.nix`, branch protection,
-  the Woodpecker repository settings, the agent guard and pre-tool hook,
-  `.sops.yaml` and `CODEOWNERS` (`POLICY_PATHS` in `scripts/verifier/service.py`).
-  In `config/ci/operations.json`, granting an existing operation to agents or
-  unmarking a mutation needs the operator; new agent operations and other
-  edits are recorded.
+- Enforcement code needs the operator: `ENFORCEMENT_PATHS` in
+  `scripts/verifier/enforcement.py`, which covers the merge policy and that
+  list, `scripts/ci/{policy,state,operation,deployment_risk}.py`, the
+  Tofu state service, the approvals service, branch protection, the Woodpecker
+  module and repository settings, `.sops.yaml` and the spending caps in
+  `config/spend.json`. The list is closed on purpose: without it an agent
+  could remove the spending gate in one merge. The agent guard, pre-tool
+  hook, `CODEOWNERS`, `AGENTS.md` and service code are the agents' own.
+- In `config/ci/operations.json`, unmarking a mutation needs the operator,
+  because an unmarked operation skips the deployment gate. New agent
+  operations and granting existing ones to agents are recorded notices.
 - Website findings: hardening regressions are repairs; network exposure of a
   hardened site (wider ingress, a non-ClusterIP Service), helper kinds
   (CiliumNetworkPolicy, HPA, monitors) and removing a stateless site are
   recorded notices; host-level access (host network, host ports, privileged
-  or host-path pods), deleting a claim or a stateful site, and kinds that
-  grant identity, secrets or routing need the operator. StatefulSets, Jobs and
+  or host-path pods) reaches the node, and so the enforcement code on the CI
+  host, and needs the operator, as do deleting a claim or a stateful site
+  (until restore drills publish evidence) and kinds that grant identity,
+  secrets or routing. StatefulSets, Jobs and
   CronJobs get the same pod checks as Deployments.
 
-Replaying every merged website PR through the policy on 2026-10-26 approved
-41 of 44. The three it held were real authority expansions: a Cilium egress
-policy (uwagent), LAN exposure (bus-display) and a synced secret plus a
-protection change (the Forgejo migration).
+Historical replay results describe the policy at the time of the replay.
+Current authority decisions are implemented in `scripts/verifier/service.py`;
+website checks are implemented in `scripts/verifier/websites.py`.
 
 ## Outcomes and recovery
 
 | Status | Comment outcome | Who acts |
 | --- | --- | --- |
-| `success` | none | nobody; the PR merges when validation passes |
+| `success` | none | routine change or an operator-approved exact change; merge when validation passes |
 | `failure` | `rejected` | the agent: `just ship` prints the findings, the agent fixes and pushes |
-| `failure` | `escalated` | legacy mode or external PR: exact-head operator review |
-| `success` | `authorized` | enrolled same-repository author: authority findings recorded, no review |
+| `failure` | `escalated` | authority change: the operator approves the exact head on the approvals dashboard, regardless of author |
+| `success` | `authorized` | nonblocking notices recorded; no operator review required |
 
 `just ship` returns repair findings to the agent, which fixes, commits and
 retries. After three rejected heads on one PR the bounded recovery is spent:
-ship comments `@rupan` on the PR and stops. Authority findings notify the
-operator at once through the policy comment. The `CODEOWNERS` file creates no
+ship comments `@rupan` on the PR and stops.
+
+## Operator approval
+
+When a head escalates, the service files a merge request with the approvals
+service (`POST /api/merges` on `127.0.0.1:8020`, authenticated with its own
+`homelab-policy` Forgejo token, which the dashboard checks against Forgejo). The
+request names the PR, the head, the findings and the head's versions of the
+changed files a deployment checks. ntfy pushes the link; the status's details
+link and the policy comment point at it; `just ship` prints it and waits.
+
+- One request per head. A newer head supersedes a pending request for an older
+  one; pending requests expire after seven days.
+- The policy asks `GET /api/merges/<pr>` on every judgement and passes a head
+  the operator approved, or a later head that builds on an approved one with
+  the same diff of the gated files: enforcement paths, the operation catalog
+  and `websites/`, the only files that can need an operator. The comparison
+  is the patch-id of that partial diff from the merge base. Updating from
+  main or adding commits that touch only other files keeps the approval. Any
+  new or different gated change, including in a conflict resolution, files a
+  new request. Non-gated files never needed the operator, so an approval
+  says nothing about them.
+- Approving merges nothing by itself: the policy re-judges within its interval
+  and posts `success`, and ship merges.
+- The approval also covers deploying those file versions. When the CI policy
+  later holds the deployment for a grant, ship sends the deployed commit's file
+  identities; the dashboard checks they reproduce the grant digest and approves
+  the grant without a passkey when approved merges from the last seven days
+  approved exactly those versions. Anything else (other versions, extra files,
+  several unreleased protected changes) still asks for a passkey.
+- If the approvals service is unreachable, judgements count as evaluation
+  errors: nothing is posted for two attempts, then the head fails with the
+  error. A passing status never flips because the dashboard is down. Restart
+  `approvals` on homelab-04 to recover; nothing merges around it. The `CODEOWNERS` file creates no
 review requests; validation and `policy/merge` remain required status checks.
 After three evaluation errors on one head the service still reports failure
 with diagnostic evidence, rather than leaving the PR silently pending.
 
 ## Activation
 
-Steps 1 to 4 are done (2026-10-26; shadow verdicts matched on every open PR). Steps 5 and 6 land together. In order:
+The service is enabled in `flake/hosts/homelab-04/default.nix`, and
+`config/ci/forgejo-protection.json` requires `policy/merge` alongside validation.
+Verify the deployed service and live branch protection before relying on them.
+For a new installation or disaster recovery, use this sequence:
 
 1. Operator, in Forgejo: create the `homelab-policy` user and add it to
    `JEFF7712/homelab` as a collaborator with write access, which commit
@@ -97,7 +138,7 @@ Steps 1 to 4 are done (2026-10-26; shadow verdicts matched on every open PR). St
 
 - Logs: `journalctl -u merge-policy` on homelab-04, one line per decision.
 - Read-only check from a workstation with any read token:
-  `python -m scripts.verifier.service --token-file <file> --state <dir> --once --dry-run`
+  `python -m scripts.verifier.service --token-file <file> --state <dir> --approvals http://ci.internal:8020 --once --dry-run`
   prints the decision for every open PR without posting.
 - The service holds the policy token only through `LoadCredential`; it runs
   as the unprivileged `merge-policy` user with a strict sandbox.

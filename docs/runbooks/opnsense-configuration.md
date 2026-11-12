@@ -14,7 +14,7 @@ pinned in `flake/flake.lock`.
    reference DHCP device keys through `devices` or static fleet keys through
    `hosts`, so addresses follow their authoritative declarations. See the
    [shared fleet inventory](fleet-inventory.md) for NixOS consumers and routing.
-2. Run `just opnsense-render`. It generates `tofu/opnsense/main.tf.json` and
+2. Run `just tofu-render`. It generates `tofu/opnsense/main.tf.json` and
    `opnsense_reconciler/assignments.json`, plus the deployer's
    `inventory/fleet.json`, `inventory/adguard-rewrites.json`, and
    `opnsense_reconciler/unbound-host-overrides.json`, and the CoreDNS manifest
@@ -22,7 +22,7 @@ pinned in `flake/flake.lock`.
    and Approvals Service/Endpoints pairs under `gitops/cloudflare/` from
    `inventory/service-manifests.nix`. Static DNS records belong
    in `inventory/dns.nix`. Commit changed outputs with the source.
-3. Run `just opnsense-check`, `just check-changed`, and `just fmt-check`.
+3. Run `just tofu-check`, `just check-changed`, and `just fmt-check`.
 4. Deliver through `just ship`. Inspect the protected refresh-only and desired
    plans before accepting a network change. Follow
    [recovery](opnsense-recovery.md) for changes that affect connectivity.
@@ -38,6 +38,21 @@ Rendering validates IPv4 networks, gateway and device membership, overlapping
 subnets, DHCP pool bounds, duplicate device identities and VLAN tags, alias
 device references, and rule sequence collisions. Static reservations inside
 dynamic DHCP pools remain supported, matching existing Kea behavior.
+
+## Load-balancer VIP next hop and static routes
+
+Static routes and their gateways are repository-owned and declared in
+`inventory/static-routes.nix`. They are reconciled via `opnsense_reconciler`:
+- `10.0.40.16/32` via `10.0.30.14` (`homelab-04`, interface `opt3`): routes
+  Jellyfin directly to its pinned backend node. This bypasses the node-to-node
+  SNAT issue where Cilium forward paths from `homelab-01` translate source IPs
+  to the node router address (`10.42.0.x`), which the media ingress NetworkPolicy
+  drops.
+- `100.64.0.0/10` via `10.0.30.10` (`adguard-netbird-01`, interface `opt3`):
+  NetBird mesh return path so LAN replies reach tunnel clients directly.
+
+These routes survive reboots and filter reloads and are managed by CI deployment
+operation `opnsense-apply`.
 
 ## Provider updates
 

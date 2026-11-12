@@ -58,7 +58,7 @@ h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: v
 <body>
 <main>
   <h1>Homelab approvals</h1>
-  <p class="sub">Held CI operations waiting on you. Approving asks for your passkey.</p>
+  <p class="sub">Merges and CI operations waiting on you. Approving asks for your passkey.</p>
   <div id="notice"></div>
   <section id="enroll" hidden>
     <div class="card">
@@ -115,14 +115,20 @@ function pipelineLink(number) {
 }
 
 function card(request) {
-  const meta = el("div", { class: "meta" },
-    "requested by " + request.requester + ", " + age(request.created) + ", main ",
-    el("a", { href: FORGEJO + request.commit_sha, target: "_blank", rel: "noopener" }, request.commit_sha.slice(0, 12)),
-    ", parent pipeline ", pipelineLink(request.parent));
+  const commit = el("a", { href: FORGEJO + request.commit_sha, target: "_blank", rel: "noopener" }, request.commit_sha.slice(0, 12));
+  const meta = request.kind === "merge"
+    ? el("div", { class: "meta" },
+        "requested by " + request.requester + ", " + age(request.created) + ", ",
+        el("a", { href: request.pull_url, target: "_blank", rel: "noopener" }, "PR #" + request.parent),
+        " at head ", commit,
+        ". Approves merging this exact head; its file versions then deploy without another approval.")
+    : el("div", { class: "meta" },
+        "requested by " + request.requester + ", " + age(request.created) + ", main ",
+        commit, ", parent pipeline ", pipelineLink(request.parent));
   const evidence = request.evidence.length
     ? el("div", { class: "meta" }, "evidence: ", ...request.evidence.flatMap((n, i) => i ? [", ", pipelineLink(n)] : [pipelineLink(n)]))
     : null;
-  const paths = request.digest
+  const paths = request.kind === "grant"
     ? el("div", { class: "meta" }, "approves these exact file versions (later edits need a new approval): ",
         ...request.paths.flatMap((path, i) => i ? [", ", el("code", {}, path)] : [el("code", {}, path)]))
     : null;
@@ -139,7 +145,7 @@ function card(request) {
   }
   return el("div", { class: "card" + (request.id === focusId ? " focus" : ""), id: "r-" + request.id },
     el("div", { class: "row" },
-      el("span", { class: "op" }, request.operation),
+      el("span", { class: "op" }, request.title),
       el("span", { class: "state " + request.state }, request.state)),
     meta,
     request.reason ? el("div", { class: "reason" }, request.reason) : null,
@@ -170,10 +176,12 @@ async function approve(id) {
     });
     const result = await api(`/api/requests/${id}/approve`, credential.toJSON());
     notice(result.state === "approved"
-      ? result.digest
-        ? `${result.operation} approved; the agent's deployment continues on its own.`
-        : `${result.operation} approved; deployment pipeline #${result.pipeline}.`
-      : `${result.operation}: ${result.error}`, result.state !== "approved");
+      ? result.kind === "merge"
+        ? `${result.title} approved; the merge policy passes it on its next check.`
+        : result.kind === "grant"
+        ? `${result.title} approved; the agent's deployment continues on its own.`
+        : `${result.title} approved; deployment pipeline #${result.pipeline}.`
+      : `${result.title}: ${result.error}`, result.state !== "approved");
   } catch (error) {
     notice("Approval did not complete: " + error.message, true);
   } finally {
@@ -185,7 +193,7 @@ async function decline(id) {
   busy.add(id); refresh();
   try {
     const result = await api(`/api/requests/${id}/decline`, {});
-    notice(`${result.operation} declined.`);
+    notice(`${result.title} declined.`);
   } catch (error) {
     notice("Decline failed: " + error.message, true);
   } finally {

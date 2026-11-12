@@ -25,6 +25,26 @@ let
     # Launch Moonlight
     exec ${pkgs.moonlight-qt}/bin/moonlight "$@"
   '';
+
+  autostartScript =
+    if cfg.autostartHost != null && cfg.autostartApp != null then
+      pkgs.writeShellScript "moonlight-autostart" ''
+        # Automatically stream the configured app on startup.
+        # Fall back to the Moonlight GUI if streaming finishes or fails.
+        ${pkgs.moonlight-qt}/bin/moonlight stream ${lib.escapeShellArg cfg.autostartHost} ${lib.escapeShellArg cfg.autostartApp} || true
+        exec ${pkgs.moonlight-qt}/bin/moonlight
+      ''
+    else
+      "${pkgs.moonlight-qt}/bin/moonlight";
+
+  pairerPython = pkgs.python3.withPackages (ps: [ ps.paho-mqtt ]);
+
+  pairerScript = pkgs.writeTextFile {
+    name = "controller-pairer";
+    executable = true;
+    destination = "/bin/controller-pairer";
+    text = builtins.readFile ./controller-pairer.py;
+  };
 in
 {
   options.homelab.moonlight = {
@@ -45,7 +65,19 @@ in
     autostart = lib.mkOption {
       type = lib.types.bool;
       default = false;
-      description = "Whether to automatically launch Moonlight on boot in the session";
+      description = "Whether to autostart Moonlight under a supervised moonlight-stream service that restarts the client whenever it exits. Closing the Moonlight GUI returns to the autostart stream after the restart delay.";
+    };
+
+    autostartHost = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "Host IP or hostname to automatically stream on boot";
+    };
+
+    autostartApp = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "App name to automatically stream on boot (e.g. Steam Big Picture or Desktop)";
     };
 
     output = lib.mkOption {
@@ -60,12 +92,51 @@ in
       readOnly = true;
       description = "Package providing bin/moonlight-session. Reference it by store path from compositor bindings, whose systemd PATH excludes the system profile.";
     };
+
+    controllerPairer = {
+      enable = lib.mkEnableOption "Home Assistant MQTT Bluetooth controller pairer service";
+
+      mqttHost = lib.mkOption {
+        type = lib.types.str;
+        default = "10.0.30.10";
+        description = "MQTT broker host";
+      };
+
+      mqttPort = lib.mkOption {
+        type = lib.types.int;
+        default = 1883;
+        description = "MQTT broker port";
+      };
+
+      mqttUser = lib.mkOption {
+        type = lib.types.str;
+        default = "roku-bridge";
+        description = "MQTT broker user";
+      };
+
+      passwordFile = lib.mkOption {
+        type = lib.types.nullOr lib.types.path;
+        default = null;
+        description = "Path to file containing MQTT password";
+      };
+
+      scanTimeout = lib.mkOption {
+        type = lib.types.int;
+        default = 60;
+        description = "Scan timeout in seconds";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [
       pkgs.moonlight-qt
       cfg.sessionPackage
+      pkgs.bluez
+      pkgs.bluez-tools
+      (pkgs.writeShellScriptBin "pair-controller" ''
+        exec ${pairerPython}/bin/python3 ${pairerScript}/bin/controller-pairer --cli "$@"
+      '')
     ];
 
     # Controller and input support
@@ -84,15 +155,79 @@ in
       "uinput"
     ];
 
+    # Disable Enhanced Retransmission Mode (ERTM) to prevent Bluetooth controller disconnects
+    boot.extraModprobeConfig = ''
+      options bluetooth disable_ertm=1
+    '';
+
     # Bluetooth stack support
     hardware.bluetooth = {
       enable = lib.mkDefault true;
       powerOnBoot = lib.mkDefault true;
+      settings = {
+        General = {
+          FastConnectable = lib.mkDefault true;
+          JustWorksRepairing = lib.mkDefault "always";
+        };
+      };
       input = {
         General = {
           ClassicBondedOnly = false;
         };
       };
+    };
+
+    # Headless Bluetooth agent to authorize Just-Works controller pairing without manual prompts
+    systemd.services.bt-agent = {
+      description = "Bluetooth NoInputNoOutput pairing agent";
+      wantedBy = [ "bluetooth.target" ];
+      after = [ "bluetooth.service" ];
+      requires = [ "bluetooth.service" ];
+      serviceConfig = {
+        ExecStart = "${pkgs.bluez-tools}/bin/bt-agent --capability=NoInputNoOutput";
+        Restart = "always";
+        RestartSec = "5s";
+      };
+    };
+
+    # Automated Bluetooth game controller pairing daemon connected to Home Assistant MQTT
+    systemd.services.controller-pairer = lib.mkIf cfg.controllerPairer.enable {
+      description = "Home Assistant Bluetooth Game Controller Pairer";
+      wantedBy = [ "multi-user.target" ];
+      after = [
+        "network-online.target"
+        "bluetooth.service"
+        "bt-agent.service"
+      ];
+      wants = [
+        "network-online.target"
+        "bluetooth.service"
+        "bt-agent.service"
+      ];
+      unitConfig.ConditionPathExists = lib.optional (cfg.controllerPairer.passwordFile != null) (
+        toString cfg.controllerPairer.passwordFile
+      );
+      path = [
+        pkgs.bluez
+        pkgs.bluez-tools
+        pkgs.coreutils
+      ];
+      serviceConfig = {
+        Type = "simple";
+        User = "root";
+        Restart = "always";
+        RestartSec = "5s";
+      };
+      script = ''
+        ${lib.optionalString (cfg.controllerPairer.passwordFile != null) ''
+          export MQTT_PASS="$(${pkgs.coreutils}/bin/cat ${cfg.controllerPairer.passwordFile})"
+        ''}
+        exec ${pairerPython}/bin/python3 -u ${pairerScript}/bin/controller-pairer \
+          --mqtt-host "${cfg.controllerPairer.mqttHost}" \
+          --mqtt-port "${toString cfg.controllerPairer.mqttPort}" \
+          --mqtt-user "${cfg.controllerPairer.mqttUser}" \
+          --timeout "${toString cfg.controllerPairer.scanTimeout}"
+      '';
     };
 
     # Ensure users have access to display, rendering, audio, and controller input devices
@@ -113,7 +248,10 @@ in
       ];
     });
 
-    # Wire output and autostart options directly into Sway if kiosk compositor is active
+    # Wire output assignment into Sway if the kiosk compositor is active.
+    # Launch and supervision live in moonlight-stream.service below: sway exec
+    # runs once per compositor start, so a quit or crashed client stayed down
+    # until the next reboot.
     homelab.kiosk.swayExtraConfig = lib.concatStringsSep "\n" (
       lib.filter (s: s != "") [
         (lib.optionalString (cfg.output != null) ''
@@ -123,10 +261,48 @@ in
           assign [app_id="(?i)moonlight.*"] workspace 2
           assign [class="(?i)moonlight.*"] workspace 2
         ''
-        (lib.optionalString cfg.autostart ''
-          exec ${pkgs.moonlight-qt}/bin/moonlight
-        '')
       ]
     );
+
+    assertions = [
+      {
+        assertion = !cfg.autostart || config.users.users.${cfg.user}.uid != null;
+        message = "homelab.moonlight: autostart needs a statically assigned uid for user ${cfg.user}";
+      }
+    ];
+
+    # Supervised autostart: the sway exec it replaces is unsupervised, so any
+    # client exit (stream quit, crash, display loss) left Moonlight down until
+    # reboot. Restarting on every exit also reconnects automatically when the
+    # Sunshine host wakes. `after` on a missing sway unit is a harmless no-op,
+    # so hosts without the kiosk compositor need no special-casing.
+    systemd.services.moonlight-stream = lib.mkIf cfg.autostart {
+      description = "Moonlight game streaming autostart";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "sway-tty1.service" ];
+      environment = {
+        XDG_RUNTIME_DIR = "/run/user/${toString config.users.users.${cfg.user}.uid}";
+        XDG_SESSION_TYPE = "wayland";
+      };
+      path = [ pkgs.coreutils ];
+      serviceConfig = {
+        User = cfg.user;
+        Restart = "always";
+        RestartSec = "10s";
+      };
+      script = ''
+        # The compositor names its socket dynamically; wait for it instead of
+        # assuming WAYLAND_DISPLAY.
+        for _ in $(seq 1 60); do
+          sock=$(ls "$XDG_RUNTIME_DIR"/wayland-[0-9] 2>/dev/null | head -n 1)
+          if [ -n "$sock" ]; then
+            export WAYLAND_DISPLAY="$(basename "$sock")"
+            break
+          fi
+          sleep 2
+        done
+        exec ${autostartScript}
+      '';
+    };
   };
 }

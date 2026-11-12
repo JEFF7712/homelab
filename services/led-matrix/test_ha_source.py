@@ -59,6 +59,7 @@ class HomeAssistantTests(unittest.TestCase):
         self.assertEqual(effective_brightness("Spotify", 0.35), 0.7)
         self.assertEqual(effective_brightness("Clock & Weather", 0.35), 0.35)
         self.assertEqual(effective_brightness("Off", 0.35), 0.0)
+        self.assertEqual(effective_brightness("Laptop", 0.35), 0.0)
 
     def test_compact_entity_deltas_merge_attributes_and_remove_stale_art(self) -> None:
         source = HomeAssistantSource("http://127.0.0.1:8123", "test-token", ENTITY)
@@ -766,6 +767,143 @@ class HubModeAndRendererTests(unittest.TestCase):
         )
         self.assertAlmostEqual(source.hub_state().brightness, 0.05)
 
+    def test_hub_state_contrast_and_saturation(self) -> None:
+        source = HomeAssistantSource(
+            base_url="http://127.0.0.1:8123",
+            token="test-token",
+            entity=ENTITY,
+            contrast_entity="input_number.bedroom_matrix_vinyl_contrast",
+            saturation_entity="input_number.bedroom_matrix_vinyl_saturation",
+        )
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "a": {
+                        "input_number.bedroom_matrix_vinyl_contrast": {"s": "1.35"},
+                        "input_number.bedroom_matrix_vinyl_saturation": {"s": "1.45"},
+                    }
+                },
+            }
+        )
+        self.assertAlmostEqual(source.hub_state().vinyl_contrast, 1.35)
+        self.assertAlmostEqual(source.hub_state().vinyl_saturation, 1.45)
+
+        # Delta updates and clamping
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "c": {
+                        "input_number.bedroom_matrix_vinyl_contrast": {
+                            "+": {"s": "0.05"}
+                        },
+                        "input_number.bedroom_matrix_vinyl_saturation": {
+                            "+": {"s": "5.0"}
+                        },
+                    }
+                },
+            }
+        )
+        self.assertAlmostEqual(source.hub_state().vinyl_contrast, 0.1)
+        self.assertAlmostEqual(source.hub_state().vinyl_saturation, 3.0)
+
+    def test_cycle_control_and_mode_renderers(self) -> None:
+        from dataclasses import replace
+
+        from modes import (
+            LifeRenderer,
+            PhysicsRenderer,
+            RetroArcadeRenderer,
+            VisualizerRenderer,
+        )
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        source = HomeAssistantSource(
+            base_url="http://127.0.0.1:8123",
+            token="test-token",
+            entity="media_player.spotify_rupan",
+            cycle_entity="input_boolean.bedroom_matrix_cycle",
+        )
+        self.assertTrue(source.hub_state().cycle)
+
+        # Disable cycle via event
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "a": {
+                        "input_boolean.bedroom_matrix_cycle": {"s": "off"},
+                    }
+                },
+            }
+        )
+        self.assertFalse(source.hub_state().cycle)
+
+        # Re-enable cycle via event delta
+        source.handle_event(
+            {
+                "id": 1,
+                "type": "event",
+                "event": {
+                    "c": {
+                        "input_boolean.bedroom_matrix_cycle": {"+": {"s": "on"}},
+                    }
+                },
+            }
+        )
+        self.assertTrue(source.hub_state().cycle)
+
+        ctx_no_cycle = RenderContext(
+            tick=0.0,
+            dt=70.0,
+            ha_state=HAState(connected=True, cycle=False),
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+        ctx_cycle = RenderContext(
+            tick=0.0,
+            dt=70.0,
+            ha_state=HAState(connected=True, cycle=True),
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # 1. RetroArcadeRenderer
+        arcade = RetroArcadeRenderer(cycle_interval=60.0, randomize=False)
+        initial_arcade_idx = arcade.current_idx
+        arcade.render(ctx_no_cycle)
+        self.assertEqual(arcade.current_idx, initial_arcade_idx)
+        arcade.render(ctx_cycle)
+        self.assertNotEqual(arcade.current_idx, initial_arcade_idx)
+
+        # 2. PhysicsRenderer
+        physics = PhysicsRenderer()
+        self.assertEqual(physics.current_scene, 0)
+        physics.render(replace(ctx_no_cycle, dt=25.0))
+        self.assertEqual(physics.current_scene, 0)
+        physics.render(replace(ctx_cycle, dt=25.0))
+        self.assertEqual(physics.current_scene, 1)
+
+        # 3. LifeRenderer
+        life = LifeRenderer(palette_interval=60.0)
+        self.assertEqual(life.palette_idx, 0)
+        life.render(ctx_no_cycle)
+        self.assertEqual(life.palette_idx, 0)
+        life.render(ctx_cycle)
+        self.assertEqual(life.palette_idx, 1)
+
+        # 4. VisualizerRenderer
+        visualizer = VisualizerRenderer(cycle_interval=60.0)
+        self.assertEqual(visualizer.current_idx, 0)
+        visualizer.render(ctx_no_cycle)
+        self.assertEqual(visualizer.current_idx, 0)
+        visualizer.render(ctx_cycle)
+        self.assertEqual(visualizer.current_idx, 1)
+
     def test_mode_renderers_render_valid_frames(self) -> None:
         from modes import (
             BlankRenderer,
@@ -1043,7 +1181,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertIn("SPACE INVADERS", names)
         self.assertIn("DONKEY KONG", names)
         self.assertIn("FROGGER", names)
-        self.assertIn("ASTEROIDS", names)
+        self.assertNotIn("ASTEROIDS", names)
         self.assertNotIn("DUNGEON", names)
 
     def test_tetris_ai_stacks_pieces(self) -> None:
@@ -1099,16 +1237,6 @@ class HubModeAndRendererTests(unittest.TestCase):
             positions.add((round(game.frog_x, 1), round(game.frog_y, 1)))
         # Autonomous frog should navigate across lanes
         self.assertGreater(len(positions), 1)
-
-    def test_asteroids_ai_sim(self) -> None:
-        from modes.arcade import AsteroidsGame
-
-        game = AsteroidsGame()
-        for _ in range(100):
-            game.update(0.04)
-        # Simulation runs smoothly with active ship and asteroids
-        self.assertGreaterEqual(len(game.asteroids), 1)
-        self.assertGreaterEqual(game.score, 0)
 
     def test_multiplayer_tron_event_queue(self) -> None:
         from modes.multiplayer import Tron2P
@@ -1356,11 +1484,11 @@ class HubModeAndRendererTests(unittest.TestCase):
         vis = VisualizerRenderer(cycle_interval=60.0)
         self.assertEqual(len(vis.effects), 5)
         names = [eff.name for eff in vis.effects]
-        self.assertIn("RADIAL SPECTRUM", names)
-        self.assertIn("HYPERSPACE TUNNEL", names)
-        self.assertIn("PARTICLE FOUNTAIN", names)
-        self.assertIn("GRAPHIC EQUALIZER", names)
-        self.assertIn("OSCILLOSCOPE RIBBON", names)
+        self.assertIn("FIBONACCI128", names)
+        self.assertIn("MARK ESTES PLASMA", names)
+        self.assertIn("AURORADROP MANDALA", names)
+        self.assertIn("SPECTRUM ANALYZER", names)
+        self.assertIn("BEAT WARP", names)
 
         ctx = RenderContext(
             tick=1.0,
@@ -1466,6 +1594,15 @@ class HubModeAndRendererTests(unittest.TestCase):
         state_vis = HAState(mode="Visualizer", music_mode=True)
         active_mode = state_vis.mode if state_vis.mode != "Auto" else "LedFx"
         self.assertEqual(active_mode, "Visualizer")
+
+        # 4. When mode is explicitly Laptop -> respects Laptop regardless of music_mode or power
+        state_laptop = HAState(power=True, mode="Laptop", music_mode=True)
+        active_mode = (
+            state_laptop.mode
+            if (state_laptop.power and state_laptop.mode != "Auto")
+            else "Off"
+        )
+        self.assertEqual(active_mode, "Laptop")
 
     def test_ledfx_receiver_audio_packet(self) -> None:
         import struct
@@ -1868,6 +2005,190 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(g2048.grid[1], [8, 0, 0, 0])
         self.assertEqual(g2048.grid[3], [16, 16, 0, 0])
         self.assertEqual(earned, 4 + 8 + 32)
+
+    def test_physics_renderer_rotation_and_scenes(self) -> None:
+        import numpy as np
+
+        from modes import PhysicsRenderer
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        physics = PhysicsRenderer()
+        self.assertEqual(physics.NUM_SCENES, 9)
+        self.assertEqual(physics.current_scene, 0)
+
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Physics",
+            brightness=0.7,
+            cycle=True,
+        )
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.05,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # Verify each scene renders a valid (64, 64) RGB frame with non-zero pixels
+        for expected_scene in range(9):
+            physics.current_scene = expected_scene
+            frame = physics.render(ctx, size=64)
+            self.assertEqual(frame.size, (64, 64))
+            self.assertEqual(frame.mode, "RGB")
+            arr = np.array(frame)
+            self.assertGreater(int(np.sum(arr)), 0)
+
+        # Verify full rotation cycle advances sequentially 0 -> 1 -> 2 -> ... -> 8 -> 0
+        physics.current_scene = 0
+        physics.scene_timer = 0.0
+        advance_ctx = RenderContext(
+            tick=100.0,
+            dt=20.5,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+        for expected_scene in [1, 2, 3, 4, 5, 6, 7, 8, 0]:
+            physics.render(advance_ctx, size=64)
+            self.assertEqual(physics.current_scene, expected_scene)
+
+    def test_physics_fire_height_distribution(self) -> None:
+        import numpy as np
+
+        from modes import PhysicsRenderer
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        physics = PhysicsRenderer()
+        physics.current_scene = 7
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Physics",
+            brightness=0.7,
+            cycle=False,
+        )
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.033,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # Run 60 frames so fire propagates upward across matrix
+        for _ in range(60):
+            frame = physics.render(ctx, size=64)
+
+        arr = np.array(frame)
+        self.assertEqual(arr.shape, (64, 64, 3))
+        # Fire should occupy the upper half of the matrix instead of being trapped in bottom 1/6th
+        upper_half = arr[:32, :, :]
+        self.assertGreater(int(np.sum(upper_half)), 0)
+        # Check heat in upper rows (row 16-24 should be distinctly warm)
+        self.assertGreater(float(physics.fire_heat[16:24, :].mean()), 40.0)
+        # Base rows should be hot
+        self.assertGreater(float(physics.fire_heat[60:, :].mean()), 180.0)
+
+    def test_physics_volcano_spark_height(self) -> None:
+        import numpy as np
+
+        from modes import PhysicsRenderer
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        physics = PhysicsRenderer()
+        physics.current_scene = 8
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Physics",
+            brightness=0.7,
+            cycle=False,
+        )
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.033,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        min_spark_y = 64.0
+        for _ in range(60):
+            frame = physics.render(ctx, size=64)
+            min_spark_y = min(min_spark_y, float(physics.volcano_pos[:, 1].min()))
+
+        # Sparks should erupt high into the top half (y < 20)
+        self.assertLess(min_spark_y, 20.0)
+        # Upper half of the frame should contain active sparks
+        arr = np.array(frame)
+        self.assertGreater(int(np.sum(arr[:32, :, :])), 0)
+
+    def test_physics_pendulum_wave_bounds_and_height(self) -> None:
+        import numpy as np
+
+        from modes import PhysicsRenderer
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        physics = PhysicsRenderer()
+        physics.current_scene = 3
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Physics",
+            brightness=0.7,
+            cycle=False,
+        )
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.05,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # Step through full cycle
+        for step in range(100):
+            physics.scene_timer = (step * 0.2) % physics.PERIOD
+            frame = physics.render(ctx, size=64)
+            self.assertEqual(frame.size, (64, 64))
+
+        # Bottom rows should receive pendulum trails/bobs (deep swing)
+        self.assertGreater(int(np.sum(physics.pendulum_trail[50:, :, :])), 0)
+
+    def test_physics_bouncing_particles_sustained_motion(self) -> None:
+        import numpy as np
+
+        from modes import PhysicsRenderer
+        from modes.base import HAState, PlaybackState, RenderContext
+
+        physics = PhysicsRenderer()
+        physics.current_scene = 1
+        ha_state = HAState(
+            connected=True,
+            power=True,
+            mode="Physics",
+            brightness=0.7,
+            cycle=False,
+        )
+        ctx = RenderContext(
+            tick=10.0,
+            dt=0.033,
+            ha_state=ha_state,
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+
+        # Run 350 frames (~12 seconds, well past kinetic death threshold of legacy code)
+        for _ in range(350):
+            physics.render(ctx, size=64)
+
+        speed = float(np.linalg.norm(physics.vel, axis=1).mean())
+        # Particles should remain lively and bouncing, not dead on the floor
+        self.assertGreater(speed, 10.0)
+        # Particles should not all be clumped at row 61
+        self.assertLess(float(physics.pos[:, 1].min()), 55.0)
 
 
 if __name__ == "__main__":

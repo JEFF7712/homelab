@@ -1,7 +1,6 @@
 alias: "Effects: Bedroom Music Mode"
 description: >-
-  Toggle or activate the LedFx audio-reactive effect across the bedroom Roku
-  lights and manage Adaptive Lighting lock.
+  Toggle LedFx audio-reactive music mode on the bedroom LED matrix display.
 sequence:
   - action: input_boolean.toggle
     target:

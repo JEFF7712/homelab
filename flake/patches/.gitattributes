@@ -1,0 +1,2 @@
+# Patches reproduce upstream context lines verbatim.
+*.patch -whitespace

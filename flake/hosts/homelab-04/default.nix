@@ -7,12 +7,16 @@
 let
   workspaces = config.services.agent-workspaces;
   reservedCpu = 1 + workspaces.aggregateCpuPercent / 100;
-  reservedMemoryMiB = 2048 + workspaces.aggregateMemoryMaxMiB;
+  # Typical concurrent CI (one validation and one operation) in the ci.slice
+  # from woodpecker.nix, so GPU pods are not scheduled into CI memory.
+  ciReservedMemoryMiB = 8192;
+  reservedMemoryMiB = 2048 + workspaces.aggregateMemoryMaxMiB + ciReservedMemoryMiB;
 in
 {
   imports = [
     ./hardware-configuration.nix
     ../../modules/common-base.nix
+    ../../modules/kubernetes-ci-credentials.nix
     ../../modules/disko-single-disk.nix
     ../../modules/k3s-server.nix
     ../../modules/k3s-registry-client.nix
@@ -22,10 +26,10 @@ in
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
     ../../modules/woodpecker.nix
+    ../../modules/woodpecker-backup-source.nix
     ../../modules/approvals.nix
     ../../modules/merge-policy.nix
     ../../profiles/projectctl-pilot.nix
-    ../../modules/gitlab-dr.nix
     ../../modules/platform-backup.nix
     ../../modules/repo-monitor.nix
     ../../modules/release-mirror.nix
@@ -34,6 +38,8 @@ in
   ];
 
   networking.hostName = "homelab-04";
+
+  homelab.kubernetesCiCredentials.client = true;
 
   # A boot service avoids restarting networkd and its dependent guests.
   systemd.services.onboard-ethernet-offloads = {
@@ -134,6 +140,8 @@ in
   # so only ancestry of the Forgejo head is verified, not SHA equality.
   homelab.repoMonitor = {
     enable = true;
+    # The approvals dashboard runs on this host (port 8020).
+    approvalsUrl = "http://127.0.0.1:8020";
     specialMirrors = [
       {
         repository = "JEFF7712/homelab";
@@ -144,6 +152,12 @@ in
   };
 
   homelab.monero.enable = true;
+  homelab.monero.tor.enable = true;
+  environment.persistence."/persist".directories = [ "/var/lib/tor" ];
+  # monerod peaked at about 1 GiB, mostly reclaimable LMDB pages; the 8G
+  # default left that room to CI. Tor runs in its own unit.
+  homelab.monero.memoryHigh = "1536M";
+  homelab.monero.memoryMax = "2G";
 
   # System partition (ESP is part1) holding the btrfs /persist subvolume.
   homelab.monero.ioDevice = "/dev/disk/by-id/nvme-PC_SN810_NVMe_WDC_1024GB_230907801780-part2";
@@ -170,7 +184,7 @@ in
   services.agent-workspace-network = {
     enable = true;
     # Rupan's personal VM is a full development environment: Forgejo Git and
-    # API, the signed cache, Woodpecker and approvals, the Kubernetes API
+    # API, the signed caches (niks3, then Attic), Woodpecker and approvals, the Kubernetes API
     # (kubernetes_api below), and SSH to every fleet host, as
     # `just doctor --live` and `just ship` require.
     tcpEgress.rupan = [
@@ -181,6 +195,7 @@ in
           2222
           3000
           8080
+          8090
         ];
       }
       {

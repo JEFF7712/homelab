@@ -1,0 +1,1574 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-automation-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-automation-values
+    creationPolicy: Owner
+  data:
+    - secretKey: DOCKERHUB_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: DOCKERHUB_TOKEN
+    - secretKey: DOCKERHUB_USERNAME
+      remoteRef:
+        key: homelab-values
+        property: DOCKERHUB_USERNAME
+    - secretKey: FORGEJO_DASHBOARD_APPROVAL_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: FORGEJO_DASHBOARD_APPROVAL_TOKEN
+    - secretKey: FORGEJO_RENOVATE_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: FORGEJO_RENOVATE_TOKEN
+    - secretKey: GITHUB_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: GITHUB_TOKEN
+    - secretKey: NTFY_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: NTFY_TOKEN
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-automation-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-automation-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-automation-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-automation-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-automation-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-automation-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-automation-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-automation-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-automation
+spec:
+  conditions:
+    - namespaces:
+        - automation
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-automation-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-backups-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-backups-values
+    creationPolicy: Owner
+  data:
+    - secretKey: HOME_ASSISTANT_DB_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: HOME_ASSISTANT_DB_PASSWORD
+    - secretKey: IMMICH_DB_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: IMMICH_DB_PASSWORD
+    - secretKey: R2_ACCESS_KEY_ID
+      remoteRef:
+        key: homelab-values
+        property: R2_ACCESS_KEY_ID
+    - secretKey: R2_SECRET_ACCESS_KEY
+      remoteRef:
+        key: homelab-values
+        property: R2_SECRET_ACCESS_KEY
+    - secretKey: RESTIC_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: RESTIC_PASSWORD
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-backups-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-backups-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-backups-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-backups-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-backups-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-backups-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-backups-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-backups-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-backups
+spec:
+  conditions:
+    - namespaces:
+        - backups
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-backups-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-cert-manager-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-cert-manager-values
+    creationPolicy: Owner
+  data:
+    - secretKey: CF_API_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: CF_API_TOKEN
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-cert-manager-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-cert-manager-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-cert-manager-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-cert-manager-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-cert-manager-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-cert-manager-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-cert-manager-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-cert-manager-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-cert-manager
+spec:
+  conditions:
+    - namespaces:
+        - cert-manager
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-cert-manager-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-external-secrets-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-external-secrets-values
+    creationPolicy: Owner
+  data:
+    - secretKey: FLUX_ESO_CANARY
+      remoteRef:
+        key: homelab-values
+        property: FLUX_ESO_CANARY
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-external-secrets-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-external-secrets-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-external-secrets-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-external-secrets-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-external-secrets-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-external-secrets-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-external-secrets-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-external-secrets-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-external-secrets
+spec:
+  conditions:
+    - namespaces:
+        - external-secrets
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-external-secrets-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-flux-system-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-flux-system-values
+    creationPolicy: Owner
+  data:
+    - secretKey: FLUX_RECEIVER_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: FLUX_RECEIVER_TOKEN
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-flux-system-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-flux-system-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-flux-system-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-flux-system-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-flux-system-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-flux-system-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-flux-system-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-flux-system-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-flux-system
+spec:
+  conditions:
+    - namespaces:
+        - flux-system
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-flux-system-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-home-assistant-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-home-assistant-values
+    creationPolicy: Owner
+  data:
+    - secretKey: GEMINI_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: GEMINI_API_KEY
+    - secretKey: HOME_ASSISTANT_DB_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: HOME_ASSISTANT_DB_PASSWORD
+    - secretKey: JARVIS_EXPORTER_HA_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: JARVIS_EXPORTER_HA_TOKEN
+    - secretKey: SPOTIFY_CLIENT_ID
+      remoteRef:
+        key: homelab-values
+        property: SPOTIFY_CLIENT_ID
+    - secretKey: SPOTIFY_CLIENT_SECRET
+      remoteRef:
+        key: homelab-values
+        property: SPOTIFY_CLIENT_SECRET
+    - secretKey: TYPESAFE_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: TYPESAFE_API_KEY
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-home-assistant-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-home-assistant-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-home-assistant-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-home-assistant-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-home-assistant-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-home-assistant-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-home-assistant-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-home-assistant-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-home-assistant
+spec:
+  conditions:
+    - namespaces:
+        - home-assistant
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-home-assistant-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-immich-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-immich-values
+    creationPolicy: Owner
+  data:
+    - secretKey: IMMICH_DB_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: IMMICH_DB_PASSWORD
+    - secretKey: IMMICH_JWT_SECRET
+      remoteRef:
+        key: homelab-values
+        property: IMMICH_JWT_SECRET
+    - secretKey: RESTIC_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: RESTIC_PASSWORD
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-immich-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-immich-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-immich-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-immich-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-immich-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-immich-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-immich-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-immich-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-immich
+spec:
+  conditions:
+    - namespaces:
+        - immich
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-immich-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-led-matrix-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-led-matrix-values
+    creationPolicy: Owner
+  data:
+    - secretKey: SPOTIFY_CLIENT_ID
+      remoteRef:
+        key: homelab-values
+        property: SPOTIFY_CLIENT_ID
+    - secretKey: SPOTIFY_CLIENT_SECRET
+      remoteRef:
+        key: homelab-values
+        property: SPOTIFY_CLIENT_SECRET
+    - secretKey: SPOTIFY_MATRIX_HA_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: SPOTIFY_MATRIX_HA_TOKEN
+    - secretKey: SPOTIFY_REFRESH_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: SPOTIFY_REFRESH_TOKEN
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-led-matrix-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-led-matrix-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-led-matrix-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-led-matrix-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-led-matrix-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-led-matrix-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-led-matrix-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-led-matrix-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-led-matrix
+spec:
+  conditions:
+    - namespaces:
+        - led-matrix
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-led-matrix-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-media-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-media-values
+    creationPolicy: Owner
+  data:
+    - secretKey: GEMINI_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: GEMINI_API_KEY
+    - secretKey: JELLYFIN_SEERR_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: JELLYFIN_SEERR_API_KEY
+    - secretKey: LIDARR_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: LIDARR_API_KEY
+    - secretKey: LIDARR_DEEZER_ARL
+      remoteRef:
+        key: homelab-values
+        property: LIDARR_DEEZER_ARL
+    - secretKey: MEDIA_VPN2_PORT_FORWARDING
+      remoteRef:
+        key: homelab-values
+        property: MEDIA_VPN2_PORT_FORWARDING
+    - secretKey: MEDIA_VPN2_WIREGUARD_ADDRESSES
+      remoteRef:
+        key: homelab-values
+        property: MEDIA_VPN2_WIREGUARD_ADDRESSES
+    - secretKey: MEDIA_VPN2_WIREGUARD_PRESHARED_KEY
+      remoteRef:
+        key: homelab-values
+        property: MEDIA_VPN2_WIREGUARD_PRESHARED_KEY
+    - secretKey: MEDIA_VPN2_WIREGUARD_PRIVATE_KEY
+      remoteRef:
+        key: homelab-values
+        property: MEDIA_VPN2_WIREGUARD_PRIVATE_KEY
+    - secretKey: MEDIA_VPN_HTTP_PROXY_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: MEDIA_VPN_HTTP_PROXY_PASSWORD
+    - secretKey: MEDIA_VPN_HTTP_PROXY_USER
+      remoteRef:
+        key: homelab-values
+        property: MEDIA_VPN_HTTP_PROXY_USER
+    - secretKey: MEDIA_VPN_PORT_FORWARDING
+      remoteRef:
+        key: homelab-values
+        property: MEDIA_VPN_PORT_FORWARDING
+    - secretKey: MEDIA_VPN_WIREGUARD_ADDRESSES
+      remoteRef:
+        key: homelab-values
+        property: MEDIA_VPN_WIREGUARD_ADDRESSES
+    - secretKey: MEDIA_VPN_WIREGUARD_PRESHARED_KEY
+      remoteRef:
+        key: homelab-values
+        property: MEDIA_VPN_WIREGUARD_PRESHARED_KEY
+    - secretKey: MEDIA_VPN_WIREGUARD_PRIVATE_KEY
+      remoteRef:
+        key: homelab-values
+        property: MEDIA_VPN_WIREGUARD_PRIVATE_KEY
+    - secretKey: QBITTORRENT_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: QBITTORRENT_PASSWORD
+    - secretKey: QBITTORRENT_USERNAME
+      remoteRef:
+        key: homelab-values
+        property: QBITTORRENT_USERNAME
+    - secretKey: RADARR_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: RADARR_API_KEY
+    - secretKey: RECOMMENDER_ADMIN_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: RECOMMENDER_ADMIN_PASSWORD
+    - secretKey: SEERR_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: SEERR_API_KEY
+    - secretKey: SLSKD_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: SLSKD_API_KEY
+    - secretKey: SLSKD_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: SLSKD_PASSWORD
+    - secretKey: SLSKD_USERNAME
+      remoteRef:
+        key: homelab-values
+        property: SLSKD_USERNAME
+    - secretKey: SLSKD_YML
+      remoteRef:
+        key: homelab-values
+        property: SLSKD_YML
+    - secretKey: SONARR_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: SONARR_API_KEY
+    - secretKey: SPOTIFY_CLIENT_ID
+      remoteRef:
+        key: homelab-values
+        property: SPOTIFY_CLIENT_ID
+    - secretKey: SPOTIFY_CLIENT_SECRET
+      remoteRef:
+        key: homelab-values
+        property: SPOTIFY_CLIENT_SECRET
+    - secretKey: SPOTIFY_REFRESH_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: SPOTIFY_REFRESH_TOKEN
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-media-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-media-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-media-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-media-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-media-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-media-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-media-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-media-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-media
+spec:
+  conditions:
+    - namespaces:
+        - media
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-media-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-observability-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-observability-values
+    creationPolicy: Owner
+  data:
+    - secretKey: ALERTMANAGER_RESEND_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: ALERTMANAGER_RESEND_API_KEY
+    - secretKey: GRAFANA_CLOUDFLARE_OIDC_CLIENT_ID
+      remoteRef:
+        key: homelab-values
+        property: GRAFANA_CLOUDFLARE_OIDC_CLIENT_ID
+    - secretKey: GRAFANA_CLOUDFLARE_OIDC_CLIENT_SECRET
+      remoteRef:
+        key: homelab-values
+        property: GRAFANA_CLOUDFLARE_OIDC_CLIENT_SECRET
+    - secretKey: NTFY_AUTH_ACCESS
+      remoteRef:
+        key: homelab-values
+        property: NTFY_AUTH_ACCESS
+    - secretKey: NTFY_AUTH_TOKENS
+      remoteRef:
+        key: homelab-values
+        property: NTFY_AUTH_TOKENS
+    - secretKey: NTFY_AUTH_USERS
+      remoteRef:
+        key: homelab-values
+        property: NTFY_AUTH_USERS
+    - secretKey: NTFY_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: NTFY_TOKEN
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-observability-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-observability-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-observability-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-observability-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-observability-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-observability-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-observability-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-observability-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-observability
+spec:
+  conditions:
+    - namespaces:
+        - observability
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-observability-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-obsidian-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-obsidian-values
+    creationPolicy: Owner
+  data:
+    - secretKey: COUCHDB_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: COUCHDB_PASSWORD
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-obsidian-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-obsidian-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-obsidian-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-obsidian-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-obsidian-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-obsidian-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-obsidian-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-obsidian-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-obsidian
+spec:
+  conditions:
+    - namespaces:
+        - obsidian
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-obsidian-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-pod-agent-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-pod-agent-values
+    creationPolicy: Owner
+  data:
+    - secretKey: DISCORD_APPROVALS_CHANNEL_ID
+      remoteRef:
+        key: homelab-values
+        property: DISCORD_APPROVALS_CHANNEL_ID
+    - secretKey: DISCORD_BOT_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: DISCORD_BOT_TOKEN
+    - secretKey: DISCORD_ORDERS_CHANNEL_ID
+      remoteRef:
+        key: homelab-values
+        property: DISCORD_ORDERS_CHANNEL_ID
+    - secretKey: DISCORD_OWNER_USER_IDS
+      remoteRef:
+        key: homelab-values
+        property: DISCORD_OWNER_USER_IDS
+    - secretKey: DISCORD_SEO_CHANNEL_ID
+      remoteRef:
+        key: homelab-values
+        property: DISCORD_SEO_CHANNEL_ID
+    - secretKey: DISCORD_WEBHOOK_APPROVALS
+      remoteRef:
+        key: homelab-values
+        property: DISCORD_WEBHOOK_APPROVALS
+    - secretKey: DISCORD_WEBHOOK_ERRORS
+      remoteRef:
+        key: homelab-values
+        property: DISCORD_WEBHOOK_ERRORS
+    - secretKey: DISCORD_WEBHOOK_GROWTH
+      remoteRef:
+        key: homelab-values
+        property: DISCORD_WEBHOOK_GROWTH
+    - secretKey: DISCORD_WEBHOOK_ORDERS
+      remoteRef:
+        key: homelab-values
+        property: DISCORD_WEBHOOK_ORDERS
+    - secretKey: DISCORD_WEBHOOK_SEO
+      remoteRef:
+        key: homelab-values
+        property: DISCORD_WEBHOOK_SEO
+    - secretKey: DISTROJEFF_BUYER_EMAIL_AUTO
+      remoteRef:
+        key: homelab-values
+        property: DISTROJEFF_BUYER_EMAIL_AUTO
+    - secretKey: DISTROJEFF_BUYER_EMAIL_FROM
+      remoteRef:
+        key: homelab-values
+        property: DISTROJEFF_BUYER_EMAIL_FROM
+    - secretKey: DISTROJEFF_ETSY_KEYSTRING
+      remoteRef:
+        key: homelab-values
+        property: DISTROJEFF_ETSY_KEYSTRING
+    - secretKey: DISTROJEFF_ETSY_SHARED_SECRET
+      remoteRef:
+        key: homelab-values
+        property: DISTROJEFF_ETSY_SHARED_SECRET
+    - secretKey: DISTROJEFF_PRINTIFY_API_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: DISTROJEFF_PRINTIFY_API_TOKEN
+    - secretKey: DISTROJEFF_PRINTIFY_SHOP_ID
+      remoteRef:
+        key: homelab-values
+        property: DISTROJEFF_PRINTIFY_SHOP_ID
+    - secretKey: DISTROJEFF_RESEND_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: DISTROJEFF_RESEND_API_KEY
+    - secretKey: DISTROJEFF_ZOHO_IMAP_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: DISTROJEFF_ZOHO_IMAP_PASSWORD
+    - secretKey: DISTROJEFF_ZOHO_IMAP_USER
+      remoteRef:
+        key: homelab-values
+        property: DISTROJEFF_ZOHO_IMAP_USER
+    - secretKey: MERCURY_API_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: MERCURY_API_TOKEN
+    - secretKey: POD_AGENT_ANTIGRAVITY_KEYRING_PASSWORD
+      remoteRef:
+        key: homelab-values
+        property: POD_AGENT_ANTIGRAVITY_KEYRING_PASSWORD
+    - secretKey: POD_AGENT_BACKUP_IDENTITY_FILE
+      remoteRef:
+        key: homelab-values
+        property: POD_AGENT_BACKUP_IDENTITY_FILE
+    - secretKey: POD_AGENT_BACKUP_RECIPIENTS
+      remoteRef:
+        key: homelab-values
+        property: POD_AGENT_BACKUP_RECIPIENTS
+    - secretKey: POD_AGENT_DASHBOARD_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: POD_AGENT_DASHBOARD_TOKEN
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-pod-agent-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-pod-agent-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-pod-agent-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-pod-agent-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-pod-agent-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-pod-agent-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-pod-agent-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-pod-agent-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-pod-agent
+spec:
+  conditions:
+    - namespaces:
+        - pod-agent
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-pod-agent-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-sovereign-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-sovereign-values
+    creationPolicy: Owner
+  data:
+    - secretKey: SOVEREIGN_INQUIRY_NTFY_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: SOVEREIGN_INQUIRY_NTFY_TOKEN
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-sovereign-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-sovereign-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-sovereign-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-sovereign-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-sovereign-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-sovereign-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-sovereign-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-sovereign-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-sovereign
+spec:
+  conditions:
+    - namespaces:
+        - sovereign
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-sovereign-reader
+          namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-voice-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-voice-values
+    creationPolicy: Owner
+  data:
+    - secretKey: JARVIS_EXPORTER_HA_TOKEN
+      remoteRef:
+        key: homelab-values
+        property: JARVIS_EXPORTER_HA_TOKEN
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-voice-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-voice-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-voice-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-voice-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-voice-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-voice-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-voice-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-voice-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-voice
+spec:
+  conditions:
+    - namespaces:
+        - voice
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-voice-reader
+          namespace: external-secrets
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-analytics-db-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-analytics-db-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-analytics-db-reader
+    namespace: external-secrets

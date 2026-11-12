@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 import sys
@@ -441,7 +442,7 @@ class WorkerApiTests(WorkerCase):
     def test_identifiers_never_carry_worker_text(self) -> None:
         channel = HttpChannel(self.url, self.token)
         channel.start("s", "w")
-        secret = "sk-ant-oat01-identifiersmuggling0123456789"
+        secret = "sk-proj-" + "x" * 24
         question_id = channel.ask(secret, "q?", ())
         channel.session(secret)
         self.assertNotIn(secret, question_id)
@@ -468,7 +469,7 @@ class WorkerApiTests(WorkerCase):
             WorkerApi(self.store, lease_seconds=60),
             "127.0.0.1",
             0,
-            read_timeout=0.5,
+            read_timeout=2,
             max_in_flight=2,
         )
         threading.Thread(target=server.serve_forever, daemon=True).start()
@@ -477,10 +478,25 @@ class WorkerApiTests(WorkerCase):
         port = server.server_port
         url = f"http://127.0.0.1:{port}"
         HttpChannel(url, self.token).start("s", "w")
-        stalled = [self.stalled(port, self.token) for _ in range(2)]
-        time.sleep(0.1)
-        with self.assertRaises(Exception):
-            HttpChannel(url, self.token, timeout=2).renew()
+        # The stalled connections take their slots in their own handler
+        # threads, which a loaded machine may not have run yet; set the stall
+        # up again until it holds both slots, rather than guess with a sleep.
+        refused = None
+        for _ in range(5):
+            stalled = [self.stalled(port, self.token) for _ in range(2)]
+            time.sleep(0.3)
+            try:
+                HttpChannel(url, self.token, timeout=2, retry_seconds=0).renew()
+            except OrchestratorError as error:
+                refused = error
+                break
+            for connection in stalled:
+                connection.close()  # type: ignore[attr-defined]
+            time.sleep(2.5)
+        self.assertIsNotNone(refused, "the stalled connections never filled the slots")
+        self.assertEqual(refused.code, "HTTP_503")  # type: ignore[union-attr]
+        # A worker with its normal retry budget waits the stall out instead.
+        HttpChannel(url, self.token, timeout=2, retry_seconds=10).renew()
         started = time.time()
         for connection in stalled:
             connection.settimeout(5)  # type: ignore[attr-defined]
@@ -531,9 +547,22 @@ class WorkerApiTests(WorkerCase):
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         stalled = [self.stalled(server.server_port, self.token) for _ in range(3)]
-        third = stalled[2]
-        third.settimeout(2)  # type: ignore[attr-defined]
-        self.assertIn(b" 503 ", third.recv(1024))  # type: ignore[attr-defined]
+        # Each connection is admitted in its own handler thread, so under load
+        # any one of the three may be the one turned away; exactly one is.
+        import selectors
+
+        selector = selectors.DefaultSelector()
+        for connection in stalled:
+            selector.register(connection, selectors.EVENT_READ)
+        replies: dict[object, bytes] = {}
+        deadline = time.time() + 10
+        while len(replies) < len(stalled) and time.time() < deadline:
+            for key, _ in selector.select(timeout=deadline - time.time()):
+                replies[key.fileobj] = key.fileobj.recv(1024)  # type: ignore[union-attr]
+                selector.unregister(key.fileobj)
+        selector.close()
+        rejected = [reply for reply in replies.values() if b" 503 " in reply]
+        self.assertEqual(len(rejected), 1, replies)
         for connection in stalled:
             connection.close()  # type: ignore[attr-defined]
 
@@ -562,11 +591,12 @@ class WorkerApiTests(WorkerCase):
             connection.close()
 
     def test_settle_payload_is_filtered_and_redacted(self) -> None:
+        secret = "sk-proj-" + "x" * 24
         channel = HttpChannel(self.url, self.token)
         channel.start("s", "w")
         channel.settle(
             {
-                "final_text": "token sk-ant-oat01-abcdefghijklmnopqrstuv done",
+                "final_text": f"token {secret} done",
                 "status": "completed",
             }
         )
@@ -574,26 +604,47 @@ class WorkerApiTests(WorkerCase):
             e for e in self.store.events(self.task.id) if e["type"] == "worker.settled"
         ][0]["payload"]
         self.assertNotIn("status", settled)
-        self.assertNotIn("abcdefghijklmnop", settled["final_text"])
+        self.assertFalse(secret in settled["final_text"])
         self.assertEqual(self.status(), "validating")
 
 
 class RedactionTests(unittest.TestCase):
     def test_known_values_and_credential_shapes_are_removed(self) -> None:
-        text = (
-            "my-own-secret-value sk-proj-ABCDEFGHIJKLMNOPQRST ghp_ABCDEFGHIJKLMNOPQRSTUV "
-            "Authorization: Bearer abcdefghijklmnopqrstuvwxyz "
-            "eyJhbGciOiJI.eyJzdWIiOiIx.c2lnbmF0dXJl refresh_token=abcdefghijklmnop"
+        # Keep complete credential-shaped values out of source and failure output.
+        known_secret = "my-own-secret-value"
+        api_token = "sk-proj-" + "a" * 24
+        github_token = "ghp_" + "b" * 24
+        bearer_token = "c" * 32
+        jwt = ".".join(
+            base64.urlsafe_b64encode(json.dumps(part).encode()).decode().rstrip("=")
+            for part in (
+                {"alg": "none"},
+                {"sub": "redaction-test"},
+                "synthetic-signature",
+            )
         )
-        clean = redact(text, ["my-own-secret-value"])
-        for fragment in (
-            "my-own-secret",
-            "ABCDEFGHIJKLMNOPQRST",
-            "abcdefghijklmnopqrstuvwxyz",
-            "c2lnbmF0dXJl",
-            "refresh_token=abc",
+        refresh_token = "d" * 24
+        text = " ".join(
+            [
+                known_secret,
+                api_token,
+                github_token,
+                f"Authorization: Bearer {bearer_token}",
+                jwt,
+                f"refresh_token={refresh_token}",
+            ]
+        )
+        clean = redact(text, [known_secret])
+        for kind, value in (
+            ("known secret", known_secret),
+            ("API", api_token),
+            ("GitHub", github_token),
+            ("bearer", bearer_token),
+            ("JWT", jwt),
+            ("refresh", refresh_token),
         ):
-            self.assertNotIn(fragment, clean)
+            with self.subTest(kind=kind):
+                self.assertFalse(value in clean, f"unredacted {kind} fixture")
 
     def test_long_output_is_truncated(self) -> None:
         self.assertLess(len(redact("x" * 50_000)), 9_000)

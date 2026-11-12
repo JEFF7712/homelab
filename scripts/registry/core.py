@@ -27,6 +27,9 @@ from scripts.ci.applications import load_catalog
 
 SCHEMA_VERSION = 1
 DEFAULT_REGISTRY = "registry.rupan.dev"
+# First-party repositories granted to their scoped publisher before their
+# first lock record exists (scripts/ci/orchestrator_release.py publishes them).
+RESERVED_FIRST_PARTY = ("apps/orchestrator", "apps/orchestrator-worker")
 # projectctl-pull reads the clone plugin plus every image a projectctl contract runs.
 PROJECTCTL_PULL_REPOSITORIES = frozenset(
     {"upstream/docker.io/woodpeckerci/plugin-git"}
@@ -46,7 +49,7 @@ _REPOSITORY_RE = re.compile(
 )
 _TAG_RE = re.compile(r"[\w][\w.-]{0,127}\Z", re.ASCII)
 _IMAGE_FIELD_RE = re.compile(
-    r"^\s*(?:-\s*)?image:\s*[\"']?([^\s\"'#{}]+)", re.MULTILINE
+    r"^\s*(?:-\s*)?(?:image|imageName):\s*[\"']?([^\s\"'#{}]+)", re.MULTILINE
 )
 _KIND_RE = re.compile(r"^kind:\s*HelmRelease\s*$", re.MULTILINE)
 _INDEX_MEDIA_TYPES = frozenset(
@@ -375,7 +378,6 @@ def refresh_live_snapshot(root: pathlib.Path) -> dict[str, Any]:
 def discover_inventory(root: pathlib.Path) -> dict[str, Any]:
     root = root.resolve()
     candidates = [root / "gitops", root / "flake"]
-    top_level = [root / ".gitlab-ci.yml"]
     files: list[pathlib.Path] = []
     for candidate in candidates:
         if candidate.exists():
@@ -384,7 +386,6 @@ def discover_inventory(root: pathlib.Path) -> dict[str, Any]:
                 for path in candidate.rglob("*")
                 if path.is_file() and path.suffix in {".yaml", ".yml", ".nix", ".json"}
             )
-    files.extend(path for path in top_level if path.is_file())
 
     found: dict[str, dict[str, Any]] = {}
     gaps: list[dict[str, Any]] = []
@@ -563,7 +564,6 @@ def discover_inventory(root: pathlib.Path) -> dict[str, Any]:
             "sources": [
                 "gitops",
                 "flake",
-                ".gitlab-ci.yml",
                 "registry/observed-images.json",
             ],
             "exhaustive": False,
@@ -2901,6 +2901,23 @@ def render_access_control(lock: Mapping[str, Any]) -> dict[str, Any]:
             ],
             "defaultPolicy": [],
         }
+    # First-party repositories whose first image is published by a protected
+    # operation rather than by hand: the grant must exist before any lock
+    # record does. Each gets the same scoped publisher a record would grant.
+    for repository in RESERVED_FIRST_PARTY:
+        repositories.setdefault(
+            repository,
+            {
+                "policies": [
+                    {"users": ["node"], "actions": read},
+                    {
+                        "users": [f"publisher-{repository.removeprefix('apps/')}"],
+                        "actions": write,
+                    },
+                ],
+                "defaultPolicy": [],
+            },
+        )
     return {
         "repositories": repositories,
         "adminPolicy": {"users": ["maintenance"], "actions": administer},

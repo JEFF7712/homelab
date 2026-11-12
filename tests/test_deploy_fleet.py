@@ -2,12 +2,16 @@ import json
 import subprocess
 import tempfile
 import unittest
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from scripts.deploy_fleet import (
     APPLIANCE_SETTLE_ATTEMPTS,
+    CORDON_MARK,
     FLEET_HOSTS,
+    POSTGRES_CLUSTERS,
+    ClusterLease,
     FleetDeployer,
     FleetDeploymentError,
     FleetLock,
@@ -48,6 +52,42 @@ class DeployFleetTest(unittest.TestCase):
             return result
 
         return FleetDeployer(**dict(kwargs, runner=with_systems))
+
+    def test_drain_outlasts_a_slow_pod_stop(self) -> None:
+        # Regression (2026-11-10): Home Assistant stopped 128s after its
+        # eviction and failed the 120s drain of homelab-03.
+        self.assertGreaterEqual(build_parser().parse_args([]).drain_timeout, 300.0)
+        self.assertGreaterEqual(FleetDeployer(targets=[]).drain_timeout, 300.0)
+
+    def test_switch_survives_the_ci_job_that_drives_it(self) -> None:
+        # Regression (2026-11-03): a switch of homelab-04 restarted Docker,
+        # killed the deploying CI job and, inside its SSH session, stopped
+        # mid-way with k3s down.
+        commands: list[str] = []
+
+        def runner(argv, **options):
+            commands.append(argv[-1])
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        deployer = FleetDeployer(targets=["homelab-04"], runner=runner)
+        host = FLEET_HOSTS["homelab-04"]
+        deployer.activate_system(host, self.NEW)
+        deployer.activate_system(host, self.NEW, dry_run=True)
+        switch, dry_run = commands
+        self.assertIn(
+            "sudo -n systemd-run --unit=homelab-fleet-switch --collect", switch
+        )
+        self.assertIn(
+            "--wait " + self.NEW + "/bin/switch-to-configuration switch", switch
+        )
+        # Output tied to the SSH session made the switch panic on the broken
+        # pipe when the CI job driving it died; it goes to the journal.
+        self.assertNotIn("--pipe", switch)
+        self.assertTrue(
+            switch.startswith("sudo -n nix-env -p /nix/var/nix/profiles/system")
+        )
+        self.assertNotIn("systemd-run", dry_run)
+        self.assertIn(self.NEW + "/bin/switch-to-configuration dry-activate", dry_run)
 
     def test_k3s_hosts_deploy_the_registry_variant(self) -> None:
         for name in (
@@ -149,10 +189,11 @@ class DeployFleetTest(unittest.TestCase):
                 "homelab-02",
                 "homelab-03",
                 "homelab-01",
-                "homelab-04",
                 "homelab-05",
                 "adguard-netbird-01",
                 "nas-01",
+                # The CI host's switch kills the deploy job, so it goes last.
+                "homelab-04",
             ],
         )
 
@@ -449,12 +490,41 @@ class DeployFleetTest(unittest.TestCase):
         result = deployer.execute()
         self.assertEqual(result["status"], "success")
 
-        rollout_cmds = [
-            " ".join(c) for c in executed_commands if "rollout" in c and "status" in c
-        ]
-        self.assertEqual(len(rollout_cmds), 2)
-        self.assertTrue(any("home-assistant-postgres" in cmd for cmd in rollout_cmds))
-        self.assertTrue(any("immich-postgres" in cmd for cmd in rollout_cmds))
+        self.assertEqual(
+            [cmd for cmd in executed_commands if cmd[:2] == ["kubectl", "wait"]],
+            [
+                [
+                    "kubectl",
+                    "wait",
+                    "--for=condition=Ready",
+                    f"clusters.postgresql.cnpg.io/{cluster}",
+                    "-n",
+                    namespace,
+                    "--timeout=180s",
+                ]
+                for namespace, cluster in POSTGRES_CLUSTERS
+            ],
+        )
+
+    def test_every_cloudnativepg_cluster_is_awaited(self) -> None:
+        # umami-cluster was missing from the post-switch wait (2026-11-11).
+        import yaml
+
+        declared = set()
+        for path in (Path(__file__).resolve().parents[1] / "gitops").rglob("*.yaml"):
+            if "postgresql.cnpg.io" not in path.read_text():
+                continue
+            for document in yaml.safe_load_all(path.read_text()):
+                if (
+                    isinstance(document, dict)
+                    and document.get("kind") == "Cluster"
+                    and str(document.get("apiVersion", "")).startswith(
+                        "postgresql.cnpg.io/"
+                    )
+                ):
+                    metadata = document["metadata"]
+                    declared.add((metadata["namespace"], metadata["name"]))
+        self.assertEqual(declared, set(POSTGRES_CLUSTERS))
 
     def test_deployer_appliances(self) -> None:
         executed_commands: list[list[str]] = []
@@ -506,7 +576,8 @@ class DeployFleetTest(unittest.TestCase):
         ]
         self.assertEqual(len(nfs), 1)
         self.assertEqual(nfs[0][-2], "rupan@10.0.30.20")
-        self.assertIn("http://10.0.30.20:8080/", checked_urls)
+        self.assertNotIn("http://10.0.30.20:8080/", checked_urls)
+        self.assertIn("http://10.0.30.20:8090/nix-cache-info", checked_urls)
 
     def test_nas_probes_wait_for_activation_to_settle(self) -> None:
         for failures in (3, 100):
@@ -544,6 +615,61 @@ class DeployFleetTest(unittest.TestCase):
                     min(failures + 1, APPLIANCE_SETTLE_ATTEMPTS)
                     * (2 if failures >= APPLIANCE_SETTLE_ATTEMPTS else 1),
                 )
+
+    def test_dns_verification_waits_for_adguard_to_listen(self) -> None:
+        # Regression (2026-11-10): AdGuard Home was still restarting when the
+        # single probe ran, and a healthy switch was rolled back.
+        for failures in (0, 3, APPLIANCE_SETTLE_ATTEMPTS):
+            with self.subTest(failures=failures):
+                probes: list[list[str]] = []
+
+                def runner(
+                    argv: list[str], **kwargs: object
+                ) -> subprocess.CompletedProcess[str]:
+                    del kwargs
+                    if argv[0] == "dig":
+                        probes.append(argv)
+                        answered = len(probes) > failures
+                        return subprocess.CompletedProcess(
+                            argv, 0, "10.0.30.10\n" if answered else "", ""
+                        )
+                    return subprocess.CompletedProcess(argv, 0, "", "")
+
+                deployer = FleetDeployer(
+                    targets=[],
+                    runner=runner,
+                    socket_checker=lambda host, port, timeout: False,
+                    sleeper=lambda seconds: None,
+                )
+                if failures < APPLIANCE_SETTLE_ATTEMPTS:
+                    deployer.verify_dns_appliance("10.0.30.10")
+                else:
+                    with self.assertRaisesRegex(FleetDeploymentError, "port 53"):
+                        deployer.verify_dns_appliance("10.0.30.10")
+                self.assertEqual(
+                    len(probes), min(failures + 1, APPLIANCE_SETTLE_ATTEMPTS)
+                )
+
+    def test_nas_verification_fails_when_niks3_stays_down(self) -> None:
+        def runner(
+            argv: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            del kwargs
+            if argv[:2] == ["nix", "eval"] and "--raw" not in argv:
+                return subprocess.CompletedProcess(argv, 0, "[]", "")
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        deployer = self.deployer(
+            targets=[FLEET_HOSTS["nas-01"]],
+            skip_preflight=True,
+            skip_cooldown=True,
+            runner=runner,
+            socket_checker=lambda host, port, timeout: False,
+            http_checker=lambda url, timeout: ":8090/" not in url,
+            sleeper=lambda seconds: None,
+        )
+        with self.assertRaisesRegex(FleetDeploymentError, "niks3 cache"):
+            deployer.execute()
 
     def test_circuit_breaker_halts_on_failure_and_uncordons(self) -> None:
         executed_commands: list[list[str]] = []
@@ -828,6 +954,8 @@ class FleetClosureTest(unittest.TestCase):
         build_failure=False,
         failed_health=False,
         recovery_failure=False,
+        node=None,
+        failed_units="",
     ):
         self.commands = []
         self.build_directories = []
@@ -854,11 +982,15 @@ class FleetClosureTest(unittest.TestCase):
                     and self.active == self.NEW
                 ):
                     output = "application.service loaded failed failed Application\n"
+                elif remote == "systemctl --failed --no-legend --plain":
+                    output = failed_units
                 elif "/bin/switch-to-configuration switch" in remote:
                     if self.OLD in remote and recovery_failure:
                         code = 1
                     else:
                         self.active = self.OLD if self.OLD in remote else self.NEW
+            elif argv[:3] == ["kubectl", "get", "node"] and argv[-1] == "json":
+                output = json.dumps(node or {})
             elif argv[:3] == ["kubectl", "get", "node"]:
                 output = "True"
             return subprocess.CompletedProcess(
@@ -878,7 +1010,11 @@ class FleetClosureTest(unittest.TestCase):
         result = self.run_deployment(unchanged=True)
         self.assertEqual(result["hosts"][0]["status"], "unchanged")
         self.assertFalse(
-            any(cmd[0] in {"kubectl", "nixos-rebuild"} for cmd in self.commands)
+            any(
+                cmd[0] == "nixos-rebuild" or cmd[:2] != ["kubectl", "get"]
+                for cmd in self.commands
+                if cmd[0] in {"kubectl", "nixos-rebuild"}
+            )
         )
         self.assertFalse(
             any(
@@ -935,6 +1071,226 @@ class FleetClosureTest(unittest.TestCase):
         self.assertFalse(
             any(cmd[:2] == ["kubectl", "uncordon"] for cmd in self.commands)
         )
+        # The held cordon loses its mark, so later runs leave it alone.
+        self.assertEqual(self.kubectl_mutations()[-1], ("annotate", f"{CORDON_MARK}-"))
+
+    def kubectl_mutations(self):
+        return [
+            (cmd[1], cmd[-1] if cmd[1] == "annotate" else cmd[2])
+            for cmd in self.commands
+            if cmd[0] == "kubectl" and cmd[1] != "get"
+        ]
+
+    @staticmethod
+    def node(*, cordoned=True, marked=True, ready=True):
+        annotations = {CORDON_MARK: "true"} if marked else {}
+        return {
+            "metadata": {"name": "homelab-02", "annotations": annotations},
+            "spec": {"unschedulable": True} if cordoned else {},
+            "status": {
+                "conditions": [
+                    {"type": "Ready", "status": "True" if ready else "False"}
+                ]
+            },
+        }
+
+    def test_deploy_marks_its_cordon_and_clears_the_mark_on_uncordon(self):
+        self.run_deployment()
+        self.assertEqual(
+            self.kubectl_mutations(),
+            [
+                ("cordon", "homelab-02"),
+                ("annotate", f"{CORDON_MARK}=true"),
+                ("drain", "homelab-02"),
+                ("uncordon", "homelab-02"),
+                ("annotate", f"{CORDON_MARK}-"),
+            ],
+        )
+
+    def test_unchanged_healthy_node_left_cordoned_by_a_killed_run_is_released(self):
+        result = self.run_deployment(unchanged=True, node=self.node())
+        self.assertEqual(result["hosts"][0]["status"], "unchanged")
+        self.assertEqual(
+            self.kubectl_mutations(),
+            [("uncordon", "homelab-02"), ("annotate", f"{CORDON_MARK}-")],
+        )
+
+    def test_stale_cordon_is_kept_unless_marked_ready_and_without_failed_units(self):
+        for case in (
+            {"node": self.node(marked=False)},
+            {"node": self.node(ready=False)},
+            {
+                "node": self.node(),
+                "failed_units": "application.service loaded failed failed A\n",
+            },
+            {"node": self.node(cordoned=False)},
+        ):
+            with self.subTest(case):
+                self.run_deployment(unchanged=True, **case)
+                self.assertEqual(self.kubectl_mutations(), [])
+
+
+class LeaseApi:
+    """The Lease part of the Kubernetes API, with its create and replace rules."""
+
+    def __init__(self) -> None:
+        self.lease: dict | None = None
+        self.version = 0
+        self.calls: list[list[str]] = []
+
+    def store(self, body: dict) -> None:
+        self.version += 1
+        body["metadata"]["resourceVersion"] = str(self.version)
+        self.lease = body
+
+    def hold(self, holder: str, renewed: datetime, duration: int = 300) -> None:
+        stamp = renewed.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        self.store(
+            {
+                "metadata": {"name": "homelab-fleet", "namespace": "kube-system"},
+                "spec": {
+                    "holderIdentity": holder,
+                    "leaseDurationSeconds": duration,
+                    "renewTime": stamp,
+                },
+            }
+        )
+
+    def __call__(self, argv, **options):
+        self.calls.append(argv)
+        if argv[0] != "kubectl":
+            return subprocess.CompletedProcess(argv, 0, "", "")
+        verb = next(a for a in argv[1:] if not a.startswith("-") and a != "kube-system")
+        body = json.loads(Path(argv[-1]).read_text()) if "-f" in argv else None
+        if verb == "create":
+            if self.lease is not None:
+                return subprocess.CompletedProcess(argv, 1, "", "AlreadyExists")
+            self.store(body)
+        elif verb == "replace":
+            if body["metadata"].get("resourceVersion") != str(self.version):
+                return subprocess.CompletedProcess(argv, 1, "", "Conflict")
+            self.store(body)
+        elif verb == "get":
+            if self.lease is None:
+                return subprocess.CompletedProcess(argv, 1, "", "NotFound")
+            return subprocess.CompletedProcess(argv, 0, json.dumps(self.lease), "")
+        elif verb == "patch":
+            self.lease["spec"].update(json.loads(argv[argv.index("-p") + 1])["spec"])
+        elif verb == "delete":
+            self.lease = None
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+
+class ClusterLeaseTest(unittest.TestCase):
+    NOW = datetime(2026, 11, 11, 9, 30, tzinfo=UTC)
+
+    def lease(
+        self, api: LeaseApi, holder: str = "deploy-fleet pipeline 2"
+    ) -> ClusterLease:
+        return ClusterLease(
+            holder, runner=api, clock=lambda: self.NOW, renew_seconds=3600
+        )
+
+    def test_free_lease_is_taken_and_released(self) -> None:
+        api = LeaseApi()
+        with self.lease(api):
+            self.assertEqual(
+                api.lease["spec"]["holderIdentity"], "deploy-fleet pipeline 2"
+            )
+        self.assertIsNone(api.lease)
+
+    def test_a_live_holder_blocks_a_second_run(self) -> None:
+        # Regression (2026-11-10): three fleet deployments of one commit ran
+        # at once on the CI host's two deploy slots.
+        api = LeaseApi()
+        api.hold("deploy-fleet pipeline 1", self.NOW - timedelta(seconds=90))
+        with self.assertRaisesRegex(LockContentionError, "pipeline 1"):
+            with self.lease(api):
+                self.fail("entered while another run held the lease")
+        self.assertEqual(api.lease["spec"]["holderIdentity"], "deploy-fleet pipeline 1")
+
+    def test_an_expired_holder_is_taken_over(self) -> None:
+        # A job killed mid-run (the CI host restarting its own agent) stops
+        # renewing; the next run must not wait on it forever.
+        api = LeaseApi()
+        api.hold("deploy-fleet pipeline 1", self.NOW - timedelta(seconds=301))
+        with self.lease(api):
+            self.assertEqual(
+                api.lease["spec"]["holderIdentity"], "deploy-fleet pipeline 2"
+            )
+        self.assertIsNone(api.lease)
+
+    def test_takeover_loses_to_a_concurrent_change(self) -> None:
+        api = LeaseApi()
+        api.hold("deploy-fleet pipeline 1", self.NOW - timedelta(seconds=600))
+        original = api.__call__
+
+        def renewed_meanwhile(argv, **options):
+            if "replace" in argv:
+                api.hold("fleet-reboot pipeline 3", self.NOW)
+            return original(argv, **options)
+
+        with self.assertRaisesRegex(LockContentionError, "changed while"):
+            ClusterLease(
+                "deploy-fleet pipeline 2",
+                runner=renewed_meanwhile,
+                clock=lambda: self.NOW,
+            ).acquire()
+        self.assertEqual(api.lease["spec"]["holderIdentity"], "fleet-reboot pipeline 3")
+
+    def test_release_leaves_a_lease_someone_else_took(self) -> None:
+        api = LeaseApi()
+        lease = self.lease(api)
+        lease.acquire()
+        api.hold("fleet-reboot pipeline 3", self.NOW)
+        lease.release()
+        self.assertEqual(api.lease["spec"]["holderIdentity"], "fleet-reboot pipeline 3")
+
+    def test_renew_moves_the_renew_time(self) -> None:
+        api = LeaseApi()
+        lease = self.lease(api)
+        lease.acquire()
+        later = self.NOW + timedelta(minutes=1)
+        lease.clock = lambda: later
+        lease.renew()
+        self.assertEqual(
+            api.lease["spec"]["renewTime"], later.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        )
+
+    def test_deployment_stops_when_another_run_holds_the_lease(self) -> None:
+        api = LeaseApi()
+        api.hold("fleet-reboot pipeline 1", datetime.now(UTC))
+        with tempfile.TemporaryDirectory() as directory:
+            code = main(
+                [
+                    "--target",
+                    "homelab-02",
+                    "--no-notify",
+                    "--lock-file",
+                    str(Path(directory) / "lock"),
+                ],
+                runner=api,
+            )
+        self.assertEqual(code, 3)
+        self.assertFalse(any(argv[0] == "ssh" for argv in api.calls))
+
+    def test_dry_runs_do_not_take_the_lease(self) -> None:
+        api = LeaseApi()
+        api.hold("deploy-fleet pipeline 1", datetime.now(UTC))
+        with tempfile.TemporaryDirectory() as directory:
+            main(
+                [
+                    "--dry-run",
+                    "--skip-preflight",
+                    "--target",
+                    "homelab-02",
+                    "--no-notify",
+                    "--lock-file",
+                    str(Path(directory) / "lock"),
+                ],
+                runner=api,
+            )
+        self.assertFalse(any("lease" in " ".join(argv) for argv in api.calls))
 
 
 if __name__ == "__main__":

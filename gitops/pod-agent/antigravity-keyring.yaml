@@ -17,6 +17,7 @@ spec:
       labels:
         app: pod-agent-antigravity-keyring
     spec:
+      automountServiceAccountToken: false
       nodeSelector:
         kubernetes.io/hostname: homelab-01
       terminationGracePeriodSeconds: 30

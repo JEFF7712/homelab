@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: external-secrets
-      version: 2.12.0
+      version: 2.14.0
       sourceRef:
         kind: HelmRepository
         name: external-secrets
@@ -22,4 +22,4 @@ spec:
         images:
           - name: ghcr.io/external-secrets/external-secrets
             newName: registry.rupan.dev/upstream/ghcr.io/external-secrets/external-secrets  # yamllint disable-line rule:line-length
-            digest: sha256:814117b0fd6d121b03e8ba3b6db1cecbe7449a354fc0fc9c4faf73a37aa221b1
+            digest: sha256:10608eb53e636e744903d5f3657a4d9c44e28d9d9c181b73e07bc7dd2e6884dc

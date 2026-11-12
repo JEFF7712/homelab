@@ -6,14 +6,18 @@ never executes them. Because the status is attached to one commit, any push
 or branch update produces a new head with no status, and branch protection
 blocks the merge until that exact commit is judged.
 
-Agents have broad authority to change infrastructure but not to redefine
-their own authority. A head passes unless it changes a control that bounds
-agents (this policy, CI policy and deployment holds, branch protection, the
-approvals service, agent guards, secret recipients), grants an operation to
-agents, or crosses a website boundary (scripts/verifier/websites.py). Repair
-findings go back to the agent; authority findings need an operator's
-approval of that exact head (or of a byte-identical change). Notices are
-recorded and do not block.
+Agents decide and record everything except the operator's gates
+(scripts/verifier/enforcement.py): spending caps and the enforcement code
+that judges merges and deployments. A head passes unless it changes
+enforcement code, unmarks a catalog mutation (which would take it out of the
+deployment gate), or crosses a website boundary
+(scripts/verifier/websites.py). Repair findings go back to the agent;
+authority findings need an operator's approval of that exact head (or of an
+earlier head with a byte-identical diff of the gated files) on the approvals
+dashboard, the one place the
+operator approves anything. The policy files the request itself; Forgejo
+reviews grant nothing. Notices, such as granting an operation to agents,
+are recorded and do not block.
 
 A head that lags main also fails when main's changes since the merge base
 overlap the PR's (`scripts/verifier/freshness.py`), so branch protection need
@@ -35,6 +39,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from scripts.ci.deployment_risk import protected
+from scripts.verifier.enforcement import enforcement
 from scripts.verifier.freshness import OUTDATED, overlap
 from scripts.verifier.websites import (
     SPEC,
@@ -46,26 +52,9 @@ from scripts.verifier.websites import (
 )
 
 CONTEXT = "policy/merge"
-OPERATORS = frozenset({"rupan"})
-# The controls that bound agents. Changing any of them needs an operator, so
-# no agent can widen its own authority, merge-time or deploy-time.
-POLICY_PATHS = (
-    "scripts/verifier/",
-    "flake/modules/merge-policy.nix",
-    "scripts/ci/policy.py",
-    "scripts/ci/state.py",
-    "scripts/ci/operation.py",
-    "scripts/ci/deployment_risk.py",
-    "scripts/approvals/",
-    "flake/modules/approvals.nix",
-    "flake/modules/woodpecker.nix",
-    "config/ci/forgejo-protection.json",
-    "config/ci/woodpecker-repository.json",
-    "scripts/agent/guard.py",
-    "hooks/pre-tool-use",
-    ".sops.yaml",
-    "CODEOWNERS",
-)
+# Approved merge requests record the head's versions of these files (what a
+# deployment's authority check compares), up to the dashboard's limit.
+FILES_LIMIT = 500
 CATALOG = "config/ci/operations.json"
 MARKER = "<!-- merge-policy head={head} outcome={outcome} -->"
 MARKER_PREFIX = "<!-- merge-policy head={head} "
@@ -82,10 +71,14 @@ class Decision:
     # Behind main with overlapping changes: the fix is a branch update, so
     # no repair comment is posted.
     outdated: bool = False
+    # For an escalation: the head's protected file versions, recorded with
+    # the approval request.
+    files: dict[str, str] = field(default_factory=dict)
 
 
 def catalog_findings(read_base: Any, read_head: Any) -> list[Finding]:
-    """Operations newly granted to agents, or no longer marked as mutations."""
+    """Operations newly granted to agents (recorded), or no longer marked as
+    mutations (held: an unmarked operation skips the deployment gate)."""
     try:
         base = json.loads(read_base(CATALOG) or "{}")
         head = json.loads(read_head(CATALOG) or "{}")
@@ -97,16 +90,15 @@ def catalog_findings(read_base: Any, read_head: Any) -> list[Finding]:
             continue
         before = base.get(name) if isinstance(base.get(name), dict) else None
         if operation.get("agent") and not (before or {}).get("agent"):
-            if before is None:
-                findings.append(
-                    Finding("notice", "catalog", f"new agent operation {name}")
+            findings.append(
+                Finding(
+                    "notice",
+                    "catalog",
+                    f"new agent operation {name}"
+                    if before is None
+                    else f"{name} is newly granted to agents",
                 )
-            else:
-                findings.append(
-                    Finding(
-                        "authority", "catalog", f"{name} is newly granted to agents"
-                    )
-                )
+            )
         if before and before.get("mutation") and not operation.get("mutation"):
             findings.append(
                 Finding(
@@ -114,6 +106,11 @@ def catalog_findings(read_base: Any, read_head: Any) -> list[Finding]:
                 )
             )
     return findings
+
+
+def gated(path: str) -> bool:
+    """Whether a change to path can need an operator in decide()."""
+    return enforcement(path) or path == CATALOG or path.startswith(WEBSITES + "/")
 
 
 def decide(
@@ -140,10 +137,8 @@ def decide(
             findings = [Finding("repair", "websites", str(error))]
     if CATALOG in changed:
         findings += catalog_findings(read_base, read_head)
-    for path in sorted(path for path in changed if path.startswith(POLICY_PATHS)):
-        findings.append(
-            Finding("authority", "policy", f"{path} bounds agent authority")
-        )
+    for path in sorted(path for path in changed if enforcement(path)):
+        findings.append(Finding("authority", "policy", f"{path} is enforcement code"))
     blocking = [finding for finding in findings if finding.severity != "notice"]
     if not blocking:
         return Decision(
@@ -178,6 +173,48 @@ class Forge:
         with urllib.request.urlopen(request, timeout=30) as response:
             text = response.read()
         return json.loads(text) if text else None
+
+
+class Approvals:
+    """The approvals dashboard, where the operator approves escalated heads.
+
+    The policy files requests as its Forgejo user, which the dashboard
+    verifies; a request names the head, its findings and its protected file
+    versions. Lookups that fail raise, so a dashboard outage never reads as
+    "no approval" and flips a passing status.
+    """
+
+    def __init__(self, url: str, token: str) -> None:
+        self.url = url.rstrip("/")
+        self.token = token
+
+    def call(self, method: str, path: str, body: Any = None) -> Any:
+        request = urllib.request.Request(
+            self.url + path,
+            method=method,
+            data=json.dumps(body).encode() if body is not None else None,
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return json.loads(response.read())
+
+    def approved(self, number: int) -> list[str]:
+        """Heads of this PR the operator approved."""
+        return list(self.call("GET", f"/api/merges/{number}")["approved"])
+
+    def file(
+        self, number: int, head: str, files: dict[str, str], findings: list[str]
+    ) -> str:
+        """Request approval of this head; the link the operator opens."""
+        filed = self.call(
+            "POST",
+            "/api/merges",
+            {"pull": number, "head": head, "files": files, "findings": findings},
+        )
+        return str(filed["url"])
 
 
 class Mirror:
@@ -242,9 +279,25 @@ class Mirror:
         return self.git("merge-base", a, b).stdout.decode().strip()
 
     def patch_id(self, commit: str) -> str | None:
+        """Patch identity of the commit's operator-gated diff from main.
+
+        Only the files that can need an operator (gated) enter the diff, so
+        later edits elsewhere in the PR leave it unchanged.
+        """
         base = self.merge_base("refs/heads/main", commit)
+        paths = [path for path in self.changed(base, commit) if gated(path)]
+        if not paths:
+            return None
         diff = self.git(
-            "diff", "--no-ext-diff", "--binary", "--full-index", base, commit
+            "diff",
+            "--no-ext-diff",
+            "--no-renames",
+            "--binary",
+            "--full-index",
+            base,
+            commit,
+            "--",
+            *(f":(literal){path}" for path in paths),
         ).stdout
         if not diff:
             return None
@@ -252,7 +305,7 @@ class Mirror:
         return out.split()[0].decode() if out else None
 
     def same_change(self, approved: str, head: str) -> bool:
-        """Whether two heads carry the same diff from their merge bases."""
+        """Whether head builds on approved with the same operator-gated diff."""
         if self.git(
             "merge-base", "--is-ancestor", approved, head, check=False
         ).returncode:
@@ -266,38 +319,48 @@ class Mirror:
         ).stdout
         return [os.fsdecode(path) for path in out.split(b"\0") if path]
 
+    def files(self, commit: str, paths: list[str]) -> dict[str, str]:
+        """Tree identities at commit of the changed paths a deployment checks.
 
-def operator_approved(
-    reviews: list[dict[str, Any]], head: str, same_change: Any = None
-) -> bool:
-    """Whether an operator approved this head, or an identical change.
+        Same format as the CI policy's authority candidate: `mode blob` per
+        path, or `absent` for a deletion.
+        """
+        wanted = sorted(p for p in paths if protected(p) or p.endswith(".nix"))
+        wanted = wanted[:FILES_LIMIT]
+        result = dict.fromkeys(wanted, "absent")
+        if not wanted:
+            return result
+        tree = self.git("ls-tree", "-r", "-z", commit, "--", *wanted).stdout
+        for entry in tree.split(b"\0"):
+            if not entry:
+                continue
+            metadata, name = entry.split(b"\t", 1)
+            mode, _, blob = metadata.decode().split()
+            path = os.fsdecode(name)
+            if path in result:
+                result[path] = f"{mode} {blob}"
+        return result
 
-    An approval of an older head carries over only when same_change says the
-    PR's own diff from its merge base is byte-identical, which is what
-    updating a branch from main produces. Any new change, including a
-    conflict resolution, needs a fresh approval.
+
+def operator_approved(approved: list[str], head: str, same_change: Any = None) -> bool:
+    """Whether the operator approved this head, or the same gated change.
+
+    An approval of an older head carries over when same_change says the head
+    builds on it and the PR's diff of operator-gated files (enforcement code,
+    the operation catalog, websites) is byte-identical. Updating from main or
+    adding commits that touch only other files keeps the approval; any new or
+    different gated change, including in a conflict resolution, needs a
+    fresh one.
     """
-    for review in reviews:
-        if (
-            review.get("state") != "APPROVED"
-            or (review.get("user") or {}).get("login") not in OPERATORS
-            or review.get("dismissed")
-        ):
-            continue
-        approved = review.get("commit_id")
-        if approved == head and not review.get("stale"):
-            return True
-        if (
-            approved
-            and approved != head
-            and same_change
-            and same_change(approved, head)
-        ):
-            return True
-    return False
+    if head in approved:
+        return True
+    return bool(
+        same_change
+        and any(item != head and same_change(item, head) for item in approved)
+    )
 
 
-def comment_body(head: str, decision: Decision) -> str:
+def comment_body(head: str, decision: Decision, link: str = "") -> str:
     outcome = (
         "authorized"
         if decision.state == "success"
@@ -313,8 +376,8 @@ def comment_body(head: str, decision: Decision) -> str:
     elif decision.escalate:
         lines.append(
             f"`{CONTEXT}` needs operator authority for `{head[:12]}`. "
-            f"@{min(OPERATORS)}: approve this exact commit to override, or ask for a "
-            "narrower change."
+            f"Approve this exact commit on the approvals dashboard: {link} "
+            "(or ask for a narrower change). Forgejo reviews do not count."
         )
     else:
         lines.append(
@@ -333,7 +396,7 @@ def freshness(branch: list[str], main: list[str]) -> Decision | None:
 
 
 def judge(
-    forge: Forge, mirror: Mirror, pull: dict[str, Any]
+    mirror: Mirror, pull: dict[str, Any], approvals: Approvals
 ) -> tuple[str, Decision, str]:
     """Decision for the PR head, and the main commit it was judged against."""
     number, head = pull["number"], pull["head"]["sha"]
@@ -343,25 +406,35 @@ def judge(
     main = mirror.tip()
     base = mirror.merge_base(main, head)
     changed = mirror.changed(base, head)
-    reviews = forge.call("GET", f"/pulls/{number}/reviews") or []
     decision = decide(
         changed,
         mirror.reader(base),
         mirror.reader(head),
         mirror.specs(base),
         mirror.specs(head),
-        operator_approved(reviews, head, mirror.same_change),
+        operator_approved(approvals.approved(number), head, mirror.same_change),
     )
+    if decision.escalate:
+        decision.files = mirror.files(head, changed)
     if decision.state == "success" and base != main:
         decision = freshness(changed, mirror.changed(base, main)) or decision
     return head, decision, main
 
 
-def publish(forge: Forge, pull: dict[str, Any], head: str, decision: Decision) -> bool:
+def publish(
+    forge: Forge,
+    pull: dict[str, Any],
+    head: str,
+    decision: Decision,
+    approvals: Approvals | None = None,
+) -> bool:
     number = pull["number"]
     current = forge.call("GET", f"/pulls/{number}")
     if current["head"]["sha"] != head:
         return False
+    link = pull.get("html_url", "")
+    if decision.escalate and approvals is not None:
+        link = approvals.file(number, head, decision.files, decision.findings)
     forge.call(
         "POST",
         f"/statuses/{head}",
@@ -369,7 +442,7 @@ def publish(forge: Forge, pull: dict[str, Any], head: str, decision: Decision) -
             "state": decision.state,
             "context": CONTEXT,
             "description": decision.description[:140],
-            "target_url": pull.get("html_url", ""),
+            "target_url": link,
         },
     )
     if (decision.state == "failure" or decision.findings) and not decision.outdated:
@@ -379,7 +452,7 @@ def publish(forge: Forge, pull: dict[str, Any], head: str, decision: Decision) -
             forge.call(
                 "POST",
                 f"/issues/{number}/comments",
-                {"body": comment_body(head, decision)},
+                {"body": comment_body(head, decision, link)},
             )
     return True
 
@@ -387,7 +460,8 @@ def publish(forge: Forge, pull: dict[str, Any], head: str, decision: Decision) -
 def run_once(
     forge: Forge,
     mirror: Mirror,
-    judged: dict[int, tuple[str, str, str]],
+    approvals: Approvals,
+    judged: dict[int, tuple[str, str, str, str]],
     dry_run: bool = False,
     errors: dict[tuple[int, str], int] | None = None,
 ) -> None:
@@ -410,15 +484,19 @@ def run_once(
         number, head = pull["number"], pull["head"]["sha"]
         previous = judged.get(number)
         # A passing head stays passing until it or main moves.
-        if previous == (head, "success", main):
+        if previous and previous[:2] == (head, "success") and previous[3] == main:
             continue
         try:
-            head, decision, judged_main = judge(forge, mirror, pull)
-            if previous and previous[:2] == (head, decision.state):
-                judged[number] = (head, decision.state, judged_main)
+            head, decision, judged_main = judge(mirror, pull, approvals)
+            judgment = (head, decision.state, decision.description, judged_main)
+            # The reason matters as well as the state: an operator approval
+            # turns "needs operator approval" into "behind main", which ship
+            # answers with a branch update only once it is published.
+            if previous and previous[:3] == judgment[:3]:
+                judged[number] = judgment
                 continue
             if dry_run:
-                judged[number] = (head, decision.state, judged_main)
+                judged[number] = judgment
                 print(
                     json.dumps(
                         {
@@ -430,8 +508,8 @@ def run_once(
                     )
                 )
                 continue
-            if publish(forge, pull, head, decision):
-                judged[number] = (head, decision.state, judged_main)
+            if publish(forge, pull, head, decision, approvals):
+                judged[number] = judgment
                 log.info(
                     "PR #%s %s: %s %s",
                     number,
@@ -469,6 +547,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--token-file", type=Path, required=True)
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--interval", type=float, default=15)
+    parser.add_argument("--approvals", default="http://127.0.0.1:8020")
     parser.add_argument("--once", action="store_true")
     parser.add_argument(
         "--dry-run", action="store_true", help="print decisions instead of posting them"
@@ -477,13 +556,14 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     token = args.token_file.read_text().strip()
     forge = Forge(args.forgejo, args.repository, token)
+    approvals = Approvals(args.approvals, token)
     mirror = Mirror(
         args.state / "mirror.git", f"{args.forgejo}/{args.repository}.git", token
     )
-    judged: dict[int, tuple[str, str, str]] = {}
+    judged: dict[int, tuple[str, str, str, str]] = {}
     errors: dict[tuple[int, str], int] = {}
     while True:
-        run_once(forge, mirror, judged, args.dry_run, errors)
+        run_once(forge, mirror, approvals, judged, args.dry_run, errors)
         if args.once:
             return 0
         time.sleep(args.interval)

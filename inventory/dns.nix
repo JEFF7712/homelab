@@ -20,8 +20,8 @@
     }
     {
       name = "grafana.homelab";
-      address = "10.0.40.13";
-      description = "Adopted pre-existing override: Grafana load-balancer VIP, verified live 2026-10-06";
+      address = "10.0.40.12";
+      description = "Grafana load-balancer VIP";
       unboundOrder = 3;
     }
     {
@@ -80,6 +80,13 @@
       description = "Mirror of the AdGuard rewrite for OPNsense.internal.";
       unboundOrder = 9;
       adguardOrder = 1;
+    }
+    {
+      name = "jellyfin.rupan.dev";
+      address = "10.0.40.16";
+      description = "Jellyfin LAN load-balancer VIP: keeps LAN playback direct instead of hairpinning through the Cloudflare Tunnel.";
+      unboundOrder = 10;
+      adguardOrder = 8;
     }
   ];
 }

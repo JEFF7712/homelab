@@ -2,11 +2,12 @@
 
 ## Status and scope
 
-This is the recovery plan and acceptance contract, inspected on 2026-10-14
-against homelab source `1a34ee17ed62851af1e8d71f42baa10b197d617c`.
-No recovery environment was created and no production service was stopped for
-this review. Complete independent platform recovery remains **unproven**.
-Bookshelf release work remains deferred by the operator.
+This is the recovery plan and acceptance contract, with dated checkpoint and
+drill observations below. The original source inspection was on 2026-10-14
+against `1a34ee17ed62851af1e8d71f42baa10b197d617c`; later sections record
+subsequent work. Complete independent platform recovery remains **unproven**
+until all relevant acceptance gates have fresh receipts. Historical work-item
+priorities and approvals do not override the current task or deployed source.
 
 The next executable milestone is a clean, isolated recovery of Darkbit from a
 declared recovery checkpoint while the original NAS, production cluster, and
@@ -53,7 +54,8 @@ These observations identify recovery inputs; they do not certify a complete set.
 | Garage and infrastructure state | `flake/modules/nas-s3.nix`, `flake/modules/tofu-state.nix`; `/persist/garage`, `/tank/s3`, `/persist/tofu-state` | Platform backup stops Forgejo/Garage for ZFS snapshots and separately snapshots state SQLite and TLS/credential files | Prove metadata/object consistency and exact state serials/lineages; keep state writers and CI authority disabled until validated |
 | Platform backup destination | `flake/modules/platform-backup.nix`, `scripts/ci/platform_backup.py`; `platform-backup.env` in `secrets/shared/platform-backup.sops.yaml` | Live NAS and homelab-04 environments were mode 0600 and pointed at R2; timers enabled. Last observed exits: NAS 2026-10-14 12:05:15 CDT, runner 12:00:39 CDT, both success | Job success is not a restore receipt; independent password/access custody and complete offline repository export remain preflight requirements |
 | Zot | `flake/modules/zot-registry.nix`, `flake/modules/nas-data.nix`; `/tank/registry`, `/persist/zot`, `/var/lib/acme` | Registry backup declares encrypted Restic on `/mnt/backup-2tb/registry-restic`, excludes its own password, prunes daily/weekly/monthly generations, checks a subset | Verify actual snapshot freshness, recover the password independently, export accepted/rollback/bootstrap images and restore-test them; same-host disk does not cover B or C |
-| Attic | `flake/modules/nas-data.nix`; `/persist/attic/server.db`, `/persist/attic/env`, `/srv/attic` (`zroot/attic` on the system SSD mirror; `tank/attic` is the pre-2026-10-19 copy) | Local snapshots are declared; the inspected platform backup does not export these paths | Export a consistent cache or complete required Nix closures plus signatures and trust metadata. A top-level NAR without its references is insufficient |
+| Attic (retired from use 2026-11-10; data held until decommission) | `flake/modules/nas-data.nix`; `/persist/attic/server.db`, `/persist/attic/env`, `/srv/attic` (`zroot/attic` on the system SSD mirror; `tank/attic` is the pre-2026-10-19 copy) | Local snapshots are declared; the inspected platform backup does not export these paths | Export a consistent cache or complete required Nix closures plus signatures and trust metadata. A top-level NAR without its references is insufficient |
+| niks3 cache | `flake/modules/niks3-cache.nix`; `/persist/niks3` (signing key, API token, S3 key), `/var/lib/postgresql` (persisted), `/srv/nix-cache` (`zroot/nix-cache`: its own Garage metadata and data) | Not exported by platform backup; declared as a fleet and dev-shell substituter alongside Attic (see [cache rollout](ci-pipelines.md#niks3-cache)) | Cache bytes can be rebuilt only with retained inputs. Clients already declare its public key; preserve `/persist/niks3/signing-key`, or coordinate a trust-key rotation |
 | npm and other build supply | `flake/modules/npm-cache-proxy.nix`, `config/ci/applications.json`, `services/*/` | npm endpoint is an nginx pull-through cache, explicitly disposable; application lanes retain named supply in Forgejo packages | Verify every selected lock entry/toolchain against restored package files. A cache miss must fail offline; do not count this endpoint as a retained Verdaccio registry |
 | Host and container bootstrap | `flake/`, `registry/images.lock.json`, fleet source bundles | Laptop/ISO publication receipt exists under `nixos/2026-10-13/publication-1600/`; ISO extraction and signature/hash checks recorded | ISO boot and laptop full-closure restore are unproven; neither receipt establishes replacement NAS/server OS closures, recovery utilities or all bootstrap images |
 | k3s and Cilium | `flake/modules/k3s-server.nix`; `/persist/etcd-snapshots`, server token and registry credentials | Source schedules daily 03:00 etcd snapshots with retention 14; Cilium images use local digest pins | No independent etcd/token export was found in the inspected platform backup. Cilium chart 1.20.1 still uses `https://helm.cilium.io`; retain chart bytes/digest and Helm installer dependencies before scenario C |
@@ -64,14 +66,14 @@ These observations identify recovery inputs; they do not certify a complete set.
 Platform snapshots on NAS and runner have separate timestamps. They are not an
 atomic cross-host checkpoint. Reconcile Forgejo refs, package versions, CI
 records and state fingerprints before selecting an accepted checkpoint.
-The existing Forgejo GitLab failover procedure requires surviving NAS state and
-an external GitLab service; it is not the scenario C bootstrap route.
+The GitLab failover lane was retired on 2026-11-09; it was never the
+scenario C bootstrap route.
 
 ## Circular dependencies and the escape paths
 
 | Cycle or hidden dependency | Required escape path |
 | --- | --- |
-| Rebuilding the NAS needs Nix inputs from Attic on that NAS | Boot a retained, tested installer and import complete signed host/recovery-tool closures from offline media before any Nix evaluation needing remote fetches |
+| Rebuilding the NAS needs Nix inputs from the niks3 cache on that NAS | Boot a retained, tested installer and import complete signed host/recovery-tool closures from offline media before any Nix evaluation needing remote fetches |
 | Restoring Zot needs a Zot image from Zot | Start the native Zot service from the imported NixOS closure, or a separately exported verified OCI image with an already available engine; do not pull it from the lost registry |
 | Offline CI needs Forgejo packages, but restoring Forgejo needs CI | Restore Forgejo DB/files/packages directly with preinstalled tools; CI is not a bootstrap prerequisite |
 | Flux needs Forgejo and age credentials, while secret distribution needs Flux | Seed only the Git read/known-hosts, registry-read and SOPS bootstrap identities from independent escrow before enabling reconciliation |
@@ -401,3 +403,44 @@ The next prerequisite is a reviewed, retained pilot-only service/cluster/CI
 restore overlay and dependency closure. The second copy remains deferred.
 Forgejo, Zot, Woodpecker, Kubernetes, Darkbit release/promotion/rollback and
 full-platform RTO remain untested in the recovered environment.
+
+## Weekly platform restore drill
+
+`platform-restore-drill.service` on nas-01 runs from a timer every two
+hours (and 15 minutes after boot or a deploy that changes its code), but
+drills only when something is due: a dataset that failed, is pending, last
+passed more than six days ago, or was checked by different drill code. It
+always exits 0, because a failed unit fails every nas-01 activation; failures
+surface only through the metrics and alerts below. It proves that both hosts' `sovereign-platform`
+snapshots restore, along with the CouchDB data described below. For nas-01 and homelab-04 it requires a snapshot from the
+last two days, restores a bounded sample (every `*.sqlite` and `*.db`, plus
+`homelab.git`) into scratch space under `/persist/platform-backup`, runs
+`PRAGMA integrity_check` and `git fsck --full`, and deletes the scratch copy.
+fsck runs with `core.commitGraph=false`. The commit-graph is a regenerable
+cache, and after Forgejo prunes unreachable commits it keeps listing them,
+which `fsck --full` reports as unreadable even though every reachable object
+is present (seen on 2026-11-09). A truly missing object still fails the drill.
+
+The nas-01 snapshot also carries the Obsidian CouchDB data
+(`homelab.platformBackup.couchdbDataPath`, copied from the same ZFS snapshot
+without compaction files or deleted databases). The drill restores it and
+opens it with a throwaway nixpkgs CouchDB bound to 127.0.0.1 on a random
+port, with no Erlang distribution, which matches the live `nonode@nohost`
+shard placement. Every user database must report documents and return one.
+The result is its own dataset, `couchdb-obsidian`. Until a backup has carried
+CouchDB, the drill records `pending` and publishes nothing for it. Once it has
+passed, a missing copy is a failure. To check a CouchDB upgrade, open the
+restored copy with the candidate version the same way before rolling out.
+
+Results persist in `/var/lib/platform-backup/drill.json` (a failure keeps the
+last pass time) and reach Prometheus through node exporter's textfile
+directory as `homelab_restore_drill_last_success_timestamp_seconds`,
+`homelab_restore_drill_last_result` and `homelab_restore_drill_result_info`,
+whose `result` label carries the failure reason, so agents without host
+access read it from Prometheus. Metrics are the only failure signal: the
+unit always exits 0. A failed unit fails every nas-01 activation, and on
+2026-11-10 a failing drill blocked a fleet deploy and its rollback. A failed
+dataset therefore retries on the next two-hourly run. `RestoreDrillFailed`,
+`RestoreDrillStale` (no pass in eight days) and `RestoreDrillMissing` page
+through ntfy. Run it now with
+`HOMELAB_AUTHORIZED=1 ssh nas-01 systemctl start platform-restore-drill`.

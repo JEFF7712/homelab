@@ -28,6 +28,12 @@ in
 
   networking.hostName = "homelab-05";
 
+  # Retained local Prometheus TSDB; the PV binds only on this host.
+  systemd.tmpfiles.rules = [
+    "d /persist/prometheus 0750 1000 2000 -"
+    "d /persist/prometheus/prometheus-db 0750 1000 2000 -"
+  ];
+
   # The e1000e transmit queue hung on 2026-10-16 and never recovered.
   systemd.network.links."10-onboard-ethernet" = {
     matchConfig = {
@@ -101,9 +107,12 @@ in
     # Apollo publishes as the roku-bridge broker user on adguard-netbird-01.
     mosquitto-roku-bridge-password = {
       sopsFile = ../../../secrets/shared/mqtt-roku-bridge.sops.yaml;
-      restartUnits = map (device: "apollo-ble-bridge-${device}.service") (
+      restartUnits = [
+        "controller-pairer.service"
+      ]
+      ++ (map (device: "apollo-ble-bridge-${device}.service") (
         builtins.attrNames config.homelab.apollo-ble-bridge.devices
-      );
+      ));
     };
   };
 
@@ -192,7 +201,9 @@ in
           # alsa_output.usb-Generic_USB_SPDIF_Adapter_202110200032-00.analog-stereo,
           # USB 0bda:4e27). The usb-*SPDIF* substring survives USB bus-path
           # renames. Placed after the generic onboard rule so it wins the
-          # priority for this one node.
+          # priority for this one node. Keep session.suspend-timeout-seconds at 0
+          # so the optical transmitter carrier stays active 24/7 and does not
+          # trigger the soundbar's auto-sleep timer.
           {
             matches = [
               { "node.name" = "~alsa_output.usb-.*SPDIF.*"; }
@@ -201,6 +212,7 @@ in
               update-props = {
                 "priority.driver" = 3000;
                 "priority.session" = 3000;
+                "session.suspend-timeout-seconds" = 0;
               };
             };
           }
@@ -240,7 +252,13 @@ in
       "rupan"
     ];
     autostart = true;
+    autostartHost = "10.0.20.135";
+    autostartApp = "Steam Big Picture";
     output = "HDMI-A-1";
+    controllerPairer = {
+      enable = true;
+      passwordFile = config.sops.secrets.mosquitto-roku-bridge-password.path;
+    };
   };
 
   # Re-apply ALSA unmute whenever the QuadCast USB microphone is connected/re-enumerated

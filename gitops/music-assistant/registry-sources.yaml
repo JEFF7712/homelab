@@ -1,0 +1,22 @@
+# Inventory-only upstream image declarations for gitops/music-assistant
+# consumers that mirror their upstream images before deploy. Scanned by
+# `python -m scripts.registry inventory` (item "image:" fields), imported to
+# registry.rupan.dev/upstream/<host>/<path> by the registry CI lane, then
+# referenced by digest in the owning manifest.
+#
+# This file is NOT listed in gitops/music-assistant/kustomization.yaml: it is
+# an inventory source only and must never be applied to the cluster.
+#
+# Update flow: change the digest below, import it, then update the consumer
+# manifest digest, so a pod never pulls an image the mirror lacks.
+apiVersion: v1
+kind: List
+metadata:
+  name: music-assistant-registry-sources
+items:
+  # YouTube PO token provider sidecar in server.yaml
+  - image: docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.2@sha256:d7d34108b76e52c7d3b575fe9e797e4bf41c1b2a08f80c5292eff6f851ce8472  # yamllint disable-line rule:line-length
+  # Music Assistant server (server.yaml)
+  - image: ghcr.io/music-assistant/server:2.10.4@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de
+  # LedFx (ledfx.yaml)
+  - image: ghcr.io/ledfx/ledfx:2.1.9@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036

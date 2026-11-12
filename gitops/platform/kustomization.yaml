@@ -15,6 +15,7 @@ resources:
   - cnpg/repository.yaml
   - cnpg/release.yaml
   - storage-class.yaml
+  - nfs-client-isolation.yaml
 
 patches:
   - patch: |-

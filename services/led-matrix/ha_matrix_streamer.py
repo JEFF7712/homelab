@@ -37,7 +37,7 @@ SPOTIFY_VINYL_BRIGHTNESS = 0.7
 
 
 def effective_brightness(mode: str, configured_brightness: float) -> float:
-    if mode == "Off":
+    if mode == "Off" or mode == "Laptop":
         return 0.0
     if mode == "Spotify":
         return SPOTIFY_VINYL_BRIGHTNESS
@@ -71,8 +71,18 @@ def main() -> None:
     )
     parser.add_argument(
         "--brightness-entity",
+        default=os.getenv("BRIGHTNESS_ENTITY") or None,
+    )
+    parser.add_argument(
+        "--contrast-entity",
         default=os.getenv(
-            "BRIGHTNESS_ENTITY", "input_number.bedroom_matrix_brightness"
+            "CONTRAST_ENTITY", "input_number.bedroom_matrix_vinyl_contrast"
+        ),
+    )
+    parser.add_argument(
+        "--saturation-entity",
+        default=os.getenv(
+            "SATURATION_ENTITY", "input_number.bedroom_matrix_vinyl_saturation"
         ),
     )
     parser.add_argument(
@@ -82,6 +92,10 @@ def main() -> None:
     parser.add_argument(
         "--music-mode-entity",
         default=os.getenv("MUSIC_MODE_ENTITY", "input_boolean.bedroom_music_mode"),
+    )
+    parser.add_argument(
+        "--cycle-entity",
+        default=os.getenv("CYCLE_ENTITY", "input_boolean.bedroom_matrix_cycle"),
     )
     parser.add_argument(
         "--ledfx-port",
@@ -170,6 +184,9 @@ def main() -> None:
             brightness_entity=args.brightness_entity,
             weather_entity=args.weather_entity,
             music_mode_entity=args.music_mode_entity,
+            cycle_entity=args.cycle_entity,
+            contrast_entity=args.contrast_entity,
+            saturation_entity=args.saturation_entity,
             stale_after=args.stale_after,
         )
     except (OSError, ValueError) as error:
@@ -225,7 +242,7 @@ def main() -> None:
         "Game of Life": LifeRenderer(),
         "Arcade": multiplayer_renderer,
         "2-Player Arcade": multiplayer_renderer,
-        "Visualizer": visualizer,
+        "Visualizer": ledfx_mode,
         "LedFx": ledfx_mode,
         "Physics": PhysicsRenderer(),
         "Homelab Dashboards": HomelabRenderer(prometheus),
@@ -296,6 +313,39 @@ def main() -> None:
                     except Exception:
                         pass
 
+            if active_mode == "Laptop":
+                if streamer.sock is not None:
+                    print(
+                        "[Matrix] Mode is Laptop: yielding TCP port 9999 to direct client",
+                        flush=True,
+                    )
+                    streamer.close()
+                if args.health_file and tick - last_health >= 2:
+                    write_private_file(
+                        args.health_file,
+                        json.dumps(
+                            {
+                                "updated_at": time.time(),
+                                "ready": source.connected,
+                                "mode": active_mode,
+                                "power": ha_state.power,
+                                "brightness": 0.0,
+                                "metadata_available": spotify_state.available,
+                                "artwork_ready": False,
+                                "frames": streamer.frames,
+                                "failures": streamer.failures,
+                                "max_frame_ms": round(max_frame_ms, 2),
+                                "provider": getattr(
+                                    source, "active_provider", "home_assistant"
+                                ),
+                            }
+                        ),
+                    )
+                    last_health = tick
+                last_tick = tick
+                stop.wait(max(0, 1 / args.fps - (time.monotonic() - tick)))
+                continue
+
             if active_mode == "Spotify":
                 if spotify_state.title != last_title:
                     provider = getattr(source, "active_provider", "ha").upper()
@@ -338,7 +388,8 @@ def main() -> None:
                     json.dumps(
                         {
                             "updated_at": time.time(),
-                            "ready": source.connected and last_ack > tick - 10,
+                            "ready": source.connected
+                            and (last_ack > tick - 10 or active_mode == "Laptop"),
                             "mode": active_mode,
                             "power": ha_state.power,
                             "brightness": brightness,

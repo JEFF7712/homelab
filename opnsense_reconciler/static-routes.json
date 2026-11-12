@@ -1,0 +1,18 @@
+[
+  {
+    "description": "Jellyfin LAN VIP return path via its pinned k3s node; replaces the manual FIB entry.",
+    "enabled": "1",
+    "gateway_address": "10.0.30.14",
+    "gateway_interface": "opt3",
+    "gateway_name": "GW_HOMELAB_04",
+    "network": "10.0.40.16/32"
+  },
+  {
+    "description": "NetBird mesh return path: adguard-netbird-01 routes the tailnet into the LAN.",
+    "enabled": "1",
+    "gateway_address": "10.0.30.10",
+    "gateway_interface": "opt3",
+    "gateway_name": "GW_ADGUARD_NETBIRD",
+    "network": "100.64.0.0/10"
+  }
+]

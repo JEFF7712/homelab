@@ -48,15 +48,18 @@ QUERIES = {
 
 
 class PrometheusSource:
+    FRESH_SECONDS = 60.0
+    ACTIVE_SECONDS = 30.0
+
     def __init__(self, url: str) -> None:
         self.url = url.rstrip("/") + "/api/v1/query"
         self._lock = threading.Lock()
         self._requested: str | None = None
         self._last_request = 0.0
-        self._view = ""
-        self._values: dict[str, list[tuple[dict[str, str], float]]] = {}
-        self._updated = 0.0
+        self._cache: dict[str, dict[str, list[tuple[dict[str, str], float]]]] = {}
+        self._updated: dict[str, float] = {}
         self._stop = threading.Event()
+        self._wake = threading.Event()
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
@@ -66,6 +69,7 @@ class PrometheusSource:
 
     def close(self) -> None:
         self._stop.set()
+        self._wake.set()
         if self._thread is not None:
             self._thread.join(timeout=3)
 
@@ -73,11 +77,14 @@ class PrometheusSource:
         self, view: str
     ) -> tuple[dict[str, list[tuple[dict[str, str], float]]], bool]:
         with self._lock:
-            self._requested = view
+            if self._requested != view or view not in self._cache:
+                self._requested = view
+                self._wake.set()
             self._last_request = time.monotonic()
-            return (self._values if self._view == view else {}), (
-                self._view == view and time.monotonic() - self._updated < 25
-            )
+            values = self._cache.get(view, {})
+            updated = self._updated.get(view, 0.0)
+            fresh = bool(values and (time.monotonic() - updated < self.FRESH_SECONDS))
+            return values, fresh
 
     def _query(self, expression: str) -> list[tuple[dict[str, str], float]]:
         address = self.url + "?" + urlencode({"query": expression})
@@ -96,21 +103,50 @@ class PrometheusSource:
         while not self._stop.is_set():
             with self._lock:
                 requested = self._requested
-                recent = time.monotonic() - self._last_request < 20
-            if requested is None or not recent:
-                self._stop.wait(1)
+                recent = time.monotonic() - self._last_request < self.ACTIVE_SECONDS
+            if not recent or requested is None:
+                self._wake.wait(1.0)
+                self._wake.clear()
                 continue
-            values = {}
-            for key, expression in QUERIES[requested].items():
-                try:
-                    values[key] = self._query(expression)
-                except (OSError, ValueError, KeyError, TimeoutError):
-                    values[key] = []
-            with self._lock:
-                self._view = requested
-                self._values = values
-                self._updated = time.monotonic() if any(values.values()) else 0
-            self._stop.wait(5)
+
+            all_views = list(QUERIES)
+            if requested in all_views:
+                idx = all_views.index(requested)
+                ordered_views = all_views[idx:] + all_views[:idx]
+            else:
+                ordered_views = all_views
+
+            for view in ordered_views:
+                if self._stop.is_set():
+                    break
+                with self._lock:
+                    if self._requested != requested:
+                        break
+                    if time.monotonic() - self._last_request >= self.ACTIVE_SECONDS:
+                        break
+
+                values = {}
+                for key, expression in QUERIES[view].items():
+                    if self._stop.is_set():
+                        break
+                    try:
+                        values[key] = self._query(expression)
+                    except (OSError, ValueError, KeyError, TimeoutError):
+                        values[key] = []
+
+                if self._stop.is_set():
+                    break
+
+                with self._lock:
+                    if any(values.values()):
+                        self._cache[view] = values
+                        self._updated[view] = time.monotonic()
+                    elif view not in self._cache:
+                        self._cache[view] = {}
+                        self._updated[view] = 0.0
+
+            self._wake.wait(10.0)
+            self._wake.clear()
 
 
 class HomelabRenderer(ModeRenderer):

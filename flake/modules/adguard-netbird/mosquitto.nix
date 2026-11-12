@@ -67,4 +67,17 @@ in
       }
     ];
   };
+
+  # The root is tmpfs: without this, a reboot dropped retained messages and
+  # the broker's database until its next autosave, and the external backup,
+  # which requires mosquitto.db, failed closed (first nightly reboot,
+  # 2026-11-11).
+  environment.persistence."/persist".directories = [
+    {
+      directory = "/var/lib/mosquitto";
+      user = "mosquitto";
+      group = "mosquitto";
+      mode = "0700";
+    }
+  ];
 }

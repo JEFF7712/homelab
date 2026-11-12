@@ -157,7 +157,7 @@ class TestCrossManifestWiring(unittest.TestCase):
             self.assertEqual(keys.get("SLSKD_API_KEY"), "SLSKD_API_KEY")
             self.assertTrue(
                 all(
-                    entry["remoteRef"]["key"] == "homelab-values"
+                    entry["remoteRef"]["key"] == "homelab-media-values"
                     for entry in doc["spec"]["data"]
                 )
             )

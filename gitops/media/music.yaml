@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: navidrome
-          image: registry.rupan.dev/upstream/docker.io/deluan/navidrome@sha256:9012939114fbb1bb641b81cf96dec5ded15f0aafefe8d47a511d7cb919658e40  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/deluan/navidrome@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

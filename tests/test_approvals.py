@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import sqlite3
 import struct
 import tempfile
 import threading
@@ -18,6 +19,7 @@ from webauthn.helpers import encode_cbor
 
 from scripts.approvals import core, server
 from scripts.approvals.core import ApprovalError, Store, held
+from scripts.ci.deployment_risk import authority_digest
 
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = "https://approvals.example.test"
@@ -105,7 +107,11 @@ class Harness:
         }
         self.woodpecker.deploy.return_value = 501
         self.woodpecker.main_commit.return_value = "a" * 40
-        self.service = server.Service(self.config, self.store, self.woodpecker)
+        self.forgejo = mock.Mock()
+        self.forgejo.identity.return_value = "homelab-policy"
+        self.service = server.Service(
+            self.config, self.store, self.woodpecker, self.forgejo
+        )
         self.passkey = Passkey()
         self.store.add_credential(self.passkey.id, self.passkey.cose, 0, "test", 0)
 
@@ -316,6 +322,161 @@ class GrantFlowTest(unittest.TestCase):
                 self.file(digest)  # type: ignore[arg-type]
 
 
+POLICY_BLOB = "100644 " + "1" * 40
+OTHER_BLOB = "100644 " + "2" * 40
+
+
+class MergeFlowTest(unittest.TestCase):
+    HEAD = "c" * 40
+
+    def setUp(self) -> None:
+        self.directory = tempfile.TemporaryDirectory()
+        self.h = Harness(Path(self.directory.name))
+
+    def tearDown(self) -> None:
+        self.h.store.close()
+        self.directory.cleanup()
+
+    def file(
+        self, head: str = HEAD, files: dict | None = None, now: float = 100
+    ) -> dict:
+        return self.h.service.file_merge(
+            "policy-token",
+            {
+                "pull": 12,
+                "head": head,
+                "files": {"scripts/ci/policy.py": POLICY_BLOB}
+                if files is None
+                else files,
+                "findings": ["[authority] policy: scripts/ci/policy.py"],
+            },
+            now,
+        )
+
+    def approve(self, identifier: str, now: float = 110) -> core.Request:
+        options = json.loads(self.h.service.approval_options(identifier, now))
+        return self.h.service.approve(identifier, self.h.passkey.assert_(options), now)
+
+    def grant(self, files: dict, now: float = 200, digest: str | None = None) -> dict:
+        return self.h.service.file(
+            "agent-token",
+            {
+                "operation": "deploy-ci-host",
+                "parent": 40,
+                "digest": digest or authority_digest(list(files), files),
+                "paths": list(files),
+                "files": files,
+            },
+            now,
+        )
+
+    def test_the_policy_files_once_per_head_and_a_new_head_supersedes(self) -> None:
+        with mock.patch.object(server, "notify") as notify:
+            first = self.file()
+            self.assertEqual(self.file()["id"], first["id"])
+            notify.assert_called_once()
+            newer = self.file("d" * 40)
+        self.assertEqual(first["title"], "merge PR #12")
+        self.assertEqual(first["kind"], "merge")
+        self.assertEqual(first["files"], {"scripts/ci/policy.py": POLICY_BLOB})
+        self.assertTrue(first["pull_url"].endswith("/pulls/12/files"))
+        self.assertEqual(self.h.store.get(first["id"], 101).state, "superseded")
+        self.assertEqual(newer["state"], "pending")
+
+    def test_only_the_merge_policy_may_file(self) -> None:
+        self.h.forgejo.identity.return_value = "homelab-agent"
+        with self.assertRaisesRegex(ApprovalError, "may not file"):
+            self.file()
+        self.h.forgejo.identity.return_value = "homelab-policy"
+        for bad in (
+            {"head": "short"},
+            {"pull": "12"},
+            {"files": {"x": "100644 nothex"}},
+            {"files": {"a\nb": POLICY_BLOB}},
+            {"findings": "text"},
+        ):
+            body = {"pull": 12, "head": self.HEAD, **bad}
+            with self.subTest(bad=bad), self.assertRaises(ApprovalError):
+                self.h.service.file_merge("policy-token", body, 100)
+
+    def test_approving_a_merge_triggers_nothing_and_lists_the_head(self) -> None:
+        identifier = self.file()["id"]
+        self.assertEqual(self.h.service.merges(12, 105)["approved"], [])
+        self.assertEqual(self.approve(identifier).state, "approved")
+        self.h.woodpecker.deploy.assert_not_called()
+        self.assertEqual(self.h.service.merges(12, 120)["approved"], [self.HEAD])
+        self.assertEqual(
+            self.file()["id"], identifier, "an approved head is not filed again"
+        )
+
+    def test_merge_requests_outlive_deployment_expiry_and_main_moving(self) -> None:
+        identifier = self.file()["id"]
+        self.h.woodpecker.main_commit.return_value = "b" * 40
+        later = 100 + core.REQUEST_TTL_SECONDS + 1
+        self.assertEqual(self.h.service.request(identifier, later).state, "pending")
+        expired = 100 + core.MERGE_TTL_SECONDS + 1
+        self.assertEqual(self.h.store.get(identifier, expired).state, "expired")
+
+    def test_an_approved_merge_approves_the_grant_for_its_exact_files(self) -> None:
+        self.approve(self.file()["id"])
+        with mock.patch.object(server, "notify") as notify:
+            granted = self.grant({"scripts/ci/policy.py": POLICY_BLOB})
+        notify.assert_not_called()
+        self.assertEqual(granted["state"], "approved")
+        self.assertIn(f"PR #12 {self.HEAD[:12]}", granted["decided_by"])
+        self.assertTrue(self.h.store.granted(granted["digest"], 210))
+
+    def test_grants_beyond_the_approved_files_still_need_a_passkey(self) -> None:
+        self.approve(self.file()["id"])
+        for files in (
+            {"scripts/ci/policy.py": OTHER_BLOB},
+            {"scripts/ci/policy.py": POLICY_BLOB, ".sops.yaml": OTHER_BLOB},
+        ):
+            with self.subTest(files=files):
+                self.assertEqual(self.grant(files)["state"], "pending")
+
+    def test_pending_or_declined_merges_cover_nothing(self) -> None:
+        identifier = self.file()["id"]
+        files = {"scripts/ci/policy.py": POLICY_BLOB}
+        self.assertEqual(self.grant(files)["state"], "pending")
+        self.h.service.decline(identifier, 150)
+        self.assertEqual(self.grant(files, now=160)["state"], "pending")
+
+    def test_files_must_reproduce_the_grant_digest(self) -> None:
+        self.approve(self.file()["id"])
+        with self.assertRaisesRegex(ApprovalError, "do not match"):
+            self.grant({"scripts/ci/policy.py": POLICY_BLOB}, digest="e" * 64)
+
+    def test_the_digest_matches_the_ci_policy(self) -> None:
+        files = {"b": POLICY_BLOB, "a": "absent"}
+        self.assertEqual(
+            hashlib.sha256(core.format_files(files).encode()).hexdigest(),
+            authority_digest(["b", "a"], files),
+        )
+
+    def test_existing_requests_are_classified_on_upgrade(self) -> None:
+        path = Path(self.directory.name) / "old.sqlite"
+        db = sqlite3.connect(path)
+        db.executescript(
+            core.SCHEMA.replace(",\n  kind TEXT,\n  files TEXT", "").split(
+                "CREATE TABLE IF NOT EXISTS credentials"
+            )[0]
+        )
+        for identifier, digest in (("deploy", None), ("grant", "d" * 64)):
+            db.execute(
+                "INSERT INTO requests (id, operation, parent, commit_sha, requester, "
+                "reason, evidence, state, created, digest) "
+                "VALUES (?, 'deploy-ci-host', 1, 'x', 'a', '', '', 'pending', 0, ?)",
+                (identifier, digest),
+            )
+        db.commit()
+        db.close()
+        store = Store(path)
+        self.addCleanup(store.close)
+        self.assertEqual(store.get("deploy", 0).kind, "deploy")
+        self.assertEqual(store.get("grant", 0).kind, "grant")
+
+
 class HandlerTest(unittest.TestCase):
     def setUp(self) -> None:
         self.directory = tempfile.TemporaryDirectory()
@@ -360,6 +521,21 @@ class HandlerTest(unittest.TestCase):
         self.assertEqual((status, json.loads(body)), (200, {"approved": True}))
         status, _, _ = self.call("GET", "/api/grants/not-a-digest")
         self.assertEqual(status, 404)
+
+    def test_the_policy_files_merges_with_its_forgejo_token(self) -> None:
+        body = {"pull": 12, "head": "c" * 40, "findings": ["x"]}
+        status, _, response = self.call("POST", "/api/merges", body=body)
+        self.assertEqual(status, 400)
+        self.assertIn(b"Forgejo bearer", response)
+        status, _, response = self.call(
+            "POST", "/api/merges", {"Authorization": "Bearer policy-token"}, body
+        )
+        self.assertEqual(status, 201)
+        self.h.forgejo.identity.assert_called_with("policy-token", mock.ANY)
+        status, _, response = self.call("GET", "/api/merges/12")
+        found = json.loads(response)
+        self.assertEqual(found["approved"], [])
+        self.assertEqual([r["commit_sha"] for r in found["requests"]], ["c" * 40])
 
     def test_the_page_redirects_to_the_public_origin(self) -> None:
         status, headers, _ = self.call("GET", "/r/abc")

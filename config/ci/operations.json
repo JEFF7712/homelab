@@ -47,7 +47,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_auth_consistency",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -82,7 +81,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_drift_check",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -111,7 +109,6 @@
     "outputs": [
       "artifacts/registry/gc-fixture-report.json"
     ],
-    "legacy_job": "registry_gc_fixture",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -150,7 +147,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_retention_reconcile",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -194,7 +190,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_resolve",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -240,7 +235,6 @@
     "outputs": [
       "promote-report.json"
     ],
-    "legacy_job": "registry_promote_first_party",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -287,7 +281,6 @@
     "outputs": [
       "promote-report.json"
     ],
-    "legacy_job": "registry_promote_nix_agent",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -323,7 +316,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_cve_audit",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -365,7 +357,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_update_import",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -405,7 +396,6 @@
     "outputs": [
       "artifacts/registry/"
     ],
-    "legacy_job": "registry_lock_import",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -431,7 +421,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -456,7 +446,6 @@
     "group": "registry-platform",
     "needs": [],
     "outputs": [],
-    "legacy_job": "provision_jarvis_publisher",
     "automatic": false,
     "mutation": true,
     "prerequisite": ""
@@ -481,7 +470,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -506,7 +495,6 @@
     "group": "registry-platform",
     "needs": [],
     "outputs": [],
-    "legacy_job": "provision_pod_agent_publisher",
     "automatic": false,
     "mutation": true,
     "prerequisite": ""
@@ -538,7 +526,7 @@
         "from_secret": "registry_htpasswd_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -563,7 +551,6 @@
     "group": "registry-platform",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_platform",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -589,7 +576,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -612,7 +599,6 @@
       "deploy-registry-platform"
     ],
     "outputs": [],
-    "legacy_job": "deploy_registry_dns",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -630,14 +616,14 @@
       "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
       "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
       "nixos-rebuild --flake ./flake#adguard-netbird-01 --use-remote-sudo switch --target-host rupan@10.0.30.10 --build-host rupan@10.0.30.10",
-      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo test -e /dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Lite_MG21_048030cb64a2ef11b809926661ce3355-if00-port0; sudo systemctl is-active mosquitto zigbee2mqtt roku-bridge roku-cloud-bridge ledfx-roku-bridge ledfx-zigbee-bridge'"
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.10 'sudo test -e /dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Lite_MG21_048030cb64a2ef11b809926661ce3355-if00-port0; sudo systemctl is-active mosquitto zigbee2mqtt roku-bridge roku-cloud-bridge ledfx-roku-bridge'"
     ],
     "environment": {
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -658,7 +644,6 @@
     "group": "zigbee-gateway",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_zigbee_gateway",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -687,7 +672,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -712,7 +697,6 @@
     "group": "nas-ledfx-bedroom",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_nas_ledfx_bedroom",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -749,7 +733,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -771,7 +755,6 @@
     "group": "registry-node-rollout",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_node_01",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -808,7 +791,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -830,7 +813,6 @@
     "group": "registry-node-rollout",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_node_02",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -867,7 +849,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -889,7 +871,6 @@
     "group": "registry-node-rollout",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_node_03",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -926,7 +907,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -948,7 +929,6 @@
     "group": "registry-node-rollout",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_node_04",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -985,7 +965,7 @@
         "from_secret": "registry_node_password_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1007,7 +987,6 @@
     "group": "registry-node-rollout",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_registry_node_05",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1058,7 +1037,6 @@
     "outputs": [
       "artifacts/opnsense/"
     ],
-    "legacy_job": "opnsense_inventory",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1116,7 +1094,6 @@
       "tofu/opnsense/desired.tfplan",
       "artifacts/opnsense/"
     ],
-    "legacy_job": "opnsense_plan",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1166,7 +1143,36 @@
       "opnsense-plan"
     ],
     "outputs": [],
-    "legacy_job": "opnsense_dataplane",
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "vip-dataplane-watch": {
+    "commands": [
+      "python -m scripts.ci.run vip-dataplane -- bash -euo pipefail -c 'rc=0; python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json --report artifacts/opnsense/dataplane.json || rc=$?; if [ \"$rc\" -ne 0 ]; then python -m scripts.ci.notify vip-dataplane artifacts/opnsense/dataplane.json || true; fi; exit $rc'"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "NTFY_TOPIC": "homelab-alerts",
+      "NTFY_TOKEN": {
+        "from_secret": "ntfy_token"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "ci-diagnostics",
+    "needs": [],
+    "outputs": [],
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1183,7 +1189,7 @@
       "tofu -chdir=tofu/opnsense apply desired.tfplan",
       "python -m opnsense_reconciler.agent_acl apply --plan artifacts/opnsense/agent-acl-plan.json --output artifacts/opnsense/agent-acl-apply.json",
       "python -m opnsense_reconciler.agent_acl check --output artifacts/opnsense/agent-acl-check.json",
-      "python -m opnsense_reconciler.reconcile --assignments opnsense_reconciler/assignments.json --inventory artifacts/opnsense/inventory.json --kea-interfaces opnsense_reconciler/kea-interfaces.json --udp-broadcast-relays opnsense_reconciler/udp-broadcast-relays.json --bgp-neighbors opnsense_reconciler/bgp-neighbors.json --bgp-expected-routes opnsense_reconciler/bgp-expected-routes.json --outbound-nat-rules opnsense_reconciler/outbound-nat-rules.json --unbound-acls opnsense_reconciler/unbound-acls.json --unbound-host-overrides opnsense_reconciler/unbound-host-overrides.json",
+      "python -m opnsense_reconciler.reconcile --assignments opnsense_reconciler/assignments.json --inventory artifacts/opnsense/inventory.json --kea-interfaces opnsense_reconciler/kea-interfaces.json --udp-broadcast-relays opnsense_reconciler/udp-broadcast-relays.json --bgp-neighbors opnsense_reconciler/bgp-neighbors.json --bgp-expected-routes opnsense_reconciler/bgp-expected-routes.json --outbound-nat-rules opnsense_reconciler/outbound-nat-rules.json --unbound-acls opnsense_reconciler/unbound-acls.json --unbound-host-overrides opnsense_reconciler/unbound-host-overrides.json --static-routes opnsense_reconciler/static-routes.json",
       "python -m opnsense_reconciler.dataplane --targets opnsense_reconciler/lb-data-plane-targets.json"
     ],
     "environment": {
@@ -1235,7 +1241,6 @@
       "artifacts/opnsense/agent-acl-apply.json",
       "artifacts/opnsense/agent-acl-check.json"
     ],
-    "legacy_job": "opnsense_apply",
     "automatic": false,
     "mutation": true,
     "prerequisite": "opnsense-plan",
@@ -1279,7 +1284,6 @@
     "outputs": [
       "tofu/cloudflare/desired.tfplan"
     ],
-    "legacy_job": "cloudflare_plan",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1320,7 +1324,6 @@
     "group": "cloudflare-tunnel",
     "needs": [],
     "outputs": [],
-    "legacy_job": "cloudflare_import",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1366,7 +1369,6 @@
     "outputs": [
       "config_version.txt"
     ],
-    "legacy_job": "cloudflare_apply",
     "automatic": false,
     "mutation": true,
     "prerequisite": "cloudflare-plan",
@@ -1394,7 +1396,6 @@
     "group": "ci-diagnostics",
     "needs": [],
     "outputs": [],
-    "legacy_job": "nas_proof",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1427,7 +1428,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -1450,7 +1451,6 @@
     "outputs": [
       "artifacts/deployment-report/deploy-fleet-dry-run/"
     ],
-    "legacy_job": "deploy_fleet_dry_run",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1481,7 +1481,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1502,10 +1502,60 @@
     "group": "homelab-fleet-deploy",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_fleet",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-fleet-dry-run",
+    "agent": true
+  },
+  "fleet-reboot": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh ~/.kube",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes rupan@10.0.30.11 'sudo cat /etc/rancher/k3s/k3s.yaml' | sed 's/127.0.0.1/10.0.30.11/' > ~/.kube/config",
+      "chmod 600 ~/.kube/config",
+      "export KUBECONFIG=\"$HOME/.kube/config\"",
+      "just fleet-reboot"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "fleet_deploy_ssh_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "NTFY_TOPIC": "homelab-alerts",
+      "NTFY_TOKEN": {
+        "from_secret": "ntfy_token"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "homelab-fleet-deploy",
+    "needs": [],
+    "outputs": [],
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "",
     "agent": true
   },
   "deploy-agent-workspace-host-dry-run": {
@@ -1531,7 +1581,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -1554,7 +1604,6 @@
     "outputs": [
       "artifacts/deployment-report/deploy-agent-workspace-host-dry-run/"
     ],
-    "legacy_job": "deploy_agent_workspace_host_dry_run",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1580,7 +1629,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1601,7 +1650,6 @@
     "group": "homelab-fleet-deploy",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_agent_workspace_host",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-agent-workspace-host-dry-run",
@@ -1610,7 +1658,9 @@
   "deploy-home-assistant-dry-run": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
-      "export KUBECONFIG=\"$HA_DEPLOYER_KUBECONFIG\"",
+      "export KUBECONFIG=\"$(mktemp \"${TMPDIR:-/tmp}/ha-deployer-kubeconfig.XXXXXX\")\"",
+      "trap 'rm -f \"$KUBECONFIG\"' EXIT",
+      "python -m scripts.ci.kube_credentials fetch --key-file \"$HA_ISSUER_SSH_KEY\" --known-hosts \"$HOSTS_KNOWN\" --output \"$KUBECONFIG\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
       "rc=0; python -m scripts.home_assistant diff --instance homelab-01 || rc=$?; test \"$rc\" -le 1"
@@ -1629,18 +1679,21 @@
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
       },
-      "HA_DEPLOYER_KUBECONFIG": {
-        "from_secret": "ha_deployer_kubeconfig"
+      "HA_ISSUER_SSH_KEY": {
+        "from_secret": "ha_issuer_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
       }
     },
     "file_secrets": [
-      "HA_DEPLOYER_KUBECONFIG",
-      "STATE_CA_FILE"
+      "STATE_CA_FILE",
+      "HA_ISSUER_SSH_KEY",
+      "HOSTS_KNOWN"
     ],
     "group": "home-assistant-homelab-01",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_home_assistant_dry_run",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1648,7 +1701,9 @@
   "deploy-home-assistant": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
-      "export KUBECONFIG=\"$HA_DEPLOYER_KUBECONFIG\"",
+      "export KUBECONFIG=\"$(mktemp \"${TMPDIR:-/tmp}/ha-deployer-kubeconfig.XXXXXX\")\"",
+      "trap 'rm -f \"$KUBECONFIG\"' EXIT",
+      "python -m scripts.ci.kube_credentials fetch --key-file \"$HA_ISSUER_SSH_KEY\" --known-hosts \"$HOSTS_KNOWN\" --output \"$KUBECONFIG\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
       "python -m scripts.home_assistant plan --instance homelab-01 --json > plan.json; rc=$?; cat plan.json; test $rc -eq 0",
@@ -1670,18 +1725,21 @@
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
       },
-      "HA_DEPLOYER_KUBECONFIG": {
-        "from_secret": "ha_deployer_kubeconfig"
+      "HA_ISSUER_SSH_KEY": {
+        "from_secret": "ha_issuer_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
       }
     },
     "file_secrets": [
-      "HA_DEPLOYER_KUBECONFIG",
-      "STATE_CA_FILE"
+      "STATE_CA_FILE",
+      "HA_ISSUER_SSH_KEY",
+      "HOSTS_KNOWN"
     ],
     "group": "home-assistant-homelab-01",
     "needs": [],
     "outputs": [],
-    "legacy_job": "deploy_home_assistant",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-home-assistant-dry-run",
@@ -1690,7 +1748,9 @@
   "deploy-home-assistant-matrix-dashboard-dry-run": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
-      "export KUBECONFIG=\"$HA_DEPLOYER_KUBECONFIG\"",
+      "export KUBECONFIG=\"$(mktemp \"${TMPDIR:-/tmp}/ha-deployer-kubeconfig.XXXXXX\")\"",
+      "trap 'rm -f \"$KUBECONFIG\"' EXIT",
+      "python -m scripts.ci.kube_credentials fetch --key-file \"$HA_ISSUER_SSH_KEY\" --known-hosts \"$HOSTS_KNOWN\" --output \"$KUBECONFIG\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
       "python -m scripts.home_assistant plan --instance homelab-01 --select dashboard/bedroom-lights --json"
@@ -1709,18 +1769,21 @@
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
       },
-      "HA_DEPLOYER_KUBECONFIG": {
-        "from_secret": "ha_deployer_kubeconfig"
+      "HA_ISSUER_SSH_KEY": {
+        "from_secret": "ha_issuer_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
       }
     },
     "file_secrets": [
-      "HA_DEPLOYER_KUBECONFIG",
-      "STATE_CA_FILE"
+      "STATE_CA_FILE",
+      "HA_ISSUER_SSH_KEY",
+      "HOSTS_KNOWN"
     ],
     "group": "home-assistant-homelab-01",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1728,7 +1791,9 @@
   "deploy-home-assistant-matrix-dashboard": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
-      "export KUBECONFIG=\"$HA_DEPLOYER_KUBECONFIG\"",
+      "export KUBECONFIG=\"$(mktemp \"${TMPDIR:-/tmp}/ha-deployer-kubeconfig.XXXXXX\")\"",
+      "trap 'rm -f \"$KUBECONFIG\"' EXIT",
+      "python -m scripts.ci.kube_credentials fetch --key-file \"$HA_ISSUER_SSH_KEY\" --known-hosts \"$HOSTS_KNOWN\" --output \"$KUBECONFIG\"",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then\n  token_b64=$(kubectl get secret -n home-assistant home-assistant-token \\\n    -o jsonpath='{.data.token}' 2>/dev/null || true)\n  export HASS_TOKEN=$(echo \"$token_b64\" | base64 -d 2>/dev/null || true)\nfi",
       "if [ -z \"${HASS_TOKEN:-}\" ]; then echo 'ERROR: HASS_TOKEN is empty and cluster secret home-assistant/home-assistant-token is missing or unreadable. Provision it once with: kubectl create secret -n home-assistant generic home-assistant-token --from-literal=token=<HA long-lived access token>' >&2; exit 1; fi",
       "python -m scripts.home_assistant plan --instance homelab-01 --select dashboard/bedroom-lights --json > plan.json; rc=$?; cat plan.json; test $rc -eq 0",
@@ -1750,18 +1815,21 @@
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
       },
-      "HA_DEPLOYER_KUBECONFIG": {
-        "from_secret": "ha_deployer_kubeconfig"
+      "HA_ISSUER_SSH_KEY": {
+        "from_secret": "ha_issuer_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
       }
     },
     "file_secrets": [
-      "HA_DEPLOYER_KUBECONFIG",
-      "STATE_CA_FILE"
+      "STATE_CA_FILE",
+      "HA_ISSUER_SSH_KEY",
+      "HOSTS_KNOWN"
     ],
     "group": "home-assistant-homelab-01",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-home-assistant-matrix-dashboard-dry-run",
@@ -1792,7 +1860,6 @@
     "group": "github-mirror",
     "needs": [],
     "outputs": [],
-    "legacy_job": "sync_to_github",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1803,8 +1870,8 @@
       "bash scripts/ci/cache.sh"
     ],
     "environment": {
-      "ATTIC_TOKEN": {
-        "from_secret": "attic_token"
+      "NIKS3_TOKEN": {
+        "from_secret": "niks3_token"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1823,7 +1890,6 @@
     "group": "nix-cache",
     "needs": [],
     "outputs": [],
-    "legacy_job": "nix_cache",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1851,7 +1917,6 @@
     "group": "ci-diagnostics",
     "needs": [],
     "outputs": [],
-    "legacy_job": "webhook_watchdog",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -1876,7 +1941,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1901,7 +1966,6 @@
     "group": "registry-platform",
     "needs": [],
     "outputs": [],
-    "legacy_job": "provision_darkbit_publisher",
     "automatic": false,
     "mutation": true,
     "prerequisite": ""
@@ -1912,8 +1976,8 @@
       "NIXOS_TARGET_SET=nixos-iso bash scripts/ci/nixos_publish.sh"
     ],
     "environment": {
-      "ATTIC_TOKEN": {
-        "from_secret": "attic_token"
+      "NIKS3_TOKEN": {
+        "from_secret": "niks3_token"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1932,7 +1996,6 @@
     "group": "nix-cache",
     "needs": [],
     "outputs": [],
-    "legacy_job": "build-toplevel/build-iso",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1943,8 +2006,8 @@
       "python -m scripts.ci.nixos_deploy weekly"
     ],
     "environment": {
-      "ATTIC_TOKEN": {
-        "from_secret": "attic_token"
+      "NIKS3_TOKEN": {
+        "from_secret": "niks3_token"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -1966,7 +2029,36 @@
     "group": "nix-cache",
     "needs": [],
     "outputs": [],
-    "legacy_job": "nixos-lock-update",
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "",
+    "agent": true
+  },
+  "fleet-lock-update": {
+    "commands": [
+      "python -m scripts.ci.fleet_lock_update"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "FORGEJO_PUBLISH_TOKEN": {
+        "from_secret": "forgejo_publish_token"
+      }
+    },
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "fleet-lock",
+    "needs": [],
+    "outputs": [],
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -1977,8 +2069,8 @@
       "python -m scripts.ci.nixos_deploy nightly"
     ],
     "environment": {
-      "ATTIC_TOKEN": {
-        "from_secret": "attic_token"
+      "NIKS3_TOKEN": {
+        "from_secret": "niks3_token"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -2000,7 +2092,6 @@
     "group": "nix-cache",
     "needs": [],
     "outputs": [],
-    "legacy_job": "nixos-deploy",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2020,7 +2111,7 @@
         "from_secret": "state_ca_file"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "HOSTS_KNOWN": {
         "from_secret": "hosts_known"
@@ -2049,7 +2140,6 @@
     "outputs": [
       "artifacts/native-asr/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2095,7 +2185,6 @@
     "outputs": [
       "artifacts/service-release/spotify-matrix/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2144,7 +2233,6 @@
     "outputs": [
       "artifacts/service-release/bus-display/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2190,7 +2278,6 @@
     "outputs": [
       "artifacts/service-release/lidarr-extended/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
@@ -2219,7 +2306,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "plan",
       "TF_HTTP_PASSWORD": {
@@ -2242,7 +2329,6 @@
     "outputs": [
       "artifacts/deployment-report/deploy-ci-host-dry-run/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": false,
     "prerequisite": ""
@@ -2268,7 +2354,7 @@
         "from_secret": "hosts_known"
       },
       "SSH_DEPLOY_KEY": {
-        "from_secret": "ssh_deploy_key"
+        "from_secret": "fleet_deploy_ssh_key"
       },
       "TF_HTTP_USERNAME": "deploy",
       "TF_HTTP_PASSWORD": {
@@ -2289,7 +2375,6 @@
     "group": "homelab-fleet-deploy",
     "needs": [],
     "outputs": [],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "deploy-ci-host-dry-run",
@@ -2322,10 +2407,581 @@
     "outputs": [
       "artifacts/node-supply/"
     ],
-    "legacy_job": "",
     "automatic": false,
     "mutation": true,
     "prerequisite": "",
     "agent": true
+  },
+  "cloudflare-access-plan": {
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-access",
+    "automatic": false,
+    "needs": [],
+    "outputs": [
+      "tofu/cloudflare-access/desired.tfplan"
+    ],
+    "prerequisite": "",
+    "commands": [
+      "tofu -chdir=tofu/cloudflare-access init -reconfigure -input=false",
+      "python -m scripts.cloudflare.access --inventory",
+      "tofu -chdir=tofu/cloudflare-access validate",
+      "tofu -chdir=tofu/cloudflare-access plan -input=false -out=desired.tfplan",
+      "bash -e -c 'tofu -chdir=tofu/cloudflare-access show -json desired.tfplan > access-plan.json; python -m scripts.cloudflare.access access-plan.json'"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_access_plan_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare-access",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "mutation": false
+  },
+  "cloudflare-access-import": {
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-access",
+    "automatic": false,
+    "needs": [],
+    "outputs": [],
+    "prerequisite": "",
+    "commands": [
+      "tofu -chdir=tofu/cloudflare-access init -reconfigure -input=false",
+      "python -m scripts.cloudflare.access --inventory",
+      "tofu -chdir=tofu/cloudflare-access plan -input=false -out=import.tfplan",
+      "bash -e -c 'tofu -chdir=tofu/cloudflare-access show -json import.tfplan > access-import.json; python -m scripts.cloudflare.access access-import.json --mode import'",
+      "tofu -chdir=tofu/cloudflare-access apply -input=false import.tfplan"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_access_plan_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare-access",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "mutation": true,
+    "agent": true
+  },
+  "cloudflare-access-apply": {
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-access",
+    "automatic": false,
+    "needs": [
+      "cloudflare-access-plan"
+    ],
+    "outputs": [],
+    "prerequisite": "cloudflare-access-plan",
+    "commands": [
+      "tofu -chdir=tofu/cloudflare-access init -reconfigure -input=false",
+      "bash -e -c 'tofu -chdir=tofu/cloudflare-access show -json desired.tfplan > access-plan.json; python -m scripts.cloudflare.access access-plan.json'",
+      "tofu -chdir=tofu/cloudflare-access apply -input=false desired.tfplan"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_access_deploy_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare-access",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "mutation": true,
+    "agent": true
+  },
+  "cloudflare-access-drift": {
+    "file_secrets": [
+      "STATE_CA_FILE"
+    ],
+    "group": "cloudflare-access",
+    "automatic": false,
+    "needs": [],
+    "outputs": [],
+    "prerequisite": "",
+    "commands": [
+      "tofu -chdir=tofu/cloudflare-access init -reconfigure -input=false",
+      "python -m scripts.cloudflare.access --inventory",
+      "tofu -chdir=tofu/cloudflare-access plan -input=false -out=drift.tfplan",
+      "bash -e -c 'tofu -chdir=tofu/cloudflare-access show -json drift.tfplan > access-drift.json; python -m scripts.cloudflare.access access-drift.json --mode drift'"
+    ],
+    "environment": {
+      "TF_VAR_cloudflare_account_id": "$CLOUDFLARE_ACCOUNT_ID",
+      "CLOUDFLARE_ACCOUNT_ID": {
+        "from_secret": "cloudflare_account_id"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "CLOUDFLARE_API_TOKEN": {
+        "from_secret": "cloudflare_access_plan_api_token"
+      },
+      "TF_HTTP_ADDRESS": "https://s3.internal:3902/state/cloudflare-access",
+      "TF_HTTP_LOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_UNLOCK_ADDRESS": "https://s3.internal:3902/state/cloudflare-access/lock",
+      "TF_HTTP_LOCK_METHOD": "LOCK",
+      "TF_HTTP_UNLOCK_METHOD": "UNLOCK",
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "mutation": false
+  },
+  "switches-plan": {
+    "commands": [
+      "python -m scripts.switches.ci plan"
+    ],
+    "environment": {
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "fleet_deploy_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "SSH_DEPLOY_KEY",
+      "HOSTS_KNOWN",
+      "STATE_CA_FILE"
+    ],
+    "group": "switches-control-plane",
+    "needs": [],
+    "outputs": [
+      "artifacts/switches/upstairs-plan.json",
+      "artifacts/switches/downstairs-plan.json"
+    ],
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "switches-apply": {
+    "commands": [
+      "python -m scripts.switches.ci apply"
+    ],
+    "environment": {
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "fleet_deploy_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "SSH_DEPLOY_KEY",
+      "HOSTS_KNOWN",
+      "STATE_CA_FILE"
+    ],
+    "group": "switches-control-plane",
+    "needs": [
+      "switches-plan"
+    ],
+    "outputs": [
+      "artifacts/switches/upstairs-apply.json",
+      "artifacts/switches/downstairs-apply.json",
+      "artifacts/switches/upstairs-verify.json",
+      "artifacts/switches/downstairs-verify.json"
+    ],
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "switches-plan",
+    "agent": true
+  },
+  "deploy-switch-runtime-dry-run": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "just deploy-fleet --target adguard-netbird-01 --target nas-01 --dry-run"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "fleet_deploy_ssh_key"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "homelab-fleet-deploy",
+    "needs": [],
+    "outputs": [],
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "deploy-switch-runtime": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes\"",
+      "just deploy-fleet --target adguard-netbird-01 --target nas-01"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "fleet_deploy_ssh_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "homelab-fleet-deploy",
+    "needs": [],
+    "outputs": [],
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "deploy-switch-runtime-dry-run",
+    "agent": true
+  },
+  "opnsense-fib-check": {
+    "commands": [
+      "python -m scripts.ci.opnsense_frr_heal check"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "OPNSENSE_URL": "https://OPNsense.internal",
+      "OPNSENSE_CA_FILE": {
+        "from_secret": "opnsense_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "OPNSENSE_API_KEY": {
+        "from_secret": "opnsense_plan_api_key"
+      },
+      "OPNSENSE_API_SECRET": {
+        "from_secret": "opnsense_plan_api_secret"
+      }
+    },
+    "file_secrets": [
+      "OPNSENSE_CA_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "opnsense-control-plane",
+    "needs": [],
+    "outputs": [],
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "opnsense-frr-heal": {
+    "commands": [
+      "python -m scripts.ci.opnsense_frr_heal heal"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "OPNSENSE_URL": "https://OPNsense.internal",
+      "OPNSENSE_CA_FILE": {
+        "from_secret": "opnsense_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "OPNSENSE_API_KEY": {
+        "from_secret": "opnsense_deploy_api_key"
+      },
+      "OPNSENSE_API_SECRET": {
+        "from_secret": "opnsense_deploy_api_secret"
+      }
+    },
+    "file_secrets": [
+      "OPNSENSE_CA_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "opnsense-control-plane",
+    "needs": [],
+    "outputs": [],
+    "automatic": false,
+    "mutation": true,
+    "agent": true,
+    "prerequisite": ""
+  },
+  "switches-drift": {
+    "commands": [
+      "python -m scripts.switches.ci drift"
+    ],
+    "environment": {
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "fleet_deploy_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "SSH_DEPLOY_KEY",
+      "HOSTS_KNOWN",
+      "STATE_CA_FILE"
+    ],
+    "group": "switches-control-plane",
+    "needs": [],
+    "outputs": [
+      "artifacts/switches/drift.json"
+    ],
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "switches-drift-nightly": {
+    "commands": [
+      "bash -e -c 'rc=0; python -m scripts.switches.ci drift || rc=$?; if [ \"$rc\" -ne 0 ]; then python -m scripts.ci.notify switch-drift artifacts/switches/drift.json || true; fi; exit \"$rc\"'"
+    ],
+    "environment": {
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "fleet_deploy_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "TF_HTTP_USERNAME": "plan",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_plan_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "NTFY_TOPIC": "homelab-alerts",
+      "NTFY_TOKEN": {
+        "from_secret": "ntfy_token"
+      }
+    },
+    "file_secrets": [
+      "SSH_DEPLOY_KEY",
+      "HOSTS_KNOWN",
+      "STATE_CA_FILE"
+    ],
+    "group": "switches-control-plane",
+    "needs": [],
+    "outputs": [
+      "artifacts/switches/drift.json"
+    ],
+    "automatic": false,
+    "mutation": false,
+    "prerequisite": ""
+  },
+  "orchestrator-publish": {
+    "commands": [
+      "nix develop ./flake#ops -c python -m scripts.ci.orchestrator_release coordinate"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "REGISTRY_ORCHESTRATOR_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_orchestrator_publisher_auth_file"
+      },
+      "REGISTRY_ORCHESTRATOR_WORKER_PUBLISHER_AUTH_FILE": {
+        "from_secret": "registry_orchestrator_worker_publisher_auth_file"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_ORCHESTRATOR_PUBLISHER_AUTH_FILE",
+      "REGISTRY_ORCHESTRATOR_WORKER_PUBLISHER_AUTH_FILE",
+      "STATE_CA_FILE"
+    ],
+    "group": "registry-platform",
+    "needs": [],
+    "outputs": [
+      "artifacts/orchestrator-release/"
+    ],
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "",
+    "agent": true
+  },
+  "registry-advance": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "export KUBECONFIG=\"$(mktemp \"${TMPDIR:-/tmp}/registry-advance-kubeconfig.XXXXXX\")\"",
+      "trap 'rm -f \"$KUBECONFIG\"' EXIT",
+      "python -m scripts.ci.kube_credentials fetch --profile registry-advance --key-file \"$REGISTRY_ISSUER_SSH_KEY\" --known-hosts \"$HOSTS_KNOWN\" --output \"$KUBECONFIG\"",
+      "python -m scripts.ci.registry_advance"
+    ],
+    "environment": {
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "REGISTRY_NODE_PASSWORD_FILE": {
+        "from_secret": "registry_node_password_file"
+      },
+      "FORGEJO_PUBLISH_TOKEN": {
+        "from_secret": "forgejo_publish_token"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      },
+      "REGISTRY_ISSUER_SSH_KEY": {
+        "from_secret": "registry_issuer_ssh_key"
+      },
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      }
+    },
+    "file_secrets": [
+      "REGISTRY_NODE_PASSWORD_FILE",
+      "STATE_CA_FILE",
+      "REGISTRY_ISSUER_SSH_KEY",
+      "HOSTS_KNOWN"
+    ],
+    "group": "registry-content",
+    "needs": [],
+    "outputs": [],
+    "legacy_job": "",
+    "automatic": false,
+    "mutation": true,
+    "agent": true,
+    "prerequisite": ""
   }
 }

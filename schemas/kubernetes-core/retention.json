@@ -95,6 +95,10 @@
     {
       "filename": "serviceaccount-v1.json",
       "sha256": "8193d6c3561475c6d3d5c44e1faedb1df53905373d904bc17015694326d659cf"
+    },
+    {
+      "filename": "job-batch-v1.json",
+      "sha256": "514d04ed5540a4d6354bff1ace0bd5155c98c58bcd33a030d1500427387fa97f"
     }
   ]
 }

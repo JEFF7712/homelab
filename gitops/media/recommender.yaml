@@ -9,7 +9,7 @@
 # Non-secret service URLs/config persist in the backend Settings UI
 # (SQLite), not in env; only the initial admin password bootstrap comes
 # from the media-app secret (rotation: Settings > Admin Account, then
-# update PROPERTY_RECOMMENDER_ADMIN_PASSWORD in GitLab + sops).
+# update RECOMMENDER_ADMIN_PASSWORD in gitops/secrets/homelab-values.sops.yaml).
 apiVersion: apps/v1
 kind: Deployment
 metadata:

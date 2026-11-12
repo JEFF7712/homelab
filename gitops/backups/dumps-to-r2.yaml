@@ -66,8 +66,11 @@ spec:
                   set -eu
                   export RESTIC_REPOSITORY="$R2_REPO/homelab-longhorn-backup/restic-dumps"
                   restic snapshots >/dev/null 2>&1 || restic init
-                  restic backup /dumps
-                  restic forget --keep-daily 7 --keep-weekly 4 --prune
+                  # A CronJob pod hostname changes every run. Scope retention to
+                  # a stable identity; legacy snapshots require separate review.
+                  restic backup --host homelab-db-dumps --tag db-dumps-v2 --group-by host,tags /dumps
+                  restic forget --host homelab-db-dumps --tag db-dumps-v2 --group-by host,tags \
+                    --keep-daily 7 --keep-weekly 4 --prune
               volumeMounts:
                 - name: dumps
                   mountPath: /dumps

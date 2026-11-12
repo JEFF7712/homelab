@@ -1,0 +1,7 @@
+title: Govee Dining Bulbs
+disabled_by: null
+domain: adaptive_lighting
+entry_id: 01M6D2EW1QF05T8M3FW6QQ84KH
+pref_disable_new_entities: false
+pref_disable_polling: false
+source: user

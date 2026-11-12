@@ -11,6 +11,14 @@ let
   };
   inherit (pkgs) lib;
   fleetInventory = import ../../inventory { inherit lib; };
+  managedSwitches = import ../../tofu/switches {
+    inherit lib;
+    inherit (fleetInventory) networks;
+  };
+  switchNodes = import ../../tofu/switches/topology.nix {
+    inherit lib;
+    inventory = managedSwitches;
+  };
   assignments = builtins.fromJSON (builtins.readFile ../../opnsense_reconciler/assignments.json);
   hosts = lib.filterAttrs (
     name: host: name == host.config.networking.hostName
@@ -86,48 +94,46 @@ let
               value.name = "${assignment.descr} (VLAN ${toString assignment.tag})";
             }) assignments
           );
-          nodes = {
-            opnsense = {
-              name = "OPNsense (external, declared VLANs only)";
-              deviceType = "router";
-              interfaces = builtins.listToAttrs (
-                map (assignment: {
-                  name = "vlan${toString assignment.tag}";
-                  value = {
-                    virtual = true;
-                    network = assignment.descr;
-                    addresses = [ (builtins.head (lib.splitString "/" assignment.ipaddr)) ];
-                  };
-                }) assignments
-              );
-            };
-            switch-fabric = {
-              name = "Switch fabric (external, port links unknown)";
-              deviceType = "switch";
-            };
-            cloudflare = {
-              name = "Cloudflare (external, tunnel paths unmodeled)";
-              deviceType = "internet";
-            };
-          }
-          // lib.mapAttrs (
-            _: node:
-            node
-            // {
-              interfaces = lib.mapAttrs (
-                _: interface:
-                let
-                  matches = builtins.filter (
-                    assignment: builtins.elem (builtins.head (lib.splitString "/" assignment.ipaddr)) interface.gateways
-                  ) assignments;
-                in
-                interface
-                // lib.optionalAttrs (builtins.length matches == 1) {
-                  network = (builtins.head matches).descr;
-                }
-              ) node.interfaces;
+          nodes = lib.recursiveUpdate switchNodes (
+            {
+              opnsense = {
+                name = "OPNsense (external, declared VLANs only)";
+                deviceType = "router";
+                interfaces = builtins.listToAttrs (
+                  map (assignment: {
+                    name = "vlan${toString assignment.tag}";
+                    value = {
+                      virtual = true;
+                      network = assignment.descr;
+                      addresses = [ (builtins.head (lib.splitString "/" assignment.ipaddr)) ];
+                    };
+                  }) assignments
+                );
+              };
+              cloudflare = {
+                name = "Cloudflare (external, tunnel paths unmodeled)";
+                deviceType = "internet";
+              };
             }
-          ) diagramNodes;
+            // lib.mapAttrs (
+              _: node:
+              node
+              // {
+                interfaces = lib.mapAttrs (
+                  _: interface:
+                  let
+                    matches = builtins.filter (
+                      assignment: builtins.elem (builtins.head (lib.splitString "/" assignment.ipaddr)) interface.gateways
+                    ) assignments;
+                  in
+                  interface
+                  // lib.optionalAttrs (builtins.length matches == 1) {
+                    network = (builtins.head matches).descr;
+                  }
+                ) node.interfaces;
+              }
+            ) diagramNodes
+          );
           assertions = [
             {
               assertion = builtins.attrNames hosts == builtins.attrNames fleetInventory.hosts;
@@ -145,6 +151,7 @@ let
     sourceRevision = self.rev or null;
     sourceNarHash = self.narHash or null;
     inherit assignments;
+    switchPorts = managedSwitches.switches;
     bgpPeers = builtins.fromJSON (builtins.readFile ../../opnsense_reconciler/bgp-neighbors.json);
     nodes = lib.mapAttrs (_: node: {
       inherit (node) name deviceType;
@@ -160,7 +167,7 @@ let
       }) node.interfaces;
     }) topology.config.nodes;
     gaps = [
-      "Physical switch ports, cabling and WAN handoff are not modeled. No physical links are inferred."
+      "Switch cabling is declared intent. OPNsense WAN/LAN port order is unverified, so those two links are omitted. Host switch-uplink endpoints do not identify physical NIC names; downstream cluster port links remain unknown."
       "Kubernetes workloads, service routes, Cloudflare tunnels and NetBird overlay paths are not extracted."
       "BGP peer intent is included in topology.json, not drawn as physical connectivity or verified live."
       "Services are selected explicitly from evaluated configuration, not a complete service inventory."
@@ -190,6 +197,12 @@ pkgs.runCommand "homelab-topology"
     for name in ("main.svg", "network.svg"):
         assert ET.parse(output / name).getroot().tag == "{http://www.w3.org/2000/svg}svg"
     assert {name for name, node in manifest["nodes"].items() if node["deviceType"] == "nixos"} == set(manifest["fleetHosts"])
+    assert "switch-fabric" not in manifest["nodes"]
+    assert len(manifest["nodes"]["switch-upstairs"]["interfaces"]) == 8
+    assert len(manifest["nodes"]["switch-downstairs"]["interfaces"]) == 5
+    assert any(c["node"] == "switch-downstairs" and c["interface"] == "port2" for c in manifest["nodes"]["switch-upstairs"]["interfaces"]["port4"]["physicalConnections"])
+    assert manifest["nodes"]["switch-upstairs"]["interfaces"]["port2"]["physicalConnections"] == []
+    assert manifest["switchPorts"]["upstairs"]["ports"]["2"]["endpoint"]["uncertain"]
     assert manifest["nodes"]["nas-01"]["services"]["zot"]["name"] == "Zot registry"
     assert manifest["nodes"]["homelab-04"]["services"]["woodpecker"]["name"] == "Woodpecker CI"
     for name, node in manifest["nodes"].items():

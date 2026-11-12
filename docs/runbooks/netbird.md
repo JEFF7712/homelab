@@ -11,14 +11,15 @@ OPNsense gives the peer a stable public endpoint so remote peers behind strict N
 - Debugging remote LAN access where the on-host client looks healthy but dashboard state (approval, routing peer, policy) is suspect.
 - Any task that would otherwise mean clicking around in `https://app.netbird.io`.
 
-Start read-only (`GET`), show the plan, then ask for authorization before any `POST`/`PUT`/`DELETE`, per the infrastructure rules in `AGENTS.md`.
+Start read-only (`GET`), inspect the affected peers and access, and review the planned writes. Necessary changes within the requested task use the standing delivery authorization in `AGENTS.md`; changes that cross its exact-change approval boundary still require the operator.
 
 ## Credential
 
 - SOPS property `NETBIRD_API_KEY` in `gitops/secrets/homelab-values.sops.yaml` (decrypted by Flux into Secret `homelab-values` in namespace `secret-source`; see `gitops/clusters/homelab-01/secrets.yaml` and `gitops/eso/secretstore.yaml`).
 - Runtime env var name is also `NETBIRD_API_KEY`.
 - Prefer a service-user personal access token (dashboard: Team -> Service Users) over a personal user token, so automation survives personnel changes. API reference: `https://docs.netbird.io/api`.
-- Never commit the plaintext value. `gitleaks` gates plaintext secrets, and `.sops.yaml` only allows `gitops/secrets/*.sops.yaml`.
+- Never commit the plaintext value. `gitleaks` gates plaintext secrets, and Kubernetes secret manifests belong under `gitops/secrets/*.sops.yaml`;
+  `.sops.yaml` also has separate rules for host and CI secrets.
 
 ## Store the key (owner, privileged host only)
 
@@ -52,10 +53,24 @@ Load the key from SOPS into the environment; do not paste it into commands or fi
 
 ```sh
 export SOPS_AGE_KEY_FILE=$PWD/secrets/keys/flux-age.key
-sops exec-env gitops/secrets/homelab-values.sops.yaml 'curl -s https://api.netbird.io/api/peers -H "Authorization: Token $NETBIRD_API_KEY" | head -c 1000'
+export NETBIRD_API_KEY="$(sops -d --extract '["stringData"]["NETBIRD_API_KEY"]' gitops/secrets/homelab-values.sops.yaml)"
+python3 - <<'PYNET'
+import os
+import urllib.request
+request = urllib.request.Request(
+    "https://api.netbird.io/api/peers",
+    headers={"Authorization": "Token " + os.environ["NETBIRD_API_KEY"]},
+)
+with urllib.request.urlopen(request, timeout=30) as response:
+    print(response.read().decode())
+PYNET
+unset NETBIRD_API_KEY
 ```
 
-Auth scheme is `Authorization: Token <key>` (PAT), not `Bearer`. Base URL is `https://api.netbird.io`. Cloud rate limit is 120 requests per minute with a 1200-request burst.
+The manifest nests properties under `stringData`; `sops exec-env` does not
+flatten that Kubernetes structure into `NETBIRD_API_KEY`. Extract only the
+required property as above. The Python request keeps the token out of command
+arguments. Auth scheme is `Authorization: Token <key>` (PAT), not `Bearer`. Base URL is `https://api.netbird.io`. Cloud rate limit is 120 requests per minute with a 1200-request burst.
 
 Useful read-only endpoints:
 
@@ -75,7 +90,7 @@ Full schema is at `https://docs.netbird.io/api`; treat that as authoritative for
 
 1. Create the replacement token in the dashboard (Team -> Service Users or Users -> Access Tokens). Copy it once.
 2. Update the SOPS property with the store command above.
-3. Confirm the new value authenticates with one `GET /api/peers` call via `sops exec-env`.
+3. Confirm the new value authenticates with one `GET /api/peers` call using the property extraction above.
 4. Revoke the old token in the dashboard.
 
 No cluster restart is needed: nothing in `gitops/` consumes this property yet. If a consumer is added later, it follows the standard `homelab-values` -> `ClusterSecretStore homelab-secrets` -> `ExternalSecret` path (example: `gitops/media/secrets.yaml`) and gets the new value within the `1h` refresh interval.

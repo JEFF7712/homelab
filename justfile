@@ -73,8 +73,11 @@ cache-populate:
       ./flake#checks.x86_64-linux.agent-workspace-libvirt-normalization \
       ./flake#checks.x86_64-linux.zot-registry \
       ./flake#checks.x86_64-linux.zot-registry-service \
+      ./flake#checks.x86_64-linux.niks3-cache-service \
       ./flake#checks.x86_64-linux.opnsense-types \
       ./flake#checks.x86_64-linux.opnsense-config \
+      ./flake#checks.x86_64-linux.tofu-types \
+      ./flake#checks.x86_64-linux.tofu-config \
       ./flake#checks.x86_64-linux.fleet-inventory \
       ./flake#checks.x86_64-linux.kiosk-tty1 \
       ./flake#checks.x86_64-linux.kernel-modules-aggregation \
@@ -82,10 +85,14 @@ cache-populate:
       ./flake#devShells.x86_64-linux.default \
       ./flake#devShells.x86_64-linux.ci \
       ./flake#devShells.x86_64-linux.ops \
-      | attic push local:homelab --ignore-upstream-cache-filter --jobs 8 --stdin
+      | niks3 push --stdin --server-url http://10.0.30.20:8090 --auth-token-path "${NIKS3_TOKEN_FILE:?set NIKS3_TOKEN_FILE to the niks3 push token file}"
 
 deploy-fleet *args:
     python -m scripts.deploy_fleet {{args}}
+
+# Reboot hosts onto their installed kernel (03:00-05:00 America/Chicago).
+fleet-reboot *args:
+    python -m scripts.fleet_reboot {{args}}
 
 [positional-arguments]
 deployment-report *args:
@@ -95,11 +102,18 @@ topology:
     mkdir -p artifacts
     nix build --no-write-lock-file './flake#topology' --out-link artifacts/topology
 
-opnsense-render:
-    python -m scripts.opnsense_config
+tofu-render:
+    python -m scripts.tofu_config
 
-opnsense-check:
-    python -m scripts.opnsense_config --check
+tofu-check:
+    python -m scripts.tofu_config --check
+
+tofu-provider-options:
+    python -m scripts.tofu_config --provider-options
+
+opnsense-render: tofu-render
+
+opnsense-check: tofu-check
 
 opnsense-provider-options:
     python -m scripts.opnsense_config --provider-options
@@ -277,7 +291,7 @@ ship *args:
 # Forgejo PR flow for agents. Requires `tea` login and the dedicated
 # git-agent SSH identity (see docs/runbooks/ci-pipelines.md). Publishing and
 # merging require explicit authorization. Merge only after validation-v2 is
-# green; prefer fast-forward so the Forgejo to GitLab mirror stays clean.
+# green.
 forgejo-pr title target="main":
     tea pr create --repo JEFF7712/homelab --base '{{target}}' --head $(git branch --show-current) --title '{{title}}'
 

@@ -1,8 +1,9 @@
 id: shared_spaces_late_night
 alias: "Shared Spaces: Late Night Wind-Down"
 description: >-
-  Put Adaptive Lighting into sleep mode at 22:30 so kitchen and living room
-  lights drop warm and dim for wind-down, and restore normal adapting at
+  Put both Adaptive Lighting entries (Zigbee bulbs and the Govee dining
+  bulbs) into sleep mode at 22:30 so kitchen and living room lights drop
+  warm and dim for wind-down, and restore normal adapting at
   sunrise. Skipped while Guest Mode is on so guests keep normal lighting.
   Only runs when someone is home; an empty house is already dark via
   Shared Spaces: Lights Off When Empty.
@@ -27,12 +28,16 @@ actions:
         sequence:
           - action: switch.turn_on
             target:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights_sleep_mode
+              entity_id:
+                - switch.adaptive_lighting_all_dimmable_lights_sleep_mode
+                - switch.adaptive_lighting_govee_dining_bulbs_sleep_mode
       - conditions:
           - condition: trigger
             id: "morning"
         sequence:
           - action: switch.turn_off
             target:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights_sleep_mode
+              entity_id:
+                - switch.adaptive_lighting_all_dimmable_lights_sleep_mode
+                - switch.adaptive_lighting_govee_dining_bulbs_sleep_mode
 mode: single

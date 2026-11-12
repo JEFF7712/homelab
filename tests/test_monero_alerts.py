@@ -62,6 +62,7 @@ class MoneroAlertTests(unittest.TestCase):
         receivers = {receiver["name"] for receiver in config["receivers"]}
         self.assertIn("ntfy-default", receivers)
         self.assertIn("ntfy-critical", receivers)
+        self.assertIn("critical", receivers)
         inhibits = config["inhibit_rules"]
         self.assertTrue(
             any(
@@ -72,6 +73,35 @@ class MoneroAlertTests(unittest.TestCase):
                 for rule in inhibits
             )
         )
+
+    def test_critical_alerts_routed_to_resend_email(self) -> None:
+        spec = self.release["spec"]["values"]["alertmanager"]
+        self.assertIn("alertmanager-resend-smtp", spec["alertmanagerSpec"]["secrets"])
+        config = spec["config"]
+        routes = config["route"]["routes"]
+        critical_routes = [
+            r
+            for r in routes
+            if any('severity = "critical"' in m for m in r.get("matchers", []))
+        ]
+        self.assertEqual(len(critical_routes), 1)
+        self.assertEqual(critical_routes[0]["receiver"], "critical")
+
+        by_name = {r["name"]: r for r in config["receivers"]}
+        self.assertIn("critical", by_name)
+        email_configs = by_name["critical"].get("email_configs", [])
+        self.assertEqual(len(email_configs), 1)
+        email = email_configs[0]
+        self.assertEqual(email["to"], "rupanpandyan@gmail.com")
+        self.assertEqual(email["from"], "Homelab Alerts <alerts@rupan.dev>")
+        self.assertEqual(email["smarthost"], "smtp.resend.com:587")
+        self.assertEqual(email["auth_username"], "resend")
+        self.assertEqual(
+            email["auth_password_file"],
+            "/etc/alertmanager/secrets/alertmanager-resend-smtp/password",
+        )
+        self.assertTrue(email["send_resolved"])
+        self.assertTrue(email["require_tls"])
 
     def test_rules_file_is_reconciled(self) -> None:
         kustomization = yaml.safe_load(KUSTOMIZATION.read_text())

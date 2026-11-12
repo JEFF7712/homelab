@@ -2,7 +2,9 @@
 
 import asyncio
 import hashlib
+import json
 import logging
+import os
 import posixpath
 import shutil
 import threading
@@ -11,7 +13,7 @@ from collections.abc import Iterable
 from functools import partial
 from typing import Any, Dict, List, Optional, Set, Union
 from urllib.parse import urlparse, urlunparse
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 # pylint: disable=no-name-in-module
 from aioesphomeapi.api_pb2 import (  # type: ignore[attr-defined]
@@ -66,6 +68,21 @@ from .peripheral_api import LVAEvent
 from .util import call_all
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _publish_display_text(text: str) -> None:
+    """Forward every response, including HA audio-cache hits, to the display."""
+    try:
+        request = Request(
+            "http://wyoming-chatterbox.voice:10202/response",
+            data=json.dumps({"text": text}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(request, timeout=5) as response:
+            response.read()
+    except Exception:
+        logging.getLogger(__name__).exception("Could not update Jarvis display")
 
 PROTO_TO_MESSAGE_TYPE = {v: k for k, v in MESSAGE_TYPE_TO_PROTO.items()}
 
@@ -669,6 +686,9 @@ class VoiceSatelliteProtocol(APIServer):
             tts_text = data.get("text", "").strip()
             if tts_text:
                 self._emit(LVAEvent.TTS_TEXT, {"text": tts_text})
+                asyncio.get_running_loop().run_in_executor(
+                    None, _publish_display_text, tts_text
+                )
                 _LOGGER.debug("TTS response text: %s", tts_text)
 
         elif event_type == VoiceAssistantEventType.VOICE_ASSISTANT_TTS_END:
@@ -1104,6 +1124,9 @@ class VoiceSatelliteProtocol(APIServer):
     # ------------------------------------------------------------------
 
     def play_tts(self) -> None:
+        if os.environ.get("JARVIS_TEXT_ONLY") == "1":
+            # Never play old cached speech either. RUN_END completes the turn.
+            return
         if (not self._tts_url) or self._tts_played:
             return
 

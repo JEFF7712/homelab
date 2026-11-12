@@ -22,8 +22,19 @@ let
     cd /persist/service-release-ci
     exec env PYTHONPATH=${serviceReleaseSource} ${pkgs.python3}/bin/python3 -m scripts.ci.service_release worker
   '';
+  # Deploy-tier jobs take their catalog group's lock from this service
+  # (scripts/ci/oplock.py); only their Docker network may reach it.
+  oplockSource = pkgs.runCommand "woodpecker-oplock-source" { } ''
+    mkdir -p $out/scripts/ci
+    cp ${../../scripts/ci/oplock.py} $out/scripts/ci/oplock.py
+    touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
+  '';
+  deployNetwork = "ci-deploy";
+  deployBridge = "br-cideploy";
+  oplockPort = 8031;
   policySource = pkgs.runCommand "woodpecker-policy-source" { } ''
-    mkdir -p $out/scripts/ci $out/config/ci
+    mkdir -p $out/scripts/ci $out/scripts/verifier $out/config/ci
+    cp ${../../scripts/verifier/enforcement.py} $out/scripts/verifier/enforcement.py
     cp ${../../config/ci/projectctl-contracts.json} $out/config/ci/projectctl-contracts.json
     cp ${../../scripts/ci/policy.py} $out/scripts/ci/policy.py
     cp ${../../scripts/ci/deployment_source.py} $out/scripts/ci/deployment_source.py
@@ -31,6 +42,7 @@ let
     cp ${../../scripts/ci/deployment_risk.py} $out/scripts/ci/deployment_risk.py
     PYTHONPATH=$out ${python}/bin/python -m scripts.ci.deployment_risk ${../..} > $out/authority-baseline.json
     cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py
+    cp ${../../scripts/ci/build_users.py} $out/scripts/ci/build_users.py
     cp ${../../scripts/ci/development_projects.py} $out/scripts/ci/development_projects.py
     cp ${../../scripts/ci/static_site.py} $out/scripts/ci/static_site.py
     cp ${../../scripts/ci/static_release.py} $out/scripts/ci/static_release.py
@@ -43,7 +55,7 @@ let
     cp ${../../scripts/ci/container_release.py} $out/scripts/ci/container_release.py
     cp ${../../scripts/ci/node_release.py} $out/scripts/ci/node_release.py
     cp ${../../scripts/ci/dotnet_release.py} $out/scripts/ci/dotnet_release.py
-    touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
+    touch $out/scripts/__init__.py $out/scripts/ci/__init__.py $out/scripts/verifier/__init__.py
     PYTHONPATH=$out ${python}/bin/python -c ${lib.escapeShellArg ''
       from pathlib import Path
       from scripts.ci.applications import load_catalog, configuration
@@ -71,7 +83,7 @@ let
       load_development_projects(Path("${../../config/ci/projects.json}"))
     ''}
   '';
-  agent = tier: count: {
+  agent = tier: count: cpus: {
     enable = true;
     extraGroups = [ "docker" ];
     environment = {
@@ -82,7 +94,7 @@ let
       WOODPECKER_MAX_WORKFLOWS = toString count;
       WOODPECKER_HEALTHCHECK = "false";
       WOODPECKER_BACKEND_DOCKER_LIMIT_MEM = "8589934592";
-      WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = "200000";
+      WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = toString (cpus * 100000);
     };
     environmentFile = [ config.sops.secrets."woodpecker-agent-${tier}.env".path ];
   };
@@ -108,9 +120,12 @@ in
 
   config = lib.mkIf cfg.enable {
     homelab.woodpeckerSandbox.acceptTunnel = true;
+    # 22G on a 32G host with agent VMs and GPU pods hit MemoryMax millions
+    # of times and swapped. The kubelet reserves typical CI use (8G); the
+    # rest of this cap overlaps pod memory only when both peak.
     systemd.slices.ci.sliceConfig = {
-      MemoryHigh = "18G";
-      MemoryMax = "22G";
+      MemoryHigh = "10G";
+      MemoryMax = "12G";
       CPUQuota = "1000%";
       CPUWeight = 50;
     };
@@ -219,7 +234,7 @@ in
         WOODPECKER_CONFIG_EXTENSION_ENDPOINT = "http://127.0.0.1:8010/config";
         WOODPECKER_CONFIG_EXTENSION_EXCLUSIVE = "true";
         WOODPECKER_CONFIG_EXTENSION_NETRC = "true";
-        WOODPECKER_DEFAULT_CLONE_PLUGIN = "registry.rupan.dev/upstream/docker.io/woodpeckerci/plugin-git@sha256:0f06b03ec33137b556c77538563f66c400339052d0c5199d4c3ad1a2a37e1964";
+        WOODPECKER_DEFAULT_CLONE_PLUGIN = "registry.rupan.dev/upstream/docker.io/woodpeckerci/plugin-git@sha256:b8d2401997be68ec25d62bd753fe5d30236e029fe007a5e823177e0e485ae205";
         WOODPECKER_EXTENSIONS_ALLOWED_HOSTS = "loopback";
       };
       environmentFile = [
@@ -264,24 +279,72 @@ in
       };
     };
     services.woodpecker-agents.agents = {
-      sandbox = agent "sandbox" 2;
+      # One sandbox slot: a second 8G validation overcommitted the host's
+      # memory; homelab-05 carries the other sandbox slot. Four CPUs: at two,
+      # parallel gate lanes spent more time throttled than running (#12452:
+      # 1,098 s throttled in a 348 s gate). The ci slice caps all slots at
+      # ten CPUs and CPUWeight keeps pods ahead under contention.
+      sandbox = agent "sandbox" 1 4;
       # Two trusted slots: scheduled read-only work holds at most one (its
       # shared concurrency group), so pushes and operator plans keep the other.
-      trusted = agent "trusted" 2;
+      trusted = agent "trusted" 2 2;
       # Operations serialize per resource group, so a second deploy slot lets
       # unrelated mutations (a cache push and a Home Assistant apply) overlap.
-      deploy = agent "deploy" 2;
+      # Its containers also join the deploy network, the only one that
+      # reaches the operation lock service.
+      deploy = lib.recursiveUpdate (agent "deploy" 2 2) {
+        environment.WOODPECKER_BACKEND_DOCKER_NETWORK = deployNetwork;
+      };
     };
     systemd.services.woodpecker-agent-sandbox.serviceConfig.Restart = lib.mkForce "always";
     systemd.services.woodpecker-agent-trusted.serviceConfig.Restart = lib.mkForce "always";
-    systemd.services.woodpecker-agent-deploy.serviceConfig.Restart = lib.mkForce "always";
+    systemd.services.woodpecker-agent-deploy = {
+      serviceConfig.Restart = lib.mkForce "always";
+      requires = [ "ci-deploy-network.service" ];
+      after = [ "ci-deploy-network.service" ];
+    };
+    systemd.services.ci-deploy-network = {
+      description = "Docker network for deploy-tier CI containers";
+      requires = [ "docker.service" ];
+      after = [ "docker.service" ];
+      path = [ config.virtualisation.docker.package ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+      };
+      script = ''
+        docker network inspect ${deployNetwork} >/dev/null 2>&1 || docker network create \
+          --driver bridge --subnet 10.255.31.0/24 --gateway 10.255.31.1 \
+          -o com.docker.network.bridge.name=${deployBridge} ${deployNetwork}
+      '';
+    };
+    # Woodpecker cannot limit a catalog group to one running operation, so
+    # operations hold the group's lock here for the life of a connection.
+    systemd.services.woodpecker-oplock = {
+      description = "Per-group locks for CI operations";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "network.target" ];
+      environment.PYTHONPATH = toString oplockSource;
+      serviceConfig = {
+        ExecStart = "${python}/bin/python -m scripts.ci.oplock --port ${toString oplockPort}";
+        DynamicUser = true;
+        Restart = "always";
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+      };
+    };
     networking.firewall.allowedTCPPorts = [ 8000 ];
     # deploy-ci-host steps SSH to this host's own address. That traffic is
     # delivered locally from the step's Docker bridge with a container source
     # address, so the 10.0.30.0/24 SSH rule never matches it. Steps already
     # reach SSH on every other fleet host through the masquerade.
+    # Only deploy-tier containers may take operation locks, so sandbox jobs
+    # running pull request code cannot hold one to stall deployments.
     networking.firewall.extraInputRules = ''
       iifname { "docker0", "br-*" } tcp dport 22 accept
+      iifname "${deployBridge}" tcp dport ${toString oplockPort} accept
     '';
     # CI containers masquerade as this host, which every NFS export trusts
     # with AUTH_SYS and no_root_squash. No job needs NFS, so a sandbox step

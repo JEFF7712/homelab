@@ -77,8 +77,10 @@ class CacheResultsTest(unittest.TestCase):
                 "assert '--skip-cached' not in args\n"
                 "selection = args[args.index('--select') + 1]\n"
                 "targets = re.findall(r'target(\\d+) = flake\\.([^;]+);', selection)\n"
-                "assert len(targets) == 23\n"
+                "assert len(targets) == 26\n"
                 "assert any(t == 'checks.x86_64-linux.zot-registry-service' for _, t in targets)\n"
+                "assert any(t == 'checks.x86_64-linux.tofu-types' for _, t in targets)\n"
+                "assert any(t == 'checks.x86_64-linux.tofu-config' for _, t in targets)\n"
                 "assert targets[0][1] == 'nixosConfigurations.nas-01.config.system.build.toplevel'\n"
                 "assert targets[-1][1] == 'devShells.x86_64-linux.ops'\n"
                 "assert sum('.config.system.build.toplevel' in t for _, t in targets) == 7\n"
@@ -100,17 +102,20 @@ class CacheResultsTest(unittest.TestCase):
                 f"#!{sys.executable}\n"
                 "import sys\n"
                 "assert sys.argv[1:4] == ['--query', '--requisites', '--include-outputs']\n"
-                "assert len(sys.argv[4:]) == 23\n"
+                "assert len(sys.argv[4:]) == 26\n"
                 "print('/nix/store/build-input')\n"
             )
-            attic = directory / "attic"
-            attic.write_text(
+            niks3 = directory / "niks3"
+            niks3.write_text(
                 f"#!{sys.executable}\n"
-                "import os, pathlib, sys\n"
+                "import json, os, pathlib, sys\n"
                 "if sys.argv[1] == 'push':\n"
-                " pathlib.Path(os.environ['PUSH_RECEIPT']).write_text(sys.stdin.read())\n"
+                " paths = sys.stdin.read()\n"
+                " pathlib.Path(os.environ['PUSH_RECEIPT']).write_text(paths)\n"
+                " for path in paths.split():\n"
+                "  print(json.dumps({'path': path, 'status': 'ok'}))\n"
             )
-            for binary in (fast, nix, nix_store, attic):
+            for binary in (fast, nix, nix_store, niks3):
                 binary.chmod(0o755)
             receipt = directory / "pushed"
             environment = dict(os.environ)
@@ -124,7 +129,7 @@ class CacheResultsTest(unittest.TestCase):
                         env={
                             **environment,
                             "PATH": str(directory) + os.pathsep + os.environ["PATH"],
-                            "ATTIC_TOKEN": "test-only",
+                            "NIKS3_TOKEN": "test-only",
                             "FAST_STATUS": str(status),
                             "PUSH_RECEIPT": str(receipt),
                         },
@@ -138,7 +143,7 @@ class CacheResultsTest(unittest.TestCase):
                     else:
                         self.assertEqual(
                             set(receipt.read_text().splitlines()),
-                            {f"/nix/store/system{i}" for i in range(23)}
+                            {f"/nix/store/system{i}" for i in range(26)}
                             | {"/nix/store/source", "/nix/store/build-input"},
                         )
 

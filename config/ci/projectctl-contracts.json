@@ -10,7 +10,7 @@
     },
     "node-lint-build-v1": {
       "step": "node-lint-build",
-      "image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+      "image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c",
       "commands": [
         "npm ci",
         "npm run lint",
@@ -20,7 +20,7 @@
     },
     "node-vitest-v1": {
       "step": "node-vitest-build",
-      "image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+      "image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c",
       "commands": [
         "npm ci",
         "npm run lint",
@@ -31,7 +31,7 @@
     },
     "node-build-v1": {
       "step": "node-build",
-      "image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20",
+      "image": "registry.rupan.dev/upstream/docker.io/library/node@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c",
       "commands": [
         "npm ci",
         "npx tsc --noEmit",

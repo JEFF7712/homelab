@@ -1,3 +1,4 @@
+import ast
 import base64
 import contextlib
 import json
@@ -11,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.ci.contract import REPORT_BEGIN, REPORT_END, build_report
-from scripts.ci.scope import Scope, classify, determine
+from scripts.ci.scope import _GATE_MODULES, Scope, classify, determine
 from scripts.ci.validate import main
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +54,13 @@ class ScopeTest(unittest.TestCase):
         for paths, checks, modules in (
             (["tests/test_example.py"], ("python",), ("tests.test_example",)),
             (["scripts/deploy_fleet.py"], ("python",), ()),
+            # Deploy and release helpers are not part of the gate.
+            (["scripts/ci/fleet_deploy_key.py"], ("python",), ()),
+            (
+                ["scripts/ci/nixos_deploy.py", "tests/test_nixos_deploy.py"],
+                ("python",),
+                ("tests.test_nixos_deploy",),
+            ),
             (["opnsense_reconciler/reconciler.py"], ("python",), ()),
             (
                 ["gitops/clusters/homelab-01/kustomization.yaml"],
@@ -61,7 +69,17 @@ class ScopeTest(unittest.TestCase):
             ),
             (["schemas/kubernetes/example.json"], ("gitops",), ()),
             (["tofu/opnsense/main.tf"], ("tofu",), ()),
-            (["registry/images.lock.json"], ("registry",), ()),
+            (
+                ["registry/images.lock.json"],
+                ("python", "registry"),
+                ("tests.test_service_release",),
+            ),
+            (
+                ["registry/images.inventory.json"],
+                ("python", "registry"),
+                ("tests.test_service_release",),
+            ),
+            (["registry/observed-images.json"], ("registry",), ()),
             (
                 ["scripts/registry/__init__.py"],
                 ("python", "registry"),
@@ -96,10 +114,13 @@ class ScopeTest(unittest.TestCase):
 
     def test_unknown_shared_and_mixed_changes_remain_exhaustive(self) -> None:
         for path in (
-            ".gitlab-ci.yml",
             "flake/flake.nix",
             "flake/modules/k3s.nix",
             "scripts/ci/scope.py",
+            "scripts/ci/policy.py",
+            "scripts/ci/applications.py",
+            "scripts/ci/cache.sh",
+            "scripts/ci/nested/helper.py",
             "scripts/checks/python.sh",
             "config/agent-workspaces/workspaces.json",
             "home-assistant/configuration.yaml",
@@ -115,6 +136,33 @@ class ScopeTest(unittest.TestCase):
         self.assertEqual(
             classify(["gitops/apps/app.yaml", "flake/modules/k3s.nix"]).mode, "full"
         )
+
+    def test_gate_modules_include_every_scripts_ci_module_they_import(self) -> None:
+        # A helper the gate imports changes the gate, so it must force full.
+        ci = Path(__file__).resolve().parents[1] / "scripts/ci"
+        pending = sorted(name for name in _GATE_MODULES if name != "__init__.py")
+        seen: set[str] = set()
+        while pending:
+            name = pending.pop()
+            if name in seen:
+                continue
+            seen.add(name)
+            for node in ast.walk(ast.parse((ci / name).read_text())):
+                if isinstance(node, ast.ImportFrom) and node.module:
+                    if node.module == "scripts.ci":
+                        imported = [alias.name for alias in node.names]
+                    elif node.module.startswith("scripts.ci."):
+                        imported = [node.module.split(".")[2]]
+                    else:
+                        continue
+                    pending += [f"{module}.py" for module in imported]
+                elif isinstance(node, ast.Import):
+                    pending += [
+                        alias.name.split(".")[2] + ".py"
+                        for alias in node.names
+                        if alias.name.startswith("scripts.ci.")
+                    ]
+        self.assertLessEqual(seen, _GATE_MODULES)
 
 
 class CommitRangeTest(unittest.TestCase):

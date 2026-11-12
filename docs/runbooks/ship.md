@@ -27,10 +27,12 @@ just ship --verify 'curl --fail https://service.example/health'
    the tail of each failing Woodpecker step and exits nonzero. A validation
    run that was killed rather than failed (an agent or server restart, runner
    pressure) is restarted once per head; a second kill fails the ship.
-6. Merges through the merge queue (see below). When the PR has a pending review
-   request (CODEOWNERS requests one for code-owned paths, and branch
-   protection blocks the merge until it is approved), it stops and prints the
-   PR link; rerun `just ship` on the branch after the owner approves.
+6. Waits for `policy/merge` and merges through the merge queue (see below).
+   Repair findings return to the agent; authority findings require operator
+   passkey approval of that exact head on the [approvals dashboard](approvals.md).
+   Forgejo reviews neither grant nor block anything: branch protection
+   requires only the validation and `policy/merge` statuses, not approvals,
+   rejected reviews or open review requests. See [merge policy](merge-policy.md).
 7. When operations are planned, waits for the main push pipeline covering the
    merge commit to finish with successful source validation. Unrelated failed
    operations do not invalidate that validation. If main advances to a commit that contains the
@@ -92,12 +94,24 @@ Cloudflare and application releases. CI-host-only paths select that host instead
 of also deploying the entire fleet. `--deploy` selects an explicit operation
 list and includes prerequisites; `--deploy none` merges without operations.
 
-The task request authorizes catalog operations, including policy and credential
-changes. Agent and operator identities use the same validated delivery path.
-Saved OpenTofu plans must be recognized and complete; authorization, data and
-connectivity risks are reported for the agent to assess against the task scope
-and recovery evidence, without a human approval hold. Production credentials
-stay in CI and validation remains credential-free.
+The task request authorizes routine catalog operations. Changes to
+enforcement code (`scripts/verifier/enforcement.py`) and spending caps
+still require the operator's approval of the exact change, always given with
+a passkey on the approvals dashboard: `policy/merge` holds those PRs and
+files a merge request there, which `ship` prints and waits on. The deployed CI policy checks agent mutations against its immutable
+authorization/storage source baseline; an exact-content grant authorizes a
+deployment without expiring when unrelated main commits land, and a grant for
+file versions an approved merge already covered is approved without asking
+again. Operator-only catalog operations also remain held. See
+[merge policy](merge-policy.md) and [approvals](approvals.md).
+
+Saved OpenTofu plans must be recognized and complete. Persistent-data
+destruction, management-connectivity loss and bulk destruction require
+operator approval before apply. Authorization changes (Access policies,
+tokens, roles, OPNsense users) apply autonomously and the operation log
+records each one as `recorded: authorization change: <address>`. Ordinary
+application releases, fleet updates, DNS edits and firewall changes proceed
+autonomously within the task scope. Production credentials stay in CI; validation is credential-free.
 
 An operation can finish against an older main revision when every intervening
 change is known to affect a different catalog resource group. Both the deployed
@@ -136,10 +150,10 @@ approved switch, follow [CI recovery](ci-pipelines.md#recovery).
 
 `ship` reads the `homelab-agent` token from the `tea` login and the Woodpecker
 token from `WOODPECKER_TOKEN` or `~/.config/woodpecker/token`. Operations run in
-CI with CI-held credentials. It never prints a token. The approvals service is
-retained for outstanding legacy requests: before the new policy is deployed,
-`ship` can still file the old policy's passkey request and follow its result.
-After migration, catalog operations require no operator token or passkey.
+CI with CI-held credentials. It never prints a token. Routine catalog operations
+need no operator token or passkey. The approvals service handles high-risk
+exceptions and exact-content grants; `ship` files the request, prints the link
+and follows the decision. Declined or expired requests stop delivery.
 
 ## Acceptance
 

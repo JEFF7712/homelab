@@ -87,6 +87,7 @@ SYSTEMCTL_MUTATIONS = {
 POWER_COMMANDS = {"halt", "poweroff", "reboot", "shutdown"}
 JUST_MUTATIONS = {
     "deploy-fleet",
+    "fleet-reboot",
     "ha-apply",
     "ha-revert",
     "registry-copy",

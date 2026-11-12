@@ -55,6 +55,13 @@ add plaintext Kubernetes Secret data to an ordinary YAML file.
 
 Inspect the `ExternalSecret` or `SecretStore` and the owning service runbook to
 find its remote secret owner, scope, key mapping, refresh policy, and consumer.
+The bootstrap `homelab-secrets` ClusterSecretStore (`gitops/eso/secretstore.yaml`)
+reads Secret `homelab-values` in namespace `secret-source`, decrypted by Flux
+from `gitops/secrets/homelab-values.sops.yaml`. Only `secret-source` can use that
+store; application stores read separate domain projections as described below.
+GitLab project variables no longer supply these ExternalSecrets. Edit the encrypted properties, ship,
+wait for Flux and ESO refresh, and restart consumers that read secrets only
+at startup. The `remoteRef.property` can differ from the target Secret key.
 Change the source at its authoritative owner. Do not copy values into Git or
 replace an `ExternalSecret` with a SOPS Secret for convenience. Credential
 creation, rotation, and revocation follow the service-specific procedure
@@ -112,3 +119,28 @@ observable behavior using the owning service runbook. Never include Secret
 `data` or `stringData` in verification output. If verification fails, preserve
 the failed evidence and use the owning runbook's recovery procedure; do not
 blindly restore a credential that may already have been revoked.
+
+## ESO trust domains
+
+The encrypted `homelab-values` Secret remains the authoritative source in
+`secret-source`. Only that namespace can use the bootstrap `homelab-secrets`
+ClusterSecretStore. `gitops/eso/domain-stores.yaml` projects explicit property
+subsets into separate `homelab-<namespace>-values` Secrets every five minutes.
+Each consumer domain has its own provider ServiceAccount and a Role granting
+`get` on exactly its projection. Its ClusterSecretStore is restricted to that
+consumer namespace. An ExternalSecret author in one application namespace
+cannot use its provider identity to fetch the master or another projection.
+The analytics backup store has a separate reader for `umami-cluster-app`.
+
+When adding a property, update both the owning ExternalSecret and its domain
+projection. Keep provider permissions scoped to exact source resource names;
+namespace conditions on a shared all-secrets reader are insufficient.
+`tests/test_cluster_secret_isolation.py` checks rendered provider permissions,
+store eligibility and consumer/property resolution without credentials.
+
+After deployment, check all stores and ExternalSecrets are Ready. Provider
+projections reconcile before the existing consumer refresh intervals; allow up
+to five minutes plus the consumer interval for a source value change. Trigger
+reconciliation explicitly when rotating credentials, then restart affected
+environment-based consumers as required by their runbooks. Keep an old secret
+until its replacement is Ready during any future domain migration.

@@ -1,7 +1,7 @@
 # CI pipelines
 
-Forgejo is primary and Woodpecker runs on homelab-04. GitLab is a mirror kept
-for disaster recovery only; see
+Forgejo is the only forge and Woodpecker runs on homelab-04. CI mirrors main
+to GitHub as the off-site source copy; recovery is in
 [Forgejo disaster recovery](forgejo-disaster-recovery.md).
 
 ## Execution and authority
@@ -23,22 +23,36 @@ have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
 Validation runs in the slim `ci` dev shell; protected operations run in
 the `ops` shell, which adds registry, cache, and release clients but leaves
 out the virtualization and GUI closure of the default shell (2.4 GiB instead
-of 3.9 GiB), so an operation container copies far less from Attic before it
-starts. `cache-publish` pushes all three shells. The three homelab-04 agents
-each have two workflow slots. An additional sandbox-only agent on homelab-05
-has one slot, bringing sandbox capacity to three. Trusted and deployment
-concurrency stay unchanged. Its server-side filter enforces `tier=sandbox`.
-The new host CI slice is limited to three CPUs and 10 GiB, with that budget
+of 3.9 GiB), so an operation container copies far less from niks3 before it
+starts. `cache-publish` pushes all three shells. On homelab-04 the trusted
+and deployment agents have two workflow slots each and the sandbox agent has
+one: a second concurrent validation pushed homelab-04's ci.slice to its limit
+millions of times and into swap. A sandbox-only agent on homelab-05 has the
+other slot, so sandbox capacity is two. Its server-side filter enforces
+`tier=sandbox`. homelab-04's ci.slice is capped at 12 GiB (MemoryHigh 10 GiB),
+and its kubelet reserves 8 GiB for typical concurrent CI (one validation
+and one operation) beside the system's 2 GiB and the agent workspaces'
+14 GiB, so GPU pods there are not scheduled into CI memory. monerod on
+homelab-04 is capped at 2 GiB, and the CPU-only, NFS-backed games apps
+prefer homelab-02 and homelab-03. The homelab-05 CI slice is limited to three CPUs and 10 GiB, with that budget
 reserved from the kubelet alongside the Omarchy VM. Jobs retain the two-CPU
 and 8 GiB container limits.
 
-Job Nix builds as the container's root (`build-users-group =` in the
-server-owned `NIX_CONFIG`). The `nixos/nix` image's `nixbld` users carry the
-host's build UIDs (30001+) and Docker does not remap them, so a host
-nix-daemon build, such as a fleet dry-run's `--build-host` on homelab-04 or
-homelab-05, killed every job builder holding the same UID: the job failed
-with `builder failed due to signal 9 (Killed)` and no OOM recorded anywhere.
-Without a sandbox the build users isolated nothing.
+Job Nix builds as the `cibld` users (UIDs 40001+) that every server-owned
+Nix step adds to its container as its first command, selected by
+`build-users-group = cibld` in the server-owned `NIX_CONFIG`; both come from
+`scripts/ci/build_users.py`. Neither alternative works. The `nixos/nix`
+image's `nixbld` users carry the host's build UIDs (30001+) and Docker does
+not remap them, so a host nix-daemon build, such as a fleet dry-run's
+`--build-host` on homelab-04 or homelab-05, killed every job builder holding
+the same UID: the job failed with `builder failed due to signal 9 (Killed)`
+and no OOM recorded anywhere. A root builder can create its home
+`/homeless-shelter` (Go writes `$HOME/.config/go/telemetry`), and Nix then
+refuses every later build in that container with `home directory
+"/homeless-shelter" exists`; that failed every `cache-publish` run once an
+uncached Go package entered the host closures. `cache-publish` also sets
+`fallback = true`, so a dropped cache.nixos.org download builds from source
+instead of failing.
 
 The remote agent uses a dedicated SSH tunnel with a pinned homelab-04 host
 key. Its account can forward only to `127.0.0.1:9000`, cannot open a shell
@@ -62,7 +76,9 @@ Repository settings must clear extension overrides and all trusted permissions.
 
 The patched Woodpecker server records the deployment operator before policy
 evaluation and rejects restart query variable overrides. Retain the patch
-during upgrades. Deployment rights include the enrolled `homelab-agent` identity; task delivery needs no separate operator approval.
+during upgrades. Deployment rights include the enrolled `homelab-agent` identity;
+routine task delivery needs no separate operator approval. Authority-changing
+and destructive exceptions retain the operator gates described below.
 
 ## Validation and operations
 
@@ -72,23 +88,21 @@ secrets. PRs never receive production workflows, regardless of target branch or 
 
 ### Event deduplication and status preservation
 
-Forgejo triggers both branch push and pull request webhooks for PR commits. To
-prevent duplicate execution and runner queue saturation:
-- When a PR event arrives for a commit that has already been validated (or is
-  actively validating) by an authorized pipeline on `main` within 24 hours (or
-  actively pending/running within 2 hours), the policy extension emits
-  `pr-validation-reused.yaml` instead of generating a second `validation-v2`.
-- Emitting `pr-validation-reused` executes a lightweight step that reports
-  `ci/woodpecker/pr-validation-reused` without overwriting the required
-  `ci/woodpecker/validation-v2` status on Forgejo with `pending`. The PR merge
-  check remains green immediately upon push pipeline completion.
-- Deduplication invalidates and runs fresh `validation-v2` if:
-  - The PR originates from a fork (`from_fork: true`).
-  - The PR base branch is not `main`.
-  - The PR head commit does not match the pipeline commit (e.g. force-push).
-  - The PR is closed.
-  - The previous validation failed, expired (>24h), or was created under an
-    earlier policy service version.
+For same-repository PRs, Forgejo sends both branch push and pull request events.
+The branch push owns `ci/woodpecker/validation-v2`; the PR pipeline records the
+lightweight `pr-validation-reused` workflow without overwriting that required
+status. Fork PRs validate in the PR pipeline. This rule does not mean a green
+reuse workflow proves source validation: the required validation context must
+still succeed for the PR head. If branch deferral cannot be established,
+the policy can reuse an eligible same-commit non-fork push, PR or manual
+validation: success within 24 hours, or pending/running within two hours,
+created under the current policy process. Invalid PR metadata or unavailable
+reuse evidence falls back to source validation.
+
+Cron reuse is a separate mechanism: a successful main validation for the same
+commit can be reused within 24 hours, and a schedule defers gated work while
+main validation is running. See the scheduling section below and
+`scripts/ci/policy.py`.
 
 ### Safe change-based scoping
 
@@ -116,8 +130,13 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   and registry code (`registry.sh`), agent tooling (`agent-workflows.sh`), and
   single-host Nix changes under `flake/hosts/<host>/` (`nix.sh <host>`). Mixed
   narrow changes run the union of their checks. Validation infrastructure
-  (`scripts/ci/`, `scripts/checks/`, CI config, flake inputs), shared Nix
-  modules, and any unmapped path still force the full gate.
+  (`scripts/checks/`, CI config, flake inputs, and the gate's own
+  `scripts/ci/` modules), shared Nix modules, and any unmapped path still force
+  the full gate. The gate's modules are those that select, run or report
+  validation or generate pipelines, plus everything they import
+  (`_GATE_MODULES` in `scripts/ci/scope.py`, kept closed by a test), and the
+  `scripts/ci/` shell scripts. The other `scripts/ci/` modules are deploy and
+  release helpers and take the Python lane.
 - **Main pushes** use the policy mirror's complete first-parent Git diff with
   rename detection disabled, preserving both sides of moved files. The same
   scoped classification applies as on branches. API display-list truncation
@@ -174,7 +193,7 @@ unrelated mutations without building a VM.
 Validation runs in the slim `devShells.ci` shell (`nix develop ./flake#ci`,
 about half the closure of `devShells.default`, which remains for interactive
 and deployment work); `scripts/ci/cache.sh` and `just cache-populate` publish
-both shells to Attic. Inside the gate, `scripts/checks/all.sh` runs its
+both shells to niks3. Inside the gate, `scripts/checks/all.sh` runs its
 independent lanes (Python, registry, Nix, GitOps, OpenTofu, Home Assistant,
 docs, secrets, flake) concurrently with per-lane buffered output printed in
 lane order, aggregating every lane failure instead of stopping at the first;
@@ -211,12 +230,61 @@ merged certificates, empty module trees and inconsistent-version rejection.
 
 ### Dependency caching and timing visibility
 
-Attic stores its chunks on `zroot/attic` (`/srv/attic`), the system SSD
-mirror on nas-01, with a 120G quota. It moved off the single `tank` HDD on
-2026-10-19: CI containers fetch shells as many small random reads, and on a
-disk shared with media and NFS that held IO pressure above 80% and made
-every cold step crawl. `tank/attic` keeps the pre-move copy for rollback;
-remove it once the SSD store has run cleanly for a while.
+Cache stores live on nas-01's system SSD mirror, not the single `tank` HDD:
+CI containers fetch shells as many small random reads, and on a disk shared
+with media and NFS that held IO pressure above 80% and made every cold step
+crawl (moved 2026-10-19).
+
+### niks3 cache
+
+nas-01 runs the fleet's Nix cache, niks3, on port 8090. The maintenance
+`cache-publish` operation, and the laptop's `nixos-publish`,
+`nixos-lock-update` and `nixos-deploy` operations, push to it. Hosts
+(`flake/modules/common-base.nix`), the flake's `nixConfig` and CI jobs
+substitute from it at priority 30, ahead of `cache.nixos.org` (40). Fleet
+deployment verifies it after activating nas-01. The
+benchmark and the defect behind the patch are in
+`bench/nix-cache/report/` on the `feat/nix-cache-benchmark` branch.
+
+Attic, the previous cache on port 8080, was retired from substitution and
+publication on 2026-11-10, nine days into the planned 30-day overlap: it
+rejected the `python3-3.14.10` NAR ("Bad NAR Hash or Size"), and because
+`attic push` uploads closures, every batch depending on python3 failed and
+retried path by path. Cache publication ran for hours (pipeline #12539),
+held niks3 publication behind it, and blocked every later maintenance run.
+atticd and its data (`zroot/attic` at `/srv/attic`, the pre-move copy
+`tank/attic`, `/persist/attic`) stay untouched until about 2026-12-01; then
+decommission the service, its port, `attic-client` on nas-01 and the GitHub
+runner, the `attic_token` Woodpecker secret, and the laptop's Attic
+substituter in `JEFF7712/nixos-config`. Deleting the datasets is
+persistent-data destruction and follows that hold.
+
+- niks3 keeps metadata in a local PostgreSQL (`/var/lib/postgresql`,
+  persisted) and objects in its own Garage instance (`garage-nix-cache`) on
+  `zroot/nix-cache`. Its S3 API listens on port 3910 on the LAN, because
+  pushing clients upload NARs straight to it through presigned URLs that
+  niks3 builds on `homelab.niks3Cache.address`; its RPC port stays on
+  loopback. The
+  fleet's main Garage stays on `tank`, which is too slow for cache reads
+  (see above).
+- `niks3-provision` creates the Garage layout, bucket, key, API token and
+  signing key on first start and keeps them afterwards. The public key is
+  `/persist/niks3/signing-key.pub`; the push token is
+  `/persist/niks3/api-token`. CI holds a copy as the Woodpecker secret
+  `niks3_token` (cron and deployment events); after rotating the file,
+  update it.
+- A niks3 path error or exit status fails `cache-publish`, so a niks3 fault
+  shows as a red maintenance run.
+- Trusted key: `homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec=`.
+  Rotating `/persist/niks3/signing-key` needs the new public key in every
+  substituter list above first.
+- The server carries `flake/patches/niks3-garage-multipart-aborts.patch`
+  (Mic92/niks3#661). Without it, parallel pushes against Garage can exit 0
+  while leaving a narinfo whose NAR is gone. Drop the patch once upstream
+  ships an equivalent fix.
+
+A CI-published nas-01 closure (1180 paths) restored into an empty store
+from niks3 alone, trusting only its key, on 2026-11-01.
 
 ### Fleet cache builder
 
@@ -254,15 +322,13 @@ timing from complete build/upload timing. The fast tool's wrapper lives in
 the operations tools, keeping its Python dependencies out of repository
 Python and its closure out of ordinary validation shells.
 
-All pipelines resolve the dev shell and build outputs from the local Attic
-substituter (`http://10.0.30.20:8080/homelab?priority=30`). Setting priority 30
-ensures the local cache takes precedence over `cache.nixos.org` (priority 40).
-`just cache-populate` and `scripts/ci/cache.sh` use `--ignore-upstream-cache-filter --jobs 8`
-to ensure all devShell dependencies are cached locally. `cache.sh` pushes in
-batches of 200 and retries a failed batch path by path, so one NAR Attic rejects
-("Bad NAR Hash or Size" on `python3-3.14.8` after the 2026-10-21 nixpkgs bump)
-is reported and skipped instead of aborting the whole upload. Push a rejected
-path from another machine to unblock it; the job fails only when nothing uploads.
+All pipelines resolve the dev shell and build outputs from the local niks3
+cache (`http://10.0.30.20:8090?priority=30`), ahead of `cache.nixos.org`
+(priority 40). `just cache-populate` and `scripts/ci/cache.sh` push every
+built output, flake source and build input to niks3, so devShell
+dependencies are cached locally; `just cache-populate` reads the push token
+from `NIKS3_TOKEN_FILE`. niks3 reports each path's result, and any error
+fails the publication with the rejected paths listed.
 
 Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report`:
 - `[PIPELINE AGE]` measures creation to the first timed command, including
@@ -271,14 +337,24 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
   dependent workflows also require their prerequisites' finish timestamps.
 - Individual lanes (`fmt`, `jev`, `gate`) and every full-gate check report
   execution times under `[EXECUTION BREAKDOWN]`. Cgroup memory peaks,
-  OOM-kill deltas and CPU-throttling deltas distinguish resource limits
-  from slow checks. Concurrent checks share counters, so their values
-  overlap and must not be added together. SIGKILL alone does not establish
+  OOM-kill deltas, CPU usage and CPU-throttling deltas distinguish
+  resource limits from slow checks: usage near elapsed time multiplied by
+  the container's CPU quota means the gate is quota-bound, while usage well
+  below it means lanes are waiting on each other. Concurrent checks share
+  counters, so their values overlap and must not be added together.
+  SIGKILL alone does not establish
   OOM; missing cgroup files mean unavailable evidence.
 - Flake builds also report `flake-repository-contract`, `flake-topology`,
   and the other check names in the same breakdown. Each measures the Nix
   invocation, including substitution and dependencies, rather than only
-  the check's test process. They overlap host evaluation and sit inside
+  the check's test process. `scripts/checks/flake_jobs.py` builds VM tests
+  in their own pool, one per four CPUs of quota and at least one, because
+  CI guests run under TCG and two in a two-CPU container miss their boot
+  timeouts. Other checks build half the quota at once (at least two;
+  `CI_FLAKE_BUILD_JOBS` overrides), so rebuilt VM tests no longer queue the
+  unit suite behind them, and `repository-contract` splits the unit suite
+  by module across `NIX_BUILD_CORES` workers (`scripts.ci.tests --jobs`).
+  Builds overlap host evaluation and each other and sit inside
   `check-flake`; do not add their times to the parent lane. A quick invocation
   may indicate a cache hit; confirm substitution versus a build in the Nix
   log. Source changes still require a fresh contract build, and publication
@@ -308,7 +384,11 @@ schedule runs by `SCHEDULES` in `scripts/ci/policy.py`. Reconcile the live
 server with `just woodpecker-settings plan` and `just woodpecker-settings apply`.
 `maintenance` runs twice an hour and carries the short work: webhook
 watchdog, registry lock import, drift, retention, resolve, auth consistency,
-GitHub sync, and cache publication. `promote` runs every 15 minutes with
+the VIP data-plane watch, GitHub sync, and cache publication. The VIP watch
+(`vip-dataplane-watch`) probes the LoadBalancer VIPs through OPNsense and posts
+to the ntfy `homelab-alerts` topic when one stops answering; it reads the
+Woodpecker secret `ntfy_token` (cron events; the ntfy publish token, the same
+value as `NTFY_TOKEN` in `gitops/secrets/homelab-values.sops.yaml`). `promote` runs every 15 minutes with
 first-party and nix-agent promotion only; it is the application release
 path. Promotion opens a PR and, when the diff only moves first-party digests
 (`CI_AUTO_MERGE_PROMOTION=first-party`), merges it after required validation.
@@ -333,10 +413,9 @@ still pending or running, the new run emits only a failing
 `schedule-overlap` workflow: the schedule outlives its interval and needs
 attention, and the repository monitor alerts on it.
 
-A pull request from a branch of this repository never validates in its own
-pipeline: Forgejo also sends the branch push, which reports the same
-required status on the same commit, so the PR pipeline only records
-`pr-validation-reused`. Fork PRs validate in the PR pipeline.
+Same-repository PRs normally defer to branch push validation as described
+above. When the metadata or reuse checks cannot establish that path, the PR
+pipeline validates rather than silently accepting missing proof.
 
 Woodpecker cancels a superseded pending or running pipeline for the same
 branch on push and pull request events. Cron is excluded because Woodpecker
@@ -360,7 +439,8 @@ green validation-v2 status. The external Obsidian publisher no longer writes
 homelab main; it publishes images only and the maintenance promotion PR
 carries the digest bump.
 
-Attic optimizes its SQLite query-planner statistics before startup. Missing
+Attic (retired from use; see the niks3 section) optimizes its SQLite
+query-planner statistics before startup. Missing
 statistics can make chunk hash lookups scan the valid-chunk index, stalling
 uploads as the cache grows. The bounded PRAGMA optimize pass preserves cache
 objects and lets the server load the appropriate hash-index query plan.
@@ -417,11 +497,11 @@ push and maintenance workflows receive their required secrets.
 Agents open Forgejo PRs with the `tea` CLI (in the dev shell) as the dedicated
 machine user, never as a personal account and never with a token committed to
 the repo. Publishing a branch, opening a PR, and merging it change shared
-repository state; each step requires explicit authorization from the task or
-operator. A merge can trigger Flux deployment. Branch protection
+repository state and use the standing delivery authorization in `AGENTS.md`.
+A merge can trigger Flux deployment. Branch protection
 (`config/ci/forgejo-protection.json`)
-applies to the machine user too: no direct pushes to main, merge requires a
-green `ci/woodpecker/validation-v2` status, so agents cannot land red code.
+applies to the machine user too: no direct pushes to main, merge requires
+green `ci/woodpecker/validation-v2` and `policy/merge` statuses.
 
 One-time setup, by a human in the Forgejo UI:
 
@@ -447,27 +527,28 @@ One-time setup, by a human in the Forgejo UI:
    Agent branches must use this identity; `origin` may authenticate as another
    Forgejo account.
 
-Agents deliver changes with `just ship` ([ship runbook](ship.md)). The
-manual flow per change, after explicit authorization and successful preflight
-(see [the agent workflow guide](../agent-workflow.md#publishing-changes)):
-
-```sh
-git push git-agent:JEFF7712/homelab.git HEAD
-just forgejo-pr "imperative title"   # opens the PR against main
-# wait for validation-v2 green in the Forgejo UI, then:
-just forgejo-merge <index>           # merges; prefer fast-forward so the
-                                     # Forgejo to GitLab mirror stays clean
-```
+Agents deliver changes with [`just ship`](ship.md), which owns the push,
+PR, required checks, merge queue and deployment sequence. Use the
+[workflow guide](../agent-workflow.md#publishing-changes) for access diagnostics.
+Do not replace either required status with a manual merge.
 
 Rotation: revoke the token in the Forgejo UI, generate a replacement with the
 same scopes, and re-run `tea login add` on each agent machine. Treat a leaked
 token as compromised until revoked; it can push branches and merge PRs.
 
-The deploy policy admits `homelab-agent` for all catalog operations under the
-requested task's standing delivery authorization. No protected-source baseline,
-operator-only catalog exception, or passkey grant is required. Saved plans are
-validated for completeness and risks are reported; the agent must stay within
-task scope and establish recovery before intended persistent-data destruction.
+The deploy policy admits `homelab-agent` for routine catalog mutations marked
+`"agent": true` under the task's standing delivery authorization. Operator-only
+operations remain held. Before admitting an agent mutation, the active policy
+compares the operation's protected source inputs with its deployed baseline.
+Changed authorization/storage sources require an exact-content passkey grant;
+changing a covered file invalidates the grant, while unrelated main commits do
+not. `policy/merge` independently holds changes to agent-bounding controls before
+merge. See [approvals](approvals.md) and [merge policy](merge-policy.md).
+
+Saved plans are checked for completeness. Authorization changes, persistent-data
+deletion, management-connectivity loss and bulk destruction require the operator
+before apply. The agent must stay within task scope and establish backups and
+recovery before intended persistent-data destruction.
 
 Source validation must pass for the operation's exact source SHA. Both policy
 and runner reject superseded related inputs, while known disjoint main changes
@@ -477,12 +558,21 @@ not block deployment; exact-source prerequisites remain mandatory.
 Triggering deployment needs the bot's own Woodpecker API token: sign in to
 Woodpecker once as `homelab-agent` via Forgejo, create a token from that
 profile, and store it as `~/.config/woodpecker/token` (mode 0600) on each
-agent machine. Production credentials stay in CI. Before this policy is first
-activated, the previous generation can still require its legacy
-[passkey approval](approvals.md); `ship` files that transition request.
-Never commit tokens.
+agent machine. Production credentials stay in CI. High-risk exceptions use the
+[passkey approvals service](approvals.md); `ship` files the request rather than
+giving an operator token to the agent. Never commit tokens.
 
 ## Recovery
+
+A pipeline can fail before posting a validation status. Read its API `errors`
+field when no workflows exist: connection refused at `127.0.0.1:8010/config`
+points to `woodpecker-policy.service` on homelab-04. If configuration succeeds
+but clone and validation are killed without logs, inspect the assigned agent's
+journal and Docker availability. An active agent process does not prove that
+`docker.service` and `docker.socket` are running. Confirm target identity,
+declared unit state and maintenance activity before restoring stopped services
+within authorized recovery. Retry only the affected pipeline after those
+prerequisites are healthy; preserve the original failure evidence.
 
 A Woodpecker server restart can cancel its own deployment workflow through
 gRPC while the host switch completes. Before retrying, inspect the running
@@ -507,10 +597,5 @@ after their parent becomes killed when no agent remains to report completion.
 Those rows do not establish slot usage; exclude terminal parents from active
 queue and utilization calculations. Do not cancel or restart unrelated work.
 
-GitLab CI is disabled by default. An offline runner or GitLab webhook is not
-failover. homelab-04-dr disables Woodpecker agents and enables fresh Docker
-GitLab runners. The scheduler must also match the state authority.
-
-Both Flux webhook receivers reference the same GitRepository. Changing
-receiver type does not change its source. Use the explicit cutover and
-restore procedure in [Forgejo disaster recovery](forgejo-disaster-recovery.md).
+There is no second scheduler. When Forgejo or Woodpecker is down, follow
+[Forgejo disaster recovery](forgejo-disaster-recovery.md).

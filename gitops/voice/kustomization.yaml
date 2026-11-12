@@ -4,13 +4,11 @@ namespace: voice
 resources:
   - namespace.yaml
   - gateway.yaml
+  - display.yaml
   - network-policy.yaml
   - local-decision.yaml
   - von.yaml
   - stt-nemotron.yaml
-  - stt-groq.yaml
-  - piper.yaml
-  - chatterbox.yaml
   - satellite.yaml
   - exporter.yaml
 
@@ -18,9 +16,9 @@ configMapGenerator:
   - name: wyoming-gateway-code
     files:
       - gateway/gateway.py
-  - name: chatterbox-bridge-code
+  - name: jarvis-display-code
     files:
-      - chatterbox-bridge/server.py
+      - display/server.py
   - name: local-decision-runtime
     files:
       - local-decision/app.py

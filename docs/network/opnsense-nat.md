@@ -2,7 +2,7 @@
 
 OPNsense's outbound NAT has four modes: Automatic, Hybrid, Manual, Disabled.
 
-The `opnsense_reconciler.reconcile_outbound_nat` module manages Source NAT rules declaratively. It assumes rules can be created via the API, which only works when the mode is **Hybrid** (manual rules alongside auto-generated ones) or **Manual** (rules you fully own).
+The `reconcile_outbound_nat` function in `opnsense_reconciler/reconcile.py` manages Source NAT rules declaratively. It assumes rules can be created via the API, which only works when the mode is **Hybrid** (manual rules alongside auto-generated ones) or **Manual** (rules you fully own).
 
 ## Setup
 
@@ -32,4 +32,4 @@ After a CI apply, check **Firewall > NAT > Outbound** in the UI. You should see:
 - One or more rules under **Automatically generated rules** (the pre-existing auto rules for clients/infrastructure/etc).
 - The rules declared in `opnsense_reconciler/outbound-nat-rules.json` under the manual section, with the same `description` strings as the JSON.
 
-If the manual section is empty, the mode is wrong.
+If declared rules are absent, inspect the mode, CI apply result, and reconciler errors. An empty section alone does not identify the cause.

@@ -20,18 +20,19 @@ The fixture uses a tmpfs mount, disposable credentials and a local certificate;
 it contacts no production service or external ACME provider. It verifies service
 restart persistence, not disk-reboot persistence, ZFS recovery or backup restore.
 
-## Current baseline
+## Declared state and preflight
 
-The 2026-09-06 and 2026-09-07 preflight observed:
+Zot and the k3s registry configuration are deployed configuration, not a pending
+migration. Inspect `flake/hosts/nas-01/default.nix`, `flake/modules/zot-registry.nix`,
+`flake/modules/k3s-registry-client.nix`, and the five cluster host declarations.
+The lock and `gitops/clusters/homelab-01/` own image mappings and Flux paths.
 
-- `nas-01` at `10.0.30.20`, with `tank` online and 8.92 TiB available.
-- The independent XFS backup disk at `/mnt/backup-2tb`, with 123 GiB available. Registry backup deployment must stop if the initial inventory plus retention headroom does not fit.
-- Three Ready k3s servers at `10.0.30.11` through `10.0.30.13`, running k3s `v1.35.7+k3s1`.
-- No `/etc/rancher/k3s/registries.yaml` on any k3s server.
-- No exact public DNS record for `registry.rupan.dev`. The public wildcard currently resolves the name through Cloudflare Tunnel. NixOS hosts do not depend on that path: `k3s-server.nix` (all k3s nodes) and the zot module (`nas-01`) pin `registry.rupan.dev` to `10.0.30.20` in `/etc/hosts`, so uncached pulls survive an AdGuard outage or a fallback to the secondary resolver. OPNsense Unbound carries the same answer as a reconciled host override (`opnsense_reconciler/unbound-host-overrides.json`, applied by the manual `opnsense_apply` CI job), which covers non-NixOS and DHCP clients that use `10.0.30.1`. The declared AdGuard rewrite remains as the primary path for those clients.
-- Attic, GitLab Runner, and NFS active on the NAS. No zot or HTTPS listener was present.
-
-Treat these as timestamped observations. Repeat the preflight before changing a host.
+Before a service or storage change, collect fresh NAS pool/mount/capacity checks,
+`just status cluster`, resolver answers from consumers, and authenticated digest
+verification. A dated pre-install inventory does not establish current capacity,
+node count, runtime configuration or recovery readiness. NixOS pins the registry
+hostname locally on consumers; shared DNS declarations are described in
+[fleet inventory](fleet-inventory.md).
 
 ## Required runtime material
 
@@ -44,11 +45,13 @@ Provision these as protected files before the corresponding NixOS activation. Do
 | `nas-01` | `registry-restic-password` in `secrets/hosts/nas-01.sops.yaml` (sops-nix) | restic repository password, recoverable with the operator age identities |
 | `nas-01` | `cloudflare-dns-api-token` in `secrets/hosts/nas-01.sops.yaml` (sops-nix) | narrowly scoped Cloudflare DNS API token for DNS-01, shared by Zot, Forgejo and the npm cache |
 | each k3s node | `/persist/secrets/k3s-registries.yaml` | generated node-only registry authentication and explicit upstream rewrites |
-| NAS runner | protected container auth file | importer or project-specific publisher credential, never an administrator credential |
+| Woodpecker operation container | protected container auth file | importer or project-specific publisher credential, never an administrator credential |
 
 Keep the restic password outside the backup repository as encrypted recovery material. A restic repository cannot recover the password stored only inside itself.
 
-Configure the following protected GitLab variables as file variables:
+The Woodpecker operation catalog (`config/ci/operations.json`) maps environment
+variables to protected secrets and lists `file_secrets`. Use the exact operation
+entry. Common inputs:
 
 | Variable | Scope |
 | --- | --- |
@@ -88,7 +91,7 @@ as a runtime file.
 The retired migration identity has no policy entry, htpasswd entry, or CI
 credential. The old bootstrap import path is removed. Node rollout verifies the
 full lock with the read-only node identity before activation. The ongoing
-`registry_update_import` job uses the upstream-only `importer` identity.
+`registry-update-import` operation uses the upstream-only `importer` identity.
 
 Zot authorization roles are intentionally separate:
 
@@ -125,63 +128,70 @@ sudo mount -t zfs tank/registry /tank/registry
 
 If it already exists, verify its pool identity, mountpoint, ownership, and contents instead of recreating it. Service activation must fail when `tank-registry.mount` is unavailable.
 
-## Deployment sequence
+## Deployment and consumer configuration
 
-1. Re-run `just status cluster`, `just status network`, NAS capacity and mount checks, exact Cloudflare DNS lookup, and the source/rendered/live image inventory.
-2. Review the target-specific Nix diff and confirm the dataset operation, credential paths, backup capacity, and rollback generations.
-3. Trigger `deploy_registry_platform`. It provisions runtime material, creates or validates `tank/registry`, deploys `nas-01`, and requires the mount plus active zot and nginx units.
-4. Trigger `deploy_registry_dns`. Verify `registry.rupan.dev` resolves to `10.0.30.20` from the NAS, runner, all nodes, and an authorized NetBird client. The job also requires a TLS-valid anonymous `/v2/` request to return HTTP 401.
-5. Verify anonymous denial, trusted HTTPS hostname validation, UI availability after authentication, zot persistence, mount failure behavior, and node-exporter metrics.
-6. Generate the locked copy plan. Import current, bootstrap, and retained rollback images from the NAS runner. Verify destination manifest or index digest equality, platform coverage, and required referrers.
-7. Trigger `deploy_registry_node_01` through `_05`. The control-plane jobs are dependency-chained (`_01` → `_02` → `_03`); agent jobs `_04` and `_05` chain from `registry_lock` and `_04`. All use the `homelab-0N-registry` NixOS variants. The first job authenticates as the read-only node identity and verifies the complete lock before any activation. Each generates the protected `registries.yaml` from the same lock.
-8. Each node job requires the local config, active k3s, API readiness including etcd, and all nodes Ready before the next job becomes available. Do not delete node image caches.
-9. Prove an uncached local pull with a disposable image digest that is already in the lock. Use fresh containerd, kubelet, and zot access logs as evidence.
-10. Enable the separately reviewable Flux consumer cutover only after `python -m scripts.registry verify` passes from the node network. Migrate a small stateless workload first, then cohorts, then bootstrap/system images.
-11. Disable configured upstream fallback only when every configured source registry and exception is locally complete. The offline policy check must reject any undeclared public image reference.
-12. Update producer pipelines so first-party builds publish only to `apps/<project>`. Keep existing external repositories and credentials until every producer and rollback consumer is accounted for.
+Use [`just ship`](ship.md) for requested source changes. It routes ordinary
+fleet changes and follows promotion patches; explicit registry maintenance uses
+the hyphenated operation keys in `config/ci/operations.json`, including
+`deploy-registry-platform`, `deploy-registry-dns`, `deploy-registry-node-01`
+through `deploy-registry-node-05`, and their catalog prerequisites. Inspect the
+operation before selecting it: platform and node bootstrap steps install runtime
+credentials and are broader than an ordinary NixOS service update.
 
-All registry deployment and mutation jobs are manual. A repository push does not itself authorize triggering them.
+1. Verify target identity, storage mounts, available capacity, backup recovery
+   and the exact source/lock before activation.
+2. Verify imported manifest/index digests, platform coverage and required
+   referrers before changing a consumer or its registry rewrites.
+3. Roll nodes through the catalog's dependency chain; preserve k3s API, etcd
+   and node readiness checks and do not clear node image caches.
+4. Verify resolver answers, TLS, anonymous denial and credential role boundaries
+   from the consumer network. Prove an uncached pull of a locked image and
+   inspect fresh containerd and Zot logs.
+5. Verify the affected Flux Kustomizations and application behavior after merge.
 
-## Flux cutover paths
-
-> [!NOTE]
-> **Cutover Complete**: All 17 Flux Kustomizations have been migrated to point directly to their canonical base paths (`./gitops/<subsystem>` and `./gitops/clusters/homelab-01`). Pinned `registry.rupan.dev` digests and HelmRelease post-renderers are now standard in the base manifests. The cutover mapping below is retained for audit and provenance reference.
-
-| Cohort | Base path | Former cutover overlay |
-| --- | --- | --- |
-| Single stateless canary | `./gitops/websites` | `./gitops/registry-cutover/components/websites-canary` |
-| Remaining stateless sites | `./gitops/websites` | `./gitops/registry-cutover/components/websites` |
-| Automation | `./gitops/automation` | `./gitops/registry-cutover/components/automation` |
-| Backups | `./gitops/backups` | `./gitops/registry-cutover/components/backups` |
-| Home Assistant | `./gitops/home-assistant` | `./gitops/registry-cutover/components/home-assistant` |
-| Cloudflare | `./gitops/cloudflare` | `./gitops/registry-cutover/components/cloudflare` |
-| Obsidian | `./gitops/obsidian` | `./gitops/registry-cutover/components/obsidian` |
-| Immich | `./gitops/immich` | `./gitops/registry-cutover/components/immich` |
-| Observability and registry alerts | `./gitops/observability` | `./gitops/registry-cutover/components/observability` |
-| cert-manager | `./gitops/cert-manager` | `./gitops/registry-cutover/components/cert-manager` |
-| External Secrets Operator | `./gitops/platform` | `./gitops/registry-cutover/components/platform` |
-| NFS provisioner | `./gitops/storage` | `./gitops/registry-cutover/components/storage` |
-| Flux system controllers | `./gitops/clusters/homelab-01` | `./gitops/registry-cutover/components/flux-system` |
+Flux consumers use canonical `gitops/<app>/` paths. The temporary
+`gitops/registry-cutover/` overlays are retired; do not recreate them.
+Routine deployment follows the standing task authorization. Protected control
+or storage changes retain the [approval holds](approvals.md).
 
 ## Import and update rules
 
 `registry/images.lock.json` is the authoritative mapping for import, policy, update discovery, retention, and node mirror rewrites.
 
+### Import before reference
+
+An upstream image moves in two changes. The first adds its lock entry; its
+`just ship` routes `registry-lock-import` and waits for the import (route
+`registry-import` in `config/ci/ship-routes.json`). Only a later change may
+point a workload at the new digest. `scripts/registry/ordering.py`, run by
+`scripts/checks/registry.sh`, fails a pull request that references a
+`registry.rupan.dev/upstream/...@sha256:` digest absent from the lock at its
+merge base. Flux applies a merged manifest at once, so referencing a digest
+in the same change as its import let a Recreate deployment stop its old pod
+and then fail to pull the new one (Home Assistant, 2026-10-27).
+
 ### CI bootstrap image
 
-The pinned `docker.io/nixos/nix` image in `.gitlab-ci.yml` is an explicit
-exception: the protected `nas-ci` runner must pull its job image before the job
-can authenticate to the private registry. Keep it digest-pinned and scope the
-lock exception to `.gitlab-ci.yml`; Kubernetes workloads must use locked local
-registry references.
+Normal Woodpecker validation and operation images are fixed by the deployed
+policy and use the local registry. Kubernetes workloads must use locked local references unless the registry
+policy records an explicit exception.
 
 ### CloudNativePG operator and PostgreSQL cluster images
 
-CloudNativePG operator and its managed database cluster instances (`home-assistant-cluster`,
-`immich-cluster`) pull controller and database images directly from `ghcr.io`
-(`ghcr.io/cloudnative-pg/cloudnative-pg:1.30.1`, `ghcr.io/cloudnative-pg/postgresql:17`, and
-`ghcr.io/tensorchord/cloudnative-vectorchord:16`). These operator-managed upstream images
-are declared as tested mirror exceptions until integrated into the local registry mirroring lane.
+CloudNativePG's manager/bootstrap image and all three PostgreSQL clusters use
+local digest-pinned references. The chart image tag includes the digest so its
+`OPERATOR_IMAGE_NAME` environment variable, which selects bootstrap init
+containers, matches the manager container exactly. Database references retain
+major-version tags alongside their digests for the operator's version parsing.
+`gitops/platform/cnpg/registry-sources.yaml` declares the upstream source digests
+for inventory and import. Image discovery includes CNPG `imageName` fields.
+
+Import and verify the lock's destination manifests with `registry-lock-import`
+before promoting their desired references. A missing local database image can
+stall an otherwise healthy replica replacement. The initial migration preserves
+the exact digests observed running in the cluster; it changes the pull source,
+not PostgreSQL versions or data formats. Verify the manager and every database
+instance, including bootstrap init containers, use local images after rollout.
 
 
 `just check` and `just check-changed` validate the saved snapshot offline without
@@ -237,7 +247,7 @@ values are 1 through 8).
 
 For an upstream update, resolve the upstream tag, verify publisher authenticity according to that image's policy, copy the immutable digest and required referrers, verify the destination, then propose the local digest change. A local tag alone is not update discovery.
 
-The `registry_resolve` CI job produces an inventory, candidate lock, and exact
+The `registry-resolve` Woodpecker operation produces an inventory, candidate lock, and exact
 copy plan without changing the registry. It shares `registry-content` with the
 other registry clients and uploads diagnostics even when resolution fails.
 For existing local upstream mirrors, it verifies the local manifest digest
@@ -249,9 +259,7 @@ copies and verifies only the candidate's upstream records under the serialized
 content lock. Promote
 the candidate lock and matching overlay digest changes in a normal reviewed
 Git commit only after that operation succeeds. Registry operations run on
-Woodpecker in the normal path; the like-named GitLab jobs in the legacy
-`.gitlab-ci.yml` are retained only for the disaster-recovery lane and are
-not a scheduler for ordinary work (see docs/runbooks/ci-pipelines.md).
+Woodpecker (see docs/runbooks/ci-pipelines.md).
 
 The CI lock gate validates the lock before inspecting the live cluster. A
 rollout can briefly leave old pods running after the new digest is committed,
@@ -259,11 +267,9 @@ so the gate refreshes and checks live policy up to ten times, with 20 seconds
 between failures. Invalid locks fail immediately; policy that does not converge
 still fails with the check's exit status.
 
-`registry-update-import` is deliberately manual and must stay that way. The
-candidate is a proposal: importing it before the reviewed commit that pins it
-would place content in the registry that nothing references, which the
-collector then removes, and it would drop the human checkpoint on an
-upstream change. The Woodpecker `registry-lock-import` operation is the
+`registry-update-import` is explicitly selected after reviewing the candidate
+and its retention plan. The candidate is a proposal: importing it without
+retention tags can leave content unreferenced and eligible for collection. The Woodpecker `registry-lock-import` operation is the
 opposite case: it runs on the maintenance cron and on any main push that
 changes the lock or inventory (when the push diff cannot be read, it runs
 anyway). It
@@ -286,7 +292,127 @@ Key rules:
 - **Flavor preservation:** An image on `1.27-alpine` will only select candidates with the `-alpine` suffix (e.g., `1.28-alpine`), never cross-upgrading to `-debian` or unsuffixed variants.
 - **Pre-release isolation:** Stable tags will not propose `-rc`, `-beta`, or `-alpha` versions.
 - **Constraints:** `--constraint patch`, `--constraint minor` (default), or `--constraint major`.
-- **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, `dockerfile`, and `gitlabci` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
+- **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, and `dockerfile` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
+- **No mirror lookups:** Renovate skips every `registry.rupan.dev/**` reference. Mirror tags never repoint (below), so a lookup could never find a newer digest, and Renovate holds no registry credential. An image is tracked only through its tagged upstream declaration in a `registry-sources.yaml` or `base-images.yaml`; images used across several areas are declared in `gitops/shared-images/registry-sources.yaml`. A pin whose upstream tag has since moved is declared under that tag with the pinned digest, so Renovate proposes the current build. Its lock record carries only the retention tag, because the digest is already mirrored and the floating tag may already point elsewhere. LinuxServer images use regex versioning in `renovate.json`, because docker versioning never moves past their `-lsN` suffix. PostgreSQL majors are disabled, including the CNPG `postgresql` and `cloudnative-vectorchord` images.
+- **Declaration bumps carry their lock records:** a Renovate bump to a declaration file runs `python3 -m scripts.registry.declarations` as a post-upgrade task. It resolves each newly declared reference from its upstream registry and appends its inventory and lock records to the same branch, leaving every existing record in place, and omits a destination tag the mirror already holds on another digest. Without this, a bump fails the registry check ("consumer is not an exact locked local digest"), and declaration PRs piled up unmerged. Merging such a PR mirrors the image through the main push's `registry-lock-import`; moving the workload to the new mirror digest is still a separate change, made after that import succeeds. Run the same command locally after editing a declaration by hand.
+- **One PR per chart or image:** Flux and Kubernetes manifest updates are not grouped. A `registry-sources.yaml` or `base-images.yaml` bump needs its import and consumer digest before it does anything, so a combined PR (#95) stalled on its slowest item. Producer base images also stay on Python 3.12 and Node 24; their release pins live outside `base-images.yaml` and move together. No Helm chart bump automerges, and the observability and platform `registry-sources.yaml` files are not tracked at all, because each chart upgrade moves with its images (below).
+
+### Advancing an upstream image (agents)
+
+Renovate's image PRs only change an upstream declaration, so they do nothing
+until the image is mirrored and its consumers move. An agent takes one over
+with `scripts/registry/advance.py`:
+
+1. Branch from the Renovate commit (not the Renovate branch, which Renovate
+   force-pushes), then run
+   `python -m scripts.registry.advance mirror --base origin/main`. It resolves
+   only the declarations the change added and merges their records into the
+   inventory and lock, keeping every other record ID. Commit and `just ship`;
+   the `registry-import` route waits for `registry-lock-import`. Renovate
+   closes its PR once main carries the update.
+2. Branch from the new main and run `python -m scripts.registry.advance adopt`.
+   It moves each consumer whose mirror digest is no longer declared to the one
+   locked declaration of that repository, and reports anything ambiguous
+   instead of guessing (exit 1). Commit and `just ship`.
+3. After Flux applies it, run
+   `python -m scripts.registry.advance verify <changed manifests>`. It waits
+   for each workload's rollout and requires its running pods, init containers
+   included, to report the new digests. On failure revert the adopt change with
+   `just ship`; the mirrored image stays harmlessly in the registry.
+
+Helm chart images and producer base images keep their own procedures below.
+
+The scheduled `registry-advance` operation (`promote` schedule,
+`scripts/ci/registry_advance.py`) does all three steps without an agent.
+Eligible updates keep the same major version, outside the namespaces and
+repositories in `config/registry/advance-policy.json`. Every consumer is a
+Deployment whose main container has a readiness probe, or a CronJob that runs
+at least daily and is not suspended, and none uses the image in an init
+container. StatefulSets, DaemonSets, weekly or rarer CronJobs, majors and
+floating tags stay with a person or the controller.
+
+Producer base images (`gitops/producer-base-images/base-images.yaml`) need no
+consumer to be mirrored. In this repository, their adopters are projectctl's
+CI step images (`config/ci/projectctl-contracts.json`), where a bad image fails
+a project build without touching a running service. Producer Dockerfiles in
+other repositories update there. The Woodpecker clone image pinned in
+`flake/modules/woodpecker.nix` is enforcement code: it is mirrored, but the
+pin moves only with the operator's approval.
+
+Each run takes one step:
+
+1. **Settle.** The newest adopt the schedule merged in the last day is checked
+   once the Flux Kustomization owning each changed path has applied a revision
+   at least as new as the merge. `verify` must pass for Deployments. A CronJob
+   is never run off schedule: its first scheduled run on the new image after
+   the merge decides (`scheduled_runs`), and until it has completed or failed
+   the adopt stays unsettled. A healthy adopt gets a
+   `registry-advance: verified` comment. A failed one is reverted by a
+   `registry-advance/revert-<pr>` PR, merged on the required checks, whose body
+   names the digest (`reverted: <mirror>@<digest>`). That digest is never
+   adopted again, so the next release is tried fresh. Nothing else runs while
+   an adopt is unsettled.
+2. **Adopt.** The first consumer left on an undeclared digest moves once the
+   registry serves the replacement.
+3. **Mirror.** The oldest eligible Renovate image bump is rebuilt on current
+   main: only Renovate's declaration change, plus that image's records from
+   `advance mirror`. It lands on a `registry-advance/mirror-*` branch and is
+   merged on the required checks. Renovate's own branch carries a lock that
+   overlaps every other registry change, so it is never merged; Renovate
+   closes it once main declares the new image.
+
+The run reads cluster state through the read-only `registry-advance`
+ServiceAccount (`gitops/automation/registry-advance-access.yaml`). Its
+kubeconfig is fetched per job from the fixed `registry-advance` SSH credential
+issuer using the protected `registry_issuer_ssh_key`. It expires within one hour
+and is removed at job exit. The issuer cannot select another identity; see
+[Kubernetes CI credentials](kubernetes-ci-credentials.md) for the staged rollout.
+The existing role can get, list and watch workloads, pods, CronJobs, Jobs and Flux
+Kustomizations, and nothing else. The legacy `registry_advance_kubeconfig` and
+`registry-advance-token` are retained only until new issuance and scheduled-job
+acceptance pass, then must be revoked separately.
+Each run's log says why every other update waits.
+
+### Refreshing an image under the same tag
+
+`registry-lock-import` never repoints an existing destination tag ("refusing
+to overwrite conflicting destination tag"), so a floating tag such as
+`1.4-debian` stays on the first digest imported under it. When a rebuild
+keeps its tag (a digest refresh), merge the new lock record with only its
+`retention-deployed-*` tag and leave the floating tag on the old record;
+consumers pin digests, so nothing reads the floating tag.
+
+### Upgrading a Helm chart
+
+HelmReleases pin their app images through `postRenderers` digests, so a
+chart-only bump runs new templates and CRDs on the old image (external-secrets
+had drifted to app v2.10 under chart 2.12). For each chart upgrade:
+
+1. Render the old and new chart with the release's values (`helm template
+   --repo <url> --version <v>`) and diff the whole pod specs: images, args,
+   `securityContext` and container ports. ntfy 1.7.0 switched to uid 1000,
+   which root-owned files on NFS cannot accommodate (NFS ignores `fsGroup`),
+   and moved its pod port, which Cilium policies match after Service
+   translation.
+2. Add the new images as `tag@digest` to the area's inventory-only
+   `registry-sources.yaml`, generate the inventory and lock into scratch
+   files, merge in only the new records, ship, and confirm
+   `registry-lock-import` copied them.
+3. Then bump the chart version and its post-renderer digests in one change and
+   verify the HelmRelease and the running digests.
+- **Flux system manifests:** Renovate does not update `gitops/clusters/homelab-01/flux-system/gotk-components.yaml`. Its image has no `flux` binary, so it could only bump the version comment, and two such header-only bumps merged before 2026-11 while the controllers stayed on Flux v2.9.0.
+
+### Upgrading Flux
+
+1. Generate the new components with the matching CLI:
+   `flux install --version=<v2.x.y> --components=source-controller,kustomize-controller,helm-controller,notification-controller --export > gotk-components.yaml`.
+2. Mirror the four controller images at the tags that manifest names, merging
+   only their new records into `registry/images.inventory.json` and
+   `registry/images.lock.json`, and confirm `registry-lock-import` copied them.
+3. Replace each `ghcr.io/fluxcd/<controller>:<tag>` in the manifest with its
+   `registry.rupan.dev/upstream/ghcr.io/fluxcd/<controller>@sha256:...` mirror
+   digest, then review the CRD and RBAC diff before shipping. The
+   `kustomization.yaml` patch keeps the namespace's Pod Security label.
 
 ### Decoupled CVE audits and delta reporting
 
@@ -351,82 +477,30 @@ only its secret from `secrets/registry-node.sops.json` preserved its event
 and image filters, and release 25 completed. This case required credential
 alignment, rather than throttling changes or rotating the live account.
 
-### Why the bursts happened
+### Registry scheduling and credentials
 
-They were self-inflicted, and the answer was in the journal the whole time.
-`skopeo` sends an unauthenticated `GET /v2/` to negotiate before every manifest
-read, and zot counts those against `failDelay`, which is set to 5. The drift
-check ran in the `test` stage with `needs: []` while `registry_lock_import` and
-`registry_retention_reconcile` ran in the `registry` stage, so one scheduled
-pipeline had three identities authenticating from the runner's single address
-at the same time. In one run that was 1067 manifest reads and 1091 unauthenticated
-challenges in about two and a half minutes, and past roughly a thousand failures
-zot's protection began answering 401 to credentials that had just worked. The
-journal shows those rejections arriving with no authenticated identity.
+Registry authentication bursts were observed under the former GitLab stage
+scheduler. For the current scheduler, inspect `config/ci/operations.json` and
+`SCHEDULES` in `scripts/ci/policy.py`. Registry content operations share the
+`registry-content` resource group, serializing their clients. Scheduled
+read-only work also shares the bounded schedule group.
 
-Two changes follow from that, and both are about being a better client rather
-than about reading failures differently:
+Every ordinary Woodpecker operation requires successful `validation-v2` for its
+source and the catalog's declared prerequisite. `registry-lock-import` runs on
+lock/inventory-changing main pushes and maintenance to restore the committed
+lock. `registry-update-import` is an explicitly selected candidate import.
+Drift checks notify and fail their own workflow; they do not replace source
+validation or exact-digest verification. See [CI pipelines](ci-pipelines.md).
 
-- All four jobs that authenticate against the registry now sit in the `registry`
-  stage and share `resource_group: registry-content`, so the registry sees one
-  client at a time. The drift check has `needs: []` so it does not wait on a job
-  that would in turn wait on it.
-- A probe that cannot obtain a credential says so, instead of asking anonymously
-  and returning a 401 that reads like the registry refusing content. That fault
-  was invisible for a while for exactly that reason.
-
-If this ever needs revisiting, the real reduction is to stop using `skopeo` for
-read-only verification: one in-process HTTP client would make a single
-authenticated request per lookup, with no challenge probe and no per-process
-overhead, which removes the whole class rather than lowering its rate.
-
-There is a run-level backstop for the case where a whole run cannot see the
-registry: when a large share of records could not be read at all, the report
-calls the run inconclusive rather than drifted. It is a fallback, not the
-mechanism, and it is deliberately unable to soften a record whose content was
-read and found wrong.
-
-## What gates the registry jobs
-A job with no `needs` inherits the whole previous stage, so any red job in it
-skips this one. That coupled every registry write to every unrelated test, and
-it failed silently: a gitleaks false positive and a pyright error each froze
-promotion, lock import, and the retention reconciler while the pipeline simply
-reported the registry stage as skipped.
-
-The registry jobs therefore carry explicit `needs`, and they split by what the
-job does rather than by which stage it sits in:
-
-- `registry_promote_first_party` and `registry_update_import` advance the
-  registry, so they depend on `secret_scan` and, for promotion, `registry_lock`.
-  Promotion validates the lock it writes itself, in-job, with
-  `just check-registry`.
-- `registry_lock_import` depends only on `registry_lock`, the lock it
-  re-imports.
-- The retention reconciler has `needs: []` and is fully ungated.
-
-On Woodpecker, the equivalent operations in config/ci/operations.json carry
-the same split: every registry operation depends on the successful
-validation-v2 workflow for its exact commit rather than on a stage, and
-registry-lock-import additionally runs unattended on lock-changing pushes
-and the maintenance cron because it only restores the reviewed lock.
-
-The ungated jobs are the ones that restore an invariant rather than change
-anything. A gate that paused them would let retention tags lapse, or leave a
-lock unhealed, precisely when the repository was already in trouble.
-
-Two things are deliberately not gates. `repository_tests` is a real check, but
-depending on it would pull the unit suite into the path of every promotion, and
-the policy test in `tests/test_ci_performance.py` requires anything consuming
-it to also consume the whole check suite, which is the coupling being removed.
-`registry_drift_check` verifies a live registry behind an edge that
-intermittently answers for it; it notifies on its own, so letting it gate
-writes would tie every write to that flakiness.
-
+A missing credential is an authentication prerequisite failure. Investigate
+401 bursts in Zot's journal before concluding that content disappeared. A run
+with widespread unreadable records is inconclusive, while a successful read
+that proves a wrong digest remains drift.
 
 ## First-party promotion
 
 First-party sites (`0.0.N` tags, plus `ism` on `latest`) roll out without a
-manual pin. The scheduled `registry_promote_first_party` CI job lists producer
+manual pin. The scheduled `registry-promote-first-party` Woodpecker operation lists producer
 tags and, when the producer has already published the candidate to
 `registry.rupan.dev/apps/<project>`, commits the lock, inventory, and consumer
 digest updates together so `check-registry` stays green. Promotion is
@@ -460,47 +534,43 @@ python -m scripts.registry promote --lock registry/images.lock.json --inventory 
 python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json --only apps/rupan-dev
 ```
 
-The job needs two project settings that live outside this repository: a pipeline
-schedule targeting `main` (for example nightly) and a `GITLAB_PUSH_TOKEN`
-project access token with `write_repository` scope (masked). Without the token
-the job still reports what it would promote but commits nothing.
+The maintenance promotion uses the catalog's scoped Forgejo publication
+credential and `scripts/ci/promote_commit.py` to open and merge a promotion PR
+through required checks. The separate
+`registry-promote-nix-agent` operation owns the nix-agent promotion exception.
 
-## Producer migration contract
+## Producer ownership
 
-Producer changes belong in their source repositories and require separate
-authorization. For each first-party record in the lock, route the build to a
-private runner, build once, authenticate as `publisher-<project>`, push only to
-`registry.rupan.dev/apps/<project>`, and emit the destination digest plus source
-commit. Reject untrusted pull-request jobs and any attempt to use importer or
-maintenance credentials. Update the matching Flux overlay only after remote
-verification of that digest.
+Producer source and release contracts are declared in `config/ci/applications.json`
+and `config/ci/projects.json`; do not infer ownership from a developer's old
+checkout path. Application publication uses Woodpecker and the enrolled
+`forgejo-<id>` publisher identity; see [Application CI](application-ci.md).
+The Renovate dashboard and reviewer now run from Flux-managed ConfigMaps on
+retained upstream images; see [Forgejo automation runtime](forgejo-automation-runtime.md).
+They no longer depend on the old custom-image producer.
 
-Known producer checkouts are:
-
-- `/home/rupan/businesses/apolline/apolline-site`
-- `/home/rupan/businesses/darkbit/darkbit-site`
-- `/home/rupan/businesses/distrojeff/distrojeff-site`
-- `/home/rupan/projects/nix-agent`
-- `/home/rupan/projects/pulse`
-- `/home/rupan/projects/sites/rupanism`
-- `/home/rupan/projects/sites/rupan.dev` (`apps/rupan-dev`, publisher `publisher-rupan-dev`)
-- `/home/rupan/projects/majorfinder` (`apps/majorfinder`)
-- `/home/rupan/projects/old/soluble`
-- `/home/rupan/projects/photography` (`apps/photography`)
-- `/home/rupan/projects/spatia`
-- `/home/rupan/projects/sovereign` (`apps/sovereign-site`, publisher `publisher-sovereign-site`; private repo `JEFF7712/sovereign`)
-- `/home/rupan/obsidian`
-- `/tmp/opencode/bookshelf` is a temporary CI checkout for `apps/bookshelf`; the
-  producer lives at `JEFF7712/bookshelf` on `develop`
-
-The legacy `/home/rupan/homelab-old2` GitLab pipeline owns
-`apps/homelab-renovate-agent` and `apps/homelab-renovate-dashboard`. No producer
-checkout was found for `apps/cr-demo` or `apps/ism`; retain and import their
-exact current releases until producer ownership is resolved.
+Producer changes belong in their owning repositories and must remain within the
+requested scope. Build once, use the producer's exact repository grant, verify
+the remote digest, and let the promotion update the lock, inventory and Flux
+consumer together. Keep recovery artifacts until their replacements are verified.
 
 ## Backup and restore
 
-The `registry-backup` timer writes encrypted restic snapshots to the independent disk and does not prune them. Local sanoid snapshots provide fast rollback but are not the independent backup.
+The `registry-backup` timer in `flake/modules/nas-data.nix` snapshots
+`tank/registry` and backs up that snapshot, `/persist/zot` and `/var/lib/acme`
+to encrypted Restic on `/mnt/backup-2tb/registry-restic`. It prunes with
+`--keep-daily 7 --keep-weekly 5 --keep-monthly 6` and runs
+`restic check --read-data-subset=5%` before recording success. Keep the password
+independently. This separate disk and local sanoid snapshots do not cover loss
+of the NAS site; see [independent platform recovery](sovereign-platform-recovery.md).
+
+New snapshots use host `nas-01`, tag `registry-v2` and `--group-by host,tags`
+for backup and retention. Grouping by the timestamped ZFS source path retains
+every run indefinitely. The corrected policy deliberately excludes legacy
+untagged snapshots. Review `restic forget --host nas-01 --tag registry-v2
+--group-by host,tags --keep-daily 7 --keep-weekly 5 --keep-monthly 6 --dry-run`
+before acceptance. Do not retag or delete legacy snapshots until an operator
+has reviewed the retained generations and a usable restore.
 
 Before accepting backup:
 
@@ -534,14 +604,18 @@ Settling it needs the `registry_lock_import` reports from 2026-09-23 to 2026-09-
 `copied` or `reused` for that tag and when the destination first diverged, or `journalctl -u zot` retention-module lines for the repository.
 Until one of those is checked, treat the sequence as a hypothesis and do not build on it.
 
-Three guards now cover this. The copy step refuses to overwrite a tag whose digest differs from the lock. `scripts.registry verify` fails
+The lock and copy guards cover this. The copy step refuses to overwrite a tag whose digest differs from the lock. `scripts.registry verify` fails
 when a locked digest is absent from the destination, and since `812739a` it also resolves every `destination_tags` entry and compares it to
-the locked digest, so a repointed tag is caught even when the manifest itself is intact. `registry_drift_check` runs that verification over
-the whole lock on `nas-ci` for main and nightly, using node credentials because the importer only reads `upstream/**`, keeps the report for
-30 days, and summarises failures to ntfy while still failing the job.
+the locked digest, so a repointed tag is caught even when the manifest itself is intact. `registry-drift-check` runs verification over the whole lock from Woodpecker
+maintenance, using node credentials because the importer only reads `upstream/**`,
+and notifies ntfy while preserving a failing result.
 
-Still outstanding: a fixture that provokes a real collection pass to confirm index, referrer, and blob survival. It belongs in a disposable
-registry built from the same binary and configuration, not on the production service, which has no on-demand trigger.
+The disposable collection fixture is implemented in `scripts/registry/gc_fixture.py`
+and exposed as `just registry-gc-fixture` and the `registry-gc-fixture` CI operation.
+It tests retention-tag survival, untagged collection and repointed-tag loss using
+the pinned binary. Read its report for the exact covered cases; this does not
+establish complete index, referrer or backup recovery coverage. Never provoke
+collection on production as a test.
 
 ## Peer-to-peer image caching (Spegel in K3s)
 
@@ -590,7 +664,7 @@ sudo mount -t zfs tank/npm-cache /tank/npm-cache
 
 Deployment sequence: create the dataset, deploy `nas-01` (TLS uses the
 existing registry Cloudflare token file, no new secret), apply the Unbound
-override (`opnsense_apply`), verify `npm.rupan.dev` resolves to `10.0.30.20`
+override (`opnsense-apply`), verify `npm.rupan.dev` resolves to `10.0.30.20`
 from a runner and a k3s node, then smoke-test with
 `npm_config_registry=https://npm.rupan.dev npm view tslib version`.
 

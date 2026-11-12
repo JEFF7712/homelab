@@ -38,8 +38,12 @@ spec:
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:
+            # One Python process refreshes the live data in short bursts every
+            # 15 s (about 0.08 cores on average); at 500m those bursts were
+            # throttled in 61% of CPU periods and kept CPUThrottlingHigh firing.
+            # A single interpreter cannot use more than about one core.
             limits:
-              cpu: 500m
+              cpu: "1"
               memory: 256Mi
             requests:
               cpu: 100m

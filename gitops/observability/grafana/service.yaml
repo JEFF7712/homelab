@@ -3,6 +3,8 @@ kind: Service
 metadata:
   name: grafana-lb
   namespace: observability
+  annotations:
+    io.cilium/lb-ipam-ips: 10.0.40.12
   labels:
     bgp-advertise: "true"
 spec:

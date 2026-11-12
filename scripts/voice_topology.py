@@ -134,7 +134,8 @@ def desired_report(documents: list[dict[str, Any]]) -> dict[str, Any]:
         "findings": backend_findings(gateways, service_names),
         "ha_pipeline": {
             "stt_gateway_service": "wyoming-whisper.voice:10300",
-            "tts_gateway_service": "wyoming-chatterbox.voice:10201",
+            "display_service": "wyoming-chatterbox.voice:10201",
+            "response_entity": "sensor.jarvis_response",
             "conversation_agent": "Jarvis Jev Router",
         },
     }
@@ -340,10 +341,7 @@ def check(report: dict[str, Any]) -> list[str]:
     for name in ("wyoming-whisper", "wyoming-chatterbox"):
         if name not in services:
             errors.append(f"missing required voice Service: {name}")
-    for mode, deployment in (
-        ("stt", "wyoming-stt-gateway"),
-        ("tts", "wyoming-tts-gateway"),
-    ):
+    for mode, deployment in (("stt", "wyoming-stt-gateway"),):
         gateway = desired["gateways"].get(mode)
         if (
             not gateway

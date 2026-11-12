@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
 import json
 import os
 import re
@@ -14,6 +15,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from scripts.ci import oplock
 from scripts.ci.deployment_risk import require_plan_approval
 from scripts.ci.deployment_source import compatible_changes
 
@@ -56,25 +58,13 @@ def current_source(
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
     if head != sha:
         raise ValueError("Operation source must be the current main commit")
-    if environment.get("CI_OPERATION_AUTHORITY") == "gitlab":
-        remote = subprocess.check_output(
-            ["git", "ls-remote", "origin", "refs/heads/main"], text=True
-        ).split()
-        current = remote[0] if remote else ""
-    else:
-        request = urllib.request.Request(
-            "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/branches/main",
-            headers={
-                "Authorization": "token " + environment["FORGEJO_SOURCE_READ_TOKEN"]
-            },
-        )
-        current = json.loads(_fetch(request))["commit"]["id"]
+    request = urllib.request.Request(
+        "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/branches/main",
+        headers={"Authorization": "token " + environment["FORGEJO_SOURCE_READ_TOKEN"]},
+    )
+    current = json.loads(_fetch(request))["commit"]["id"]
     if current != sha:
-        if (
-            operation
-            and catalog is not None
-            and environment.get("CI_OPERATION_AUTHORITY") != "gitlab"
-        ):
+        if operation and catalog is not None:
             auth = base64.b64encode(
                 (
                     "homelab-ci-source:" + environment["FORGEJO_SOURCE_READ_TOKEN"]
@@ -203,7 +193,26 @@ def unpack(
         destination.chmod(0o600)
 
 
+def group_lock(
+    name: str, operation: dict[str, Any]
+) -> contextlib.AbstractContextManager[None]:
+    """The catalog group's lock for a mutation; read-only work runs freely.
+
+    It is taken before the source and completion checks, so a duplicate run
+    that waited behind the first finds the work done or main moved on.
+    """
+    if not operation["mutation"]:
+        return contextlib.nullcontext()
+    holder = f"{name} pipeline {os.environ.get('CI_PIPELINE_NUMBER', 'local')}"
+    return oplock.held(operation["group"], holder)
+
+
 def run(name: str, catalog: dict[str, Any]) -> None:
+    with group_lock(name, catalog[name]):
+        run_operation(name, catalog)
+
+
+def run_operation(name: str, catalog: dict[str, Any]) -> None:
     operation = catalog[name]
     environment = dict(os.environ)
     current_source(environment, name, catalog)
@@ -224,12 +233,6 @@ def run(name: str, catalog: dict[str, Any]) -> None:
                     lambda match: environment[match[1]],
                     value,
                 )
-        if environment.get("CI_OPERATION_AUTHORITY") == "gitlab":
-            role = "deploy" if operation["mutation"] else "plan"
-            environment["TF_HTTP_USERNAME"] = "gitlab-" + role
-            environment["TF_HTTP_PASSWORD"] = environment[
-                "DR_STATE_" + role.upper() + "_PASSWORD"
-            ]
         if "STATE_CA_FILE" in environment:
             environment["TF_HTTP_CLIENT_CA_CERTIFICATE_PEM"] = Path(
                 environment["STATE_CA_FILE"]

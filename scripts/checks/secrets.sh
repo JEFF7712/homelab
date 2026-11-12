@@ -27,10 +27,6 @@ if [[ "$base" =~ ^[0-9a-f]{40}$ && ! "$base" =~ ^0+$ ]]; then
     gitleaks detect --source . --redact --log-opts="$base..HEAD"
     exit $?
   fi
-  if [[ "${GITLAB_CI:-}" == "true" ]]; then
-    echo "secret scan base $base is unavailable; refusing incomplete range" >&2
-    exit 1
-  fi
   echo "secret scan base unavailable in this clone; scanning present history" >&2
 fi
 

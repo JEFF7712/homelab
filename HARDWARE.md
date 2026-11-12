@@ -21,7 +21,7 @@
 
 - CPU: AMD Ryzen Embedded V1605B (4C/8T, Vega 8)
 - RAM: 16 GB
-- Storage: 60 GB SSD
+- Storage: 64 GB SSD (live-verified on both units, 2026-11-11)
 - NIC: 1 GbE
 - MAC (unit 1): 00:50:ac:93:01:b0
 - MAC (unit 2): 00:50:ac:93:02:d6
@@ -32,7 +32,7 @@
 - Unit: $32.71
 - CPU: Intel Celeron J4105
 - RAM: 8 GB
-- Storage: 64 GB SSD
+- Storage: 64 GB SSD; 1 TB HGST HTS721010A9E630 HDD mounted at `/mnt/backups` (live-verified 2026-11-11)
 - NIC: 1 GbE
 - MAC: 54:48:10:d2:0f:78
 

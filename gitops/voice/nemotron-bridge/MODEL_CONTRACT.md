@@ -49,7 +49,6 @@ with CUDA for SM75 (T1000), installs its dependent libraries, and packages the
 bridge and speaker-ID module. `scripts/voice/build_image.py` verifies the retained
 SDK, source archives and all four Python wheels before building with networking
 disabled. Their exact versions and hashes are in `services/voice-supply/`.
-The older Dockerfile beside this document is a historical network-fetching recipe.
 
 Compilation, ABI checks and packaged-image inference have separate receipts.
 The runtime image removes SDK driver stub outputs and uses the real NVIDIA

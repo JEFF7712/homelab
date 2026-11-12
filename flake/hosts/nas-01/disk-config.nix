@@ -115,6 +115,17 @@
             quota = "120G";
           };
         };
+        # niks3 cache store (Garage metadata and data). On the SSD mirror
+        # for the same reason as Attic; the Garage layout capacity stays
+        # below this quota.
+        nix-cache = {
+          type = "zfs_fs";
+          mountpoint = "/srv/nix-cache";
+          options = {
+            mountpoint = "legacy";
+            quota = "80G";
+          };
+        };
       };
     };
   };

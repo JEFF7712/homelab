@@ -23,6 +23,6 @@ Check that the account exists:
 ssh rupan@10.0.30.20 sudo pdbedit -L
 ```
 
-Files written over SMB are owned by `rupan:users`. qBittorrent (uid 1000) writes
+Files written over SMB are owned by `rupan:users`. qBittorrent writes
 under `/tank/media/downloads/games` and `/tank/media/games/pc` through the
 `media-library` NFS volume.

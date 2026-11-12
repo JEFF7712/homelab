@@ -13,7 +13,7 @@ mosquitto 10.0.30.10:1883
   ↓ subscribe
 roku-bridge daemon
   systemd unit on adguard-netbird-01, runs as user roku-bridge
-  source: /home/rupan/projects/roku-bulb-local/scripts/bridge.py
+  source: flake/modules/adguard-netbird/roku-bridge.py (vendored pin)
   deployed: /nix/store/<hash>-roku-bridge/bin/roku-bridge
   ↓ AES-CBC encrypt + POST http://<bulb-ip>:88/device_request
 Bulb (each on 10.0.20.x)
@@ -34,7 +34,7 @@ The MQTT JSON light command translates as:
 | --- | --- |
 | `state: "OFF"` | early-return P3=0 |
 | `state: "ON"` | append P3=1 |
-| `color_temp: <mireds>` (when no `color` field) | append P1502=kelvin |
+| `color_temp: <mireds>` (takes precedence over RGB) | append P1502=kelvin |
 | `color: {r, g, b}` **or** `rgb_color: [r, g, b]` | append P1507=RRGGBB |
 | `brightness: <0-255>` | append P1501=pct(%) |
 
@@ -62,19 +62,16 @@ state, and the bedroom cannot reach living-room state.
 
 ```
 Shairport Sync on nas-01 (Music Assistant bedroom output)
-  ↓ Pulse virtual sink bedroom_music_pre_delay
-  ├─ monitor bedroom_music_pre_delay.monitor → LedFx instance (no added delay)
-  └─ PipeWire loopback, 450 ms → Bluetooth Bose Flex 2
-LedFx instance on nas-01 (scene bedroom-music-mode, effect energy)
-  ↓ OSC "All To One" [[R,G,B] x2] floats 0.0-1.0 to /bedroom, UDP 10.0.30.10:9000 @10Hz
-ledfx-roku-bridge on adguard-netbird-01   (shared transport only)
-  ↓ throttles, then roku/light/<slug>/set
-roku-bridge → encrypted POST http://<bulb-ip>:88/device_request
+  ↓ Bluetooth Bose Flex 2 (direct playback, no delay)
+  ├─ monitor bluez_output.E4_58_BC_10_CA_C9.1.monitor → LedFx instance
+  └─ pw-record → bedroom-audio-fft → LED matrix display (DDP/FFT)
+LedFx instance on nas-01 (scene bedroom-music-mode, 2D matrix effects)
+  ↓ DDP to LED Matrix (10.0.40.15:4048)
 ```
 
 ### Audio tap requirements on nas-01
 
-The effect only produces colour if LedFx can capture the pre-delay virtual
+The effect only produces colour if LedFx can capture the Bluetooth sink
 monitor. Four things had to be true, and each one failed silently:
 
 - **Pulse protocol module loaded.** `services.pipewire.pulse.enable` only starts
@@ -102,15 +99,11 @@ source the computed level stays under `0.2`, so the effect renders pure black
 expected cycling palette. The shared instance keeps the default because its USB
 tap reports a higher level.
 
-Shairport Sync is routed to `bedroom_music_pre_delay`, and so is the laptop
-RTP feed (`bedroom-rtp-in`, pinned to that sink as its only path in, unicast
-UDP 46100; RTP, not RAOP, because PipeWire 1.6.8's RAOP sender aborts on this
-shairport-sync's handshake). LedFx listens to
-that sink's monitor, and `bedroom-audio-delay.service` copies it to the Bose
-sink with `pw-loopback --delay=0.45`. Other Pulse clients, including the Wyoming
-satellite, keep their normal default route. Adjust the loopback delay in
-`flake/hosts/nas-01/default.nix` in small increments after listening to the
-physical speaker and watching the bulbs together.
+Shairport Sync streams directly to the Bose Bluetooth sink without
+any artificial audio delay. LedFx listens to the Bluetooth sink's monitor,
+and `bedroom-audio-fft.service` streams real-time frequency analysis to the
+LED matrix display. Other Pulse clients, including the Wyoming satellite, keep
+their normal default route.
 
 Two things that look like faults but are not. A Bluetooth sink with no
 `PipeWire:Interface:Card` and `device.profile: None` is normal here: the A2DP
@@ -143,7 +136,7 @@ Isolation is enforced in three places, all covered by
   lights. Each LedFx instance holds its own devices, virtuals, and scenes, and
   the relay is a dumb transport with no shared state between paths.
 
-Deployment: `deploy_nas_ledfx_bedroom` writes a podman authfile built from the
+Deployment: the `deploy-nas-ledfx-bedroom` Woodpecker operation writes a podman authfile built from the
 existing read-only `node` registry credential (the same account the k3s nodes
 use, so no new secret exists), activates nas-01, and asserts the API answers.
 The image is digest-pinned to the same build as the shared instance, and the
@@ -168,13 +161,14 @@ frame stream rather than the docs:
 
 Pixel order is desk, floor and must match the LedFx group-virtual
 segment order. The bedroom light strip (`7C67AB2A0505`) is excluded from
-both: a firmware update broke its local control and a separate cloud
-implementation is in progress. Slugs (`7C67AB0A83AB`, `7C67AB1623B7`) are
+both: a firmware update broke its local control, and `roku-cloud-bridge`
+now owns it separately. Do not add it to the per-frame music relay. Slugs (`7C67AB0A83AB`, `7C67AB1623B7`) are
 MAC-derived topic fragments, already visible as retained discovery topics,
 so they live in the plain store config in `ledfx-roku-bridge.nix`. The relay
 reuses the `roku-bridge` broker credential, so no new mosquitto user or
-secret was needed. The firewall allows UDP 9000 only from homelab-05
-(`10.0.30.15`, the LedFx host); see `adguard-netbird-appliance.nix`.
+secret was needed. The firewall allows UDP 9000 from homelab-05 and nas-01
+(`10.0.30.15` and `.20`); see
+`flake/modules/adguard-netbird-appliance.nix`.
 The 3 bedroom light entities are excluded from the HA recorder because music
 mode streams per-frame optimistic state over MQTT.
 
@@ -185,20 +179,29 @@ Live LedFx objects. The bedroom trio lives on the **nas-01** instance
 - virtual `bedroom-music-mode-bulbs` (segments `bedroom-osc` pixels 0/1)
 - scene `bedroom-music-mode` (energy)
 
-The shared-spaces instance on homelab-05 (`http://10.0.30.15:8888`) holds only
-the `shared-osc` device, the `music-mode-bulbs` virtual, and the `music-mode`
-scene. `shared-osc` (type `osc`, `10.0.30.10:9001`, 4 pixels, All_To_One,
-`/shared`, 10Hz) feeds `ledfx-zigbee-bridge` on the Zigbee gateway, which
-averages each pixel over 2.5s and fades the matching Zigbee bulb (pixel order:
-kitchen ceiling 1, kitchen ceiling 2, floor lamp, tulip lamp; see
-`flake/modules/adguard-netbird/ledfx-zigbee-bridge.nix`). It is ambient by
-design: Zigbee carries about one command per bulb per second, so beat-level
-reactiveness belongs on a WLED strip added to the same virtual. The Apollo
-strip is deliberately not in the music virtual.
-Bedroom objects were removed from it so the two instances cannot address each
-other's bulbs.
+The shared-spaces instance on homelab-05 (`http://10.0.30.15:8888`) is
+reserved for future LED strips. Shared bulbs are owned by Home Assistant's
+`shared_music_mode` automation and `shared_music_album_color` script: one
+album-art colour per track, gated by `input_boolean.shared_music_mode`.
 
-Coordination note for the strip cloud implementation: keep it off the
+The obsolete `ledfx-zigbee-bridge` has been removed from the gateway, along
+with its UDP 9001 firewall allowance. Its LedFx `music-mode-bulbs` virtual was
+also deactivated with `PUT /api/virtuals/music-mode-bulbs` and
+`{"active": false}`, which saves the inactive state across restarts. The old
+virtual and scene are retained as inactive configuration; do not reactivate
+or reconnect them to shared bulbs. An active old virtual used to publish
+Zigbee `state: ON` commands independently of the HA toggle, causing lights
+to turn back on and share a colour even with Music Mode off.
+
+To verify retirement, check that the gateway has no running
+`ledfx-zigbee-bridge.service`, the LedFx virtual is inactive and
+`shared-osc` is not streaming, then turn off a shared bulb in HA and confirm
+it stays off. The bedroom's separate OSC relay on UDP 9000 remains active.
+For rollback, revert the gateway source change and deploy it through the
+fleet workflow. Reactivate the old virtual only when deliberately restoring
+the legacy music-lighting behaviour; doing so restores the competing writer.
+
+Coordination note for the strip cloud bridge: keep music frames off the
 `roku/light/7C67AB2A0505/set` topic or throttle there. If that topic ever
 drives cloud calls, this relay's per-frame output would become per-frame
 cloud API calls and hit rate limits. The relay only publishes for its
@@ -245,49 +248,57 @@ list from memory: the strip stayed double-answered after being moved to the
 cloud bridge, and the local bridge logged a 3s timeout per command for every
 strip command the cloud bridge handled correctly.
 
-To confirm the split on a live box:
+To confirm the split without exposing bulb encryption material, run this on
+`adguard-netbird-01`. Discover the interpreter from the active unit rather than
+copying a Nix store hash from an old generation:
 
 ```bash
-ssh adguard "sudo cat /run/secrets/roku-bridge-bulbs /run/secrets/roku-cloud-bulbs"
-ssh adguard "sudo journalctl -u roku-bridge -n 20 --no-pager | grep <mac>"
+bridge_python=$(systemctl show roku-bridge.service -p ExecStart --value | sed -n 's/.*path=\([^ ;]*\).*/\1/p')
+test -x "$bridge_python"
+sudo "$bridge_python" - <<'PYROKU'
+from pathlib import Path
+import yaml
+
+members = {}
+for name in ("roku-bridge-bulbs", "roku-cloud-bulbs"):
+    config = yaml.safe_load((Path("/run/secrets") / name).read_text())
+    macs = {row["mac"].replace(":", "").upper() for row in config["bulbs"]}
+    members[name] = macs
+    print(name, ", ".join(sorted(macs)))
+overlap = members["roku-bridge-bulbs"] & members["roku-cloud-bulbs"]
+print("overlap:", ", ".join(sorted(overlap)) or "none")
+raise SystemExit(bool(overlap))
+PYROKU
 ```
 
-A MAC appearing in both files, or a bridge logging a MAC that is not in its
-own file, is the failure signature.
+Only MAC-derived topic identifiers are printed. Never `cat` the bulb config,
+cloud cookie seed, or broker environment: they contain credentials. Compare the
+reported ownership with the units' current discovery/subscribe log entries;
+a daemon logging a MAC outside its configured set can be serving stale state.
 
 ## Debug commands
 
 ```bash
-# Bridge log (current generation).
-ssh adguard "sudo journalctl -u roku-bridge -f"
-
-# MQTT traffic — must run on the appliance itself; mosquitto only accepts
-# 10.0.30.11-15 on port 1883 (k3s nodes, per the firewall rules in
-# flake/modules/adguard-netbird-appliance.nix). Auth as the roku-bridge user.
-ssh adguard
-sudo /nix/store/0vggxw22b2c0ph8jf1iyfd9h6jgmkfpc-python3-3.14.7-env/bin/python3 -c '
-import paho.mqtt.client as mqtt
-import time, os
-p = open("/var/lib/roku-bridge/mqtt.env").read().split("MQTT_PASS=")[1].strip()
-c = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-c.username_pw_set("roku-bridge", p)
-c.on_message = lambda c, u, m: print(f"{m.topic}: {m.payload.decode()}", flush=True)
-c.connect("10.0.30.10", 1883)
-c.subscribe("#")
-c.loop_start()
-time.sleep(10)
-'
-# Then trigger a change from HA and watch the topics.
-
-# Bypass HA entirely, hit the bulb directly. Isolates "bridge is sending the
-# wrong command" from "bulb is rejecting it".
-cd /home/rupan/projects/roku-bulb-local
-uv venv /tmp/rk && uv pip install --python /tmp/rk/bin/python pycryptodome
-BULB_ENR=<enr> /tmp/rk/bin/python scripts/local_set.py <ip> <mac> P1507 FF0000
+ssh adguard-netbird-01 'sudo journalctl -u roku-bridge -n 40 --no-pager'
+ssh adguard-netbird-01 'sudo journalctl -u roku-cloud-bridge -n 40 --no-pager'
+ssh adguard-netbird-01 'systemctl show roku-bridge.service -p ExecStart -p EnvironmentFiles'
 ```
+
+For MQTT inspection, use the appliance and the current unit's Python environment.
+Its root-readable broker file is `/run/secrets/rendered/roku-bridge-mqtt.env`,
+rendered by sops-nix; the former `/var/lib/roku-bridge/mqtt.env` path is retired.
+Load it in-process and subscribe only to the affected `roku/light/<slug>/#`
+topics; never print the password or dump unrelated topics. The broker accepts
+k3s nodes and the explicitly allowlisted switch at `10.0.20.120`; check the
+actual firewall in `flake/modules/adguard-netbird-appliance.nix` when testing
+from another client.
+
+Direct encrypted bulb probes belong to the `JEFF7712/roku-bulb-local` producer
+repository and need its private bulb inventory. Do not infer a developer
+checkout path or copy `enr` values into command arguments or task logs.
 
 ## Deploy and recovery
 
-- Permanent changes go through `nixos-rebuild switch` (driven by `python -m scripts.deploy_fleet --target adguard-netbird-01`). The bridge script is baked into `/nix/store/<hash>-roku-bridge/bin/roku-bridge` and the systemd unit points directly at it.
-- Emergency / hot-fix path: copy `bridge.py` to `/var/lib/roku-bridge/bridge.py` on the appliance and add a runtime drop-in at `/run/systemd/system/roku-bridge.service.d/override.conf` that overrides `ExecStart` to point at the writable copy. The drop-in disappears on `systemctl daemon-reload` or reboot, so this is for short-term unblocks only — always follow with a real `nixos-rebuild` so the closure catches up.
+- Permanent changes go through `just ship` and the fleet deployment workflow; scoped recovery uses the [host deployment runbook](nixos-host-deployment.md). The bridge script is baked into `/nix/store/<hash>-roku-bridge/bin/roku-bridge` and the systemd unit points directly at it.
+- Emergency / hot-fix path: copy `bridge.py` to `/var/lib/roku-bridge/bridge.py` on the appliance and add a runtime drop-in at `/run/systemd/system/roku-bridge.service.d/override.conf` that overrides `ExecStart` to point at the writable copy. A `systemctl daemon-reload` reloads that drop-in; it remains active until removed or the host reboots, so this is for short-term unblocks only — always follow with a real `nixos-rebuild` so the closure catches up.
 - See `docs/gotchas/nix-heredoc-indentation.md` for the indentation pitfall that crashed the bridge during one fix and required exactly this hot-fix dance.

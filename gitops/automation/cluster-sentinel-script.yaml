@@ -134,6 +134,27 @@ data:
       check_change "cloudflare-tunnel" "ok" "Cloudflare tunnel issue" "Cloudflare tunnel recovered" "Cloudflared has all desired replicas available and no restarted pods."
     fi
 
+    # Restore drills (gitops/backups/restore-drill.yaml): every dataset needs a
+    # passing drill within eight days and a latest result that passed.
+    drill_bad=""
+    for item in backups/immich-db backups/home-assistant-db backups/umami-db immich/immich-library; do
+      drill_ns="${item%%/*}"
+      dataset="${item#*/}"
+      evidence="$(kubectl -n "${drill_ns}" get configmap restore-drill-evidence -o json 2>/dev/null || echo '{}')"
+      passed="$(printf '%s' "${evidence}" | jq -r --arg k "${dataset}.passed" '.data[$k] // "0"')"
+      result="$(printf '%s' "${evidence}" | jq -r --arg k "${dataset}.result" '.data[$k] // "never run"')"
+      if [ "${result#pass}" = "${result}" ] || [ $((now - passed)) -gt $((8 * 24 * 60 * 60)) ]; then
+        drill_bad="$(printf '%s\n%s: %s (last pass %s)' "${drill_bad}" "${item}" "${result}" \
+          "$([ "${passed}" -gt 0 ] && date -u -d "@${passed}" +%Y-%m-%d || echo never)")"
+      fi
+    done
+    drill_bad="$(printf '%s\n' "${drill_bad}" | sed '/^$/d')"
+    if [ -n "${drill_bad}" ]; then
+      check_change "restore-drills" "bad" "Restore drill issue" "Restore drills recovered" "${drill_bad}"
+    else
+      check_change "restore-drills" "ok" "Restore drill issue" "Restore drills recovered" "Every backed-up dataset restored within eight days."
+    fi
+
     cert_bad="$(
       kubectl get certificates.cert-manager.io -A -o json | jq -r '
         .items[]

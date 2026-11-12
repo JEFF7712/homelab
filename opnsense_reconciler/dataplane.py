@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Mapping
@@ -58,7 +59,13 @@ def probe_target(
     open_url = opener if opener is not None else urllib.request.urlopen
     try:
         response = open_url(url, timeout=timeout)
-    except (urllib.error.URLError, OSError, ValueError):
+    except urllib.error.HTTPError as error:
+        # The VIP answered, so the route works; the status decides readiness.
+        print(f"{url}: HTTP {error.code}", file=sys.stderr)
+        return True, error.code
+    except (urllib.error.URLError, OSError, ValueError) as error:
+        reason = getattr(error, "reason", error)
+        print(f"{url}: {type(reason).__name__}: {reason}", file=sys.stderr)
         return False, None
     status = getattr(response, "status", None)
     close = getattr(response, "close", None)
@@ -89,21 +96,33 @@ def main(
     )
     parser.add_argument("--targets", required=True, type=Path)
     parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument(
+        "--report",
+        type=Path,
+        help="also write the result as JSON, for scripts.ci.notify vip-dataplane",
+    )
     arguments = parser.parse_args(argv)
     targets = json.loads(arguments.targets.read_text())
     results = probe_targets(targets, arguments.timeout, probe)
     proof = verify_lb_data_plane(targets, results)
-    print(
-        json.dumps(
-            {
-                "checked": len(results),
-                "unreachable": sorted(proof.unreachable),
-                "ready": proof.ready,
-            },
-            sort_keys=True,
-        )
+    summary = json.dumps(
+        {
+            "checked": len(results),
+            "unreachable": sorted(proof.unreachable),
+            "ready": proof.ready,
+        },
+        sort_keys=True,
     )
+    print(summary)
+    if arguments.report is not None:
+        arguments.report.parent.mkdir(parents=True, exist_ok=True)
+        arguments.report.write_text(summary + "\n")
     if not proof.ready:
+        print(
+            "VIP data plane failed; if BGP is up, compare OPNsense's kernel routes "
+            "with its BGP RIB: docs/runbooks/opnsense-bgp-proof.md",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
 
 

@@ -113,6 +113,8 @@ class Settings:
     forgejo_token: str = ""
     github_token: str = ""
     woodpecker_token: str = ""
+    # Approvals dashboard; empty skips the operator-load summary.
+    approvals_url: str = ""
     poll_interval_seconds: float = 300.0
     request_timeout_seconds: float = 15.0
     retries: int = 2
@@ -204,6 +206,85 @@ class Snapshot:
     projects_total: int = 0
     github_rate_remaining: float = -1.0
     github_rate_exhausted: bool = False
+    autonomy: dict[str, Any] | None = None
+    operator: dict[str, Any] | None = None
+
+
+AUTONOMY_REPOSITORY = "JEFF7712/homelab"
+AUTONOMY_WINDOW_SECONDS = 7 * 24 * 3600
+# Who opened a merged pull request. Agents ship as homelab-agent; scheduled
+# promotion and registry-advance publish as homelab-publisher.
+ACTORS = {
+    "homelab-agent": "agent",
+    "homelab-publisher": "automation",
+    "homelab-renovate": "renovate",
+}
+
+
+def autonomy(pulls: list[dict[str, Any]], now: float) -> dict[str, Any]:
+    """Merged pull requests in the window by actor, reverts and merge times."""
+    merged: dict[str, int] = {"agent": 0, "automation": 0, "renovate": 0, "operator": 0}
+    hours: dict[str, list[float]] = {actor: [] for actor in merged}
+    reverts = 0
+    for pull in pulls:
+        merged_at = _parse_time(pull.get("merged_at"))
+        if merged_at is None or now - merged_at > AUTONOMY_WINDOW_SECONDS:
+            continue
+        actor = ACTORS.get((pull.get("user") or {}).get("login", ""), "operator")
+        merged[actor] += 1
+        created = _parse_time(pull.get("created_at"))
+        if created is not None:
+            hours[actor].append((merged_at - created) / 3600)
+        if str(pull.get("title", "")).startswith("Revert"):
+            reverts += 1
+    median = {
+        actor: sorted(values)[len(values) // 2] if values else -1.0
+        for actor, values in hours.items()
+    }
+    return {"merged": merged, "reverts": reverts, "merge_hours_median": median}
+
+
+# Passkey requests the operator is asked to decide, by kind (merge, deploy,
+# grant) and outcome. "carried" is a deploy grant the service approved itself
+# because approved merges already covered its exact files; only "approved"
+# took a passkey. The dashboard lists the 50 most recent, which covers a week
+# at the current rate.
+OPERATOR_KINDS = ("merge", "deploy", "grant")
+OPERATOR_STATES = (
+    "approved",
+    "carried",
+    "declined",
+    "expired",
+    "superseded",
+    "pending",
+)
+
+
+def operator_load(requests: list[dict[str, Any]], now: float) -> dict[str, Any]:
+    """Approval requests filed in the window and how long approvals waited."""
+    counts = {(kind, state): 0 for kind in OPERATOR_KINDS for state in OPERATOR_STATES}
+    waits: list[float] = []
+    for request in requests:
+        created = request.get("created")
+        if (
+            not isinstance(created, (int, float))
+            or now - created > AUTONOMY_WINDOW_SECONDS
+        ):
+            continue
+        kind = str(request.get("kind", ""))
+        state = str(request.get("state", ""))
+        if state == "approving":
+            state = "pending"
+        if state == "approved" and request.get("decided_by") != "passkey":
+            state = "carried"
+        if (kind, state) not in counts:
+            continue
+        counts[(kind, state)] += 1
+        decided = request.get("decided")
+        if state == "approved" and isinstance(decided, (int, float)):
+            waits.append((decided - created) / 3600)
+    median = sorted(waits)[len(waits) // 2] if waits else -1.0
+    return {"requests": counts, "wait_hours_median": median}
 
 
 def load_projects(path: str) -> tuple[Project, ...]:
@@ -333,6 +414,10 @@ class Client:
     def forgejo(self, path: str) -> Any:
         url = f"{self.settings.forgejo_base_url.rstrip('/')}/api/v1/{path.lstrip('/')}"
         return self._get_json(url, token=self.settings.forgejo_token, scheme="token")
+
+    def approvals(self, path: str) -> Any:
+        url = f"{self.settings.approvals_url.rstrip('/')}/{path.lstrip('/')}"
+        return self._get_json(url, token="", scheme="")
 
     def github(self, path: str) -> Any:
         url = f"{self.settings.github_api_url.rstrip('/')}/{path.lstrip('/')}"
@@ -920,6 +1005,33 @@ class Collector:
         snapshot.github_rate_exhausted = mirror_rate_limited > 0 or any(
             service.detail == "rate_limit" for service in snapshot.services
         )
+        try:
+            pulls: list[dict[str, Any]] = []
+            for page in range(1, 11):
+                batch = self.client.forgejo(
+                    f"repos/{AUTONOMY_REPOSITORY}/pulls"
+                    f"?state=closed&sort=recentupdate&limit=50&page={page}"
+                )
+                if not batch:
+                    break
+                pulls.extend(batch)
+                oldest = min(
+                    (_parse_time(item.get("updated_at")) or now for item in batch),
+                    default=now,
+                )
+                if now - oldest > AUTONOMY_WINDOW_SECONDS:
+                    break
+            snapshot.autonomy = autonomy(pulls, now)
+        except FetchError:
+            self._record_error("autonomy")
+            snapshot.errors = dict(self.errors)
+        if self.settings.approvals_url:
+            try:
+                listed = self.client.approvals("api/requests")
+                snapshot.operator = operator_load(listed.get("requests", []), now)
+            except FetchError:
+                self._record_error("approvals")
+                snapshot.errors = dict(self.errors)
         snapshot.finished_at = time.time()
         # Collection succeeds when every dependency answered, every credential
         # was accepted, and every repository check was verifiable. GitHub rate
@@ -1034,6 +1146,50 @@ def render(
             "repo_service_check_duration_seconds",
             service.latency_seconds,
             {"service": service.service},
+        )
+
+    if snapshot.autonomy is not None:
+        meta(
+            "homelab_autonomy_merged_prs",
+            "gauge",
+            "Pull requests merged into the homelab in the last 7 days, by who opened them.",
+        )
+        for actor, count in sorted(snapshot.autonomy["merged"].items()):
+            emit("homelab_autonomy_merged_prs", count, {"actor": actor})
+        meta(
+            "homelab_autonomy_reverts",
+            "gauge",
+            "Revert pull requests merged in the last 7 days.",
+        )
+        emit("homelab_autonomy_reverts", snapshot.autonomy["reverts"])
+        meta(
+            "homelab_autonomy_merge_hours_median",
+            "gauge",
+            "Median hours from opening to merge in the last 7 days, -1 when none.",
+        )
+        for actor, value in sorted(snapshot.autonomy["merge_hours_median"].items()):
+            emit("homelab_autonomy_merge_hours_median", value, {"actor": actor})
+
+    if snapshot.operator is not None:
+        meta(
+            "homelab_autonomy_operator_requests",
+            "gauge",
+            "Passkey approval requests filed in the last 7 days, by kind and outcome.",
+        )
+        for (kind, state), count in sorted(snapshot.operator["requests"].items()):
+            emit(
+                "homelab_autonomy_operator_requests",
+                count,
+                {"kind": kind, "state": state},
+            )
+        meta(
+            "homelab_autonomy_operator_wait_hours_median",
+            "gauge",
+            "Median hours an approved request waited for the operator, -1 when none.",
+        )
+        emit(
+            "homelab_autonomy_operator_wait_hours_median",
+            snapshot.operator["wait_hours_median"],
         )
 
     meta(
@@ -1283,6 +1439,7 @@ def build_settings(args: argparse.Namespace) -> Settings:
         forgejo_token=args.forgejo_token or env.get("FORGEJO_READ_TOKEN", ""),
         github_token=args.github_token or env.get("GITHUB_TOKEN", ""),
         woodpecker_token=env.get("WOODPECKER_TOKEN", ""),
+        approvals_url=env.get("APPROVALS_URL", ""),
         poll_interval_seconds=float(env.get("POLL_INTERVAL_SECONDS", "300")),
         request_timeout_seconds=float(env.get("REQUEST_TIMEOUT_SECONDS", "15")),
         mirror_grace_seconds=float(env.get("MIRROR_GRACE_SECONDS", "5400")),

@@ -46,6 +46,30 @@ rest_command:
     method: post
     content_type: "application/json"
     payload: '{"type": "{{ effect_type }}", "config": {{ effect_config | default("{}") }}}'
+  bose_speaker_connect:
+    url: "http://10.0.30.20:8889/connect"
+    method: post
+  bose_speaker_disconnect:
+    url: "http://10.0.30.20:8889/disconnect"
+    method: post
+shell_command:
+  set_music_assistant_spotify_connect: >-
+    python3 -c 'import urllib.request, json, sys;
+    entries = json.load(open("/config/.storage/core.config_entries"))["data"]["entries"];
+    t = [e["data"]["token"] for e in entries if e.get("domain") == "music_assistant"][0];
+    lr = sys.argv[1].lower() in ("true", "on", "1");
+    br = sys.argv[2].lower() in ("true", "on", "1") if len(sys.argv) > 2 else False;
+    players = [];
+    if lr:
+        players.append("media_player.homelab_05_satellite_media_player");
+    if br:
+        players.append("up4f07df12");
+    body = json.dumps({"command": "config/providers/save", "args": {"provider_domain":
+    "spotify_connect", "instance_id": "spotify_connect", "values": {"enabled":
+    len(players) > 0, "connected_players": players}}, "message_id": "ha_spotify_connect"}).encode();
+    req = urllib.request.Request("http://10.0.30.15:8095/api", data=body,
+    headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"});
+    urllib.request.urlopen(req)' "{{ living_room | default(enabled) }}" "{{ bedroom | default('false') }}"
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
@@ -95,8 +119,21 @@ intent_script:
               brightness_step_pct: 30
     speech:
       text: "Done."
+  # Bare on/off hands the shared bulbs back to Adaptive Lighting, matching
+  # script.shared_lights_off. Otherwise a stale manual-control flag (from music
+  # mode or a colour command) survives the cycle and bulbs come back in the old
+  # colour instead of being adapted.
   JarvisDefaultLightsOn:
     action:
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_all_dimmable_lights
+          lights:
+            - light.kitchen_ceiling_light_1
+            - light.kitchen_ceiling_light_2
+            - light.living_room_floor_lamp
+            - light.living_room_tulip_lamp
+          manual_control: false
       - service: light.turn_on
         target:
           entity_id: light.downstairs_lights
@@ -107,6 +144,15 @@ intent_script:
       - service: light.turn_off
         target:
           entity_id: light.downstairs_lights
+      - service: adaptive_lighting.set_manual_control
+        data:
+          entity_id: switch.adaptive_lighting_all_dimmable_lights
+          lights:
+            - light.kitchen_ceiling_light_1
+            - light.kitchen_ceiling_light_2
+            - light.living_room_floor_lamp
+            - light.living_room_tulip_lamp
+          manual_control: false
     speech:
       text: "Done."
   JarvisDefaultLightsColor:
@@ -208,10 +254,73 @@ intent_script:
           color_name: "{{ jarvis_general_color }}"
     speech:
       text: "Done."
+# One dashboard toggle per Adaptive Lighting setting for the shared spaces.
+# The Govee dining bulbs have their own entry (2700K floor), so each switch
+# drives both entries and reads on only when both are on.
+template:
+  - switch:
+      - name: Shared Spaces Sleep Mode
+        unique_id: shared_spaces_sleep_mode
+        icon: mdi:sleep
+        state: >-
+          {{ is_state('switch.adaptive_lighting_all_dimmable_lights_sleep_mode', 'on')
+          and is_state('switch.adaptive_lighting_govee_dining_bulbs_sleep_mode', 'on') }}
+        turn_on:
+          - action: switch.turn_on
+            target:
+              entity_id:
+                - switch.adaptive_lighting_all_dimmable_lights_sleep_mode
+                - switch.adaptive_lighting_govee_dining_bulbs_sleep_mode
+        turn_off:
+          - action: switch.turn_off
+            target:
+              entity_id:
+                - switch.adaptive_lighting_all_dimmable_lights_sleep_mode
+                - switch.adaptive_lighting_govee_dining_bulbs_sleep_mode
+      - name: Shared Spaces Adapt Brightness
+        unique_id: shared_spaces_adapt_brightness
+        icon: mdi:brightness-auto
+        state: >-
+          {{ is_state('switch.adaptive_lighting_all_dimmable_lights_adapt_brightness', 'on')
+          and is_state('switch.adaptive_lighting_govee_dining_bulbs_adapt_brightness', 'on') }}
+        turn_on:
+          - action: switch.turn_on
+            target:
+              entity_id:
+                - switch.adaptive_lighting_all_dimmable_lights_adapt_brightness
+                - switch.adaptive_lighting_govee_dining_bulbs_adapt_brightness
+        turn_off:
+          - action: switch.turn_off
+            target:
+              entity_id:
+                - switch.adaptive_lighting_all_dimmable_lights_adapt_brightness
+                - switch.adaptive_lighting_govee_dining_bulbs_adapt_brightness
+      - name: Shared Spaces Adapt Color
+        unique_id: shared_spaces_adapt_color
+        icon: mdi:palette
+        state: >-
+          {{ is_state('switch.adaptive_lighting_all_dimmable_lights_adapt_color', 'on')
+          and is_state('switch.adaptive_lighting_govee_dining_bulbs_adapt_color', 'on') }}
+        turn_on:
+          - action: switch.turn_on
+            target:
+              entity_id:
+                - switch.adaptive_lighting_all_dimmable_lights_adapt_color
+                - switch.adaptive_lighting_govee_dining_bulbs_adapt_color
+        turn_off:
+          - action: switch.turn_off
+            target:
+              entity_id:
+                - switch.adaptive_lighting_all_dimmable_lights_adapt_color
+                - switch.adaptive_lighting_govee_dining_bulbs_adapt_color
 input_boolean:
   bedroom_matrix_power:
     name: Bedroom Matrix Display
     icon: mdi:led-strip-variant
+    initial: true
+  bedroom_matrix_cycle:
+    name: Bedroom Matrix Auto-Cycle
+    icon: mdi:sync
     initial: true
 
 input_select:
@@ -229,31 +338,25 @@ input_select:
       - "LedFx"
       - "Physics"
       - "Homelab Dashboards"
+      - "Laptop"
     initial: "Auto"
-  bedroom_ledfx_effect:
-    name: Bedroom LedFx Effect
-    icon: mdi:music-note-outline
-    options:
-      - "equalizer2d"
-      - "plasma2d"
-      - "bands_matrix"
-      - "digitalrain2d"
-      - "fire"
-      - "spectrum"
-      - "energy"
-      - "wavelength"
-      - "keybeat2d"
-    initial: "equalizer2d"
 
 input_number:
-  bedroom_matrix_brightness:
-    name: Bedroom Matrix Brightness
-    icon: mdi:brightness-6
-    min: 5
-    max: 100
-    step: 5
-    unit_of_measurement: "%"
-    initial: 70
+  bedroom_matrix_vinyl_contrast:
+    name: Bedroom Matrix Vinyl Contrast
+    icon: mdi:contrast-circle
+    min: 0.5
+    max: 2.0
+    step: 0.05
+    initial: 1.12
+
+  bedroom_matrix_vinyl_saturation:
+    name: Bedroom Matrix Vinyl Saturation
+    icon: mdi:palette
+    min: 0.5
+    max: 2.0
+    step: 0.05
+    initial: 1.25
 
 light:
   - platform: group
@@ -372,6 +475,12 @@ logbook:
       - sensor.sm_s948u1_app_*
       - sensor.*_linkquality
 rest:
+  - resource: http://10.0.30.20:8889/status
+    scan_interval: 10
+    binary_sensor:
+      - name: Bedroom Speaker Bluetooth
+        value_template: "{{ value_json.connected | default(false) }}"
+        device_class: connectivity
   - resource: https://version.home-assistant.io/stable.json
     scan_interval: 21600
     sensor:

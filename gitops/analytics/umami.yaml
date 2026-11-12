@@ -20,7 +20,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: umami
-          image: registry.rupan.dev/upstream/ghcr.io/umami-software/umami@sha256:85909afc45bdcda1917394594a087421fdbb05610fded0fa9f6fb861abb2f367  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/umami-software/umami@sha256:e69d1a7932e9dab0fc523edc7be1f3a53f3c261f57856fc2167ae74a8fc022e8  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

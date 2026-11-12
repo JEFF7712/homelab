@@ -4,8 +4,8 @@ Streams the current Spotify album art rendered as a rotating vinyl disc to a Ras
 
 ## Arcade modes
 
-`AI Arcade` rotates through eleven autonomous games: Pong, Snake, Breakout,
-Tetris, Pac-Man, Space Invaders, Donkey Kong, Frogger, Asteroids, Doodle Jump,
+`AI Arcade` rotates through ten autonomous games: Pong, Snake, Breakout,
+Tetris, Pac-Man, Space Invaders, Donkey Kong, Frogger, Doodle Jump,
 and Q*bert. Each game runs for 60 seconds before the shuffled rotation advances.
 Frogger crosses five traffic lanes and rides logs, turtles, and alligator backs
 to fill five homes. Doodle Jump steers between moving platforms and springs as
@@ -37,7 +37,9 @@ background worker with an eight-image cache. Rendering and acknowledged TCP
 delivery run independently at 20 FPS.
 
 `input_select.bedroom_matrix_mode` controls the display. Physics rotates orbiting particles,
-bouncing particles, and wave propagation every 20 seconds. Homelab Dashboards
+bouncing particles, wave propagation, harmonic pendulum waves, granular sand dunes,
+spiral galaxy accretion, curl vector flow fields, convective fire, and volcanic
+particle fountains every 20 seconds. Homelab Dashboards
 rotates Kubernetes nodes and pods, Forgejo/Woodpecker CI with deployment replica
 readiness, NAS traffic, and server health every 12 seconds. Its read-only
 Prometheus queries run in a background thread. The panel shows `DATA OFFLINE`

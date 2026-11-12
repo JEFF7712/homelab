@@ -15,12 +15,14 @@
     ../../modules/zot-registry.nix
     ../../modules/npm-cache-proxy.nix
     ../../modules/ledfx-bedroom.nix
+    ../../modules/bedroom-bluetooth.nix
     ../../modules/forgejo.nix
-    ../../modules/git-dr-mirror.nix
     ../../modules/nas-s3.nix
+    ../../modules/niks3-cache.nix
     ../../modules/tofu-state.nix
     ../../modules/platform-backup.nix
     ../../modules/nas-syncthing.nix
+    ../../modules/nas-backup-source.nix
   ];
 
   networking.hostName = "nas-01";
@@ -32,15 +34,23 @@
   # shared-spaces LedFx instance: no shared device, virtual, or scene.
   homelab.ledfxBedroom.enable = true;
 
+  # HTTP bridge to connect and monitor the bedroom Bose SoundLink Flex 2 Bluetooth speaker.
+  homelab.bedroomBluetooth.enable = true;
+
   homelab.forgejo = {
     enable = true;
     acmeEmail = "rupanpandyan@gmail.com";
   };
   homelab.s3.enable = true;
+  homelab.niks3Cache = {
+    enable = true;
+    address = "10.0.30.20";
+  };
   homelab.tofuState.enable = true;
   homelab.platformBackup.enable = true;
   homelab.platformBackup.bookshelfConfigPath = "/tank/cluster/media-bookshelf-config-pvc-ba9f64f7-e62f-4d69-9f48-a0715b54d396";
   homelab.platformBackup.homeAssistantConfigPath = "/tank/cluster/home-assistant-home-assistant-config-pvc-bc354a6f-5a1f-4a0e-85fd-13bbb74f666f";
+  homelab.platformBackup.couchdbDataPath = "/tank/cluster/obsidian-couchdb-data-pvc-ddbae8df-c945-4ec2-a680-0f5127be3c0f";
   homelab.syncthing.enable = true;
 
   services.homelab-zot-registry = {
@@ -70,6 +80,12 @@
         Enable = "Source,Sink,Media,Socket";
         Experimental = true;
         AutoEnable = true;
+        FastConnectable = true;
+      };
+      Policy = {
+        AutoEnable = true;
+        ReconnectAttempts = 7;
+        ReconnectIntervals = "1, 2, 4, 8, 16, 32, 64";
       };
     };
   };
@@ -86,14 +102,6 @@
     systemWide = true;
     alsa.enable = true;
     pulse.enable = true;
-    extraConfig.pipewire-pulse."20-bedroom-music-pre-delay" = {
-      "pulse.cmd" = [
-        {
-          cmd = "load-module";
-          args = "module-null-sink sink_name=bedroom_music_pre_delay sink_properties=device.description=Bedroom_Music_Pre_Delay";
-        }
-      ];
-    };
     wireplumber = {
       enable = true;
       extraConfig = {
@@ -107,10 +115,16 @@
                 update-props = {
                   "priority.driver" = 3000;
                   "priority.session" = 3000;
+                  "session.suspend-timeout-seconds" = 0;
                 };
               };
             }
           ];
+        };
+        "11-bluetooth-policy" = {
+          "monitor.bluez.properties" = {
+            "bluez5.auto-connect" = [ "a2dp_sink" ];
+          };
         };
       };
     };
@@ -127,47 +141,6 @@
   systemd.services.pipewire-pulse = {
     restartTriggers = [ config.environment.etc.pipewire.source ];
     partOf = [ "pipewire.service" ];
-  };
-
-  # RTP receiver for laptop audio. The laptop's PipeWire rtp-sink unicasts PCM
-  # here (port 46100); this receiver plays it straight into
-  # bedroom_music_pre_delay, so LedFx and the Bose chain hear it exactly like
-  # Shairport audio. It must be the only path into that sink: a second copy
-  # (a loopback from this node) doubled the level and clipped the tap. The
-  # target is pinned, but node.dont-fallback must stay off: the receiver loads
-  # before pipewire-pulse creates the tap, and with no fallback WirePlumber
-  # reports "defined target not found" and the receiver drops its stream for
-  # good instead of retrying until the tap exists. Deliberately RTP
-  # and not RAOP/AirPlay: PipeWire 1.6.8's RAOP sender aborts the whole
-  # daemon on this shairport-sync's handshake (rtsp-client.c:397), while RTP
-  # has no handshake to crash on. source.ip 0.0.0.0 accepts any sender; the
-  # firewall restricts the port to the home ranges. net.ttl is not set here
-  # (receiver side); the sender must use a TTL above 1 because the laptop
-  # reaches nas-01 through a router hop.
-  services.pipewire.extraConfig.pipewire."30-laptop-rtp" = {
-    "context.modules" = [
-      {
-        name = "libpipewire-module-rtp-source";
-        args = {
-          "source.ip" = "0.0.0.0";
-          "source.port" = 46100;
-          "sess.latency.msec" = 100;
-          # The receiver locks onto the first sender's SSRC and drops every
-          # later one, and the laptop picks a new random SSRC each time its
-          # sender restarts, so a restart left this tap silent until nas-01
-          # pipewire restarted. There is one sender and the firewall limits
-          # the port to home ranges.
-          "sess.ignore-ssrc" = true;
-          "audio.rate" = 48000;
-          "audio.channels" = 2;
-          "stream.props" = {
-            "node.name" = "bedroom-rtp-in";
-            "node.description" = "Laptop RTP in";
-            "target.object" = "bedroom_music_pre_delay";
-          };
-        };
-      }
-    ];
   };
 
   # Wyoming satellite for bedroom audio playback (Jarvis + media)
@@ -210,12 +183,9 @@
   };
 
   # Open firewall ports for Wyoming protocol and mDNS discovery.
-  # UDP 46100 is the unicast RTP feed from the laptop into
-  # bedroom_music_pre_delay (see the 30-laptop-rtp module above).
   networking.firewall.extraInputRules = ''
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport 10700 accept
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 5353 accept
-    ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 46100 accept
   '';
 
   # AirPlay (shairport-sync) for Music Assistant and phone streaming to Bose speaker
@@ -223,6 +193,58 @@
     enable = true;
     openFirewall = true;
     package = pkgs.shairport-sync.overrideAttrs (old: {
+      patches = (old.patches or [ ]) ++ [
+        (pkgs.writeText "shairport-sync-pa-cork-delay.patch" ''
+          --- a/audio_pa.c
+          +++ b/audio_pa.c
+          @@ -639,31 +639,29 @@
+           }
+           
+           int pa_delay(long *the_delay) {
+          -  // debug(1, "pa delay");
+             check_pa_stream_status(stream, "audio_pa delay.");
+          -  // debug(1,"pa_delay");
+             long result = 0;
+          -  int reply = 0;
+          -  pa_usec_t latency;
+          -  int negative;
+          +  pa_usec_t latency = 0;
+          +  int negative = 0;
+          +  pa_sps_t *format_info =
+          +      sps_format_lookup(FORMAT_FROM_ENCODED_FORMAT(current_encoded_output_format));
+             pa_threaded_mainloop_lock(mainloop);
+          -  int gl = pa_stream_get_latency(stream, &latency, &negative);
+          +  int corked = (stream != NULL) ? pa_stream_is_corked(stream) : 1;
+          +  int gl = 0;
+          +  if (!corked) {
+          +    gl = pa_stream_get_latency(stream, &latency, &negative);
+          +  }
+             pa_threaded_mainloop_unlock(mainloop);
+          -  if (gl == -PA_ERR_NODATA) {
+          -    reply = -ENODEV;
+          -  } else if (gl != 0) {
+          -    reply = -EIO;
+          -  } else {
+          -    pa_sps_t *format_info =
+          -        sps_format_lookup(FORMAT_FROM_ENCODED_FORMAT(current_encoded_output_format));
+          -    // convert audio_occupancy bytes to frames and latency microseconds into frames
+          +  if (corked || gl == 0) {
+               result = (audio_occupancy / (format_info->bytes_per_sample *
+                                            CHANNELS_FROM_ENCODED_FORMAT(current_encoded_output_format))) +
+                        (latency * RATE_FROM_ENCODED_FORMAT(current_encoded_output_format)) / 1000000;
+          -    reply = 0;
+          +  } else {
+          +    result = (audio_occupancy / (format_info->bytes_per_sample *
+          +                                 CHANNELS_FROM_ENCODED_FORMAT(current_encoded_output_format)));
+             }
+             *the_delay = result;
+          -  return reply;
+          +  return 0;
+           }
+           
+           static void flush(void) {
+        '')
+      ];
       postPatch = (old.postPatch or "") + ''
         substituteInPlace shairport.c \
           --replace-fail "config.port = 5000;" "if (config.port == 0) config.port = 5000;"
@@ -238,10 +260,14 @@
         # available" and AirPlay sessions connect but never start. The PulseAudio
         # backend negotiates through pipewire-pulse, which does reach the speaker.
         output_backend = "pulseaudio";
-        # Left unset this resolves to a null mDNS backend, which advertises only
-        # _raop._tcp. iOS discovers the speaker through _airplay._tcp, so the
-        # phone sees a cached device and then hangs on "connecting".
+        audio_backend_buffer_desired_length_in_seconds = 0.5;
+        # Left unset this resolves to a null mDNS backend, voluntary RAOP only.
+        # iOS discovers the speaker through _airplay._tcp, so the phone sees a
+        # cached device and then hangs on "connecting".
         mdns_backend = "avahi";
+      };
+      sessioncontrol = {
+        allow_session_interruption = "yes";
       };
       metadata = {
         enabled = "yes";
@@ -261,51 +287,10 @@
     environment = {
       PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
       PULSE_SERVER = "unix:/run/pulse/native";
-      PULSE_SINK = "bedroom_music_pre_delay";
     };
     # Settings live in a generated file, so a settings-only change does not
     # otherwise restart the unit and the new config is ignored until reboot.
     restartTriggers = [ config.environment.etc."shairport-sync.conf".source ];
-  };
-
-  systemd.services.bedroom-audio-delay = {
-    description = "Delay bedroom music playback to match LedFx lights";
-    after = [
-      "pipewire.service"
-      "pipewire-pulse.service"
-      "bluetooth.target"
-    ];
-    requires = [
-      "pipewire.service"
-      "pipewire-pulse.service"
-    ];
-    partOf = [ "pipewire-pulse.service" ];
-    wantedBy = [
-      "multi-user.target"
-      "pipewire-pulse.service"
-    ];
-    restartTriggers = [ config.environment.etc.pipewire.source ];
-    environment.PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
-    # dont-fallback: while the Bose is paired elsewhere (e.g. the laptop) its
-    # sink does not exist here, and WirePlumber would otherwise fall back to
-    # the default sink, bedroom_music_pre_delay itself. That closes a 450 ms
-    # feedback loop that clips the tap and drives the lights with no music.
-    # With the flag, the loopback exits instead and the unit retries.
-    script = ''
-      exec ${pkgs.pipewire}/bin/pw-loopback \
-        --name=bedroom-music-delay \
-        --capture=bedroom_music_pre_delay \
-        --capture-props='{"stream.capture.sink":true}' \
-        --playback=bluez_output.E4_58_BC_10_CA_C9.1 \
-        --playback-props='{"node.dont-fallback":true}' \
-        --delay=0.45
-    '';
-    serviceConfig = {
-      User = "pipewire";
-      Group = "pipewire";
-      Restart = "always";
-      RestartSec = "5s";
-    };
   };
 
   systemd.services.bedroom-audio-fft = {
@@ -327,7 +312,7 @@
     environment.PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
     script = ''
       exec ${pkgs.pipewire}/bin/pw-record \
-        --target=bedroom_music_pre_delay \
+        --target=bluez_output.E4_58_BC_10_CA_C9.1 \
         -P '{"stream.capture.sink":true}' \
         --raw --rate=22050 --channels=1 --format=s16 - \
         | ${

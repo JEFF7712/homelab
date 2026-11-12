@@ -3,6 +3,10 @@ set -euo pipefail
 HOOKS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck disable=SC2034
 REPO_ROOT=$(cd "$HOOKS_DIR/.." && pwd)
+# Seconds each best-effort helper may take before the hook falls open. Short,
+# because clients allow a whole PreToolUse hook only 5 s; tests that assert a
+# helper's effect raise it, since a loaded machine can exceed it.
+HOOK_STEP_TIMEOUT=${AGENT_HOOK_STEP_TIMEOUT:-0.5}
 hook_restore_session() {
   local bridge metadata selected trace
   bridge=$(command -v homelab-agent-session) || return 0
@@ -10,7 +14,7 @@ hook_restore_session() {
     "$REPO_ROOT"/.agent-state/client-sessions/*/homelab-agent-session) ;;
     *) return 0 ;;
   esac
-  metadata=$(timeout 0.5 "$bridge" 2>/dev/null) || return 0
+  metadata=$(timeout "$HOOK_STEP_TIMEOUT" "$bridge" 2>/dev/null) || return 0
   [[ $(jq -r '.root // empty' <<<"$metadata" 2>/dev/null) == "$REPO_ROOT" ]] || return 0
   [[ $(jq -r '.schema_version // empty' <<<"$metadata" 2>/dev/null) == 1 ]] || return 0
   selected=$(jq -r '.task // empty' <<<"$metadata" 2>/dev/null) || return 0
@@ -37,7 +41,7 @@ hook_load() {
 hook_trace() {
   [[ ${AGENT_HOOK_TRACE:-0} == 1 ]] || return 0
   [[ -n ${HOOK_INPUT:-} ]] || return 0
-  (cd "$REPO_ROOT" && AGENT_HOOK_ACTIVE=1 timeout 0.5 python -m scripts.agent.hook_runtime trace "$1" <<<"$HOOK_INPUT" >/dev/null 2>&1) || true
+  (cd "$REPO_ROOT" && AGENT_HOOK_ACTIVE=1 timeout "$HOOK_STEP_TIMEOUT" python -m scripts.agent.hook_runtime trace "$1" <<<"$HOOK_INPUT" >/dev/null 2>&1) || true
 }
 hook_housekeeping() {
   [[ ${AGENT_HOUSEKEEPING:-1} == 1 ]] || return 0

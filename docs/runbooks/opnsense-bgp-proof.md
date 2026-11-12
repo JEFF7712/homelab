@@ -15,4 +15,36 @@ the [read-only agent access runbook](opnsense-agent-access.md).
    unreachable from the LAN until the routing service was restarted.
 5. Retain redacted proof output with the pipeline artifact.
 
+## VIPs time out while BGP is up
+
+FRR can keep the VIP `/32`s in its BGP RIB without installing them in the
+kernel FIB. OPNsense then sends VIP traffic to the empty `load_balancers`
+VLAN (its connected `10.0.40.0/24`), so every VIP except the statically
+routed Jellyfin `10.0.40.16` times out from the LAN and from CI. It happened
+in September 2026 and again on 2026-11-02, after an FRR restart.
+
+Signs: an ntfy alert "VIP data plane down" from the maintenance schedule's
+`vip-dataplane-watch` (every 30 minutes), and `opnsense-plan`'s data-plane
+probe reporting `TimeoutError` for the VIPs while the Cilium peers are
+established. The 2026-11-02 evening dropout lasted six hours before that watch
+existed, because only the nightly proof and main pushes probed the VIPs. Do not
+probe the VIPs from an agent VM: it has no route to `10.0.40.0/24`, so a
+timeout there proves nothing. `just status network` reports
+the routes present but not installed, because it compares
+`/api/diagnostics/interface/get_routes` with
+`/api/quagga/diagnostics/search_bgproute4`. Agent VMs run it with their
+read-only key (`~/.config/sops/age/agent-rupan.key`).
+
+Fix: `just ship --resume <main> --deploy opnsense-frr-heal`. The operation
+(`scripts/ci/opnsense_frr_heal.py`) acts only on this exact condition:
+every peer established and every expected route in FRR, with some missing
+from the kernel. It confirms the dropout again after a minute, restarts FRR
+only when every peer session is older than six hours (sessions reset on any
+FRR restart, so this bounds it to one restart per six hours with no stored
+state), and passes only when every expected `/32` is installed within three
+minutes. A hold or a failed heal exits nonzero and needs a human: restart
+FRR in the OPNsense UI (Services, FRR) and rerun `opnsense-plan`.
+`opnsense-fib-check` runs the same detection read-only and fails with the
+command to run.
+
 An absent peer, wrong ASN, missing route, or non-running service is an apply failure. Restore connectivity using the OPNsense console recovery runbook before attempting another configuration change.

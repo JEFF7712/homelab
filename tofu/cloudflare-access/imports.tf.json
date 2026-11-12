@@ -1,0 +1,112 @@
+{
+  "import": [
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_music_sync_and_tools",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/b9183f48-492b-4bfc-99a8-afdb5918391f"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_photos_files_and_dashboards",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/2903531b-6e4c-4204-ab79-e67fb8521730"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_notes_and_project_sites",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/d467ead1-22e3-4a49-a854-1768d8d665c7"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_home_assistant",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/a6cc9c1c-9a3b-46e7-8c39-c20fb986e13f"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_websites_and_automation",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/e5f1d5ec-f2d3-47e1-aa29-5767d9ffb4c5"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_flux_webhook",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/7019f991-5249-41d0-b732-812c8dc36233"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_music_assistant_and_ledfx",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/fac24712-9b75-4206-9e5f-d6a22ab7c5dd"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_arcade_controller",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/8300a16c-2cf7-4ad3-b7b5-103b2a333885"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_uwagent",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/e4cfbb1b-45e6-4814-9350-eb7f2f0e4647"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_woodpecker_ci",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/01a01c4d-56d2-4138-bbe4-7e49186b0193"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_tally_tracker_endpoints",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/cb7b2fcc-9946-4497-94b3-abe5b4a69947"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.bypass_requests_and_music_tools",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/292cbfd2-877a-47d6-88e4-ffccebe3d6a3"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.tally_owner_dashboard",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/a534778f-88f4-45b6-9345-c2591e5a658a"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.games",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/cc0a0604-7d43-4c9e-8ad7-d065a220bd53"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.approvals",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/65a98a16-6466-40ca-9aa4-018794fd50bc"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.forgejo",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/95ae142a-ff91-423c-b5b4-9a612536d016"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.grafana_oidc",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/448b175a-dd78-4d6a-9847-8c122b3a9759"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.immich_oidc",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/d694f134-6774-4247-80e2-19d0e32690eb"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.sovereign",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/b6df265b-18b1-40b0-abfb-ff9fa6313b09"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.default",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/da49f059-152b-41dc-9805-96dbcaaee6e3"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_application.warp_login_app",
+      "id": "accounts/5d99d63dea23dde67ccb07e5dfb31107/2cadccb5-93c0-4df6-8a97-3806e10384fb"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_policy.friends",
+      "id": "5d99d63dea23dde67ccb07e5dfb31107/ca3129d1-55ad-42ff-bac0-8f316ff84fcd"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_policy.roommates",
+      "id": "5d99d63dea23dde67ccb07e5dfb31107/3cec368a-43c3-4c44-82e9-c1be0d6f3788"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_policy.bypass",
+      "id": "5d99d63dea23dde67ccb07e5dfb31107/7015eaad-fad5-462b-905c-43d74bd648aa"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_policy.main_rupan",
+      "id": "5d99d63dea23dde67ccb07e5dfb31107/d41ac5f5-7568-4a0d-a737-9968291d2fa2"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_policy.approvals_owner",
+      "id": "5d99d63dea23dde67ccb07e5dfb31107/9537d0de-1429-420b-b8a9-3a3daaaf59cf"
+    },
+    {
+      "to": "cloudflare_zero_trust_access_policy.sovereign_owner",
+      "id": "5d99d63dea23dde67ccb07e5dfb31107/583b5994-6743-43c8-95b1-c146fed6618a"
+    }
+  ]
+}

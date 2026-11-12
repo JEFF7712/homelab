@@ -41,6 +41,17 @@
       "auto": true
     },
     {
+      "name": "orchestrator-images",
+      "paths": [
+        "scripts/orchestrator/",
+        "flake/packages/orchestrator-images.nix"
+      ],
+      "operations": [
+        "orchestrator-publish"
+      ],
+      "auto": true
+    },
+    {
       "name": "home-assistant",
       "paths": [
         "home-assistant/"
@@ -95,7 +106,19 @@
         "flake/hosts/",
         "flake/modules/",
         "flake/flake.nix",
-        "flake/flake.lock"
+        "flake/flake.lock",
+        "nix/",
+        "secrets/hosts/",
+        "secrets/shared/",
+        "scripts/nas/",
+        "scripts/ci/platform_backup.py",
+        "scripts/ci/release_mirror.py",
+        "scripts/ci/authority.py",
+        "config/ci/fleet-deploy.pub",
+        "config/ci/ha-issuer.pub",
+        "config/ci/registry-issuer.pub",
+        "scripts/ci/kube_credentials.py",
+        "scripts/k3s_backup_source.py"
       ],
       "operations": [
         "deploy-fleet-dry-run",
@@ -133,11 +156,93 @@
         "flake/profiles/projectctl-pilot.nix",
         "scripts/projectctl/",
         "flake/modules/projectctl.nix",
-        "config/ci/projectctl-contracts.json"
+        "config/ci/projectctl-contracts.json",
+        "config/ci/ship-routes.json",
+        "secrets/woodpecker-clone.sops.env",
+        "scripts/ci/build_users.py",
+        "scripts/ci/container_release.py",
+        "scripts/ci/deployment_source.py",
+        "scripts/ci/dockerfile_supply.py",
+        "scripts/ci/dotnet_release.py",
+        "scripts/ci/dotnet_service.py",
+        "scripts/ci/firmware.py",
+        "scripts/ci/nixos_config.py",
+        "scripts/ci/node_release.py",
+        "scripts/ci/oplock.py",
+        "scripts/ci/node_service.py",
+        "scripts/ci/python_service.py",
+        "scripts/ci/service_release.py",
+        "scripts/ci/static_release.py",
+        "scripts/ci/static_site.py",
+        "secrets/projectctl.sops.json",
+        "secrets/ci-fleet-deploy.sops.json",
+        "secrets/ha-ci-issuer.sops.json",
+        "secrets/registry-ci-issuer.sops.json"
       ],
       "operations": [
         "deploy-ci-host-dry-run",
         "deploy-ci-host"
+      ],
+      "auto": true
+    },
+    {
+      "name": "state-backend",
+      "paths": [
+        "scripts/ci/state.py"
+      ],
+      "operations": [
+        "deploy-fleet-dry-run",
+        "deploy-fleet"
+      ],
+      "auto": true
+    },
+    {
+      "name": "cloudflare-access",
+      "paths": [
+        "tofu/cloudflare-access/",
+        "scripts/cloudflare/access.py"
+      ],
+      "operations": [
+        "cloudflare-access-plan",
+        "cloudflare-access-apply"
+      ],
+      "auto": true
+    },
+    {
+      "name": "switch-runtime",
+      "paths": [
+        "tofu/switches/main.tf.json",
+        "tofu/switches/providers.tf",
+        "tofu/switches/backend.tf",
+        "tofu/switches/.terraform.lock.hcl",
+        "scripts/switches/model.py",
+        "scripts/switches/runner.py"
+      ],
+      "operations": [
+        "deploy-switch-runtime-dry-run",
+        "deploy-switch-runtime"
+      ],
+      "auto": true
+    },
+    {
+      "name": "switches",
+      "paths": [
+        "tofu/switches/",
+        "scripts/switches/"
+      ],
+      "operations": [
+        "switches-plan",
+        "switches-apply"
+      ],
+      "auto": true
+    },
+    {
+      "name": "registry-import",
+      "paths": [
+        "registry/images.lock.json"
+      ],
+      "operations": [
+        "registry-lock-import"
       ],
       "auto": true
     }

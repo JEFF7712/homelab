@@ -19,8 +19,10 @@ nftables stops QEMU first. The bridge has one DHCP lease, `10.250.60.2`.
 The ingress list includes `10.0.30.10/32`, the observed source after the NetBird
 appliance performs SNAT, as well as preserved NetBird client addresses.
 
-The service allows 400% aggregate CPU for the initial four vCPUs, a 9 GiB hard
-memory ceiling including emulator overhead, and no host swap. The Kubernetes
+The service derives `CPUQuota` as `vcpus * 100` percent, `MemoryHigh` as
+`memoryMiB + 512` MiB, and `MemoryMax` as `memoryMiB + 1024` MiB, with no host
+swap. At the current 4 vCPUs and 4096 MiB guest allocation, these are 400%,
+4.5 GiB and 5 GiB respectively, including emulator overhead. The Kubernetes
 system reservation is derived from the VM configuration: one existing host CPU
 plus guest vCPUs, and 2 GiB existing host RAM plus guest RAM plus 1 GiB emulator
 headroom. Kubernetes resource requests use the reduced allocatable budget;

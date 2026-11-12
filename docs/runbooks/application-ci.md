@@ -8,7 +8,16 @@ infrastructure workflows remain a separate policy branch.
 
 `config/ci/applications.json` records application identity, default branch,
 validation contract/image, artifact namespace, deployment ownership and state.
-The current contract supports stateless sites on main with `static-site-v1`.
+Supported validators include `static-site-v1`, `python-service-v1`,
+`dotnet-service-v1`, `node-service-v1`, `nixos-config-v1` and `firmware-v1`.
+Default branches, state and release kind are per application; the schema and
+allowed validator/release combinations are enforced in `scripts/ci/applications.py`.
+Read the application entry rather than applying the original Darkbit pilot to
+every repository.
+
+The Darkbit-specific setup and recovery observations below describe the initial
+static-site pilot. Other application contracts use their own fixed validators,
+retained supply and release builders.
 Validation images must be digest-pinned references to the local upstream mirror.
 
 Darkbit is enrolled as Woodpecker repository 2, mapped to Forgejo repository 3.
@@ -37,9 +46,9 @@ private, and repair Woodpecker metadata after visibility changes. The pinned
 Forgejo adapter supplies both visibility and SCM privacy so repair can update
 the clone authentication decision.
 
-The clone account has read access to homelab and Darkbit, with no write or admin
-permission. Its current token has only `read:repository` scope. The previous
-token was limited to homelab alone and remains available to existing consumers.
+The clone account needs read-only access to each enrolled repository; do not
+assume the original homelab/Darkbit pilot grants cover later enrollments.
+Its token uses `read:repository` scope, with no write or admin permission.
 The token lives in `secrets/woodpecker-clone.sops.env`, which homelab-04
 decrypts through sops-nix into `/run/secrets/woodpecker-clone.env`. Edit it with
 `sops` and ship the change; activation restarts the server.
@@ -75,7 +84,7 @@ nix develop ./flake -c python -m unittest tests.test_application_ci tests.test_f
 
 Branch protection must require `ci/woodpecker/application-validation` after
 live webhook delivery is verified. Existing homelab protection continues to
-require validation-v2. Do not change protection until the matching workflow
+require both validation-v2 and `policy/merge`. Do not change protection until the matching workflow
 actually reports status.
 
 ## Implementation boundary

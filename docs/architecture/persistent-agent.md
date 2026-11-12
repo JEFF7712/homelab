@@ -2,7 +2,7 @@
 
 Target architecture for [RFC-001](../research/2026-10-22-persistent-agent-pi-workers-rfc.md)
 after the [Phase 0 audit](../research/2026-10-22-persistent-agent-audit.md) and
-the operator decisions of 2026-10-22. **Nothing here is deployed.** Offline
+the operator decisions of 2026-10-22 and 2026-11-02. **Nothing here is deployed.** Offline
 implementation is approved; deployment needs a separate authorization after
 the gates in [Deployment gates](#deployment-gates) pass.
 
@@ -11,13 +11,14 @@ the gates in [Deployment gates](#deployment-gates) pass.
 | Area | Decision |
 | --- | --- |
 | Worker runtimes | Pi is the preferred general runtime. Native CLI adapters run behind the same interface. Codex runs through the official Codex CLI with ChatGPT login. Claude runs through the unmodified Claude Code CLI with `claude setup-token`. Pi's `openai-codex` provider stays experimental. Pi never uses `anthropic`. Antigravity and Muse are deferred. |
-| Supervisor inference | First choice: OpenAI's documented Sign in with ChatGPT through Letta's `OpenAI (ChatGPT subscription)` connection (see the audit below). Fallback: a separately approved, budget-capped API key. No local model as the primary supervisor. No CLI-to-Letta inference proxy. |
+| Supervisor inference | Primary (2026-11-02): a budget-capped API key, registered as a consumer in `config/spend.json` with the operator's monthly cap. Sign in with ChatGPT through Letta's `OpenAI (ChatGPT subscription)` connection replaces it once the upstream fixes below land in an audited release. No local model as the primary supervisor. No CLI-to-Letta inference proxy. |
+| Rollout order | Phase 1: the controller and workers alone, fed by [alert intake](#alert-intake-phase-1). No supervisor, so no supervisor key. Phase 2: Letta and Telegram attach as the front door. |
 | Paid APIs | None without explicit approval. Backends refuse API-key variables. |
 | Credentials | A provisioning plan is approved. Shared credentials and automatic credential creation are not. pod-agent's logins and refresh jobs stay untouched. |
 | Controller | One active controller, SQLite in WAL mode on a node-local volume, transactional claims, migrations, backups. |
 | Approvals and notifications | Reuse the approvals dashboard and ntfy. |
 | Packaging | Start from Letta Code's upstream flake (`packages.<system>.letta-code`, `nixosModules.default`) pinned to an audited tag. Build the OCI image from that package if the cluster needs one. |
-| Placement | Choose homelab-02 or homelab-03 only after fresh resource measurements. Never homelab-05. Cluster-internal only. |
+| Placement | homelab-02, with a static `local-nvme` PV under `/persist/` (measured and approved 2026-11-02, see gate 2). Never homelab-05. Cluster-internal only. |
 | Testing | A disposable Forgejo repository with explicitly scoped enrollment. |
 
 ## Components and trust boundaries
@@ -37,20 +38,27 @@ flowchart LR
     B --> CX[Codex CLI + ask_supervisor MCP]
     B --> CC[Claude Code + ask_supervisor MCP]
   end
-  R -- worker API, bearer token --> C
-  W -- branch push, PR --> F[Forgejo]
+  R -- worker API: source archive, patch, bearer token --> C
+  C -- publisher: push attempt branch; PR, CI status --> F[Forgejo]
   F --> WP[Woodpecker]
-  C -- read PR and CI status --> F
   C -- held operations only --> A[approvals dashboard]
   C -- push notices --> N[ntfy]
 ```
 
 - The controller owns task truth (`docs/protocols/agent-tasks.md`). Letta,
   workers and Telegram only request changes.
+- Worker text never enters Letta's conversation or the client API; it goes
+  to the human on the forge issue and ntfy. An answer from Letta reaches a
+  worker only after the principal's `/confirm` on the issue.
 - A worker reaches the controller only through the worker API, with a token
   bound to its one live attempt. The token cannot answer questions, approve,
   complete, create tasks or read other attempts, and it stops working when the
   attempt ends. The worker never sees the SQLite file.
+- Workers hold no forge credential and cannot reach the forge. They receive
+  the base commit as an archive and return a patch; the publisher in the
+  controller pod validates it and is the only Git writer. Verification and
+  completion are bound to the commit it pushed. Nothing merges
+  automatically.
 - Completion has three stages: worker-reported (`settle`), verified
   (`record_verification`, from the controller's own Forgejo and Woodpecker
   reads), and finalized (`complete`, from the stored verification only). The
@@ -190,10 +198,10 @@ single writer.
 | Telegram bot token | New bot for the supervisor only; not pod-agent's bot | Letta channel runtime | SOPS secret, rendered by an init container into `channels/telegram/accounts.json` on the control-plane PVC (0600); DM policy `allowlist` with one user ID | Operator via BotFather | `/revoke` in BotFather, update SOPS, restart the pod |
 | Codex worker login | Dedicated ChatGPT login session for the Codex CLI; not a copy of the laptop's or pod-agent's `auth.json` | Codex worker Jobs | `CODEX_HOME` on a dedicated worker-auth PVC (0700), mounted only into Codex Jobs | Operator runs `codex login --device-auth` in a one-off pod against that PVC | Re-run the device login and revoke the old session. One Codex Job at a time keeps a single refresh writer |
 | Claude worker token | `claude setup-token` one-year OAuth token for the operator's subscription | Claude Code Jobs | SOPS secret mounted as a file (`token_file`). The backend reads it into `CLAUDE_CODE_OAUTH_TOKEN` at launch | Operator runs `claude setup-token` locally | Mint a new token, update SOPS, redeploy, revoke the old one. Calendar reminder before expiry |
-| Forgejo worker token | New user `agent-worker`: write collaborator on the disposable test repository only; scopes `read:user`, `read:repository`, `write:repository`, `read:issue`, `write:issue`; no repository or organization creation; no admin | Worker Jobs | SOPS secret, mounted per Job | Operator in the Forgejo UI | Generate the new token, update SOPS, revoke the old one. Branch protection blocks pushes to default branches |
+| Forgejo publisher token | New user `agent-publisher`: write collaborator on the disposable test repository only; scopes `read:repository`, `write:repository`; no issue scopes, no repository or organization creation, no admin | The publisher in the controller pod only; never a worker | SOPS secret key `forge-publisher-token` in the controller Secret | Operator in the Forgejo UI | Generate the new token, update SOPS, revoke the old one. Branch protection blocks pushes to default branches; the publisher writes only `agent/<task>/<n>` branches with an expected-absent lease. The verifier ignores commit statuses not posted by the CI login |
 | Forgejo controller token | New user `agent-controller`: read collaborator on the same repositories; scopes `read:user`, `read:repository`, `read:issue`, `write:issue` (comments) | Controller | SOPS secret | Operator | As above |
 | ntfy publish credential | Existing ntfy service; publish-only to one topic | Controller | SOPS secret | Operator | Replace in ntfy, update SOPS |
-| Worker API token | Random, one per attempt, SHA-256 stored | One worker Job | Kubernetes Secret created and deleted by the controller with the Job | Controller at claim | Dies with the attempt |
+| Worker API token | Random, one per attempt, SHA-256 stored | One worker Job | Kubernetes Secret created by the controller after its Job and owned by it, so Job deletion and TTL remove it | Controller at claim | Dies with the attempt |
 | Budget-capped API key (fallback only) | Only if gate 6 fails and the operator approves | Letta | SOPS secret | Operator | Provider console |
 
 ### Claude credential boundary
@@ -244,6 +252,9 @@ Each gate needs recorded evidence before deployment is requested.
    cannot read the controller database, the Letta store or other credentials,
    cannot use the worker API beyond its attempt, cannot reach the Kubernetes
    API or NAS, and cannot trigger privileged operations without a grant.
+   Workers hold no forge credential (done offline: the trusted publisher,
+   with tests over rendered manifests and a hostile scripted worker); the
+   rehearsal repeats those checks against real pods.
 5. **Credential provisioning** by the operator, per the plan above.
 6. **Live subscription checks** at provisioning. OAuth success alone is not
    enough:
@@ -263,20 +274,228 @@ Each gate needs recorded evidence before deployment is requested.
 7. **Packaging.** Build Letta from the upstream flake at an audited tag.
    Repeat the supervisor audit for any version newer than 0.34.20, because the
    preflight depends on its credential format.
+8. **Supervisor tool authority** (done offline). No worker text reaches the
+   supervisor: the client API returns identifiers and controller states only,
+   and worker questions are read by the human on the issue. A supervisor's
+   `answer_question` is a proposal the principal confirms with `/confirm` on
+   the issue. Tests feed a worker question written as instructions to cancel,
+   answer and approve, and check that neither Letta nor any client response
+   sees it and that the obedient-supervisor path changes nothing. Automatic
+   answers for narrow, low-risk question types would be explicit policies
+   added later, not agent discretion.
 
-## Next milestone: one vertical slice
+## Vertical slice status
 
-One Letta supervisor creates a task, launches one isolated worker, answers
-its question, receives a verified result, and reports completion in the same
-conversation. No added concurrency or capabilities until this works reliably.
-Built so far: the store, the worker runner and API, and three backends.
+One supervisor creates a task, one isolated worker asks a question and gets
+the answer, the controller verifies the result, and the supervisor reports
+completion in the same conversation. No added concurrency or capabilities
+until this works reliably.
 
-| Priority | Work | Acceptance |
-| --- | --- | --- |
-| P0 | Letta OAuth identity validation upstream (pi-ai verification, Letta name) | Signature, issuer, audience, expiry, nonce and `sub` binding tested, including negative cases |
-| P1 | Controller daemon: scheduler (claim, token, Job), reaper, Job manager acknowledging `worker.cancel` after deleting the Job, worker API server, outbox delivery | Restarts, leases, cancellations and fencing behave correctly |
-| P1 | Letta bridge: external tools `create_task`, `get_task`, `list_tasks`, `cancel_task`, `answer_question`, `request_approval`, re-registered on every reconnect | The supervisor manages tasks without bypassing controller authorization |
-| P1 | Forgejo and Woodpecker adapters: issue per task, attempt-scoped branch, PR, status reads feeding `record_verification` | Issues, PRs, CI results and comments reconcile idempotently |
-| P1 | ntfy notifier | Durable, deduplicated delivery with retries |
-| P2 | Packaging (Letta from the upstream flake, controller and worker images) and resource checks | Reproducible images, chosen node, isolated credentials |
-| P2 | Credential-free rehearsal with a scripted loopback model | The full path works, plus worker crash, controller restart, stale attempt, duplicate events, cancelled task, and an answer after expiry. The question round trip runs through Letta and Telegram routing, not only the worker adapters |
+Built and tested offline (`tests/test_orchestrator_slice.py`, with scripted
+inference and disposable parts: a fake Forgejo backed by a real bare git
+repository, a fake Letta App Server speaking the real protocol, a fake ntfy,
+and a scripted Pi worker in a real process):
+
+- the request arrives through the Letta bridge, the controller opens the issue
+  and dispatches the worker, the worker asks and suspends, the controller
+  restarts, the question survives and is answered through Letta after the
+  restart, the worker submits a patch, the publisher pushes it, the
+  controller opens the pull request, reads CI on the published commit,
+  verifies, finalizes, and Letta hears the result;
+- a crash just before and just after issue creation, and just before and just
+  after pull request creation, converges to exactly one issue and one pull
+  request;
+- failed CI sends the task back for a new attempt instead of completing it;
+- clients cannot see or act on another principal's tasks; forge commands
+  count only from the principal's login.
+
+The Kubernetes manifests are rendered, not committed:
+`python -m scripts.orchestrator render-manifests --params FILE` takes the
+node and the digest-pinned images as required inputs
+(`scripts/orchestrator/manifests.py`), accepts only homelab-02 or
+homelab-03, refuses unpinned images, checks the backend configuration
+against a closed schema (unknown keys such as `env` are refused, values must
+match their shape, and `token_file` and `codex_home` must be the approved
+secret locations; the daemon applies the same check for Kubernetes jobs),
+mounts into each worker Job only the Secret keys its backend needs, and renders a single `Recreate` controller pinned to that node with a
+local PV, `restricted` Pod Security, worker Jobs without service-account
+tokens, and default-deny NetworkPolicies. Nothing is bound into Flux.
+
+Local worker processes (`LocalProcessJobManager`) give no isolation: a
+worker runs as the controller's user. They exist for offline tests and
+rehearsals only. The daemon offers them only behind `serve
+--allow-local-jobs`, which no config file can set and the rendered
+Deployment never passes, and the manager itself refuses to start inside a
+Kubernetes pod.
+
+## Alert intake (phase 1)
+
+The first tasks come from operations, not from a supervisor
+(`scripts/orchestrator/intake.py`):
+
+- **Sources.** Alertmanager posts to the controller as a webhook receiver;
+  cluster-sentinel posts each state change as a second notify target; the
+  controller polls Woodpecker read-only for failed main pipelines. The
+  restore drills (backups/restore-drill, immich/library-restore-drill, nas-01
+  platform-restore-drill) reach it through sentinel's `restore-drills` check.
+  Each source has its own bearer token, and the NetworkPolicy admits only
+  Alertmanager and cluster-sentinel pods to the intake port.
+- **Dedupe and limits.** A signal's fingerprint (alert labels, sentinel
+  check key, or failed step names) opens at most one open task. At most
+  three intake tasks are open at once; beyond that the signal escalates. A
+  resolved signal cancels its task when no worker has started it. A task
+  that fails twice escalates once. Escalations are the only ntfy messages
+  intake tasks send; their routine status stays on the forge issue.
+- **Evidence.** Workers stay off the private network. The controller attaches
+  the alert, the affected pods' status (never their spec), events, recent
+  logs and failing step logs, capped per section and in total and passed
+  through the same `redact()` as worker text. The `orchestrator-evidence`
+  ClusterRole grants pods (`get`, `list`), `pods/log` and events, and only
+  RoleBindings use it, one per namespace enrolled in
+  `config/orchestrator/evidence-namespaces.json`. The collector refuses any
+  other namespace whatever an alert names, and finds a workload's pods by
+  owner reference. A test requires every namespace the repository declares,
+  and every one an alert rule or the sentinel names, to be either allowed or
+  explicitly excluded (pod-agent, external-secrets, kube-system and the
+  orchestrator's own namespace are excluded). The controller's namespaced
+  Role can create and delete per-attempt Secrets but never read them.
+- **Untrusted evidence.** Each intake task's goal is a fixed objective per
+  source (`OBJECTIVES` in intake.py) followed by the evidence inside markers
+  carrying a per-task random nonce; forged markers inside evidence are
+  neutralized and titles are built from the source and signal name only.
+- **Worker boundary.** `config/orchestrator/worker-admission.yaml`, an
+  enforcement path, admits a Job from the controller's ServiceAccount only
+  when it is exactly a worker: the pinned image, the worker ServiceAccount
+  without a token, the worker label, a deadline, CPU and memory limits, no
+  host namespaces, no privilege, non-root, no environment from Secrets or
+  ConfigMaps, and only its own job Secret, the backend's keys of the worker
+  Secret and the Codex store. No rendered role may change admission policies
+  or RBAC. Worker public egress is TCP 443 to `PROVIDER_HOSTS` only, by FQDN
+  in a CiliumNetworkPolicy. The publisher runs gitleaks over every patch's
+  added lines and rejects on a finding or on any scan failure; published
+  patches still go through CI and `policy/merge`.
+- **Cutover.** The controller is added as a second Alertmanager receiver
+  while ntfy keeps receiving everything. Warnings then move behind the
+  controller first. Critical alerts go to both until autonomy metrics justify
+  dropping ntfy. The controller's dead-man alert always goes straight to ntfy.
+- **State.** `backup-rotate` snapshots the store nightly into the db-dumps
+  share that dumps-to-r2 ships off site; the restore drill restores and
+  checks the newest snapshot once the first one exists. Deleting the
+  controller's PV stays held until a drill has passed.
+
+## Gate evidence
+
+- **Gate 2 (2026-11-02).** Requests left unreserved: homelab-02 about 2.9
+  CPU and 5.4 GiB (55% memory in use), homelab-03 about 3.8 CPU and 3.5 GiB
+  (75% in use); homelab-05 was over 100% CPU and memory. homelab-02 is the
+  only node with room for one 4 GiB worker Job and the controller.
+- **Gate 3 (2026-11-03), open.** Codex (codex-cli 0.162.1, read-only)
+  reviewed the design, manifests, intake and credential boundaries. Sound:
+  worker API attempt scoping, Pod Security, default-deny networking, digest
+  pinning, the Claude launcher, publisher containment, backup integrity.
+  Fixed after the review: redaction of titles and of URL credentials, Basic
+  auth, password pairs, Telegram and long hex tokens; intake capacity checked
+  before evidence is read, with one aggregated overflow notice per hour;
+  bounded intake connections and Woodpecker reads; a dedicated backup volume
+  instead of the shared dump export; a rendered Codex login store with one
+  writer; an owner-only live store. The three high findings were addressed
+  by the operator-approved designs (2026-11-03) described under alert
+  intake: the worker Job admission policy, namespace enrollment for
+  evidence, and trusted goals with provider-only egress and patch scanning.
+  Reviewer: OpenAI `gpt-6.1-sol` through codex-cli, a different model family
+  from the implementing agent (Anthropic Claude).
+- **Gate 3 pass 2 (2026-11-03), open.** The same reviewer tried to break the
+  fixes and found four high and two medium issues, fixed in response:
+  - the policy trusted a Secret named like the Job, so a Job named after a
+    credential Secret could mount it: Jobs must be named `orc-att-<id>` and
+    may mount their own Secret only as `job.json`;
+  - the rendered policy substituted unescaped parameters, so a crafted Secret
+    name became CEL: the policy is now static and applied verbatim, and the
+    renderer requires the image repository and Secret name it fixes;
+  - DNS allowed every name, so queries could carry data to an outside
+    nameserver, and `toFQDNs` allows IPs that providers share with other
+    sites: DNS is limited to the provider names and cluster-internal names,
+    the plain NetworkPolicy no longer grants workers DNS at L4, and TLS
+    server names are pinned to the provider hosts;
+  - the patch scan dropped lines starting `++`, honoured `gitleaks:allow` and
+    never saw binary hunks: the publisher now scans every changed file's
+    resulting content from the temporary index with built-in rules only and
+    `--ignore-gitleaks-allow` (the hostile-worker test's loot, a binary file
+    holding its token, is now refused);
+  - signal names reached the title outside the evidence fence: titles are a
+    fixed label per source and an opaque hash;
+  - rendered workers wrote under the read-only `/job`: they run under `/work`.
+
+  Accepted residual risk, by design: a worker can use its own provider
+  credential and send data inside provider requests; fencing and secret
+  scanning cannot stop prompt injection or deliberate encoding; the
+  evidence role can read full Pod objects (specs included) in enrolled
+  namespaces, though the collector keeps only status; the namespace coverage
+  test scans `gitops/` and literal alert and sentinel names, not rendered
+  Nix or Helm resources; `PROVIDER_HOSTS` is the union across backends, to be
+  narrowed per backend from rehearsal traffic.
+- **Gate 3 pass 3 (2026-11-03), open.** The same reviewer found the
+  admission, environment, SNI, scan-ordering and title fixes sound, and
+  three issues, fixed in response:
+  - gitleaks skips a stream it sniffs as an archive, so tar magic at
+    offset 257 hid every secret after it: workers may now submit UTF-8 text
+    only (NUL bytes or invalid UTF-8 reject the patch), scanned behind a
+    fixed plain-text preamble that occupies every offset sniffing reads;
+  - `*.svc` admitted names CoreDNS forwards upstream: wildcards are gone;
+  - Cilium's `*` stops at dots, so workers could not resolve the controller:
+    DNS admits exact names only (the provider hosts and the controller's
+    fully qualified name, which is now the worker API URL), and worker pods
+    use `ndots:1` so names are not search-expanded into refused queries.
+
+  Gate 4 must then prove live: admission denials, Secret isolation,
+  controller DNS success, refusal of other names, wrong or missing SNI
+  rejected on shared provider IPs, private-network isolation and
+  cross-attempt API denial.
+- **Gate 3 pass 4 (2026-11-03).** The same reviewer found the pass 3 fixes
+  sound, including 50 local gitleaks probes (8 MiB inputs, long lines,
+  boundary-straddling tokens, archive-like headers) and strict schema
+  validation of all 52 rendered resources. One medium finding, fixed: a file
+  name that is not UTF-8 raised an unexpected error the controller retried
+  every tick, so such names are now a patch rejection that ends the
+  attempt. With that fixed, the reviewer's remaining checks are gate 4's
+  live ones; gate 3 closes once this fix is merged.
+- **Gate 4 (2026-11-09), passed.** A credential-free rehearsal on homelab-02
+  ([orchestrator-rehearsal.md](../runbooks/orchestrator-rehearsal.md)),
+  images `orchestrator@sha256:577b4d78…` and
+  `orchestrator-worker@sha256:21269bc1…`, then removed:
+  - admission, as the controller's ServiceAccount through the live API
+    server: the worker Job admitted, and 16 variants denied by the rule each
+    breaks (other or init-container image, a credential Secret named like
+    the Job, job Secret beyond `job.json`, controller Secret volume, env from
+    a Secret, other ServiceAccount, token mount, data claim, host network,
+    privilege escalation, no deadline, no limits, image pull Secret, a name
+    that is not an attempt, missing worker label);
+  - credential reach (`kubectl auth can-i` as the controller, 17 checks): no
+    Secret reads, no Pods or CronJobs, no admission or RBAC changes, no
+    impersonation, no reads in `pod-agent` or `kube-system`, no ConfigMaps;
+    pods and logs only in enrolled namespaces;
+  - worker network (`network_probe` in a pod with a worker's identity, 20
+    checks): the providers and the controller resolve; example.com, the
+    forge, the registry, a `.svc` name and the API server are refused; TLS
+    1.3 completes to all four provider hosts; the forge, the API service, a
+    control-plane node and 1.1.1.1 are unreachable; a foreign worker token
+    gets 403;
+  - intake ingress: a pod in `default` reaches neither 8092 nor 8090.
+
+  Found and fixed on the way: the k3s firewall dropped the DNS Cilium
+  redirects to its proxy, so homelab-02 accepts traffic with Cilium's proxy
+  mark; TLS server-name pinning cannot work on this datapath (Envoy's
+  upstream reply is reverse-NATed past its socket), so it is dropped and
+  shared provider IPs are accepted, by operator decision; a missing worker
+  label was denied by a CEL evaluation error rather than its rule, now
+  checked first.
+
+Remaining before a deployment request:
+
+| Priority | Work |
+| --- | --- |
+| Gate 5 | Operator provisions the credentials in the plan above: the Codex device login on the worker-auth volume, the Claude `setup-token`, the Forgejo `agent-publisher` and `agent-controller` users and the `agent-sandbox` repository, the ntfy publish credential, and the intake tokens |
+| Gate 6 | Live subscription checks once the worker logins exist |
+| Request | A deployment request: bind the rendered manifests into Flux, add the controller as a second Alertmanager receiver and the sentinel's second target, and the restore-drill dataset after the first snapshot |
+| Phase 2 | Letta from its upstream flake with the bridge beside it, the supervisor API key (capped in `config/spend.json` at 10 USD a month), Telegram |
+| Parallel | Upstream Letta sign-in fixes (pi issue #11313, then the two PRs); not blocking |
