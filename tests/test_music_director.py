@@ -66,21 +66,69 @@ class TestPalette(unittest.TestCase):
         )
         self.assertIsNone(palette.extract_palette([]))
 
-    def test_accent_requires_a_distinct_hue(self) -> None:
-        two_tone = palette.extract_palette(
+    def test_spread_follows_the_cover(self) -> None:
+        # Shades of one blue: no spread.
+        single = palette.extract_palette(
+            cover(((20, 60, 200), 1200), ((40, 80, 220), 900), ((0, 0, 0), 600))
+        )
+        assert single is not None
+        self.assertEqual((single.related, single.spread), ((), 0.0))
+        # A dominant colour with a small patch of another is still one colour.
+        mostly = palette.extract_palette(
+            cover(((220, 30, 40), 1600), ((20, 60, 200), 150), ((0, 0, 0), 600))
+        )
+        assert mostly is not None
+        self.assertEqual((mostly.related, mostly.spread), ((), 0.0))
+        # Blue and purple: the lights take both.
+        related = palette.extract_palette(
+            cover(((20, 60, 200), 1200), ((140, 40, 200), 900))
+        )
+        assert related is not None
+        self.assertEqual(len(related.related), 1)
+        self.assertLessEqual(
+            palette.hue_distance(related.hue, related.related[0]),
+            palette.RELATED_HUE_WIDTH,
+        )
+        # Blue and orange: unrelated, so the default spread.
+        mixed = palette.extract_palette(
             cover(((20, 60, 200), 1200), ((240, 160, 20), 900))
         )
-        assert two_tone is not None
-        self.assertIsNotNone(two_tone.accent_hue)
-        assert two_tone.accent_hue is not None
-        self.assertGreaterEqual(
-            palette.hue_distance(two_tone.hue, two_tone.accent_hue), 40
+        assert mixed is not None
+        self.assertEqual(mixed.related, ())
+        self.assertEqual(mixed.spread, palette.DEFAULT_SPREAD)
+        self.assertEqual(palette.vibe_palette(("Rap",)).spread, palette.DEFAULT_SPREAD)
+
+    def test_red_lettering_with_dark_drips_is_a_red_cover(self) -> None:
+        # Like Whole Lotta Red: black and white with bright red lettering and
+        # dark red drips; the drips must not drag the red into brown.
+        drips = cover(
+            ((255, 255, 255), 1080),
+            ((0, 0, 0), 760),
+            ((200, 25, 30), 75),
+            ((70, 30, 28), 120),
+            ((60, 60, 60), 270),
         )
-        shades = palette.extract_palette(
-            cover(((20, 60, 200), 1200), ((40, 80, 220), 900))
-        )
-        assert shades is not None
-        self.assertIsNone(shades.accent_hue)
+        result = palette.extract_palette(drips)
+        assert result is not None
+        self.assertLess(palette.hue_distance(result.hue, hue_of((200, 25, 30))), 10)
+        self.assertEqual((result.related, result.spread), ((), 0.0))
+        for rgb in palette.area_colors(palette.with_intensity(result, 0.9), 5):
+            r, g, b = rgb
+            self.assertGreater(r, 230, rgb)
+            self.assertLess(max(g, b), 80, rgb)
+
+    def test_intense_tracks_show_one_colour(self) -> None:
+        for base in (
+            palette.Palette(hue=250.0, chroma=0.15, source="cover", related=(300.0,)),
+            palette.Palette(hue=250.0, chroma=0.15, source="cover", spread=10.0),
+            palette.vibe_palette(("Rap",), energy=0.9, valence=0.9),
+        ):
+            intense = palette.with_intensity(base, 1.0)
+            hues = {round(hue_of(c)) for c in palette.area_colors(intense, 5)}
+            self.assertLessEqual(max(hues) - min(hues), 3, base)
+            calm = palette.with_intensity(base, 0.1)
+            hues = [hue_of(c) for c in palette.area_colors(calm, 5)]
+            self.assertGreater(max(hues) - min(hues), 8, base)
 
     def test_extraction_is_deterministic(self) -> None:
         pixels = cover(((30, 140, 90), 900), ((240, 120, 40), 700), ((15, 15, 30), 700))
@@ -110,9 +158,6 @@ class TestPalette(unittest.TestCase):
             palette.hue_distance(sad.hue, palette.BLUE_HUE),
             palette.hue_distance(happy.hue, palette.BLUE_HUE),
         )
-        # Blue palettes take a red accent and red ones a blue accent.
-        self.assertEqual(sad.accent_hue, palette.RED_HUE)
-        self.assertEqual(happy.accent_hue, palette.BLUE_HUE)
         # Synthpop is synth (deep blue), not pop.
         self.assertEqual(
             palette.genre_hue(("Synthpop",)), palette.genre_hue(("New Wave",))
@@ -159,9 +204,7 @@ class TestPalette(unittest.TestCase):
 
     def test_yellows_and_oranges_never_render_mustard_olive_or_brown(self) -> None:
         for hue in range(45, 151, 5):
-            base = palette.Palette(
-                hue=float(hue), chroma=0.15, accent_hue=None, source="cover"
-            )
+            base = palette.Palette(hue=float(hue), chroma=0.15, source="cover")
             colours = [*palette.area_colors(base, 5), *palette.triad(base)]
             for rgb in colours:
                 lightness, _, _ = palette.rgb_to_oklab(rgb)
@@ -171,7 +214,7 @@ class TestPalette(unittest.TestCase):
                 self.assertFalse(brown or olive, (hue, rgb))
 
     def test_area_shades_are_distinct_valid_and_near_the_primary(self) -> None:
-        base = palette.Palette(hue=160.0, chroma=0.15, accent_hue=None, source="cover")
+        base = palette.Palette(hue=160.0, chroma=0.15, source="cover", spread=10.0)
         colours = palette.area_colors(base, 6)
         self.assertEqual(len(colours), 6)
         self.assertEqual(len(set(colours)), 6)
@@ -184,7 +227,6 @@ class TestPalette(unittest.TestCase):
             base = palette.Palette(
                 hue=float(hue),
                 chroma=0.15,
-                accent_hue=None,
                 source="cover",
                 intensity=1.0,
             )
@@ -195,14 +237,10 @@ class TestPalette(unittest.TestCase):
     def test_calm_output_stays_true_to_the_cover(self) -> None:
         # An orange cover on a calm track stays orange, and a muted one
         # stays less saturated than the same cover on an intense track.
-        orange = palette.Palette(
-            hue=55.0, chroma=0.15, accent_hue=None, source="cover", intensity=0.1
-        )
+        orange = palette.Palette(hue=55.0, chroma=0.15, source="cover", intensity=0.1)
         for rgb in palette.area_colors(orange, 5):
             self.assertLess(palette.hue_distance(hue_of(rgb), 55.0), 30, rgb)
-        muted = palette.Palette(
-            hue=200.0, chroma=0.06, accent_hue=None, source="cover", intensity=0.1
-        )
+        muted = palette.Palette(hue=200.0, chroma=0.06, source="cover", intensity=0.1)
         intense = palette.with_intensity(muted, 1.0)
 
         def chroma(p: palette.Palette) -> float:
@@ -211,9 +249,7 @@ class TestPalette(unittest.TestCase):
         self.assertLess(chroma(muted), chroma(intense))
 
     def test_calm_yellow_leans_orange_but_chosen_amber_stays(self) -> None:
-        yellow = palette.Palette(
-            hue=95.0, chroma=0.15, accent_hue=None, source="cover", intensity=0.1
-        )
+        yellow = palette.Palette(hue=95.0, chroma=0.15, source="cover", intensity=0.1)
         for rgb in palette.area_colors(yellow, 5):
             self.assertFalse(85 <= hue_of(rgb) <= 110, rgb)
         amber = palette.named_palette("amber")
@@ -245,9 +281,12 @@ class TestPalette(unittest.TestCase):
         assert result is not None
         self.assertLess(palette.hue_distance(result.hue, palette.BLUE_HUE), 35)
 
-    def test_accent_reaches_some_areas(self) -> None:
-        base = palette.Palette(hue=30.0, chroma=0.15, accent_hue=250.0, source="cover")
+    def test_related_cover_hues_reach_some_areas(self) -> None:
+        base = palette.Palette(
+            hue=250.0, chroma=0.15, source="cover", related=(300.0,), intensity=0.1
+        )
         hues = [hue_of(c) for c in palette.area_colors(base, 6)]
+        self.assertTrue(any(palette.hue_distance(h, 300.0) < 15 for h in hues))
         self.assertTrue(any(palette.hue_distance(h, 250.0) < 15 for h in hues))
 
     def test_out_of_gamut_requests_are_clamped(self) -> None:
@@ -256,7 +295,7 @@ class TestPalette(unittest.TestCase):
             self.assertTrue(all(0 <= c <= 255 for c in rgb))
 
     def test_gradient_matches_ledfx_format(self) -> None:
-        base = palette.Palette(hue=200.0, chroma=0.1, accent_hue=None, source="genre")
+        base = palette.Palette(hue=200.0, chroma=0.1, source="genre")
         self.assertRegex(palette.gradient(base), CSS_GRADIENT)
         self.assertEqual(palette.to_hex((255, 0, 16)), "#ff0010")
 
@@ -298,7 +337,7 @@ class TestRules(unittest.TestCase):
         self.assertEqual(rules.choose_effect("default", "x", "energy"), "energy")
 
     def test_every_family_effect_has_a_colour_mapping(self) -> None:
-        base = palette.Palette(hue=120.0, chroma=0.12, accent_hue=None, source="cover")
+        base = palette.Palette(hue=120.0, chroma=0.12, source="cover")
         for effects in rules.FAMILIES.values():
             for effect in effects:
                 config = rules.effect_config(effect, base)
@@ -314,7 +353,7 @@ class TestRules(unittest.TestCase):
 
 
 class TestDynamics(unittest.TestCase):
-    BASE = palette.Palette(hue=120.0, chroma=0.12, accent_hue=None, source="cover")
+    BASE = palette.Palette(hue=120.0, chroma=0.12, source="cover")
     # LedFx schema ranges for the keys the director sets.
     RANGES = {
         ("melt", "speed"): (0.001, 1.0),
@@ -440,9 +479,6 @@ class TestIntensity(unittest.TestCase):
                 self.assertIsNotNone(palette.named_palette(item["color"]), item)
             if "effect" in item:
                 self.assertIn(item["effect"], rules.EFFECTS, item)
-        self.assertIn(
-            {"album": "channel ORANGE", "color": "orange"}, director["overrides"]
-        )
 
 
 class TestMetadata(unittest.TestCase):

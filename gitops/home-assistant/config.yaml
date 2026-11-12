@@ -360,8 +360,6 @@ data:
       color_select: input_select.music_mode_color
       transition_time: 1.5
       overrides:
-        - album: channel ORANGE
-          color: orange
         - artist: The Weeknd
           album: Dawn FM
           color: deep blue
@@ -3338,6 +3336,13 @@ data:
     stay deep and the yellow-green band keeps a lightness floor so nothing
     renders as mustard or olive (as Material's DislikeAnalyzer does).
 
+    How far the lights spread in hue follows the cover. A one-colour cover
+    gives every light that colour; a cover of related colours (within
+    RELATED_HUE_WIDTH) gives the lights those colours; a cover of unrelated
+    colours, and the vibe fallback, spread DEFAULT_SPREAD either side of the
+    primary. Intensity narrows any spread, so intense tracks show one sharp
+    colour.
+
     Named colours (NAMED_HUES) serve the manual colour dropdown and per-song
     overrides; they keep their hue at any intensity.
     """
@@ -3357,11 +3362,20 @@ data:
     # Clusters at least this colourful join hue groups; greys and blacks do not.
     TINT_CHROMA = 0.025
     GROUP_HUE_WIDTH = 30.0
-    ACCENT_MIN_HUE_GAP = 40.0
+    # A colour group counts toward the cover's spread when it holds at least this
+    # share of the cover's clean colour; the primary alone at SINGLE_SHARE or more
+    # makes it a one-colour cover.
+    SIGNIFICANT_SHARE = 0.10
+    SINGLE_SHARE = 0.75
+    # Significant groups all within this of the primary are a related palette.
+    RELATED_HUE_WIDTH = 60.0
+    # Hue offset either side of the primary for unrelated covers and vibes.
+    DEFAULT_SPREAD = 10.0
     LED_LIGHTNESS = 0.70
-    LED_MIN_CHROMA = 0.19
     # Calm tracks keep the cover's saturation, but never wash out to grey.
     CALM_MIN_CHROMA = 0.09
+    # Fully intense tracks ask for this, past sRGB for most hues, so the light
+    # shows the most saturated version of its colour.
     LED_MAX_CHROMA = 0.25
     # A cover colour must score at least this (sqrt(share) * chroma * penalty) to
     # beat the vibe fallback: about 1% of the cover in a vivid colour, or a tenth
@@ -3409,18 +3423,19 @@ data:
 
     @dataclass(frozen=True)
     class Palette:
-        """A primary hue with an optional contrasting accent, in OKLCH degrees."""
+        """A primary hue and how far the lights spread from it, in OKLCH degrees."""
 
         hue: float
         chroma: float
-        accent_hue: float | None
         source: str
+        # Other cover hues the lights take, most common first (related palettes).
+        related: tuple[float, ...] = ()
         # Added to every output lightness: brighter for energetic songs.
         lift: float = 0.0
         # 0 keeps the cover's own look, 1 steers to vivid reds and deep blues.
         intensity: float = 0.5
-        # Hue steps between neighbouring bulb areas, either side of the primary.
-        spread: float = 28.0
+        # Hue offset either side of the primary when there are no related hues.
+        spread: float = 0.0
 
 
     def _to_linear(channel: float) -> float:
@@ -3536,21 +3551,26 @@ data:
 
     def _hue_groups(
         clusters: list[tuple[Lab, int]],
-    ) -> list[tuple[float, float, float, float]]:
+    ) -> list[tuple[float, float, float, float, bool]]:
         """Merge colourful clusters of similar hue. Returns (share, lightness,
-        chroma, hue) per group, weighted by member share."""
+        chroma, hue, muddy) per group, weighted by member share. Clusters are
+        judged muddy one by one and only merge with their own kind, so dark red
+        drips cannot drag a bright red into brown."""
         total = sum(n for _, n in clusters)
         members = [
-            (n / total, c[0], _chroma(c), _hue(c))
+            (n / total, c[0], _chroma(c), _hue(c), muddy(c[0], _chroma(c), _hue(c)))
             for c, n in clusters
             if _chroma(c) >= TINT_CHROMA and 0.15 <= c[0] <= 0.96
         ]
         # Seed groups from the most colourful-and-common clusters first.
         members.sort(key=lambda m: m[0] * m[2], reverse=True)
-        groups: list[list[tuple[float, float, float, float]]] = []
+        groups: list[list[tuple[float, float, float, float, bool]]] = []
         for member in members:
             for group in groups:
-                if hue_distance(member[3], group[0][3]) <= GROUP_HUE_WIDTH:
+                if (
+                    member[4] == group[0][4]
+                    and hue_distance(member[3], group[0][3]) <= GROUP_HUE_WIDTH
+                ):
                     group.append(member)
                     break
             else:
@@ -3566,37 +3586,44 @@ data:
                     sum(m[0] * m[1] for m in group) / share,
                     sum(m[0] * m[2] for m in group) / share,
                     math.degrees(math.atan2(y, x)) % 360.0,
+                    group[0][4],
                 )
             )
         return merged
 
 
     def extract_palette(pixels: list[RGB]) -> Palette | None:
-        """Pick the most vivid well-represented colour group, plus a contrasting
-        accent. Returns None when nothing on the cover is vivid and clean enough."""
+        """Pick the most vivid well-represented colour group and read the cover's
+        spread from the other clean groups (see the module docstring). Returns
+        None when nothing on the cover is vivid and clean enough."""
         if not pixels:
             return None
         vivid = []
-        for share, lightness, chroma, hue in _hue_groups(
+        for share, _, chroma, hue, dirty in _hue_groups(
             kmeans([rgb_to_oklab(p) for p in pixels])
         ):
             if chroma < VIVID_CHROMA:
                 continue
-            weight = MUDDY_WEIGHT if muddy(lightness, chroma, hue) else 1.0
-            vivid.append((math.sqrt(share) * min(chroma, 0.25) * weight, hue, chroma))
+            weight = MUDDY_WEIGHT if dirty else 1.0
+            score = math.sqrt(share) * min(chroma, 0.25) * weight
+            vivid.append((score, hue, chroma, share, dirty))
         vivid.sort(reverse=True)
         if not vivid or vivid[0][0] < MIN_COVER_SCORE:
             return None
-        best_score, hue, chroma = vivid[0]
-        accent = next(
-            (
-                h
-                for s, h, _ in vivid[1:]
-                if s >= best_score * 0.3 and hue_distance(h, hue) >= ACCENT_MIN_HUE_GAP
-            ),
-            None,
+        _, hue, chroma, share, _ = vivid[0]
+        # Skin, brown and olive never light up, so they do not count as spread.
+        clean = sum(g[3] for g in vivid if not g[4]) or share
+        others = sorted(
+            (g for g in vivid[1:] if not g[4] and g[3] >= clean * SIGNIFICANT_SHARE),
+            key=lambda g: g[3],
+            reverse=True,
         )
-        return Palette(hue=hue, chroma=chroma, accent_hue=accent, source="cover")
+        if share >= clean * SINGLE_SHARE or not others:
+            return Palette(hue=hue, chroma=chroma, source="cover")
+        if all(hue_distance(g[1], hue) <= RELATED_HUE_WIDTH for g in others):
+            related = tuple(g[1] for g in others)
+            return Palette(hue=hue, chroma=chroma, source="cover", related=related)
+        return Palette(hue=hue, chroma=chroma, source="cover", spread=DEFAULT_SPREAD)
 
 
     def genre_hue(genres: tuple[str, ...]) -> float | None:
@@ -3626,8 +3653,7 @@ data:
         it toward its own hue: strongly for calm tracks, so R&B stays warm
         orange, and weakly for intense ones, so mood decides. Without valence
         the genre hue is used as is. Energy (or tempo, 0-1) raises saturation
-        and brightness. Intense palettes take the opposite end of the mood axis
-        as accent, pairing blue with red."""
+        and brightness. Lights spread DEFAULT_SPREAD around the hue."""
         base = genre_hue(genres)
         drive = energy if energy is not None else tempo
         drive = 0.5 if drive is None else min(1.0, max(0.0, drive))
@@ -3641,31 +3667,23 @@ data:
         else:
             hue = DEFAULT_HUE if base is None else base
         known = base is not None or energy is not None or valence is not None
-        if intensity >= 0.5:
-            accent = RED_HUE if 180.0 <= hue < 315.0 else BLUE_HUE
-        else:
-            # Toward red rather than yellow: warm calm palettes pair with coral.
-            accent = (hue - 35.0) % 360.0
         return Palette(
             hue=hue,
             chroma=0.13 + 0.08 * drive,
-            accent_hue=accent,
             source="vibe" if known else "default",
             lift=round((drive - 0.5) * 0.08, 3),
             intensity=intensity,
+            spread=DEFAULT_SPREAD,
         )
 
 
     def named_palette(name: str, source: str = "manual") -> Palette | None:
         """A vivid single-colour palette for a NAMED_HUES colour (case, spaces
-        and underscores ignored), with a narrow area spread so every light reads
-        as that colour."""
+        and underscores ignored): every light shows that colour."""
         hue = NAMED_HUES.get(" ".join(name.lower().replace("_", " ").split()))
         if hue is None:
             return None
-        return Palette(
-            hue=hue, chroma=0.18, accent_hue=None, source=source, intensity=0.0, spread=10.0
-        )
+        return Palette(hue=hue, chroma=0.18, source=source, intensity=0.0)
 
 
     def with_intensity(palette: Palette, intensity: float) -> Palette:
@@ -3725,54 +3743,53 @@ data:
             k = max(k, YELLOW_MIN_STEER)
         hue = _toward(hue, steer(hue), k)
         faithful = max(palette.chroma * 1.15, CALM_MIN_CHROMA)
-        vivid = max(palette.chroma * 1.4, LED_MIN_CHROMA)
-        chroma = min(LED_MAX_CHROMA, faithful + (vivid - faithful) * k)
+        chroma = min(LED_MAX_CHROMA, faithful + (LED_MAX_CHROMA - faithful) * k)
         lightness = max(lightness + palette.lift, lightness_floor(hue))
         lightness = min(lightness, lightness_ceiling(hue))
         return oklch_to_rgb(lightness, chroma, hue)
 
 
+    def shade_hues(palette: Palette, count: int) -> list[float]:
+        """One hue per slot: the primary alternating with the cover's related
+        hues, or steps across the spread. Intensity narrows both toward the
+        primary, down to one colour at full boost."""
+        width = 1.0 - boost(palette.intensity)
+        if palette.related:
+            cycle = (palette.hue, *palette.related)
+            return [
+                _toward(palette.hue, cycle[i % len(cycle)], width) for i in range(count)
+            ]
+        step = 2.0 * palette.spread * width / max(1, count - 1)
+        return [(palette.hue + (i - (count - 1) / 2) * step) % 360.0 for i in range(count)]
+
+
     def area_colors(palette: Palette, count: int) -> list[RGB]:
-        """Distinct shades for neighbouring areas: hue steps around the primary,
-        every third area on the accent when the cover has one."""
-        colours: list[RGB] = []
-        spread = palette.spread
-        for index in range(count):
-            offset = (index - (count - 1) / 2) * (spread / max(1, count - 1)) * 2
-            lightness = (0.64, 0.74, 0.69)[index % 3]
-            if palette.accent_hue is not None and index % 3 == 1:
-                colours.append(_led(palette, palette.accent_hue, lightness))
-            else:
-                colours.append(_led(palette, (palette.hue + offset) % 360.0, lightness))
-        return colours
+        """Shades for neighbouring areas; lightness varies so areas sharing one
+        hue still read apart."""
+        return [
+            _led(palette, hue, (0.64, 0.74, 0.69)[index % 3])
+            for index, hue in enumerate(shade_hues(palette, count))
+        ]
 
 
     def triad(palette: Palette) -> tuple[RGB, RGB, RGB]:
         """Low, mid and high colours for three-colour LedFx effects."""
-        accent = (
-            palette.accent_hue
-            if palette.accent_hue is not None
-            else (palette.hue + 35.0) % 360.0
-        )
+        low, mid, high = shade_hues(palette, 3)
         return (
-            _led(palette, palette.hue, 0.58),
-            _led(palette, accent, 0.70),
-            _led(palette, (palette.hue - 20.0) % 360.0, 0.84),
+            _led(palette, low, 0.58),
+            _led(palette, mid, 0.70),
+            _led(palette, high, 0.84),
         )
 
 
     def gradient(palette: Palette) -> str:
         """A CSS linear-gradient in the format LedFx gradient effects accept."""
-        accent = (
-            palette.accent_hue
-            if palette.accent_hue is not None
-            else (palette.hue + 30.0) % 360.0
-        )
+        hues = shade_hues(palette, 4)
         stops = (
-            (_led(palette, (palette.hue - 15.0) % 360.0, 0.55), 0),
-            (_led(palette, palette.hue, 0.70), 35),
-            (_led(palette, accent, 0.72), 70),
-            (_led(palette, (palette.hue + 10.0) % 360.0, 0.82), 100),
+            (_led(palette, hues[0], 0.55), 0),
+            (_led(palette, hues[1], 0.70), 35),
+            (_led(palette, hues[2], 0.72), 70),
+            (_led(palette, hues[3], 0.82), 100),
         )
         parts = ", ".join(f"rgb({r}, {g}, {b}) {pos}%" for (r, g, b), pos in stops)
         return f"linear-gradient(90deg, {parts})"

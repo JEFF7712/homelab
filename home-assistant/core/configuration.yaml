@@ -353,8 +353,6 @@ music_director:
   color_select: input_select.music_mode_color
   transition_time: 1.5
   overrides:
-    - album: channel ORANGE
-      color: orange
     - artist: The Weeknd
       album: Dawn FM
       color: deep blue

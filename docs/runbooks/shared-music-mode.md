@@ -59,14 +59,28 @@ brightness.
 
 The cover palette merges colour clusters of similar hue (so a cover-wide
 tint such as Dawn FM's muted blue counts as one colour), then takes the most
-vivid well-represented group plus a contrasting accent. Skin tones, browns
-and olives (`palette.muddy`) count for 0.15 of their score, so portrait
-covers do not turn the room amber. When no group scores at least
+vivid well-represented group. Skin tones, browns and olives (`palette.muddy`)
+are judged per cluster, never merge with clean colours (so Whole Lotta Red's
+dark drips cannot turn its red lettering brown), and count for 0.15 of their
+score, so portrait covers do not turn the room amber.
+
+How far the lights spread in hue follows the cover (`extract_palette`,
+`shade_hues`). Groups holding at least 10% of the cover's clean colour count:
+
+- One-colour cover (the primary holds 75% or more, or nothing else counts):
+  every light takes that hue (channel ORANGE, Dawn FM, Whole Lotta Red).
+- Related colours (every other group within 60° of the primary): the lights
+  alternate between the cover's own hues.
+- Unrelated colours, and the vibe fallback: ±10° around the primary.
+
+Intensity narrows any spread toward the primary, so intense tracks show one
+sharp colour on every light and across the strip gradient. Lights sharing a
+hue still differ slightly in brightness. When no group scores at least
 `MIN_COVER_SCORE`, the palette comes from the song's vibe
 (`palette.vibe_palette`): valence picks a point on a deep blue (sad) to
 purple to deep red (happy) axis, the genre pulls it 30% toward its own hue,
-energy (or tempo) raises saturation and brightness, and the accent is the
-other end of the axis, after Palmer et al. (PNAS 2013).
+and energy (or tempo) raises saturation and brightness, after Palmer et
+al. (PNAS 2013).
 
 Each track gets an intensity from 0 (calm) to 1 (intense)
 (`rules.intensity`): the effect family's prior (calm 0.15, smooth 0.3,
@@ -76,7 +90,8 @@ or with tempo when there is no energy. Intensity sets how vivid the output is
 
 - Intense tracks (rap, house, rock, high energy) are steered toward vivid reds
   and deep blues (`palette.steer`: oranges and yellows into reds, yellow-greens
-  into green, sky blues into deep blue) with boosted saturation.
+  into green, sky blues into deep blue) and, at full intensity, the most
+  saturated version of the colour the LEDs can show.
 - Calm tracks (R&B, soul, acoustic) keep their cover's own hue and
   saturation, so an orange cover stays orange; a vivid cover stays vivid.
 - At every intensity, yellows lean at least partly toward orange, blues and
@@ -129,8 +144,6 @@ matching entry wins; the dropdowns still take precedence. Example:
 
 ```yaml
   overrides:
-    - album: channel ORANGE
-      color: orange
     - artist: The Weeknd
       album: Dawn FM
       color: deep blue
