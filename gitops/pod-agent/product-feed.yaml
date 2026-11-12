@@ -1,0 +1,176 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: pod-agent-feed-env
+  namespace: pod-agent
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-pod-agent
+  target:
+    name: pod-agent-feed-env
+    creationPolicy: Owner
+  data:
+    - secretKey: DISTROJEFF_ETSY_KEYSTRING
+      remoteRef:
+        key: homelab-pod-agent-values
+        property: DISTROJEFF_ETSY_KEYSTRING
+    - secretKey: DISTROJEFF_ETSY_SHARED_SECRET
+      remoteRef:
+        key: homelab-pod-agent-values
+        property: DISTROJEFF_ETSY_SHARED_SECRET
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-agent-feed
+  namespace: pod-agent
+spec:
+  schedule: "15 8 * * *"
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1800
+      template:
+        metadata:
+          labels:
+            app: pod-agent-feed-export
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/hostname: homelab-01
+          securityContext:
+            fsGroup: 101
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: export
+              image: registry.rupan.dev/apps/pod-agent@sha256:36b43e819b61eebccda2997d74c30e81f162a64574442e3fc7029eb29b9ec428  # yamllint disable-line rule:line-length
+              args: [feed, export, --shop, distrojeff, --directory, /data/chatgpt-feeds]
+              env:
+                - name: DB_PATH
+                  value: /data/state.db
+              envFrom:
+                - secretRef:
+                    name: pod-agent-feed-env
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: tmp
+                  mountPath: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+                readOnlyRootFilesystem: true
+                runAsUser: 101
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: pod-agent-data
+            - name: tmp
+              emptyDir:
+                sizeLimit: 32Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-agent-feed
+  namespace: pod-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pod-agent-feed
+  template:
+    metadata:
+      labels:
+        app: pod-agent-feed
+    spec:
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: homelab-01
+      securityContext:
+        fsGroup: 101
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: feed
+          image: registry.rupan.dev/apps/pod-agent@sha256:36b43e819b61eebccda2997d74c30e81f162a64574442e3fc7029eb29b9ec428  # yamllint disable-line rule:line-length
+          command: [python, -m, pod_agent.feeds.server]
+          args: [--directory, /feeds]
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: data
+              mountPath: /feeds
+              subPath: chatgpt-feeds
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+            runAsUser: 101
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: pod-agent-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pod-agent-feed
+  namespace: pod-agent
+spec:
+  selector:
+    app: pod-agent-feed
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: product-feed-ingress-from-tunnel
+  namespace: pod-agent
+spec:
+  podSelector:
+    matchLabels:
+      app: pod-agent-feed
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cloudflare
+      ports:
+        - protocol: TCP
+          port: 8080

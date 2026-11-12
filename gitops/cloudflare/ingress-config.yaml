@@ -61,6 +61,9 @@ data:
       - hostname: grafana.rupan.dev
         service: http://kube-prometheus-stack-grafana.observability.svc.cluster.local:80
       - hostname: distrojeff.com
+        path: ^/feeds/chatgpt[.]csv[.]gz$
+        service: http://pod-agent-feed.pod-agent:80
+      - hostname: distrojeff.com
         service: http://distrojeff-site-svc.distrojeff:80
       - hostname: apollinestore.com
         service: http://apolline-svc.apolline:80
