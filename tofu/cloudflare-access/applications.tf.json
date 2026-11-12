@@ -268,14 +268,10 @@
         "destinations": [
           {
             "type": "public",
-            "uri": "lidarr.rupan.dev"
-          },
-          {
-            "type": "public",
             "uri": "seerr.rupan.dev"
           }
         ],
-        "domain": "lidarr.rupan.dev",
+        "domain": "seerr.rupan.dev",
         "enable_binding_cookie": false,
         "http_only_cookie_attribute": true,
         "lifecycle": {
