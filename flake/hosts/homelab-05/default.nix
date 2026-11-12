@@ -83,6 +83,13 @@ in
     "/var/lib/bluetooth"
   ];
 
+  # The root filesystem is ephemeral. Keep the optical sink gain and default
+  # route across boots; WirePlumber otherwise starts sinks at 40% volume,
+  # independently of the satellite's Home Assistant / Music Assistant slider.
+  environment.persistence."/persist".users.${config.homelab.kiosk.user}.directories = [
+    ".local/state/wireplumber"
+  ];
+
   environment.systemPackages = [
     pkgs.bluez
     pkgs.bluez-tools
@@ -188,7 +195,7 @@ in
           # priority for this one node.
           {
             matches = [
-              { "node.name" = "~alsa_output.usb-*SPDIF*"; }
+              { "node.name" = "~alsa_output.usb-.*SPDIF.*"; }
             ];
             actions = {
               update-props = {
