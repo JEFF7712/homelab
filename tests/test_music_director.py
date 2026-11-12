@@ -98,9 +98,9 @@ class TestPalette(unittest.TestCase):
         # Audio features alone are enough to call it a vibe.
         self.assertEqual(palette.vibe_palette(energy=0.8).source, "vibe")
 
-    def test_vibe_follows_mood_and_energy(self) -> None:
-        happy = palette.vibe_palette(("R&B",), energy=0.9, valence=0.9)
-        sad = palette.vibe_palette(("R&B",), energy=0.2, valence=0.1)
+    def test_intense_vibe_follows_mood_and_energy(self) -> None:
+        happy = palette.vibe_palette(("Rap",), energy=0.9, valence=0.9, intensity=1.0)
+        sad = palette.vibe_palette(("Rap",), energy=0.2, valence=0.1, intensity=1.0)
         # Happy sits toward deep red, sad toward deep blue (Palmer et al. 2013).
         self.assertLess(
             palette.hue_distance(happy.hue, palette.RED_HUE),
@@ -123,6 +123,19 @@ class TestPalette(unittest.TestCase):
         self.assertGreater(
             palette.vibe_palette(("R&B",), tempo=1.0).chroma,
             palette.vibe_palette(("R&B",), tempo=0.0).chroma,
+        )
+
+    def test_calm_vibe_keeps_the_genre_colour(self) -> None:
+        # Calm R&B stays warm orange whatever the mood; rap's genre hue is red.
+        orange = palette.NAMED_HUES["orange"]
+        for valence in (0.1, 0.5, 0.9):
+            calm = palette.vibe_palette(("R&B",), valence=valence, intensity=0.1)
+            self.assertLess(palette.hue_distance(calm.hue, orange), 25, valence)
+        self.assertLess(
+            palette.hue_distance(
+                palette.genre_hue(("Rap",)) or 0.0, palette.NAMED_HUES["red"]
+            ),
+            15,
         )
 
     def test_skin_tones_lose_to_a_smaller_clean_colour(self) -> None:
@@ -166,14 +179,58 @@ class TestPalette(unittest.TestCase):
             self.assertTrue(all(0 <= channel <= 255 for channel in colour))
             self.assertLess(palette.hue_distance(hue_of(colour), 160.0), 40)
 
-    def test_output_avoids_orange_and_yellow(self) -> None:
+    def test_intense_output_avoids_orange_and_yellow(self) -> None:
         for hue in range(0, 360, 5):
             base = palette.Palette(
-                hue=float(hue), chroma=0.15, accent_hue=None, source="cover"
+                hue=float(hue),
+                chroma=0.15,
+                accent_hue=None,
+                source="cover",
+                intensity=1.0,
             )
             for rgb in (*palette.area_colors(base, 5), *palette.triad(base)):
                 out = hue_of(rgb)
                 self.assertFalse(52 <= out <= 100, (hue, rgb, round(out)))
+
+    def test_calm_output_stays_true_to_the_cover(self) -> None:
+        # An orange cover on a calm track stays orange, and a muted one
+        # stays less saturated than the same cover on an intense track.
+        orange = palette.Palette(
+            hue=55.0, chroma=0.15, accent_hue=None, source="cover", intensity=0.1
+        )
+        for rgb in palette.area_colors(orange, 5):
+            self.assertLess(palette.hue_distance(hue_of(rgb), 55.0), 30, rgb)
+        muted = palette.Palette(
+            hue=200.0, chroma=0.06, accent_hue=None, source="cover", intensity=0.1
+        )
+        intense = palette.with_intensity(muted, 1.0)
+
+        def chroma(p: palette.Palette) -> float:
+            return palette._chroma(palette.rgb_to_oklab(palette.area_colors(p, 1)[0]))
+
+        self.assertLess(chroma(muted), chroma(intense))
+
+    def test_calm_yellow_leans_orange_but_chosen_amber_stays(self) -> None:
+        yellow = palette.Palette(
+            hue=95.0, chroma=0.15, accent_hue=None, source="cover", intensity=0.1
+        )
+        for rgb in palette.area_colors(yellow, 5):
+            self.assertFalse(85 <= hue_of(rgb) <= 110, rgb)
+        amber = palette.named_palette("amber")
+        assert amber is not None
+        self.assertLess(
+            palette.hue_distance(hue_of(palette.area_colors(amber, 1)[0]), 72.0), 15
+        )
+
+    def test_named_colours_keep_their_hue(self) -> None:
+        for name, hue in palette.NAMED_HUES.items():
+            named = palette.named_palette(name.title())
+            assert named is not None
+            self.assertEqual(named.source, "manual")
+            for rgb in palette.area_colors(named, 5):
+                self.assertLess(palette.hue_distance(hue_of(rgb), hue), 25, (name, rgb))
+        self.assertIsNone(palette.named_palette("Auto"))
+        self.assertEqual(palette.named_palette("deep_blue").hue, 262.0)
 
     def test_muted_tint_across_a_dark_cover_counts_as_its_colour(self) -> None:
         # Like Dawn FM: black with several muted navy-to-slate blues.
@@ -327,6 +384,64 @@ class TestDynamics(unittest.TestCase):
         )
         self.assertEqual(
             core["music_director"]["effect_select"], "input_select.music_mode_effect"
+        )
+
+
+class TestIntensity(unittest.TestCase):
+    def test_intense_families_and_energy_score_higher(self) -> None:
+        calm = rules.intensity(rules.Features(genres=("R&B",)), "smooth")
+        rap = rules.intensity(rules.Features(genres=("Rap",)), "bass")
+        house = rules.intensity(rules.Features(energy=0.9), "drive")
+        self.assertLess(calm, rap)
+        self.assertLess(rap, house)
+        quiet = rules.intensity(rules.Features(energy=0.1), "bass")
+        loud = rules.intensity(rules.Features(energy=0.95), "bass")
+        self.assertLess(quiet, loud)
+        fast = rules.intensity(rules.Features(bpm=170), "smooth")
+        slow = rules.intensity(rules.Features(bpm=60), "smooth")
+        self.assertLess(slow, fast)
+        for family in rules.FAMILIES:
+            self.assertIn(family, rules.FAMILY_INTENSITY)
+
+    def test_song_overrides_match_album_artist_and_title(self) -> None:
+        orange = metadata.SongOverride(album="channel ORANGE", color="orange")
+        self.assertTrue(
+            orange.matches("Pyramids", "Frank Ocean", "channel ORANGE (Deluxe)")
+        )
+        self.assertFalse(orange.matches("Pyramids", "Frank Ocean", "Blonde"))
+        exact = metadata.SongOverride(
+            artist="The Weeknd", title="Blinding Lights", effect="strobe"
+        )
+        self.assertTrue(
+            exact.matches("Blinding Lights", "The Weeknd, X", "After Hours")
+        )
+        self.assertFalse(exact.matches("Blinding Lights (Remix)", "The Weeknd", ""))
+        self.assertFalse(metadata.SongOverride(color="red").matches("a", "b", "c"))
+        self.assertIs(
+            metadata.find_override(
+                (exact, orange), "Sweet Life", "Frank Ocean", "channel ORANGE"
+            ),
+            orange,
+        )
+
+    def test_configured_overrides_and_colour_dropdown_are_valid(self) -> None:
+        core = yaml.load(
+            (ROOT / "home-assistant" / "core" / "configuration.yaml").read_text(),
+            Loader=DuplicateKeySafeLoader,
+        )
+        director = core["music_director"]
+        self.assertEqual(director["color_select"], "input_select.music_mode_color")
+        options = core["input_select"]["music_mode_color"]["options"]
+        self.assertEqual(options[0], "Auto")
+        self.assertEqual({o.lower() for o in options[1:]}, set(palette.NAMED_HUES))
+        for item in director["overrides"]:
+            self.assertTrue({"artist", "album", "title"} & set(item), item)
+            if "color" in item:
+                self.assertIsNotNone(palette.named_palette(item["color"]), item)
+            if "effect" in item:
+                self.assertIn(item["effect"], rules.EFFECTS, item)
+        self.assertIn(
+            {"album": "channel ORANGE", "color": "orange"}, director["overrides"]
         )
 
 

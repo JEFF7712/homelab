@@ -12,18 +12,23 @@ back to vibe_palette: a mood axis from deep blue (sad) through purple to
 deep red (happy), nudged by genre, after music-colour association research
 (Palmer et al., PNAS 2013).
 
-On output the lights favour vivid blues and reds over orange and yellow:
-oranges and yellows are steered into reds and corals, yellow-greens into
-green, sky blues into deep blue, blues and reds are kept deep, and anything
-left in the yellow-green band gets a lightness floor so it never renders as
-mustard or olive (as Material's DislikeAnalyzer does).
+Output vividness follows the track's intensity (0-1, from genre family,
+energy and tempo; see rules.intensity). Intense tracks are steered toward
+vivid reds and deep blues (oranges and yellows into reds, yellow-greens into
+green, sky blues into deep blue) with boosted saturation; calm tracks keep
+their cover's own hue and saturation. At every intensity, blues and reds
+stay deep and the yellow-green band keeps a lightness floor so nothing
+renders as mustard or olive (as Material's DislikeAnalyzer does).
+
+Named colours (NAMED_HUES) serve the manual colour dropdown and per-song
+overrides; they keep their hue at any intensity.
 """
 
 from __future__ import annotations
 
 import math
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 RGB = tuple[int, int, int]
 Lab = tuple[float, float, float]
@@ -37,6 +42,8 @@ GROUP_HUE_WIDTH = 30.0
 ACCENT_MIN_HUE_GAP = 40.0
 LED_LIGHTNESS = 0.70
 LED_MIN_CHROMA = 0.19
+# Calm tracks keep the cover's saturation, but never wash out to grey.
+CALM_MIN_CHROMA = 0.09
 LED_MAX_CHROMA = 0.25
 # A cover colour must score at least this (sqrt(share) * chroma * penalty) to
 # beat the vibe fallback: about 1% of the cover in a vivid colour, or a tenth
@@ -49,8 +56,8 @@ MUDDY_WEIGHT = 0.15
 # Within one genre string the first match wins, so synthpop is synth, not pop.
 GENRE_HUES: tuple[tuple[tuple[str, ...], float], ...] = (
     (("synth", "new wave", "retrowave", "outrun", "80s"), 262.0),
-    (("hip hop", "hip-hop", "rap", "trap", "drill", "grime"), 300.0),
-    (("r&b", "rnb", "soul", "neo soul", "funk"), 340.0),
+    (("hip hop", "hip-hop", "rap", "trap", "drill", "grime"), 18.0),
+    (("r&b", "rnb", "soul", "neo soul", "funk"), 55.0),
     (("house", "techno", "edm", "electro", "electronic", "dance", "trance"), 235.0),
     (("metal", "rock", "punk", "grunge"), 18.0),
     (("pop",), 350.0),
@@ -62,7 +69,24 @@ DEFAULT_HUE = 265.0
 # The vibe mood axis runs from deep blue (sad) through purple to deep red (happy).
 BLUE_HUE = 258.0
 RED_HUE = 20.0
-GENRE_PULL = 0.3
+# How far the vibe hue moves toward the genre hue: most for calm tracks.
+GENRE_PULL_CALM = 0.95
+GENRE_PULL_INTENSE = 0.3
+
+# Manual dropdown and per-song override colours (OKLCH hue degrees).
+NAMED_HUES: dict[str, float] = {
+    "red": 25.0,
+    "orange": 55.0,
+    "amber": 72.0,
+    "pink": 350.0,
+    "magenta": 330.0,
+    "purple": 305.0,
+    "violet": 285.0,
+    "deep blue": 262.0,
+    "blue": 245.0,
+    "teal": 195.0,
+    "green": 145.0,
+}
 
 
 @dataclass(frozen=True)
@@ -73,8 +97,12 @@ class Palette:
     chroma: float
     accent_hue: float | None
     source: str
-    # Added to every output lightness: brighter for energetic, happy songs.
+    # Added to every output lightness: brighter for energetic songs.
     lift: float = 0.0
+    # 0 keeps the cover's own look, 1 steers to vivid reds and deep blues.
+    intensity: float = 0.5
+    # Hue steps between neighbouring bulb areas, either side of the primary.
+    spread: float = 28.0
 
 
 def _to_linear(channel: float) -> float:
@@ -273,30 +301,57 @@ def vibe_palette(
     energy: float | None = None,
     valence: float | None = None,
     tempo: float | None = None,
+    intensity: float = 0.5,
 ) -> Palette:
     """Colour from the song instead of the cover. Valence picks a point on
     the mood axis (deep blue, purple, magenta, deep red) and the genre pulls
-    it part way toward its own hue; without valence the genre hue is used
-    as is. Energy (or tempo, 0-1) raises saturation and brightness. The
-    accent is the opposite end of the axis, so palettes pair blue with red."""
+    it toward its own hue: strongly for calm tracks, so R&B stays warm
+    orange, and weakly for intense ones, so mood decides. Without valence
+    the genre hue is used as is. Energy (or tempo, 0-1) raises saturation
+    and brightness. Intense palettes take the opposite end of the mood axis
+    as accent, pairing blue with red."""
     base = genre_hue(genres)
     drive = energy if energy is not None else tempo
     drive = 0.5 if drive is None else min(1.0, max(0.0, drive))
+    intensity = min(1.0, max(0.0, intensity))
     if valence is not None:
         mood = min(1.0, max(0.0, valence))
         hue = (BLUE_HUE + mood * (RED_HUE + 360.0 - BLUE_HUE)) % 360.0
         if base is not None:
-            hue = _toward(hue, base, GENRE_PULL)
+            pull = GENRE_PULL_CALM + (GENRE_PULL_INTENSE - GENRE_PULL_CALM) * intensity
+            hue = _toward(hue, base, pull)
     else:
         hue = DEFAULT_HUE if base is None else base
     known = base is not None or energy is not None or valence is not None
+    if intensity >= 0.5:
+        accent = RED_HUE if 180.0 <= hue < 315.0 else BLUE_HUE
+    else:
+        # Toward red rather than yellow: warm calm palettes pair with coral.
+        accent = (hue - 35.0) % 360.0
     return Palette(
         hue=hue,
         chroma=0.13 + 0.08 * drive,
-        accent_hue=RED_HUE if 180.0 <= hue < 300.0 else BLUE_HUE,
+        accent_hue=accent,
         source="vibe" if known else "default",
         lift=round((drive - 0.5) * 0.08, 3),
+        intensity=intensity,
     )
+
+
+def named_palette(name: str, source: str = "manual") -> Palette | None:
+    """A vivid single-colour palette for a NAMED_HUES colour (case, spaces
+    and underscores ignored), with a narrow area spread so every light reads
+    as that colour."""
+    hue = NAMED_HUES.get(" ".join(name.lower().replace("_", " ").split()))
+    if hue is None:
+        return None
+    return Palette(
+        hue=hue, chroma=0.18, accent_hue=None, source=source, intensity=0.0, spread=10.0
+    )
+
+
+def with_intensity(palette: Palette, intensity: float) -> Palette:
+    return replace(palette, intensity=min(1.0, max(0.0, intensity)))
 
 
 def lightness_floor(hue: float) -> float:
@@ -333,9 +388,27 @@ def lightness_ceiling(hue: float) -> float:
     return 0.9
 
 
+def boost(intensity: float) -> float:
+    """0 below intensity 0.35 (cover look), rising to 1 at 0.8 (full boost)."""
+    return min(1.0, max(0.0, (intensity - 0.35) / 0.45))
+
+
+# Yellows are steered at least this much even on calm tracks, toward orange;
+# chosen colours (manual dropdown, song overrides) are never steered.
+YELLOW_BAND = (70.0, 110.0)
+YELLOW_MIN_STEER = 0.6
+CHOSEN_SOURCES = frozenset({"manual", "override"})
+
+
 def _led(palette: Palette, hue: float, lightness: float = LED_LIGHTNESS) -> RGB:
-    hue = steer(hue % 360.0)
-    chroma = min(LED_MAX_CHROMA, max(palette.chroma * 1.4, LED_MIN_CHROMA))
+    k = boost(palette.intensity)
+    hue = hue % 360.0
+    if palette.source not in CHOSEN_SOURCES and YELLOW_BAND[0] < hue < YELLOW_BAND[1]:
+        k = max(k, YELLOW_MIN_STEER)
+    hue = _toward(hue, steer(hue), k)
+    faithful = max(palette.chroma * 1.15, CALM_MIN_CHROMA)
+    vivid = max(palette.chroma * 1.4, LED_MIN_CHROMA)
+    chroma = min(LED_MAX_CHROMA, faithful + (vivid - faithful) * k)
     lightness = max(lightness + palette.lift, lightness_floor(hue))
     lightness = min(lightness, lightness_ceiling(hue))
     return oklch_to_rgb(lightness, chroma, hue)
@@ -345,7 +418,7 @@ def area_colors(palette: Palette, count: int) -> list[RGB]:
     """Distinct shades for neighbouring areas: hue steps around the primary,
     every third area on the accent when the cover has one."""
     colours: list[RGB] = []
-    spread = 28.0
+    spread = palette.spread
     for index in range(count):
         offset = (index - (count - 1) / 2) * (spread / max(1, count - 1)) * 2
         lightness = (0.64, 0.74, 0.69)[index % 3]

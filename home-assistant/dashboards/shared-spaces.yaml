@@ -572,6 +572,12 @@ views:
             features:
               - type: select-options
             type: tile
+          - entity: input_select.music_mode_color
+            name: Colour
+            icon: mdi:palette
+            features:
+              - type: select-options
+            type: tile
           - heading: Lights that join Music Mode
             heading_style: subtitle
             type: heading
