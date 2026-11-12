@@ -2,8 +2,15 @@
 
 Pure functions only: callers decode the image and pass RGB pixels. Colours
 are clustered and shaded in OKLab/OKLCH so hue shifts and lightness ramps
-look even on LEDs. Mostly grey or monochrome covers yield no palette, and
-the caller falls back to a genre hue.
+look even on LEDs.
+
+Cover clusters that read as skin, brown or olive count for much less, so a
+portrait cover does not turn the room amber. When no cover colour scores
+well enough, the caller falls back to vibe_palette: a genre hue moved warmer
+and lighter for happy, energetic songs and cooler and darker for sad, slow
+ones, following music-colour association research (Palmer et al., PNAS
+2013). On output, yellows and oranges get a lightness floor so they never
+render as mustard, olive or brown (as Material's DislikeAnalyzer does).
 """
 
 from __future__ import annotations
@@ -17,10 +24,16 @@ Lab = tuple[float, float, float]
 
 CLUSTERS = 6
 ITERATIONS = 12
-VIVID_CHROMA = 0.06
+VIVID_CHROMA = 0.04
 ACCENT_MIN_HUE_GAP = 40.0
 LED_LIGHTNESS = 0.70
 LED_MAX_CHROMA = 0.22
+# A cover colour must score at least this (sqrt(share) * chroma * penalty) to
+# beat the vibe fallback: about 1% of the cover in a vivid colour, or a tenth
+# of it in a muted one.
+MIN_COVER_SCORE = 0.015
+# Weight for skin, brown and olive clusters.
+MUDDY_WEIGHT = 0.15
 
 # Hues (OKLCH degrees) for covers without a usable colour.
 GENRE_HUES: tuple[tuple[tuple[str, ...], float], ...] = (
@@ -34,6 +47,9 @@ GENRE_HUES: tuple[tuple[tuple[str, ...], float], ...] = (
     (("ambient", "classical", "acoustic", "folk", "soundtrack", "score"), 180.0),
 )
 DEFAULT_HUE = 265.0
+# Vibe targets: happy songs drift toward coral/amber, sad songs toward blue.
+WARM_HUE = 40.0
+COOL_HUE = 255.0
 
 
 @dataclass(frozen=True)
@@ -44,6 +60,8 @@ class Palette:
     chroma: float
     accent_hue: float | None
     source: str
+    # Added to every output lightness: brighter for energetic, happy songs.
+    lift: float = 0.0
 
 
 def _to_linear(channel: float) -> float:
@@ -149,8 +167,17 @@ def kmeans(points: list[Lab], k: int = CLUSTERS) -> list[tuple[Lab, int]]:
     return [(c, n) for c, n in zip(centroids, counts, strict=True) if n]
 
 
+def muddy(lightness: float, chroma: float, hue: float) -> bool:
+    """Skin tones, browns and olives: colours that look dull or dirty as light."""
+    skin = 40.0 <= hue <= 85.0 and chroma <= 0.13 and 0.45 <= lightness <= 0.9
+    brown = 20.0 <= hue <= 90.0 and lightness < 0.55 and chroma < 0.12
+    olive = 90.0 < hue <= 125.0 and lightness < 0.72
+    return skin or brown or olive
+
+
 def extract_palette(pixels: list[RGB]) -> Palette | None:
-    """Pick the most vivid well-represented colour, plus a contrasting accent."""
+    """Pick the most vivid well-represented colour, plus a contrasting accent.
+    Returns None when nothing on the cover is vivid and clean enough."""
     if not pixels:
         return None
     clusters = kmeans([rgb_to_oklab(p) for p in pixels])
@@ -160,11 +187,13 @@ def extract_palette(pixels: list[RGB]) -> Palette | None:
         chroma = _chroma(centroid)
         if chroma < VIVID_CHROMA or not 0.25 <= centroid[0] <= 0.96:
             continue
-        score = math.sqrt(count / total) * min(chroma, 0.25)
-        vivid.append((score, _hue(centroid), chroma))
-    if not vivid:
-        return None
+        hue = _hue(centroid)
+        weight = MUDDY_WEIGHT if muddy(centroid[0], chroma, hue) else 1.0
+        score = math.sqrt(count / total) * min(chroma, 0.25) * weight
+        vivid.append((score, hue, chroma))
     vivid.sort(reverse=True)
+    if not vivid or vivid[0][0] < MIN_COVER_SCORE:
+        return None
     best_score, hue, chroma = vivid[0]
     accent = next(
         (
@@ -177,17 +206,63 @@ def extract_palette(pixels: list[RGB]) -> Palette | None:
     return Palette(hue=hue, chroma=chroma, accent_hue=accent, source="cover")
 
 
-def genre_palette(genres: tuple[str, ...]) -> Palette:
+def genre_hue(genres: tuple[str, ...]) -> float | None:
     for genre in genres:
         lowered = genre.lower()
         for keywords, hue in GENRE_HUES:
             if any(keyword in lowered for keyword in keywords):
-                return Palette(hue=hue, chroma=0.18, accent_hue=None, source="genre")
-    return Palette(hue=DEFAULT_HUE, chroma=0.18, accent_hue=None, source="default")
+                return hue
+    return None
+
+
+def _toward(hue: float, target: float, fraction: float) -> float:
+    """Move hue a fraction of the shortest arc toward target."""
+    delta = (target - hue + 180.0) % 360.0 - 180.0
+    return (hue + delta * fraction) % 360.0
+
+
+def vibe_palette(
+    genres: tuple[str, ...] = (),
+    energy: float | None = None,
+    valence: float | None = None,
+    tempo: float | None = None,
+) -> Palette:
+    """Colour from the song instead of the cover. Energy (or tempo, 0-1)
+    raises saturation and lightness; valence moves the hue warmer when
+    positive and cooler when negative. Unknown values sit at neutral."""
+    base = genre_hue(genres)
+    source = "vibe" if base is not None or energy is not None else "default"
+    hue = DEFAULT_HUE if base is None else base
+    drive = energy if energy is not None else tempo
+    drive = 0.5 if drive is None else min(1.0, max(0.0, drive))
+    mood = 0.5 if valence is None else min(1.0, max(0.0, valence))
+    if mood >= 0.5:
+        hue = _toward(hue, WARM_HUE, (mood - 0.5) * 0.7)
+    else:
+        hue = _toward(hue, COOL_HUE, (0.5 - mood) * 0.7)
+    return Palette(
+        hue=hue,
+        chroma=0.12 + 0.08 * drive,
+        accent_hue=(hue + 40.0) % 360.0,
+        source=source,
+        lift=round((drive - 0.5) * 0.10 + (mood - 0.5) * 0.06, 3),
+    )
+
+
+def lightness_floor(hue: float) -> float:
+    """Minimum output lightness by hue. Yellows and yellow-greens look
+    mustard or olive unless bright, and oranges look brown when dark; the
+    floor peaks at yellow (100) and fades out by 45 and 150 degrees."""
+    if not 45.0 <= hue <= 150.0:
+        return 0.0
+    if hue <= 100.0:
+        return 0.66 + 0.20 * (hue - 45.0) / 55.0
+    return 0.86 - 0.20 * (hue - 100.0) / 50.0
 
 
 def _led(palette: Palette, hue: float, lightness: float = LED_LIGHTNESS) -> RGB:
     chroma = min(LED_MAX_CHROMA, max(palette.chroma * 1.4, 0.14))
+    lightness = min(0.9, max(lightness + palette.lift, lightness_floor(hue)))
     return oklch_to_rgb(lightness, chroma, hue)
 
 

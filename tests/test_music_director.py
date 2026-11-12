@@ -88,13 +88,67 @@ class TestPalette(unittest.TestCase):
             palette.extract_palette(pixels), palette.extract_palette(pixels)
         )
 
-    def test_genre_fallback_uses_the_primary_genre(self) -> None:
-        self.assertEqual(palette.genre_palette(("Rap", "Hip Hop")).source, "genre")
-        rnb = palette.genre_palette(("R&B",))
-        rock = palette.genre_palette(("Rock",))
+    def test_vibe_fallback_uses_the_primary_genre(self) -> None:
+        self.assertEqual(palette.vibe_palette(("Rap", "Hip Hop")).source, "vibe")
+        rnb = palette.vibe_palette(("R&B",))
+        rock = palette.vibe_palette(("Rock",))
         self.assertNotEqual(rnb.hue, rock.hue)
-        self.assertEqual(palette.genre_palette(()).source, "default")
-        self.assertEqual(palette.genre_palette(("polka",)).hue, palette.DEFAULT_HUE)
+        self.assertEqual(palette.vibe_palette().source, "default")
+        self.assertEqual(palette.vibe_palette(("polka",)).hue, palette.DEFAULT_HUE)
+        # Audio features alone are enough to call it a vibe.
+        self.assertEqual(palette.vibe_palette(energy=0.8).source, "vibe")
+
+    def test_vibe_follows_mood_and_energy(self) -> None:
+        happy = palette.vibe_palette(("R&B",), energy=0.9, valence=0.9)
+        sad = palette.vibe_palette(("R&B",), energy=0.2, valence=0.1)
+        # Happy drifts toward warm, sad toward blue (Palmer et al. 2013).
+        self.assertLess(
+            palette.hue_distance(happy.hue, palette.WARM_HUE),
+            palette.hue_distance(sad.hue, palette.WARM_HUE),
+        )
+        self.assertLess(
+            palette.hue_distance(sad.hue, palette.COOL_HUE),
+            palette.hue_distance(happy.hue, palette.COOL_HUE),
+        )
+        self.assertGreater(happy.chroma, sad.chroma)
+        self.assertGreater(happy.lift, sad.lift)
+        # Tempo stands in for energy when ReccoBeats has no features.
+        self.assertGreater(
+            palette.vibe_palette(("R&B",), tempo=1.0).chroma,
+            palette.vibe_palette(("R&B",), tempo=0.0).chroma,
+        )
+
+    def test_skin_tones_lose_to_a_smaller_clean_colour(self) -> None:
+        # A portrait: mostly skin and a dark brown background, with a teal shirt.
+        portrait = cover(
+            ((224, 172, 125), 1100), ((70, 45, 30), 800), ((0, 150, 160), 400)
+        )
+        result = palette.extract_palette(portrait)
+        assert result is not None
+        self.assertLess(palette.hue_distance(result.hue, hue_of((0, 150, 160))), 15)
+
+    def test_only_muddy_colours_means_no_cover_palette(self) -> None:
+        skin_and_olive = cover(
+            ((224, 172, 125), 1200), ((95, 90, 30), 700), ((60, 40, 25), 400)
+        )
+        self.assertIsNone(palette.extract_palette(skin_and_olive))
+        # A genuinely vivid orange is not mistaken for skin.
+        orange = palette.extract_palette(cover(((255, 120, 0), 1500), ((0, 0, 0), 800)))
+        assert orange is not None
+        self.assertEqual(orange.source, "cover")
+
+    def test_yellows_and_oranges_never_render_mustard_olive_or_brown(self) -> None:
+        for hue in range(45, 151, 5):
+            base = palette.Palette(
+                hue=float(hue), chroma=0.15, accent_hue=None, source="cover"
+            )
+            colours = [*palette.area_colors(base, 5), *palette.triad(base)]
+            for rgb in colours:
+                lightness, _, _ = palette.rgb_to_oklab(rgb)
+                out_hue = hue_of(rgb)
+                brown = 30 <= out_hue <= 90 and lightness < 0.55
+                olive = 90 < out_hue <= 125 and lightness < 0.72
+                self.assertFalse(brown or olive, (hue, rgb))
 
     def test_area_shades_are_distinct_valid_and_near_the_primary(self) -> None:
         base = palette.Palette(hue=30.0, chroma=0.15, accent_hue=None, source="cover")

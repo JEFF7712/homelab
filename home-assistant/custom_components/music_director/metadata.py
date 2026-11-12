@@ -55,6 +55,7 @@ class TrackInfo:
     energy: float | None = None
     danceability: float | None = None
     acousticness: float | None = None
+    valence: float | None = None
     isrc: str | None = None
     sources: list[str] = field(default_factory=list)
 
@@ -65,6 +66,7 @@ class TrackInfo:
             energy=self.energy,
             danceability=self.danceability,
             acousticness=self.acousticness,
+            valence=self.valence,
         )
 
 
@@ -81,6 +83,7 @@ def apply_reccobeats(info: TrackInfo, body: Any) -> None:
     info.energy = _number(item.get("energy"))
     info.danceability = _number(item.get("danceability"))
     info.acousticness = _number(item.get("acousticness"))
+    info.valence = _number(item.get("valence"))
     isrc = item.get("isrc")
     if isinstance(isrc, str) and isrc:
         info.isrc = isrc.upper()

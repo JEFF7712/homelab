@@ -35,8 +35,8 @@ from .metadata import (
     same_track,
     spotify_track_id,
 )
-from .palette import Palette, area_colors, extract_palette, genre_palette, gradient
-from .rules import EFFECTS, choose_effect, classify, effect_config
+from .palette import Palette, area_colors, extract_palette, gradient, vibe_palette
+from .rules import EFFECTS, choose_effect, classify, effect_config, tempo_level
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -234,9 +234,7 @@ class Director:
         await self._apply(decision)
 
     def _idle_decision(self) -> Decision:
-        return self._compose(
-            "", "", TrackInfo(), genre_palette(()), "default", "energy"
-        )
+        return self._compose("", "", TrackInfo(), vibe_palette(), "default", "energy")
 
     async def _decide(self, player: State, key: str) -> Decision:
         cached = self._cache.get(key)
@@ -251,7 +249,9 @@ class Director:
         else:
             self._cache.move_to_end(key)
         info, cover = cached
-        palette = cover or genre_palette(info.genres)
+        palette = cover or vibe_palette(
+            info.genres, info.energy, info.valence, tempo_level(info.bpm)
+        )
         family = classify(info.features())
         effect = choose_effect(family, key, self._last_effect)
         title = player.attributes.get("media_title") or ""
@@ -380,6 +380,7 @@ class Director:
                 "genres": list(info.genres),
                 "bpm": round(info.bpm) if info.bpm else None,
                 "energy": info.energy,
+                "valence": info.valence,
                 "family": decision.family,
                 "effect": decision.effect,
                 "auto_effect": decision.auto_effect,
