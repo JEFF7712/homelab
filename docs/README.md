@@ -82,6 +82,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Web analytics (Umami)](runbooks/analytics.md)
 - [Media download-chain credentials](runbooks/arr-credentials.md)
 - [Lidarr queue hygiene](runbooks/arr-queue-hygiene.md)
+- [Nightly beets tagging](runbooks/beets.md)
 - [Media memory management](runbooks/media-memory.md)
 - [Bookshelf state backup and recovery](runbooks/bookshelf-recovery.md)
 - [Game downloads and library](runbooks/games.md)
