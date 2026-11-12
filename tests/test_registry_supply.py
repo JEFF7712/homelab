@@ -1807,6 +1807,63 @@ class LockTest(unittest.TestCase):
         self.assertEqual(wrong_lock["images"], [])
         self.assertIn("digest mismatch", wrong_unresolved[0]["reason"])
 
+    def test_resolve_merges_local_mirror_path_with_declared_source(self) -> None:
+        raw = manifest()
+        expected_digest = digest(raw)
+        upstream = f"ghcr.io/cloudnative-pg/postgresql:17@{expected_digest}"
+
+        def image(identifier: str, reference: str, consumer: str) -> dict[str, Any]:
+            parsed = ImageReference.parse(reference)
+            return {
+                "id": identifier,
+                "kind": "upstream",
+                "source": {
+                    "registry": parsed.registry,
+                    "repository": parsed.repository,
+                    "tag": parsed.tag,
+                    "digest": parsed.digest,
+                    "reference": reference,
+                },
+                "destination_repository": f"upstream/{parsed.registry}/{parsed.repository}",
+                "consumers": [consumer],
+                "producer": None,
+                "retention_class": "deployed",
+            }
+
+        declared = image(
+            "upstream-cloudnative-pg-postgresql-declared",
+            upstream,
+            "gitops/platform/cnpg/registry-sources.yaml:8",
+        )
+        mirrored = image(
+            "upstream-upstream-ghcr-io-cloudnative-pg-postgresql-local",
+            f"registry.rupan.dev/upstream/{upstream}",
+            "gitops/analytics/postgres-cluster.yaml:10",
+        )
+        declared["id"] = core._stable_id(ImageReference.parse(upstream), "upstream")
+        inventory = {
+            "schema_version": 1,
+            "kind": "registry-inventory",
+            "source_revision": "b" * 40,
+            "images": [declared, mirrored],
+            "unresolved_inputs": [],
+        }
+        client = FakeClient(
+            {f"ghcr.io/cloudnative-pg/postgresql@{expected_digest}": raw}
+        )
+
+        lock, unresolved = resolve_inventory(inventory, client)  # type: ignore[arg-type]
+
+        self.assertEqual(unresolved, [])
+        self.assertEqual([record["id"] for record in lock["images"]], [declared["id"]])
+        self.assertEqual(
+            lock["images"][0]["consumers"],
+            [
+                "gitops/analytics/postgres-cluster.yaml:10",
+                "gitops/platform/cnpg/registry-sources.yaml:8",
+            ],
+        )
+
     def test_plan_is_ordered_and_uses_digest_sources(self) -> None:
         raw = manifest()
         value = valid_lock(raw)

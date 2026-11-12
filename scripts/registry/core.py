@@ -1537,6 +1537,7 @@ def resolve_inventory(
         dict(item) for item in inventory.get("unresolved_inputs", [])
     ]
     records: list[dict[str, Any]] = []
+    by_id: dict[str, dict[str, Any]] = {}
     for image in inventory["images"]:
         source = image["source"]
         reference = ImageReference.parse(source["reference"])
@@ -1617,26 +1618,35 @@ def resolve_inventory(
                 reference, str(image["kind"])
             )
         record.pop("observed_manifest", None)
-        records.append(
-            {
-                **record,
-                "source": {
-                    **source,
-                    "digest": digest,
-                    "reference": immutable.canonical,
-                },
+        existing = by_id.get(record["id"])
+        if existing is not None and existing["digest"] == digest:
+            # A manifest that names the local mirror path decodes to the
+            # same upstream image as its declared source; one record
+            # serves both consumers.
+            existing["consumers"] = sorted(
+                set(existing["consumers"]) | set(record["consumers"])
+            )
+            continue
+        entry = {
+            **record,
+            "source": {
+                **source,
                 "digest": digest,
-                "media_type": media_type,
-                "platforms": platforms,
-                "resolution": resolution,
-                "destination_tags": sorted(set(tags)),
-                "referrers": {"required": [], "source_status": "not-enumerated"},
-                "authenticity": {
-                    "status": "unsupported",
-                    "reason": "no source verification policy is declared for this inventory record",
-                },
-            }
-        )
+                "reference": immutable.canonical,
+            },
+            "digest": digest,
+            "media_type": media_type,
+            "platforms": platforms,
+            "resolution": resolution,
+            "destination_tags": sorted(set(tags)),
+            "referrers": {"required": [], "source_status": "not-enumerated"},
+            "authenticity": {
+                "status": "unsupported",
+                "reason": "no source verification policy is declared for this inventory record",
+            },
+        }
+        records.append(entry)
+        by_id[entry["id"]] = entry
     lock = {
         "schema_version": SCHEMA_VERSION,
         "kind": "registry-image-lock",
