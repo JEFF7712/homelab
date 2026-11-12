@@ -331,9 +331,10 @@ template:
 # Shared music mode: per-track album-art palette and LedFx effect for the
 # living room strip; the shared_music_mode automation paints bulb areas from
 # sensor.music_director. Area order sets which shade each area gets.
-# input_select.music_mode_effect and input_select.music_mode_color override
-# the automatic effect and colour until set back to Auto; transition_time is
-# the strip's crossfade in seconds. overrides pin a colour and/or effect for
+# input_select.music_mode_effect overrides the automatic effect until set
+# back to Auto; the integration's light.music_mode_colour (on = chosen colour,
+# off = Auto) and number.music_mode_brightness set colour and brightness;
+# transition_time is the strip's crossfade in seconds. overrides pin a colour and/or effect for
 # matching tracks (artist/album by prefix, title exactly, case ignored).
 music_director:
   player: media_player.homelab_05_satellite_media_player_2
@@ -350,7 +351,6 @@ music_director:
     - tulip_lamp
     - ceiling_strip
   effect_select: input_select.music_mode_effect
-  color_select: input_select.music_mode_color
   transition_time: 1.5
   overrides:
     - artist: The Weeknd
@@ -371,22 +371,6 @@ input_boolean:
     initial: true
 
 input_select:
-  music_mode_color:
-    name: "Music Mode: Colour"
-    icon: mdi:palette
-    options:
-      - Auto
-      - Red
-      - Orange
-      - Amber
-      - Pink
-      - Magenta
-      - Purple
-      - Violet
-      - Deep Blue
-      - Blue
-      - Teal
-      - Green
   music_mode_effect:
     name: "Music Mode: Effect"
     icon: mdi:auto-fix

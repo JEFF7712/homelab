@@ -27,8 +27,8 @@ exit. Switching it on by hand during Music Mode sticks.
 An area with its toggle off is left alone and stays on Adaptive Lighting.
 Joining snapshots the area to `scene.pre_music_<area>` and locks Adaptive
 Lighting for its lights; leaving, or turning Music Mode off, restores the
-snapshot and hands control back. Bulbs change once per track at 70%
-brightness.
+snapshot and hands control back. Bulbs change once per track, and on colour
+or brightness changes, at `number.music_mode_brightness` (default 70%).
 
 ## Components
 
@@ -130,10 +130,20 @@ LedFx default. On start it sets the strip virtual's `transition_time`
 
 ## Manual colour and per-song overrides
 
-`input_select.music_mode_color` ("Colour" on the dashboard) offers Auto plus
-named colours (`palette.NAMED_HUES`). Any choice other than Auto applies at
-once to the strip and every taking-part area, and holds across tracks until
-set back to Auto. Chosen colours are never steered or muted.
+`light.music_mode_colour` ("Colour" on the dashboard) is a virtual light
+created by the integration (`light.py`); it drives no bulb. Off means Auto
+(cover and vibe colours). Turning it on, or picking a colour on its hue
+slider or colour wheel, applies that colour at once to the strip and every
+taking-part area and holds it across tracks until it is switched off (the
+"Auto colour" card does that). Chosen colours keep their hue
+(`palette.chosen_palette`) and are never steered or narrowed by intensity.
+The light restores its colour and on/off state after a restart.
+
+`number.music_mode_brightness` ("Brightness", 10-100%, default 70%;
+`number.py`) sets the brightness of the painted areas (`brightness_pct` on
+`sensor.music_director`) and of the strip effect (LedFx `brightness`), in
+Auto and manual colour alike. The colour light's brightness slider is the
+same value.
 
 `music_director.overrides` in `home-assistant/core/configuration.yaml` pins
 a colour and/or effect for matching tracks. Each entry needs at least one of
