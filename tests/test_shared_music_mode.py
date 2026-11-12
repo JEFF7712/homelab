@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 from pathlib import Path
 
@@ -191,7 +192,9 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertEqual(automation["alias"], "Lighting: Shared Music Mode")
         self.assertNotIn("initial_state", automation)
         triggers = {t["id"]: t for t in automation["triggers"]}
-        self.assertEqual(set(triggers), {"mode_on", "mode_off", "area", "palette"})
+        self.assertEqual(
+            set(triggers), {"mode_on", "mode_off", "area", "strip", "palette"}
+        )
         self.assertEqual(
             triggers["area"]["entity_id"],
             [f"input_boolean.music_mode_{area}" for area in AREAS],
@@ -199,14 +202,51 @@ class TestSharedMusicMode(unittest.TestCase):
         # The palette trigger must also fire on attribute-only changes.
         self.assertNotIn("to", triggers["palette"])
         raw = yaml.safe_dump(automation)
-        for step in ("join", "leave", "paint"):
-            self.assertIn(f"step: {step}", raw)
+        steps = json.dumps(automation)
+        for step in ("'join'", "'standby'", "'paint'", "'off'", '"leave"'):
+            self.assertIn(step, steps)
         self.assertNotIn("delay:", raw)
-        # The LED strip is the director's; scenes are no longer activated here.
+        # The director owns the strip's effects; here it is only switched.
         self.assertNotIn("rest_command.ledfx", raw)
-        self.assertNotIn("music_mode_led_strip", yaml.safe_dump(triggers))
+        self.assertEqual(
+            triggers["strip"]["entity_id"], "input_boolean.music_mode_led_strip"
+        )
         # Brightness-only changes repaint too.
         self.assertIn("brightness_pct", raw)
+
+    def test_only_selected_lights_are_on_during_music_mode(self) -> None:
+        automation = self._automation()
+        branches = automation["actions"][1]["choose"]
+
+        def branch(trigger_id: str) -> str:
+            return json.dumps(
+                next(
+                    b["sequence"]
+                    for b in branches
+                    if {"condition": "trigger", "id": trigger_id} in b["conditions"]
+                )
+            )
+
+        # Starting snapshots every area: selected ones join, the rest go off.
+        mode_on = branch("mode_on")
+        self.assertIn('"for_each": "{{ areas }}"', mode_on)
+        self.assertIn("'join' if repeat.item in taking_part else 'standby'", mode_on)
+        self.assertIn('"scene_id": "pre_music_led_strip"', mode_on)
+        self.assertIn("is_state('input_boolean.music_mode_led_strip', 'on')", mode_on)
+        # Mid-session toggles paint or switch off, keeping the snapshot.
+        area = branch("area")
+        self.assertIn("'paint' if trigger.to_state.state == 'on' else 'off'", area)
+        self.assertNotIn("scene.create", area)
+        self.assertIn("light.turn_{{ trigger.to_state.state }}", branch("strip"))
+        # Stopping restores every area and the strip.
+        mode_off = branch("mode_off")
+        self.assertIn('"for_each": "{{ areas }}"', mode_off)
+        self.assertIn("scene.pre_music_led_strip", mode_off)
+
+        script = json.dumps(self._area_script())
+        self.assertIn("step in ['join', 'standby']", script)
+        self.assertIn("step in ['standby', 'off']", script)
+        self.assertIn("light.turn_off", script)
 
     def test_music_snapshots_are_watchman_exempt(self) -> None:
         raw = (
@@ -215,7 +255,7 @@ class TestSharedMusicMode(unittest.TestCase):
             / "automations"
             / "watchman_missing_report.yaml"
         ).read_text(encoding="utf-8")
-        for area in (*AREAS, "mushroom_lamp"):
+        for area in (*AREAS, "mushroom_lamp", "led_strip"):
             self.assertIn(f"scene.pre_music_{area}", raw)
 
     def test_voice_automation(self) -> None:

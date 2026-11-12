@@ -1,8 +1,11 @@
 alias: "Lighting: Shared Music Area"
 description: >-
-  Join, leave or repaint one shared music mode area. Joining snapshots the
-  area to scene.pre_music_<area>, takes it off Adaptive Lighting and paints
-  it; leaving restores the snapshot and hands it back to Adaptive Lighting.
+  Join, stand by, paint, switch off or leave one shared music mode area.
+  When Music Mode starts, every area is snapshotted to
+  scene.pre_music_<area> and taken off Adaptive Lighting: join then paints a
+  taking-part area and standby switches the others off. Mid-session, paint
+  and off follow the area's toggle without touching the snapshot. Leave
+  restores the snapshot and hands the area back to Adaptive Lighting.
   Painting uses the area's shade and brightness_pct from
   sensor.music_director (number.music_mode_brightness), one write per track
   or brightness change.
@@ -22,15 +25,17 @@ fields:
           - tulip_lamp
           - ceiling_strip
   step:
-    description: join, leave or paint.
+    description: join, standby, paint, off or leave.
     required: true
     example: join
     selector:
       select:
         options:
           - join
-          - leave
+          - standby
           - paint
+          - "off"
+          - leave
 sequence:
   - variables:
       areas:
@@ -60,11 +65,11 @@ sequence:
       snapshot: "scene.pre_music_{{ area }}"
       rgb: "{{ (state_attr('sensor.music_director', 'area_colors') or {}).get(area) }}"
   - condition: template
-    value_template: "{{ config is mapping and step in ['join', 'leave', 'paint'] }}"
+    value_template: "{{ config is mapping and step in ['join', 'standby', 'paint', 'off', 'leave'] }}"
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ step == 'join' }}"
+            value_template: "{{ step in ['join', 'standby'] }}"
         sequence:
           - action: scene.create
             data:
@@ -79,6 +84,17 @@ sequence:
                   entity_id: "{{ config.adaptive }}"
                   lights: "{{ config.lights }}"
                   manual_control: true
+  - if:
+      - condition: template
+        value_template: "{{ step in ['standby', 'off'] }}"
+    then:
+      - action: light.turn_off
+        target:
+          entity_id: "{{ config.lights }}"
+        data:
+          transition: 2
+      - stop: Area off
+  - choose:
       - conditions:
           - condition: template
             value_template: "{{ step == 'leave' }}"
