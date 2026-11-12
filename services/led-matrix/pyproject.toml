@@ -14,3 +14,7 @@ dependencies = [
 
 [project.scripts]
 spotify-matrix = "spotify_matrix_streamer:main"
+
+[tool.ruff]
+# Resolve first-party imports from this directory wherever ruff runs from.
+src = ["."]

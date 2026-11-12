@@ -3,9 +3,10 @@ from __future__ import annotations
 import random
 import unittest
 
+from PIL import Image, ImageDraw
+
 from modes.arcade import DoodleJumpGame, FroggerGame, QbertGame, RetroArcadeRenderer
 from modes.text_utils import draw_boxed_message, draw_fitted_text, draw_scoreboard
-from PIL import Image, ImageDraw
 
 
 class TextBoundsTests(unittest.TestCase):

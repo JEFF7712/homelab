@@ -248,7 +248,7 @@ async def _ws_send(cookie_header: str, leaf_id: str, cmds: list[tuple[str, dict]
                     break
                 try:
                     await asyncio.wait_for(ws.recv(), timeout=remaining)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     break
     except Exception as e:
         status = getattr(getattr(e, "response", None), "status_code", None)

@@ -15,7 +15,7 @@ import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Optional
+from typing import Any
 
 _LOGGER = logging.getLogger("jarvis-spectrum")
 
@@ -94,7 +94,7 @@ def build_cava_config(source: str, bars: int, framerate: int, max_range: int) ->
     )
 
 
-def parse_cava_frame(line: str, bars: int, max_range: int) -> Optional[list[int]]:
+def parse_cava_frame(line: str, bars: int, max_range: int) -> list[int] | None:
     """Parse one cava ascii frame ("12;45;...;\\n") into clamped bar values."""
     parts = [part for part in line.strip().split(";") if part != ""]
     if not parts:
@@ -259,7 +259,7 @@ def make_handler(
     return Handler
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--bars", type=int, default=DEFAULT_BARS)

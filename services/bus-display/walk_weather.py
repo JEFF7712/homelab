@@ -3,6 +3,7 @@ import threading
 from typing import Any
 
 import requests
+
 from journey_planner import BOARD_BUFFER
 
 FORECAST_MAX_AGE = 3600

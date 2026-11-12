@@ -4,7 +4,6 @@ from collections.abc import Callable
 from PIL import ImageDraw
 
 
-
 class MultiplayerGame(ABC):
     """Abstract interface for a multiplayer game engine."""
 

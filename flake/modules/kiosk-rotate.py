@@ -195,8 +195,6 @@ class Session:
                 response = ws_recv(self._sock, self._buf, self._timeout)
             except TimeoutError:
                 continue
-            except socket.timeout:
-                continue
             if response.get("method") == name:
                 return
 
@@ -212,7 +210,7 @@ class Session:
         while True:
             try:
                 ws_recv(self._sock, self._buf, quiet)
-            except (TimeoutError, socket.timeout):
+            except TimeoutError:
                 return
 
 
@@ -300,8 +298,7 @@ def show_view(
         key, value = seed
         evaluate_retrying(
             session,
-            "window.localStorage.setItem(%s, %s)"
-            % (json.dumps(key), json.dumps(value)),
+            f"window.localStorage.setItem({json.dumps(key)}, {json.dumps(value)})",
             attempts=10,
             delay=1.0,
         )
