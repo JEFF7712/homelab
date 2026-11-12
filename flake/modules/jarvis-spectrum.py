@@ -203,7 +203,7 @@ def make_handler(state: SpectrumState, max_range: int) -> type[BaseHTTPRequestHa
     class Handler(BaseHTTPRequestHandler):
         server_version = "JarvisSpectrum/1"
 
-        def log_message(self, *args: object) -> None:
+        def log_message(self, format: str, *args: Any) -> None:
             pass
 
         def _cors(self) -> None:
