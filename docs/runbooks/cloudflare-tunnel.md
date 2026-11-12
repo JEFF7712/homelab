@@ -301,7 +301,7 @@ were preserved; this cleanup did not change who can reach a hostname.
 
 | Application | Destinations |
 | --- | --- |
-| `Bypass - Requests and music tools` | `apptly.rupan.dev`, `lidarr.rupan.dev`, `aurral.rupan.dev`, `spotify.rupan.dev`, `seerr.rupan.dev` |
+| `Bypass - Requests and music tools` | `lidarr.rupan.dev`, `seerr.rupan.dev` |
 | `Bypass - Tally tracker endpoints` | `tally.rupan.dev/t.js`, `tally.rupan.dev/api/send` |
 | `Bypass - Woodpecker CI` | `ci.rupan.dev` |
 | `Bypass - UWagent` | `uwagent.rupan.dev` |
@@ -312,7 +312,7 @@ were preserved; this cleanup did not change who can reach a hostname.
 | `Bypass - Home Assistant` | `ha.rupan.dev` |
 | `Bypass - Notes and project sites` | `rupanism.rupan.dev`, `ism.rupan.dev`, `notes.rupan.dev`, `pulse.rupan.dev`, `spatia.rupan.dev` |
 | `Bypass - Photos, files and dashboards` | `books.rupan.dev`, `grafana.rupan.dev`, `photos.rupan.dev`, `media.rupan.dev`, `jellyfin.rupan.dev` |
-| `Bypass - Music, sync and tools` | `music.rupan.dev`, `nix.rupan.dev`, `soluble.rupan.dev`, `obsidian.rupan.dev`, `n8n.rupan.dev` |
+| `Bypass - Music, sync and tools` | `music.rupan.dev`, `nix.rupan.dev`, `soluble.rupan.dev`, `obsidian.rupan.dev` |
 
 LedFx (`ledfx.rupan.dev`) inherits the wildcard owner-only `Main - Rupan`
 Allow policy. It has no origin user authentication, so never add it to a public
