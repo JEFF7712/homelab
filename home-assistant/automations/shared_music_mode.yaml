@@ -1,18 +1,19 @@
 id: shared_music_mode
 alias: "Lighting: Shared Music Mode"
 description: >-
-  While Music Mode is on, each shared area whose
-  input_boolean.music_mode_<area> toggle is on takes part:
-  script.shared_music_area snapshots it, takes it off Adaptive Lighting and
-  paints it with its shade of the track's palette from sensor.music_director,
-  repainting on every new track and on colour or brightness changes. Areas whose toggle is off are left alone.
-  Toggling an area while Music Mode is on joins or restores it immediately,
-  and turning Music Mode off restores every area still taking part. The
-  toggles keep their last values between sessions. The mushroom lamp has no
-  toggle: Music Mode always switches it off and restores it afterwards, and a
-  manual switch-on during Music Mode is left alone. The living room LED strip
-  (input_boolean.music_mode_led_strip) is driven by the music_director
-  integration through LedFx, not here.
+  While Music Mode is on, only the lights whose input_boolean.music_mode_<area>
+  toggle is on are lit. Starting Music Mode snapshots every shared area and
+  the living room LED strip and takes the areas off Adaptive Lighting
+  (script.shared_music_area); taking-part areas are painted with their shade
+  of the track's palette from sensor.music_director, repainted on every new
+  track and on colour or brightness changes, and the rest are switched off.
+  Toggling an area or the strip while Music Mode is on paints or switches it
+  off immediately. Turning Music Mode off restores every area and the strip
+  to its snapshot. The toggles keep their last values between sessions. The
+  mushroom lamp has no toggle: Music Mode always switches it off and
+  restores it afterwards, and a manual switch-on during Music Mode is left
+  alone. The strip's colours and effects come from the music_director
+  integration through LedFx; here it is only switched on or off.
 mode: queued
 max: 10
 triggers:
@@ -35,6 +36,12 @@ triggers:
       - "on"
       - "off"
     id: "area"
+  - trigger: state
+    entity_id: input_boolean.music_mode_led_strip
+    to:
+      - "on"
+      - "off"
+    id: "strip"
   - trigger: state
     entity_id: sensor.music_director
     id: "palette"
@@ -66,32 +73,46 @@ actions:
           - action: light.turn_off
             target:
               entity_id: light.kitchen_mushroom_lamp
+          - action: scene.create
+            data:
+              scene_id: pre_music_led_strip
+              snapshot_entities:
+                - light.living_room_led_strip
+          - action: >-
+              light.turn_{{ 'on' if is_state('input_boolean.music_mode_led_strip', 'on')
+              else 'off' }}
+            target:
+              entity_id: light.living_room_led_strip
           - repeat:
-              for_each: "{{ taking_part }}"
+              for_each: "{{ areas }}"
               sequence:
                 - action: script.shared_music_area
                   data:
                     area: "{{ repeat.item }}"
-                    step: join
+                    step: "{{ 'join' if repeat.item in taking_part else 'standby' }}"
       - conditions:
           - condition: trigger
             id: "mode_off"
         sequence:
           - repeat:
-              for_each: "{{ taking_part }}"
+              for_each: "{{ areas }}"
               sequence:
                 - action: script.shared_music_area
                   data:
                     area: "{{ repeat.item }}"
                     step: leave
-          - if:
-              - condition: template
-                value_template: >-
-                  {{ state_attr('scene.pre_music_mushroom_lamp', 'entity_id') is not none }}
-            then:
-              - action: scene.turn_on
-                target:
-                  entity_id: scene.pre_music_mushroom_lamp
+          - repeat:
+              for_each:
+                - scene.pre_music_mushroom_lamp
+                - scene.pre_music_led_strip
+              sequence:
+                - if:
+                    - condition: template
+                      value_template: "{{ state_attr(repeat.item, 'entity_id') is not none }}"
+                  then:
+                    - action: scene.turn_on
+                      target:
+                        entity_id: "{{ repeat.item }}"
       - conditions:
           - condition: trigger
             id: "area"
@@ -102,7 +123,17 @@ actions:
           - action: script.shared_music_area
             data:
               area: "{{ trigger.entity_id | replace('input_boolean.music_mode_', '') }}"
-              step: "{{ 'join' if trigger.to_state.state == 'on' else 'leave' }}"
+              step: "{{ 'paint' if trigger.to_state.state == 'on' else 'off' }}"
+      - conditions:
+          - condition: trigger
+            id: "strip"
+          - condition: state
+            entity_id: input_boolean.shared_music_mode
+            state: "on"
+        sequence:
+          - action: "light.turn_{{ trigger.to_state.state }}"
+            target:
+              entity_id: light.living_room_led_strip
       - conditions:
           - condition: trigger
             id: "palette"

@@ -24,11 +24,17 @@ The mushroom lamp (on/off only) has no toggle: Music Mode always switches it
 off on entry (snapshot `scene.pre_music_mushroom_lamp`) and restores it on
 exit. Switching it on by hand during Music Mode sticks.
 
-An area with its toggle off is left alone and stays on Adaptive Lighting.
-Joining snapshots the area to `scene.pre_music_<area>` and locks Adaptive
-Lighting for its lights; leaving, or turning Music Mode off, restores the
-snapshot and hands control back. Bulbs change once per track, and on colour
-or brightness changes, at `number.music_mode_brightness` (default 70%).
+While Music Mode is on, only selected lights are lit. Starting it snapshots
+every area to `scene.pre_music_<area>` and the WLED strip
+(`light.living_room_led_strip`) to `scene.pre_music_led_strip`, and locks
+Adaptive Lighting for every area's lights. Selected areas are painted
+(`script.shared_music_area` step `join`); the rest are switched off
+(`standby`), and so is the strip when its toggle is off. Toggling an area or
+the strip mid-session paints it or switches it off (`paint` / `off`) and
+keeps the snapshot. Turning Music Mode off restores every area and the strip
+and hands the areas back to Adaptive Lighting (`leave`). Bulbs change once
+per track, and on colour or brightness changes, at
+`number.music_mode_brightness` (default 70%).
 
 ## Components
 
