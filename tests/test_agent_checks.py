@@ -162,6 +162,10 @@ class AgentCheckSelectionTest(unittest.TestCase):
             "services/bus-display/display.py": ("python",),
             "scripts/deploy_fleet.py": ("python",),
             "flake/modules/repo_monitor.py": ("python",),
+            "flake/modules/omarchy_vm/runtime.py": ("python",),
+            "services/led-matrix/modes/physics.py": ("led-matrix",),
+            "gitops/observability/network-monitor/monitor.py": ("gitops", "python"),
+            "gitops/observability/network-monitor/deployment.yaml": ("gitops",),
             "tofu/cloudflare/.terraform.lock.hcl": ("tofu",),
         }
         for path, checks in expected.items():

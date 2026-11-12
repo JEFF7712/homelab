@@ -2,10 +2,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 for tool in ruff pyright python; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool; run nix develop ./flake" >&2; exit 127; }; done
+# Keep equal to python_paths in the justfile (tests/test_python_gate_paths.py).
+ruff_paths=(
+  scripts opnsense_reconciler tests flake/modules services/bus-display
+  services/led-matrix gitops/observability/network-monitor
+)
 if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then
-  ruff format --check scripts opnsense_reconciler tests
+  ruff format --check "${ruff_paths[@]}"
 fi
-ruff check --select E,F,I,UP --ignore E501 scripts opnsense_reconciler tests
+ruff check --select E,F,I,UP --ignore E501 "${ruff_paths[@]}"
 # Left out of pyright because their imports exist only on the target host or
 # in a separate environment, not in this dev shell: the MQTT/BLE/NVML/numpy
 # host bridges in flake/modules (ledfx-roku-bridge, roku-bridge,

@@ -89,6 +89,11 @@ _CHECK_ORDER = (
 )
 
 
+# Python mounted into workloads from gitops/ that scripts/checks/python.sh
+# lints and type-checks (scripts/agent/checks.py routes the same prefixes).
+_PYTHON_GITOPS_PREFIXES = ("gitops/observability/network-monitor/",)
+
+
 _RELEASE_RECORDS = frozenset(
     {"registry/images.inventory.json", "registry/images.lock.json"}
 )
@@ -141,6 +146,9 @@ def classify(paths: Sequence[str]) -> Scope:
             continue
         if name.startswith("services/led-matrix/"):
             matrix = True
+            continue
+        if name.startswith(_PYTHON_GITOPS_PREFIXES) and path.suffix == ".py":
+            checks.update(("gitops", "python"))
             continue
         if name.startswith(("gitops/", "schemas/")):
             checks.add("gitops")

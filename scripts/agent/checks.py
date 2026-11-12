@@ -100,6 +100,11 @@ COMMANDS = {
 }
 
 
+# Python mounted into workloads from gitops/ that scripts/checks/python.sh
+# lints and type-checks; scripts/ci/scope.py routes the same prefixes.
+PYTHON_GITOPS_PREFIXES = ("gitops/observability/network-monitor/",)
+
+
 def _route(path: str) -> list[tuple[str, str]]:
     if path.startswith("services/led-matrix/"):
         return [("led-matrix", f"{path} changes the matrix service")]
@@ -134,6 +139,11 @@ def _route(path: str) -> list[tuple[str, str]]:
         return [("nix-all-hosts", reason), ("tofu", reason), ("python", reason)]
     if path.startswith("opnsense_reconciler/") and path.endswith(".py"):
         return [("python", f"{path} changes Python reconciliation")]
+    if path.startswith(PYTHON_GITOPS_PREFIXES) and path.endswith(".py"):
+        return [
+            ("gitops", f"{path} changes Kubernetes desired state"),
+            ("python", f"{path} is Python under the lint and type gates"),
+        ]
     if path.startswith("gitops/"):
         return [("gitops", f"{path} changes Kubernetes desired state")]
     if path.startswith("tofu/"):
