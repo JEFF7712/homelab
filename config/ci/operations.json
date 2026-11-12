@@ -1909,6 +1909,9 @@
       },
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
+      },
+      "WOODPECKER_TOKEN": {
+        "from_secret": "woodpecker_token"
       }
     },
     "file_secrets": [

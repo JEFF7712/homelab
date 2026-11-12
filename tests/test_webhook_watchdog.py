@@ -33,9 +33,22 @@ class Router:
         self.pulls = pulls if pulls is not None else []
         self.statuses: dict[str, list[dict]] = {}
         self.commits: dict[str, dict] = {}
+        self.pipelines: list[dict] = []
+        self.started: list[dict] = []
 
     def __call__(self, request: object, timeout: object = None) -> io.BytesIO:
         url = request.full_url if hasattr(request, "full_url") else str(request)
+        if url.startswith("http://ci.internal:8000/api/repos/1/pipelines"):
+            if request.get_method() == "POST":
+                body = json.loads(request.data)
+                self.started.append(body)
+                head = next(
+                    item["commit"]["id"]
+                    for item in self.branches
+                    if item["name"] == body["branch"]
+                )
+                return response({"number": 900, "commit": head})
+            return response(self.pipelines)
         if url.endswith("/branches?limit=100"):
             return response(self.branches)
         if url.endswith("/pulls?state=open&limit=50"):
@@ -65,9 +78,17 @@ def status(state: str, minutes: float) -> dict:
 
 
 class WebhookWatchdogTest(unittest.TestCase):
-    def run_watchdog(self, router: Router, args: list[str]) -> tuple[int, str]:
+    def run_watchdog(
+        self, router: Router, args: list[str], woodpecker_token: str = ""
+    ) -> tuple[int, str]:
         with (
-            patch.dict(os.environ, {"FORGEJO_SOURCE_READ_TOKEN": "test-token"}),
+            patch.dict(
+                os.environ,
+                {
+                    "FORGEJO_SOURCE_READ_TOKEN": "test-token",
+                    "WOODPECKER_TOKEN": woodpecker_token,
+                },
+            ),
             patch(
                 "scripts.ci.webhook_watchdog.urllib.request.urlopen",
                 side_effect=router,
@@ -122,6 +143,43 @@ class WebhookWatchdogTest(unittest.TestCase):
         router = Router(branches=[branch("old", SHA, 60 * 30)])
         code, _ = self.run_watchdog(router, [])
         self.assertEqual(code, 0)
+
+    def test_missed_push_is_redelivered_as_a_manual_pipeline(self) -> None:
+        router = Router(branches=[branch("renovate/x", SHA, 120)])
+        router.pipelines = [{"number": 5, "commit": OTHER, "status": "success"}]
+        code, out = self.run_watchdog(router, [], woodpecker_token="wp")
+        self.assertEqual(code, 0)
+        self.assertEqual(router.started, [{"branch": "renovate/x"}])
+        self.assertIn("redelivered: renovate/x", out)
+
+    def test_stuck_pending_with_finished_pipeline_is_redelivered(self) -> None:
+        router = Router(branches=[branch("renovate/x", SHA, 300)])
+        router.statuses[SHA] = [status("pending", 200)]
+        router.pipelines = [
+            {"number": 5, "commit": SHA, "status": "success", "event": "push"}
+        ]
+        code, _ = self.run_watchdog(router, [], woodpecker_token="wp")
+        self.assertEqual(code, 0)
+        self.assertEqual(router.started, [{"branch": "renovate/x"}])
+
+    def test_active_or_already_redelivered_refs_still_fail(self) -> None:
+        for pipeline, reason in (
+            ({"number": 6, "status": "running", "event": "push"}, "still active"),
+            ({"number": 7, "status": "success", "event": "manual"}, "already ran"),
+        ):
+            router = Router(branches=[branch("renovate/x", SHA, 300)])
+            router.statuses[SHA] = [status("pending", 200)]
+            router.pipelines = [dict(pipeline, commit=SHA)]
+            code, out = self.run_watchdog(router, [], woodpecker_token="wp")
+            self.assertEqual(code, 1)
+            self.assertEqual(router.started, [])
+            self.assertIn(reason, out)
+
+    def test_without_woodpecker_token_nothing_is_redelivered(self) -> None:
+        router = Router(branches=[branch("renovate/x", SHA, 120)])
+        code, _ = self.run_watchdog(router, [])
+        self.assertEqual(code, 1)
+        self.assertEqual(router.started, [])
 
     def test_missing_token_is_a_config_error(self) -> None:
         with (
