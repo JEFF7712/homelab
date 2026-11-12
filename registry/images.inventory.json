@@ -4131,6 +4131,23 @@
         "repository": "umami-software/umami",
         "tag": "3.5.0"
       }
+    },
+    {
+      "consumers": [
+        "gitops/media/registry-sources.yaml:46"
+      ],
+      "destination_repository": "upstream/docker.io/seerr/seerr",
+      "id": "upstream-seerr-seerr-8c85ba50a672",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:aadee014b40e28cf9aa4928bc9d1183a6eb08f8c44d543cddc9efdcb16549be2",
+        "reference": "docker.io/seerr/seerr:v3.5.2@sha256:aadee014b40e28cf9aa4928bc9d1183a6eb08f8c44d543cddc9efdcb16549be2",
+        "registry": "docker.io",
+        "repository": "seerr/seerr",
+        "tag": "v3.5.2"
+      }
     }
   ],
   "kind": "registry-inventory",
