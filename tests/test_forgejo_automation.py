@@ -24,7 +24,7 @@ def embedded(filename: str, key: str) -> dict:
     ][key]
     scope = {"__name__": "migration_test"}
     with patch("builtins.open", return_value=io.StringIO("test-topic")):
-        exec(compile(source, filename, "exec"), scope)
+        exec(compile(source, filename, "exec"), scope)  # noqa: S102 - test the mounted script
     return scope
 
 
@@ -356,7 +356,8 @@ class AutomationTest(unittest.TestCase):
                             {
                                 "context": "ci/woodpecker/validation-v2",
                                 "status": "success",
-                            }
+                            },
+                            {"context": "policy/merge", "status": "success"},
                         ]
                     },
                     [{"user": {"login": author}, "body": body}],
@@ -376,6 +377,80 @@ class AutomationTest(unittest.TestCase):
                 self.assertEqual(merges[0].args[2]["head_commit_id"], SHA)
             receipt = json.loads(scope["patch_state"].call_args.args[1])
             self.assertEqual(receipt["approval"]["approved"], expected)
+
+    def test_reviewer_waits_for_every_required_check(self) -> None:
+        for context in ("ci/woodpecker/validation-v2", "policy/merge"):
+            for state in (None, "pending", "failure", "error"):
+                with self.subTest(context=context, state=state):
+                    scope = embedded(
+                        "renovate-reviewer-script.yaml", "renovate-agent.py"
+                    )
+                    statuses = [
+                        {
+                            "context": name,
+                            "status": state if name == context else "success",
+                        }
+                        for name in ("ci/woodpecker/validation-v2", "policy/merge")
+                        if name != context or state is not None
+                    ]
+                    api = Mock(
+                        side_effect=[
+                            {"statuses": statuses},
+                            [
+                                {
+                                    "user": {"login": "JEFF7712"},
+                                    "body": "/renovate-agent approve " + SHA,
+                                }
+                            ],
+                        ]
+                    )
+                    scope.update(forgejo=api, notify=Mock(), patch_state=Mock())
+                    scope["process_forgejo_pr"](
+                        "JEFF7712",
+                        "homelab",
+                        {
+                            "number": 4,
+                            "head": {"sha": SHA},
+                        },
+                        {},
+                    )
+                    self.assertFalse(
+                        any(call.args[0] == "POST" for call in api.call_args_list)
+                    )
+                    self.assertIn(context, scope["notify"].call_args.args[2])
+
+    def test_native_automerge_owns_eligible_prs(self) -> None:
+        scope = embedded("renovate-reviewer-script.yaml", "renovate-agent.py")
+        api = Mock(
+            side_effect=[
+                {
+                    "statuses": [
+                        {"context": "ci/woodpecker/validation-v2", "status": "success"},
+                        {"context": "policy/merge", "status": "success"},
+                    ]
+                },
+                [],
+            ]
+        )
+        scope.update(forgejo=api, notify=Mock(), patch_state=Mock())
+        scope["process_forgejo_pr"](
+            "JEFF7712",
+            "homelab",
+            {
+                "number": 4,
+                "head": {"sha": SHA},
+                "user": {"login": "homelab-renovate"},
+                "body": "**Automerge**: Enabled.",
+            },
+            {},
+        )
+        self.assertFalse(any(call.args[0] == "POST" for call in api.call_args_list))
+        message = scope["notify"].call_args.args[2]
+        self.assertIn("Native automerge enabled", message)
+        self.assertNotIn("Approve this exact commit", message)
+        receipt = json.loads(scope["patch_state"].call_args.args[1])
+        self.assertTrue(receipt["native_automerge"])
+        self.assertFalse(receipt["approval"]["approved"])
 
     def test_forgejo_https_configuration_contract(self) -> None:
         forgejo_nix = (ROOT / "flake/modules/forgejo.nix").read_text()
