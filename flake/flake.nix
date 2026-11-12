@@ -21,7 +21,12 @@
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    impermanence.url = "github:nix-community/impermanence";
+    impermanence = {
+      url = "github:nix-community/impermanence";
+      inputs.nixpkgs.follows = "nixpkgs";
+      # Upstream uses home-manager only for its own checks.
+      inputs.home-manager.follows = "";
+    };
     niks3 = {
       url = "github:Mic92/niks3/v1.16.0";
       inputs.nixpkgs.follows = "nixpkgs";
