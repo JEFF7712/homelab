@@ -270,8 +270,11 @@ in
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport 6053 accept
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport { 8095, 8097, 38801, 38802, 38803, 38804, 38805, 38806, 38807, 38808, 38809, 38810, 38901, 38902, 38903, 38904, 38905, 38906, 38907, 38908, 38909, 38910 } accept
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 5353 accept
-    # Allow inbound UDP from internal subnets for Music Assistant AirPlay/RAOP timing and streaming
-    meta l4proto udp ip saddr { 10.0.0.0/16, 10.42.0.0/16 } accept
+    # Music Assistant AirPlay/RAOP timing and control use dynamically negotiated
+    # UDP ports, so this rule is port-agnostic and narrowed by source instead:
+    # speakers and players on the clients and infrastructure VLANs, plus pods.
+    # The guest/IoT VLAN only gets the TCP party view and LedFx ports above.
+    meta l4proto udp ip saddr { ${fleetInventory.networks.clients.cidr}, ${fleetInventory.networks.infrastructure.cidr}, 10.42.0.0/16 } accept
   '';
 
   systemd.services.satellite-alsa-restore = {
