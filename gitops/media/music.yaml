@@ -419,14 +419,17 @@ metadata:
   name: beets-nightly
   namespace: media
 spec:
+  concurrencyPolicy: Forbid
   schedule: 0 3 * * *
   timeZone: America/Chicago
   jobTemplate:
     spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 72000
       template:
         spec:
           automountServiceAccountToken: false
-          restartPolicy: OnFailure
+          restartPolicy: Never
           securityContext:
             fsGroup: 1000
             seccompProfile:
@@ -434,11 +437,15 @@ spec:
           containers:
             - name: beets
               image: registry.rupan.dev/upstream/lscr.io/linuxserver/beets@sha256:90b1404e962dfc09c1926f4d8dca8920fc90d71369df5398340a12eb8ce7328c  # yamllint disable-line rule:line-length
-              command: ["beet", "-c", "/config/config.yaml", "import", "-p", "-q", "/data/music"]
+              command: ["python3", "/config/nightly.py"]
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
               env:
+                - name: HOME
+                  value: /tmp
+                - name: XDG_CACHE_HOME
+                  value: /tmp/.cache
                 - name: PUID
                   value: "1000"
                 - name: PGID
