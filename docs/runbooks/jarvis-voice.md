@@ -677,9 +677,12 @@ when `jarvis_exporter_ha_connected` is zero, the subscription state is not
 The exporter needs a Home Assistant long-lived token in SOPS-managed property
 `JARVIS_EXPORTER_HA_TOKEN` (consumed via the `homelab-secrets`
 ClusterSecretStore). Without it the exporter still serves `/metrics` with
-`connected=0`, and the dashboard shows no turns. Exporter logic is covered
-by `tests/test_jarvis_exporter.py`, which executes the exact script embedded
-in the ConfigMap.
+`connected=0`, and the dashboard shows no turns. The exporter source is
+`gitops/voice/exporter/exporter.py`; `gitops/voice/kustomization.yaml`
+generates the unhashed `jarvis-exporter-code` ConfigMap from it, as it does
+`satellite-patch-code` from `gitops/voice/satellite/`. Exporter logic is
+covered by `tests/test_jarvis_exporter.py`, which executes the exact script in
+the rendered ConfigMap.
 
 ### Eval loop
 
