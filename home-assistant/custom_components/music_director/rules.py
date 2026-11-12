@@ -96,6 +96,7 @@ class Features:
     energy: float | None = None
     danceability: float | None = None
     acousticness: float | None = None
+    valence: float | None = None
 
 
 def genre_family(genres: tuple[str, ...]) -> str | None:

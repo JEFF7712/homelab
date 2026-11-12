@@ -58,9 +58,18 @@ brightness.
 4. Last.fm top tags for the track, then the artist, when no genre is known.
 
 The cover palette takes the most vivid well-represented colour of the album
-art (clustered in OKLab) plus a contrasting accent. Grey or monochrome covers
-fall back to a hue for the genre. `sensor.music_director` attributes
-`metadata_sources` and `palette_source` show what each decision used.
+art (clustered in OKLab) plus a contrasting accent. Skin tones, browns and
+olives (`palette.muddy`) count for 0.15 of their score, so portrait covers do
+not turn the room amber. When no cover colour scores at least
+`MIN_COVER_SCORE`, the palette comes from the song's vibe
+(`palette.vibe_palette`): the genre's base hue, moved warmer and lighter for
+positive valence and cooler and darker for negative valence, with energy (or
+tempo) raising saturation and brightness, after the music-colour findings of
+Palmer et al. (PNAS 2013). On output, yellows and oranges get a lightness
+floor so nothing renders as mustard, olive or brown, as Material's
+DislikeAnalyzer does. `sensor.music_director` attributes `metadata_sources`
+and `palette_source` (`cover`, `vibe` or `default`) show what each decision
+used.
 
 ## Effects
 
