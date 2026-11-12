@@ -1,0 +1,5 @@
+refresh:
+  name: Refresh
+  description: >-
+    Re-decide the palette and LedFx effect for the playing track and apply
+    them again.

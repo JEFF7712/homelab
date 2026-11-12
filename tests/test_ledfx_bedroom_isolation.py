@@ -189,9 +189,6 @@ class BedroomIsolationTests(unittest.TestCase):
     def test_ledfx_instances_have_distinct_endpoints(self) -> None:
         urls = rest_command_urls()
         self.assertEqual(
-            urls["ledfx_activate_scene"], f"http://{SHARED_HOST}:8888/api/scenes"
-        )
-        self.assertEqual(
             urls["ledfx_bedroom_activate_scene"],
             f"http://{BEDROOM_HOST}:8888/api/scenes",
         )
@@ -199,10 +196,15 @@ class BedroomIsolationTests(unittest.TestCase):
             urls["ledfx_bedroom_deactivate_scene"],
             f"http://{BEDROOM_HOST}:8888/api/scenes",
         )
-        self.assertEqual(
-            urls["ledfx_deactivate_scene"],
-            f"http://{SHARED_HOST}:8888/api/scenes",
+        # The shared instance is driven only by the music_director integration.
+        core = yaml.load(
+            CORE.read_text(encoding="utf-8"), Loader=DuplicateKeySafeLoader
         )
+        self.assertEqual(
+            core["music_director"]["ledfx_url"], f"http://{SHARED_HOST}:8888"
+        )
+        shared = [url for url in urls.values() if SHARED_HOST in url]
+        self.assertEqual(shared, [])
         self.assertNotEqual(SHARED_HOST, BEDROOM_HOST)
 
     def test_bedroom_automation_only_uses_bedroom_commands(self) -> None:

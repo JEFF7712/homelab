@@ -15,7 +15,7 @@ spec:
       labels:
         app: home-assistant
       annotations:
-        checksum/config: 97582496403304bd12f1e370278198811537cc44ea85639dc4f4d4efebf6a2be
+        checksum/config: be4c574d54480f2dcbad7b830b5794425c982acb6baa0166442f3f89ccfd054d
         checksum/dependencies: 8eac350ea6f0dc5b311c3b363345bb99229e5efa193aa69111e630103301751e
         reloader.stakater.com/auto: 'true'
     spec:
@@ -56,6 +56,7 @@ spec:
                 [ -f "$src" ] || continue
                 base=$(basename "$src")
                 [ "$base" = "configuration.yaml" ] && continue
+                case "$base" in component.*) continue ;; esac
                 lang=${base%%.*}
                 file=${base#*.}
                 mkdir -p "/config/custom_sentences/$lang"
@@ -137,6 +138,13 @@ spec:
                 secretKeyRef:
                   name: home-assistant-secrets
                   key: gemini_api_key
+                  optional: true
+            # Last.fm genre tags for music_director (gitops/secrets).
+            - name: LASTFM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lastfm-api
+                  key: api-key
                   optional: true
             - name: JARVIS_SHADOW_ENABLED
               value: "0"

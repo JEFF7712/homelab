@@ -8,6 +8,22 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+class HaLoader(yaml.SafeLoader):
+    """SafeLoader that reads Home Assistant tags such as !include as null."""
+
+
+HaLoader.add_multi_constructor("!", lambda loader, suffix, node: None)
+
+AREAS = (
+    "kitchen_ceiling",
+    "dining_table",
+    "floor_lamp",
+    "tulip_lamp",
+    "ceiling_strip",
+    "mushroom_lamp",
+)
+
+
 class TestSharedMusicMode(unittest.TestCase):
     def test_helper_definition(self) -> None:
         helper_file = (
@@ -44,52 +60,135 @@ class TestSharedMusicMode(unittest.TestCase):
             "input_boolean.shared_music_mode",
         )
 
-    def test_lighting_automation_uses_native_effects_and_no_rate_limit_loop(
+    def _automation(self) -> dict:
+        return yaml.safe_load(
+            (
+                REPO_ROOT / "home-assistant" / "automations" / "shared_music_mode.yaml"
+            ).read_text(encoding="utf-8")
+        )
+
+    def _area_script(self) -> dict:
+        return yaml.safe_load(
+            (
+                REPO_ROOT / "home-assistant" / "scripts" / "shared_music_area.yaml"
+            ).read_text(encoding="utf-8")
+        )
+
+    def test_every_area_has_a_helper_registry_row_and_dashboard_tile(self) -> None:
+        registry = yaml.safe_load(
+            (REPO_ROOT / "home-assistant" / "registries" / "entities.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        registered = {entry.get("entity_id") for entry in registry}
+        dashboard = (
+            REPO_ROOT / "home-assistant" / "dashboards" / "shared-spaces.yaml"
+        ).read_text(encoding="utf-8")
+        for area in ("led_strip", *AREAS):
+            entity = f"input_boolean.music_mode_{area}"
+            helper = yaml.safe_load(
+                (
+                    REPO_ROOT
+                    / "home-assistant"
+                    / "helpers"
+                    / f"input_boolean_music_mode_{area}.yaml"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(helper["entity_id"], entity)
+            # No initial: the toggles keep their last values across restarts.
+            self.assertNotIn("initial", helper)
+            self.assertIn(entity, registered)
+            self.assertIn(f"entity: {entity}", dashboard)
+
+    def test_area_script_and_director_agree_on_areas(self) -> None:
+        script_areas = self._area_script()["sequence"][0]["variables"]["areas"]
+        self.assertEqual(tuple(script_areas), AREAS)
+        automation_areas = self._automation()["actions"][0]["variables"]["areas"]
+        self.assertEqual(tuple(automation_areas), AREAS)
+        core = yaml.load(
+            (REPO_ROOT / "home-assistant" / "core" / "configuration.yaml").read_text(
+                encoding="utf-8"
+            ),
+            Loader=HaLoader,
+        )
+        director = core["music_director"]
+        self.assertEqual(tuple(director["areas"]), AREAS)
+        self.assertEqual(director["enabled"], "input_boolean.shared_music_mode")
+        self.assertEqual(director["strip"], "input_boolean.music_mode_led_strip")
+
+    def test_area_script_covers_every_shared_light(self) -> None:
+        areas = self._area_script()["sequence"][0]["variables"]["areas"]
+        lights = {light for area in areas.values() for light in area["lights"]}
+        self.assertEqual(
+            lights,
+            {
+                "light.kitchen_ceiling_light_1",
+                "light.kitchen_ceiling_light_2",
+                "light.living_room_floor_lamp",
+                "light.living_room_tulip_lamp",
+                "light.kitchen_dining_table_ceiling_light_1",
+                "light.kitchen_dining_table_ceiling_light_2",
+                "light.apollo_led_strip_apollo_led_strip",
+                "light.kitchen_mushroom_lamp",
+            },
+        )
+        # The Govee dining bulbs have their own Adaptive Lighting entry.
+        self.assertEqual(
+            areas["dining_table"]["adaptive"],
+            "switch.adaptive_lighting_govee_dining_bulbs",
+        )
+        self.assertFalse(areas["mushroom_lamp"]["colour"])
+
+    def test_area_script_snapshots_restores_and_hands_back_adaptive_lighting(
         self,
     ) -> None:
-        auto_file = (
-            REPO_ROOT / "home-assistant" / "automations" / "shared_music_mode.yaml"
+        raw = (
+            REPO_ROOT / "home-assistant" / "scripts" / "shared_music_area.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertEqual(self._area_script()["mode"], "parallel")
+        for needle in (
+            "scene.create",
+            'scene_id: "pre_music_{{ area }}"',
+            "scene.turn_on",
+            "adaptive_lighting.set_manual_control",
+            "adaptive_lighting.apply",
+            "turn_on_lights: false",
+            "state_attr('sensor.music_director', 'area_colors')",
+            "brightness_pct: 70",
+        ):
+            self.assertIn(needle, raw)
+        self.assertNotIn("delay:", raw)
+
+    def test_automation_joins_leaves_and_repaints_taking_part_areas(self) -> None:
+        automation = self._automation()
+        self.assertEqual(automation["id"], "shared_music_mode")
+        self.assertEqual(automation["alias"], "Lighting: Shared Music Mode")
+        self.assertNotIn("initial_state", automation)
+        triggers = {t["id"]: t for t in automation["triggers"]}
+        self.assertEqual(set(triggers), {"mode_on", "mode_off", "area", "palette"})
+        self.assertEqual(
+            triggers["area"]["entity_id"],
+            [f"input_boolean.music_mode_{area}" for area in AREAS],
         )
-        self.assertTrue(auto_file.is_file(), "Automation file must exist")
-        raw_text = auto_file.read_text(encoding="utf-8")
-        data = yaml.safe_load(raw_text)
+        # The palette trigger must also fire on attribute-only changes.
+        self.assertNotIn("to", triggers["palette"])
+        raw = yaml.safe_dump(automation)
+        for step in ("join", "leave", "paint"):
+            self.assertIn(f"step: {step}", raw)
+        self.assertNotIn("delay:", raw)
+        # The LED strip is the director's; scenes are no longer activated here.
+        self.assertNotIn("rest_command.ledfx", raw)
+        self.assertNotIn("music_mode_led_strip", yaml.safe_dump(triggers))
 
-        self.assertEqual(data.get("id"), "shared_music_mode")
-        self.assertEqual(data.get("alias"), "Lighting: Shared Music Mode")
-
-        # No loops or delays.
-        # Shared music mode activates the LedFx scene for the living room
-        # LED strip on entry and deactivates it on exit.
-        self.assertNotIn("repeat:", raw_text)
-        self.assertNotIn("delay:", raw_text)
-        self.assertNotIn("states.media_player", raw_text)
-        self.assertIn("rest_command.ledfx_activate_scene", raw_text)
-        self.assertIn("rest_command.ledfx_deactivate_scene", raw_text)
-        # The scene may already be gone (deleted), so its cleanup must
-        # never block the snapshot restore that follows it.
-        self.assertIn("continue_on_error: true", raw_text)
-
-        # Must lock and restore Adaptive Lighting properly
-        self.assertIn("adaptive_lighting.set_manual_control", raw_text)
-        self.assertIn("adaptive_lighting.apply", raw_text)
-        self.assertIn("turn_on_lights: false", raw_text)
-
-        # Must snapshot pre-music state on entry and restore it on exit, so
-        # bulbs and ceiling strip return to prior state.
-        self.assertIn("scene.create", raw_text)
-        self.assertIn("pre_music_mode_shared", raw_text)
-        self.assertIn("scene.turn_on", raw_text)
-        self.assertIn("light.turn_off", raw_text)
-
-    def test_music_snapshot_is_watchman_exempt(self) -> None:
-        watchman_file = (
+    def test_music_snapshots_are_watchman_exempt(self) -> None:
+        raw = (
             REPO_ROOT
             / "home-assistant"
             / "automations"
             / "watchman_missing_report.yaml"
-        )
-        raw_text = watchman_file.read_text(encoding="utf-8")
-        self.assertIn("scene.pre_music_mode_shared", raw_text)
+        ).read_text(encoding="utf-8")
+        for area in AREAS:
+            self.assertIn(f"scene.pre_music_{area}", raw)
 
     def test_voice_automation(self) -> None:
         voice_file = (
@@ -114,24 +213,6 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertIn("turn on [the] shared spaces music mode", raw_text)
         self.assertNotRegex(raw_text.lower(), r"govee|zigbee")
 
-    def test_automation_is_enabled_and_turns_off_bulbs_and_ceiling_strip(self) -> None:
-        auto_file = (
-            REPO_ROOT / "home-assistant" / "automations" / "shared_music_mode.yaml"
-        )
-        raw_text = auto_file.read_text(encoding="utf-8")
-        self.assertNotIn("initial_state", yaml.safe_load(raw_text))
-        for bulb in (
-            "light.kitchen_ceiling_light_1",
-            "light.kitchen_ceiling_light_2",
-            "light.living_room_floor_lamp",
-            "light.living_room_tulip_lamp",
-            "light.kitchen_dining_table_ceiling_light_1",
-            "light.kitchen_dining_table_ceiling_light_2",
-            "light.apollo_led_strip_apollo_led_strip",
-            "light.kitchen_mushroom_lamp",
-        ):
-            self.assertIn(bulb, raw_text)
-
     def test_dashboards_contain_music_mode(self) -> None:
         shared_spaces = (
             REPO_ROOT / "home-assistant" / "dashboards" / "shared-spaces.yaml"
@@ -143,36 +224,6 @@ class TestSharedMusicMode(unittest.TestCase):
             REPO_ROOT / "home-assistant" / "dashboards" / "lovelace-jarvis.yaml"
         ).read_text(encoding="utf-8")
         self.assertIn("input_boolean.shared_music_mode", lovelace_jarvis)
-
-    def test_album_colour_script_covers_all_shared_bulbs(self) -> None:
-        script = yaml.safe_load(
-            (
-                REPO_ROOT
-                / "home-assistant"
-                / "scripts"
-                / "shared_music_album_color.yaml"
-            ).read_text(encoding="utf-8")
-        )
-        call = next(s for s in script["sequence"] if "action" in s)
-        self.assertEqual(call["action"], "color_extractor.turn_on")
-        self.assertEqual(
-            set(call["data"]["entity_id"]),
-            {
-                "light.kitchen_ceiling_light_1",
-                "light.kitchen_ceiling_light_2",
-                "light.living_room_floor_lamp",
-                "light.living_room_tulip_lamp",
-                "light.kitchen_dining_table_ceiling_light_1",
-                "light.kitchen_dining_table_ceiling_light_2",
-            },
-        )
-        self.assertIn("brightness_pct", call["data"])
-        core = (REPO_ROOT / "home-assistant" / "core" / "configuration.yaml").read_text(
-            encoding="utf-8"
-        )
-        self.assertRegex(
-            core, r"allowlist_external_urls:\n\s+- http://127\.0\.0\.1:8123\n"
-        )
 
 
 if __name__ == "__main__":

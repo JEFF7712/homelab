@@ -1,0 +1,371 @@
+"""Home Assistant side of music_director: watch the player, gather metadata,
+decide a palette and LedFx effect once per track, and publish the result.
+
+The LED strip is driven here through the LedFx API. Bulb areas are painted
+by the shared music mode automation from sensor.music_director, so all
+snapshot and Adaptive Lighting handling stays in Home Assistant YAML.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import io
+import logging
+from collections import OrderedDict
+from dataclasses import dataclass, field
+from typing import Any
+
+import aiohttp
+from homeassistant.const import STATE_ON
+from homeassistant.core import (
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    State,
+    callback,
+)
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_track_state_change_event
+
+from .metadata import (
+    TrackInfo,
+    apply_lastfm,
+    apply_library,
+    apply_reccobeats,
+    same_track,
+    spotify_track_id,
+)
+from .palette import Palette, area_colors, extract_palette, genre_palette, gradient
+from .rules import choose_effect, classify, effect_config
+
+_LOGGER = logging.getLogger(__name__)
+
+SENSOR = "sensor.music_director"
+RECCOBEATS_URL = "https://api.reccobeats.com/v1/audio-features"
+LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
+HTTP_TIMEOUT = aiohttp.ClientTimeout(total=8)
+SPOTIFY_ATTEMPTS = 3
+SPOTIFY_RETRY_SECONDS = 1.5
+ART_SIZE = 48
+MAX_ART_BYTES = 5_000_000
+CACHE_SIZE = 256
+
+
+@dataclass(frozen=True)
+class DirectorConfig:
+    player: str
+    spotify: str
+    enabled: str
+    strip: str
+    ledfx_url: str
+    ledfx_virtual: str
+    library_url: str
+    areas: tuple[str, ...]
+    lastfm_key: str | None = field(default=None, repr=False)
+
+
+@dataclass(frozen=True)
+class Decision:
+    title: str
+    artist: str
+    info: TrackInfo
+    palette: Palette
+    family: str
+    effect: str
+    config: dict[str, Any]
+
+
+def _track_key(state: State | None) -> str | None:
+    if state is None or state.state != "playing":
+        return None
+    title = state.attributes.get("media_title")
+    if not title:
+        return None
+    artist = state.attributes.get("media_artist") or ""
+    album = state.attributes.get("media_album_name") or ""
+    return f"{artist}\n{title}\n{album}"
+
+
+def _decode_pixels(data: bytes) -> list[tuple[int, int, int]]:
+    from PIL import Image  # Home Assistant ships Pillow; import off the event loop.
+
+    with Image.open(io.BytesIO(data)) as image:
+        raw = image.convert("RGB").resize((ART_SIZE, ART_SIZE)).tobytes()
+    return [(raw[i], raw[i + 1], raw[i + 2]) for i in range(0, len(raw), 3)]
+
+
+def _cover_palette(data: bytes) -> Palette | None:
+    return extract_palette(_decode_pixels(data))
+
+
+class Director:
+    def __init__(self, hass: HomeAssistant, config: DirectorConfig) -> None:
+        self.hass = hass
+        self.config = config
+        self._session = async_get_clientsession(hass)
+        self._cache: OrderedDict[str, tuple[TrackInfo, Palette | None]] = OrderedDict()
+        self._task: asyncio.Task[None] | None = None
+        self._track_key: str | None = None
+        self._last_effect: str | None = None
+        self._decision: Decision | None = None
+
+    @callback
+    def async_start(self) -> None:
+        async_track_state_change_event(
+            self.hass,
+            [self.config.player, self.config.enabled, self.config.strip],
+            self._on_change,
+        )
+        if self._is_on(self.config.enabled):
+            self.schedule(force=True)
+
+    def _is_on(self, entity_id: str) -> bool:
+        state = self.hass.states.get(entity_id)
+        return state is not None and state.state == STATE_ON
+
+    @callback
+    def _on_change(self, event: Event[EventStateChangedData]) -> None:
+        entity_id = event.data["entity_id"]
+        new_state = event.data["new_state"]
+        if entity_id == self.config.enabled:
+            if new_state is not None and new_state.state == STATE_ON:
+                self.schedule(force=True)
+            else:
+                self._cancel()
+                self.hass.async_create_task(self._stop())
+            return
+        if not self._is_on(self.config.enabled):
+            return
+        if entity_id == self.config.strip:
+            if new_state is not None and new_state.state == STATE_ON:
+                if self._decision is not None:
+                    self.hass.async_create_task(self._push_strip(self._decision))
+            else:
+                self.hass.async_create_task(self._clear_strip())
+            return
+        key = _track_key(new_state)
+        if key is not None and key != self._track_key:
+            self.schedule(force=False)
+
+    def _cancel(self) -> None:
+        if self._task is not None and not self._task.done():
+            self._task.cancel()
+        self._task = None
+
+    @callback
+    def schedule(self, force: bool) -> None:
+        self._cancel()
+        self._task = self.hass.async_create_task(self._run(force))
+
+    async def _run(self, force: bool) -> None:
+        player = self.hass.states.get(self.config.player)
+        key = _track_key(player)
+        if key is None:
+            if self._decision is not None and not force:
+                return
+            decision = self._idle_decision()
+            self._track_key = None
+        else:
+            if key == self._track_key and not force:
+                return
+            self._track_key = key
+            assert player is not None
+            decision = await self._decide(player, key)
+        self._decision = decision
+        self._last_effect = decision.effect
+        self._publish(decision)
+        if self._is_on(self.config.strip):
+            await self._push_strip(decision)
+
+    def _idle_decision(self) -> Decision:
+        info = TrackInfo()
+        palette = genre_palette(())
+        return Decision(
+            "", "", info, palette, "default", "energy", effect_config("energy", palette)
+        )
+
+    async def _decide(self, player: State, key: str) -> Decision:
+        cached = self._cache.get(key)
+        if cached is None:
+            info, cover = await asyncio.gather(
+                self._gather_info(player), self._fetch_cover(player)
+            )
+            cached = (info, cover)
+            self._cache[key] = cached
+            while len(self._cache) > CACHE_SIZE:
+                self._cache.popitem(last=False)
+        else:
+            self._cache.move_to_end(key)
+        info, cover = cached
+        palette = cover or genre_palette(info.genres)
+        family = classify(info.features())
+        effect = choose_effect(family, key, self._last_effect)
+        title = player.attributes.get("media_title") or ""
+        artist = player.attributes.get("media_artist") or ""
+        _LOGGER.info(
+            "%s - %s: %s/%s, palette %s (hue %.0f), sources %s",
+            artist,
+            title,
+            family,
+            effect,
+            palette.source,
+            palette.hue,
+            ",".join(info.sources) or "none",
+        )
+        return Decision(
+            title, artist, info, palette, family, effect, effect_config(effect, palette)
+        )
+
+    async def _get_json(self, url: str, params: dict[str, str], label: str) -> Any:
+        try:
+            async with self._session.get(
+                url, params=params, timeout=HTTP_TIMEOUT
+            ) as response:
+                if response.status != 200:
+                    _LOGGER.debug("%s lookup returned HTTP %s", label, response.status)
+                    return None
+                return await response.json(content_type=None)
+        except (aiohttp.ClientError, TimeoutError, ValueError) as error:
+            # The exception text can carry request URLs, and Last.fm's has the key.
+            _LOGGER.debug("%s lookup failed: %s", label, type(error).__name__)
+            return None
+
+    async def _spotify_id(self, title: str, artist: str) -> str | None:
+        for attempt in range(SPOTIFY_ATTEMPTS):
+            state = self.hass.states.get(self.config.spotify)
+            if state is not None and same_track(
+                title,
+                artist,
+                state.attributes.get("media_title") or "",
+                state.attributes.get("media_artist") or "",
+            ):
+                return spotify_track_id(state.attributes.get("media_content_id"))
+            if attempt == SPOTIFY_ATTEMPTS - 1:
+                break
+            try:
+                await self.hass.services.async_call(
+                    "homeassistant",
+                    "update_entity",
+                    {"entity_id": self.config.spotify},
+                    blocking=True,
+                )
+            except Exception as error:  # noqa: BLE001 - polling is best effort
+                _LOGGER.debug("Spotify refresh failed: %s", type(error).__name__)
+            await asyncio.sleep(SPOTIFY_RETRY_SECONDS)
+        return None
+
+    async def _gather_info(self, player: State) -> TrackInfo:
+        info = TrackInfo()
+        title = player.attributes.get("media_title") or ""
+        artist = player.attributes.get("media_artist") or ""
+        duration = player.attributes.get("media_duration")
+        spotify_id = await self._spotify_id(title, artist)
+        if spotify_id:
+            apply_reccobeats(
+                info,
+                await self._get_json(RECCOBEATS_URL, {"ids": spotify_id}, "ReccoBeats"),
+            )
+        params = {"artist": artist, "title": title, "isrc": info.isrc or ""}
+        if isinstance(duration, (int, float)) and duration > 0:
+            params["duration"] = str(duration)
+        apply_library(
+            info,
+            await self._get_json(
+                f"{self.config.library_url}/lookup", params, "Library"
+            ),
+        )
+        if not info.genres and self.config.lastfm_key:
+            for method, extra in (
+                ("track.gettoptags", {"track": title}),
+                ("artist.gettoptags", {}),
+            ):
+                body = await self._get_json(
+                    LASTFM_URL,
+                    {
+                        "method": method,
+                        "artist": artist,
+                        "autocorrect": "1",
+                        "api_key": self.config.lastfm_key,
+                        "format": "json",
+                        **extra,
+                    },
+                    "Last.fm",
+                )
+                apply_lastfm(info, body, artist)
+                if info.genres:
+                    break
+        return info
+
+    async def _fetch_cover(self, player: State) -> Palette | None:
+        picture = player.attributes.get("entity_picture")
+        if not picture:
+            return None
+        if not picture.startswith("http"):
+            picture = f"http://127.0.0.1:{self.hass.http.server_port}{picture}"
+        try:
+            async with self._session.get(picture, timeout=HTTP_TIMEOUT) as response:
+                if response.status != 200:
+                    return None
+                data = await response.content.read(MAX_ART_BYTES)
+            return await self.hass.async_add_executor_job(_cover_palette, data)
+        except (aiohttp.ClientError, TimeoutError, OSError, ValueError) as error:
+            _LOGGER.debug("Cover art unavailable: %s", type(error).__name__)
+            return None
+
+    def _publish(self, decision: Decision) -> None:
+        colours = area_colors(decision.palette, len(self.config.areas))
+        info = decision.info
+        self.hass.states.async_set(
+            SENSOR,
+            decision.effect,
+            {
+                "friendly_name": "Music Director",
+                "icon": "mdi:palette",
+                "title": decision.title,
+                "artist": decision.artist,
+                "genres": list(info.genres),
+                "bpm": round(info.bpm) if info.bpm else None,
+                "energy": info.energy,
+                "family": decision.family,
+                "effect": decision.effect,
+                "palette_source": decision.palette.source,
+                "metadata_sources": list(info.sources),
+                "area_colors": {
+                    area: list(colour)
+                    for area, colour in zip(self.config.areas, colours, strict=True)
+                },
+                "gradient": gradient(decision.palette),
+            },
+        )
+
+    async def _ledfx(self, method: str, payload: dict[str, Any] | None = None) -> None:
+        url = (
+            f"{self.config.ledfx_url}/api/virtuals/{self.config.ledfx_virtual}/effects"
+        )
+        try:
+            async with self._session.request(
+                method, url, json=payload, timeout=HTTP_TIMEOUT
+            ) as response:
+                if response.status >= 400:
+                    _LOGGER.warning(
+                        "LedFx %s returned HTTP %s: %s",
+                        method,
+                        response.status,
+                        (await response.text())[:200],
+                    )
+        except (aiohttp.ClientError, TimeoutError) as error:
+            _LOGGER.warning("LedFx %s failed: %s", method, error)
+
+    async def _push_strip(self, decision: Decision) -> None:
+        await self._ledfx("POST", {"type": decision.effect, "config": decision.config})
+
+    async def _clear_strip(self) -> None:
+        await self._ledfx("DELETE")
+
+    async def _stop(self) -> None:
+        self._track_key = None
+        self._decision = None
+        self.hass.states.async_set(
+            SENSOR, "off", {"friendly_name": "Music Director", "icon": "mdi:palette"}
+        )
+        await self._clear_strip()

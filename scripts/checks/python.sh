@@ -27,6 +27,7 @@ pyright_paths=(
   scripts/netbird_agent_workspaces.py scripts/prometheus_storage_migrate.py
   scripts/record_jev_decisions.py scripts/recovery_guest.py scripts/recovery_host.py
   scripts/recovery_pack.py scripts/score_l1_acceptance.py scripts/spotify_sync.py
+  scripts/navidrome_lookup.py
   scripts/voice_stt_switch.py scripts/voice_topology.py
   flake/modules/repo_monitor.py flake/modules/kiosk-rotate.py
   flake/modules/kiosk-ha-token-seed.py flake/modules/jarvis-spectrum.py

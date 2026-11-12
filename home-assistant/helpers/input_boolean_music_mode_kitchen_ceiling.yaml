@@ -1,0 +1,3 @@
+name: 'Music Mode: Kitchen Ceiling'
+icon: mdi:ceiling-light
+entity_id: input_boolean.music_mode_kitchen_ceiling

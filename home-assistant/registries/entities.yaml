@@ -105,6 +105,34 @@
   icon: mdi:account-multiple
   labels: []
   name: Guest Mode
+- entity_id: input_boolean.music_mode_ceiling_strip
+  icon: mdi:led-strip
+  labels: []
+  name: 'Music Mode: Ceiling Strip'
+- entity_id: input_boolean.music_mode_dining_table
+  icon: mdi:ceiling-light-multiple
+  labels: []
+  name: 'Music Mode: Dining Table'
+- entity_id: input_boolean.music_mode_floor_lamp
+  icon: mdi:floor-lamp
+  labels: []
+  name: 'Music Mode: Floor Lamp'
+- entity_id: input_boolean.music_mode_kitchen_ceiling
+  icon: mdi:ceiling-light
+  labels: []
+  name: 'Music Mode: Kitchen Ceiling'
+- entity_id: input_boolean.music_mode_led_strip
+  icon: mdi:led-strip-variant
+  labels: []
+  name: 'Music Mode: LED Strip'
+- entity_id: input_boolean.music_mode_mushroom_lamp
+  icon: mdi:mushroom
+  labels: []
+  name: 'Music Mode: Mushroom Lamp'
+- entity_id: input_boolean.music_mode_tulip_lamp
+  icon: mdi:lamp
+  labels: []
+  name: 'Music Mode: Tulip Lamp'
 - entity_id: input_boolean.phone_bedtime_reminder_sent
   icon: mdi:bell-check
   labels: []

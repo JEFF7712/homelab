@@ -18,17 +18,7 @@ homeassistant:
 frontend:
   themes: !include_dir_merge_named themes
 rest_command:
-  # Shared-spaces LedFx (homelab-05) drives the shared music mode only.
-  ledfx_activate_scene:
-    url: "http://10.0.30.15:8888/api/scenes"
-    method: put
-    content_type: "application/json"
-    payload: '{"id": "{{ scene_id }}", "action": "activate"}'
-  ledfx_deactivate_scene:
-    url: "http://10.0.30.15:8888/api/scenes"
-    method: put
-    content_type: "application/json"
-    payload: '{"id": "{{ scene_id }}", "action": "deactivate"}'
+  # Shared-spaces LedFx (homelab-05) is driven by music_director.
   # Bedroom LedFx (nas-01) is a separate instance with its own audio tap. Kept
   # deliberately separate so nothing in shared spaces can reach bedroom state.
   ledfx_bedroom_activate_scene:
@@ -338,6 +328,25 @@ template:
               entity_id:
                 - switch.adaptive_lighting_all_dimmable_lights_adapt_color
                 - switch.adaptive_lighting_govee_dining_bulbs_adapt_color
+# Shared music mode: per-track album-art palette and LedFx effect for the
+# living room strip; the shared_music_mode automation paints bulb areas from
+# sensor.music_director. Area order sets which shade each area gets.
+music_director:
+  player: media_player.homelab_05_satellite_media_player_2
+  spotify: media_player.spotify_rupan
+  enabled: input_boolean.shared_music_mode
+  strip: input_boolean.music_mode_led_strip
+  ledfx_url: http://10.0.30.15:8888
+  ledfx_virtual: living-room-led-strip
+  library_url: http://navidrome-lookup.media.svc.cluster.local:4534
+  areas:
+    - kitchen_ceiling
+    - dining_table
+    - floor_lamp
+    - tulip_lamp
+    - ceiling_strip
+    - mushroom_lamp
+
 input_boolean:
   bedroom_matrix_power:
     name: Bedroom Matrix Display

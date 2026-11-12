@@ -1,17 +1,18 @@
 id: shared_music_mode
 alias: "Lighting: Shared Music Mode"
 description: >-
-  While Music Mode is on, all shared lightbulbs, the ceiling LED strip, and
-  the mushroom lamp turn off completely, leaving only the living room WLED
-  strip reacting to music via LedFx (and existing signs on).
-  The pre-music state is snapshotted first; when turned off, the snapshot is
-  restored, then Adaptive Lighting control and circadian state resume.
-  The Govee dining bulbs have their own Adaptive Lighting entry (2700K
-  floor), so each call is split per switch.
-  The LedFx music scene is activated on entry and deactivated on exit to drive
-  the living room LED strip with real-time audio reactivity.
+  While Music Mode is on, each shared area whose
+  input_boolean.music_mode_<area> toggle is on takes part:
+  script.shared_music_area snapshots it, takes it off Adaptive Lighting and
+  paints it with its shade of the track's palette from sensor.music_director,
+  repainting on every new track. Areas whose toggle is off are left alone.
+  Toggling an area while Music Mode is on joins or restores it immediately,
+  and turning Music Mode off restores every area still taking part. The
+  toggles keep their last values between sessions. The living room LED strip
+  (input_boolean.music_mode_led_strip) is driven by the music_director
+  integration through LedFx, not here.
 mode: queued
-max: 5
+max: 10
 triggers:
   - trigger: state
     entity_id: input_boolean.shared_music_mode
@@ -21,100 +22,89 @@ triggers:
     entity_id: input_boolean.shared_music_mode
     to: "off"
     id: "mode_off"
+  - trigger: state
+    entity_id:
+      - input_boolean.music_mode_kitchen_ceiling
+      - input_boolean.music_mode_dining_table
+      - input_boolean.music_mode_floor_lamp
+      - input_boolean.music_mode_tulip_lamp
+      - input_boolean.music_mode_ceiling_strip
+      - input_boolean.music_mode_mushroom_lamp
+    to:
+      - "on"
+      - "off"
+    id: "area"
+  - trigger: state
+    entity_id: sensor.music_director
+    id: "palette"
 conditions: []
 actions:
+  - variables:
+      areas:
+        - kitchen_ceiling
+        - dining_table
+        - floor_lamp
+        - tulip_lamp
+        - ceiling_strip
+        - mushroom_lamp
+      taking_part: >-
+        {% set ns = namespace(on=[]) %}
+        {% for area in areas if is_state('input_boolean.music_mode_' ~ area, 'on') %}
+        {% set ns.on = ns.on + [area] %}
+        {% endfor %}
+        {{ ns.on }}
   - choose:
       - conditions:
           - condition: trigger
             id: "mode_on"
         sequence:
-          - action: scene.create
-            data:
-              scene_id: pre_music_mode_shared
-              snapshot_entities:
-                - light.kitchen_ceiling_light_1
-                - light.kitchen_ceiling_light_2
-                - light.living_room_floor_lamp
-                - light.living_room_tulip_lamp
-                - light.kitchen_dining_table_ceiling_light_1
-                - light.kitchen_dining_table_ceiling_light_2
-                - light.apollo_led_strip_apollo_led_strip
-                - light.kitchen_mushroom_lamp
-          - action: adaptive_lighting.set_manual_control
-            data:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights
-              lights:
-                - light.kitchen_ceiling_light_1
-                - light.kitchen_ceiling_light_2
-                - light.living_room_floor_lamp
-                - light.living_room_tulip_lamp
-              manual_control: true
-          - action: adaptive_lighting.set_manual_control
-            data:
-              entity_id: switch.adaptive_lighting_govee_dining_bulbs
-              lights:
-                - light.kitchen_dining_table_ceiling_light_1
-                - light.kitchen_dining_table_ceiling_light_2
-              manual_control: true
-          - action: light.turn_off
-            target:
-              entity_id:
-                - light.kitchen_ceiling_light_1
-                - light.kitchen_ceiling_light_2
-                - light.living_room_floor_lamp
-                - light.living_room_tulip_lamp
-                - light.kitchen_dining_table_ceiling_light_1
-                - light.kitchen_dining_table_ceiling_light_2
-                - light.apollo_led_strip_apollo_led_strip
-                - light.kitchen_mushroom_lamp
-          - action: rest_command.ledfx_activate_scene
-            data:
-              scene_id: "music-mode"
-            continue_on_error: true
+          - repeat:
+              for_each: "{{ taking_part }}"
+              sequence:
+                - action: script.shared_music_area
+                  data:
+                    area: "{{ repeat.item }}"
+                    step: join
       - conditions:
           - condition: trigger
             id: "mode_off"
         sequence:
-          - action: rest_command.ledfx_deactivate_scene
+          - repeat:
+              for_each: "{{ taking_part }}"
+              sequence:
+                - action: script.shared_music_area
+                  data:
+                    area: "{{ repeat.item }}"
+                    step: leave
+      - conditions:
+          - condition: trigger
+            id: "area"
+          - condition: state
+            entity_id: input_boolean.shared_music_mode
+            state: "on"
+        sequence:
+          - action: script.shared_music_area
             data:
-              scene_id: "music-mode"
-            continue_on_error: true
-          - if:
-              - condition: template
-                value_template: "{{ state_attr('scene.pre_music_mode_shared', 'entity_id') is not none }}"
-            then:
-              - action: scene.turn_on
-                target:
-                  entity_id: scene.pre_music_mode_shared
-          - action: adaptive_lighting.set_manual_control
-            data:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights
-              lights:
-                - light.kitchen_ceiling_light_1
-                - light.kitchen_ceiling_light_2
-                - light.living_room_floor_lamp
-                - light.living_room_tulip_lamp
-              manual_control: false
-          - action: adaptive_lighting.set_manual_control
-            data:
-              entity_id: switch.adaptive_lighting_govee_dining_bulbs
-              lights:
-                - light.kitchen_dining_table_ceiling_light_1
-                - light.kitchen_dining_table_ceiling_light_2
-              manual_control: false
-          - action: adaptive_lighting.apply
-            data:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights
-              lights:
-                - light.kitchen_ceiling_light_1
-                - light.kitchen_ceiling_light_2
-                - light.living_room_floor_lamp
-                - light.living_room_tulip_lamp
-              turn_on_lights: false
-          - action: adaptive_lighting.apply
-            data:
-              entity_id: switch.adaptive_lighting_govee_dining_bulbs
-              lights:
-                - light.kitchen_dining_table_ceiling_light_1
-                - light.kitchen_dining_table_ceiling_light_2
-              turn_on_lights: false
+              area: "{{ trigger.entity_id | replace('input_boolean.music_mode_', '') }}"
+              step: "{{ 'join' if trigger.to_state.state == 'on' else 'leave' }}"
+      - conditions:
+          - condition: trigger
+            id: "palette"
+          - condition: state
+            entity_id: input_boolean.shared_music_mode
+            state: "on"
+          - condition: template
+            value_template: >-
+              {{ trigger.to_state is not none
+                 and trigger.to_state.attributes.area_colors is defined
+                 and (trigger.from_state is none
+                      or trigger.from_state.attributes.get('area_colors')
+                         != trigger.to_state.attributes.area_colors) }}
+        sequence:
+          - repeat:
+              for_each: "{{ taking_part }}"
+              sequence:
+                - action: script.shared_music_area
+                  data:
+                    area: "{{ repeat.item }}"
+                    step: paint
