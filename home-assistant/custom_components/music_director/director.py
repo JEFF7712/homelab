@@ -76,6 +76,10 @@ LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=8)
 SPOTIFY_ATTEMPTS = 3
 SPOTIFY_RETRY_SECONDS = 1.5
+# The player's art can lag its title on a track change; try again before
+# falling back to the vibe palette.
+COVER_ATTEMPTS = 3
+COVER_RETRY_SECONDS = 2.0
 ART_SIZE = 48
 MAX_ART_BYTES = 5_000_000
 CACHE_SIZE = 256
@@ -108,6 +112,8 @@ class Decision:
     auto_effect: str
     effect: str
     config: dict[str, Any]
+    # The track's intensity, 0 (calm) to 1 (intense), whatever the colour.
+    level: float = 0.5
 
     @property
     def manual(self) -> bool:
@@ -246,6 +252,7 @@ class Director:
         auto_palette: Palette,
         family: str,
         auto_effect: str,
+        level: float,
     ) -> Decision:
         palette = self._colour_override() or auto_palette
         effect = self._override() or auto_effect
@@ -263,6 +270,7 @@ class Director:
             auto_effect,
             effect,
             config,
+            level,
         )
 
     def _recompose(self, decision: Decision) -> Decision:
@@ -273,6 +281,7 @@ class Director:
             decision.auto_palette,
             decision.family,
             decision.auto_effect,
+            decision.level,
         )
 
     async def _apply(self, decision: Decision) -> None:
@@ -302,13 +311,16 @@ class Director:
         await self._apply(decision)
 
     def _idle_decision(self) -> Decision:
-        return self._compose("", "", TrackInfo(), vibe_palette(), "default", "energy")
+        idle = vibe_palette()
+        return self._compose(
+            "", "", TrackInfo(), idle, "default", "energy", idle.intensity
+        )
 
     async def _decide(self, player: State, key: str) -> Decision:
         cached = self._cache.get(key)
         if cached is None:
             info, cover = await asyncio.gather(
-                self._gather_info(player), self._fetch_cover(player)
+                self._gather_info(player), self._cover_for(key)
             )
             cached = (info, cover)
             self._cache[key] = cached
@@ -316,6 +328,10 @@ class Director:
                 self._cache.popitem(last=False)
         else:
             self._cache.move_to_end(key)
+            if cached[1] is None:
+                # A missed cover is not remembered: try again on replay.
+                cached = (cached[0], await self._cover_for(key))
+                self._cache[key] = cached
         info, cover = cached
         features = info.features()
         family = classify(features)
@@ -341,7 +357,7 @@ class Director:
             effect = song.effect
         else:
             effect = choose_effect(family, key, self._last_effect)
-        decision = self._compose(title, artist, info, palette, family, effect)
+        decision = self._compose(title, artist, info, palette, family, effect, level)
         _LOGGER.info(
             "%s - %s: %s/%s%s, intensity %.2f, palette %s (hue %.0f), sources %s",
             artist,
@@ -436,8 +452,48 @@ class Director:
                     break
         return info
 
-    async def _fetch_cover(self, player: State) -> Palette | None:
-        picture = player.attributes.get("entity_picture")
+    async def _cover_for(self, key: str) -> Palette | None:
+        """The cover palette for the track in key. Spotify's art is used
+        when Spotify reports the same track, since it changes with the
+        title; otherwise the player's. Retries only while no art can be
+        downloaded, and gives up if the track changes."""
+        for attempt in range(COVER_ATTEMPTS):
+            player = self.hass.states.get(self.config.player)
+            if _track_key(player) != key:
+                return None
+            assert player is not None
+            title = player.attributes.get("media_title") or ""
+            artist = player.attributes.get("media_artist") or ""
+            spotify = self.hass.states.get(self.config.spotify)
+            sources = [player]
+            if spotify is not None and same_track(
+                title,
+                artist,
+                spotify.attributes.get("media_title") or "",
+                spotify.attributes.get("media_artist") or "",
+            ):
+                sources.insert(0, spotify)
+            for source in sources:
+                data = await self._fetch_art(source)
+                if data is None:
+                    continue
+                try:
+                    cover = await self.hass.async_add_executor_job(_cover_palette, data)
+                except (OSError, ValueError) as error:
+                    _LOGGER.debug("Cover art unreadable: %s", type(error).__name__)
+                    continue
+                if cover is None:
+                    _LOGGER.info(
+                        "No usable cover colour for %s", key.replace("\n", " - ")
+                    )
+                return cover
+            if attempt < COVER_ATTEMPTS - 1:
+                await asyncio.sleep(COVER_RETRY_SECONDS)
+        _LOGGER.info("No cover art for %s", key.replace("\n", " - "))
+        return None
+
+    async def _fetch_art(self, state: State) -> bytes | None:
+        picture = state.attributes.get("entity_picture")
         if not picture:
             return None
         if not picture.startswith("http"):
@@ -446,9 +502,8 @@ class Director:
             async with self._session.get(picture, timeout=HTTP_TIMEOUT) as response:
                 if response.status != 200:
                     return None
-                data = await response.content.read(MAX_ART_BYTES)
-            return await self.hass.async_add_executor_job(_cover_palette, data)
-        except (aiohttp.ClientError, TimeoutError, OSError, ValueError) as error:
+                return await response.content.read(MAX_ART_BYTES)
+        except (aiohttp.ClientError, TimeoutError) as error:
             _LOGGER.debug("Cover art unavailable: %s", type(error).__name__)
             return None
 
@@ -479,7 +534,7 @@ class Director:
                 "colour_mode": "manual" if self.manual_rgb else "auto",
                 "brightness_pct": self.brightness_pct,
                 "auto_palette_source": decision.auto_palette.source,
-                "intensity": decision.auto_palette.intensity,
+                "intensity": round(decision.level, 3),
                 "metadata_sources": list(info.sources),
                 "area_colors": {
                     area: list(colour)

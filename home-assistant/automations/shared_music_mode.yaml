@@ -7,8 +7,10 @@ description: >-
   (script.shared_music_area); taking-part areas are painted with their shade
   of the track's palette from sensor.music_director, repainted on every new
   track and on colour or brightness changes, and the rest are switched off.
-  Toggling an area or the strip while Music Mode is on paints or switches it
-  off immediately. Turning Music Mode off restores every area and the strip
+  New tracks change only the colour of lit areas, so a light's own brightness
+  slider holds; moving Music Mode Brightness relights every taking-part area
+  at that brightness. Toggling an area or the strip while Music Mode is on
+  lights or switches it off immediately. Turning Music Mode off restores every area and the strip
   to its snapshot. The toggles keep their last values between sessions. The
   mushroom lamp has no toggle: Music Mode always switches it off and
   restores it afterwards, and a manual switch-on during Music Mode is left
@@ -123,7 +125,7 @@ actions:
           - action: script.shared_music_area
             data:
               area: "{{ trigger.entity_id | replace('input_boolean.music_mode_', '') }}"
-              step: "{{ 'paint' if trigger.to_state.state == 'on' else 'off' }}"
+              step: "{{ 'relight' if trigger.to_state.state == 'on' else 'off' }}"
       - conditions:
           - condition: trigger
             id: "strip"
@@ -148,10 +150,16 @@ actions:
                  and (old.get('area_colors') != new.area_colors
                       or old.get('brightness_pct') != new.get('brightness_pct')) }}
         sequence:
+          - variables:
+              step: >-
+                {{ 'relight' if trigger.from_state is not none
+                   and trigger.from_state.attributes.get('brightness_pct')
+                       != trigger.to_state.attributes.get('brightness_pct')
+                   else 'paint' }}
           - repeat:
               for_each: "{{ taking_part }}"
               sequence:
                 - action: script.shared_music_area
                   data:
                     area: "{{ repeat.item }}"
-                    step: paint
+                    step: "{{ step }}"

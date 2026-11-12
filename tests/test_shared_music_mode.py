@@ -203,7 +203,7 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertNotIn("to", triggers["palette"])
         raw = yaml.safe_dump(automation)
         steps = json.dumps(automation)
-        for step in ("'join'", "'standby'", "'paint'", "'off'", '"leave"'):
+        for step in ("'join'", "'standby'", "'relight'", "'paint'", '"leave"'):
             self.assertIn(step, steps)
         self.assertNotIn("delay:", raw)
         # The director owns the strip's effects; here it is only switched.
@@ -235,7 +235,7 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertIn("is_state('input_boolean.music_mode_led_strip', 'on')", mode_on)
         # Mid-session toggles paint or switch off, keeping the snapshot.
         area = branch("area")
-        self.assertIn("'paint' if trigger.to_state.state == 'on' else 'off'", area)
+        self.assertIn("'relight' if trigger.to_state.state == 'on' else 'off'", area)
         self.assertNotIn("scene.create", area)
         self.assertIn("light.turn_{{ trigger.to_state.state }}", branch("strip"))
         # Stopping restores every area and the strip.
@@ -247,6 +247,11 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertIn("step in ['join', 'standby']", script)
         self.assertIn("step in ['standby', 'off']", script)
         self.assertIn("light.turn_off", script)
+        # New tracks recolour lit lights only and leave their brightness.
+        self.assertIn("select('is_state', 'on')", script)
+        palette = branch("palette")
+        self.assertIn("'relight' if trigger.from_state is not none", palette)
+        self.assertIn("else 'paint'", palette)
 
     def test_music_snapshots_are_watchman_exempt(self) -> None:
         raw = (
