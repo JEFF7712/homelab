@@ -36,7 +36,9 @@ class VisualizerEffect(ABC):
         ...
 
     @abstractmethod
-    def draw(self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64) -> None:
+    def draw(
+        self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
+    ) -> None:
         """Render the effect onto the 64x64 frame."""
         ...
 
@@ -45,7 +47,9 @@ class Fibonacci128Effect(VisualizerEffect):
     """Golden-angle phyllotaxis spiral with dual-arm wave propagation (MatrixPrism)."""
 
     name = "FIBONACCI128"
-    GOLDEN_ANGLE: float = math.pi * (3.0 - math.sqrt(5.0))  # ~2.399963 rad (~137.508 deg)
+    GOLDEN_ANGLE: float = math.pi * (
+        3.0 - math.sqrt(5.0)
+    )  # ~2.399963 rad (~137.508 deg)
     NUM_POINTS: int = 128
 
     def __init__(self, size: int = 64) -> None:
@@ -77,7 +81,9 @@ class Fibonacci128Effect(VisualizerEffect):
             mid_idx = min(len(bands) - 1, 4)
             treble_idx = min(len(bands) - 1, 10)
             self.treble = bands[treble_idx]
-            energy = (bands[0] * 0.5) + (bands[mid_idx] * 0.3) + (bands[treble_idx] * 0.2)
+            energy = (
+                (bands[0] * 0.5) + (bands[mid_idx] * 0.3) + (bands[treble_idx] * 0.2)
+            )
         else:
             self.bass = beat
             self.treble = beat * 0.5
@@ -88,7 +94,9 @@ class Fibonacci128Effect(VisualizerEffect):
         self.rotation += dt * (0.35 + 0.65 * self.bass)
         self.beat_energy += (energy - self.beat_energy) * min(1.0, dt * 10.0)
 
-    def draw(self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64) -> None:
+    def draw(
+        self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
+    ) -> None:
         cx, cy = self.center
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(2, 1, 6))
 
@@ -169,7 +177,9 @@ class MarkEstesPlasmaEffect(VisualizerEffect):
         self.drift_y = (self.size / 2.0) + 10.0 * math.cos(self.time * 0.6)
         self.beat_pulse += (beat - self.beat_pulse) * min(1.0, dt * 10.0)
 
-    def draw(self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64) -> None:
+    def draw(
+        self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
+    ) -> None:
         dx = self.grid_x - self.drift_x
         dy = self.grid_y - self.drift_y
         dist = np.sqrt(dx * dx + dy * dy)
@@ -242,7 +252,9 @@ class AuroraDropMandalaEffect(VisualizerEffect):
                 active_drops.append(drop)
         self.drops = active_drops
 
-    def draw(self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64) -> None:
+    def draw(
+        self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
+    ) -> None:
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(3, 1, 8))
         cx, cy = self.center
 
@@ -302,7 +314,10 @@ class AuroraDropMandalaEffect(VisualizerEffect):
         # Central pulsing core
         inner_pulse = 3.0 + 2.5 * math.sin(self.time * 4.0) + 3.0 * self.beat_energy
         draw.ellipse(
-            [(cx - inner_pulse, cy - inner_pulse), (cx + inner_pulse, cy + inner_pulse)],
+            [
+                (cx - inner_pulse, cy - inner_pulse),
+                (cx + inner_pulse, cy + inner_pulse),
+            ],
             outline=(240, 200, 255),
         )
 
@@ -343,10 +358,14 @@ class SpectrumAnalyzerEffect(VisualizerEffect):
                 # Procedural rhythmic bounce
                 freq = 0.3 + (i * 0.15)
                 raw_target = (
-                    math.sin(self.time * 4.0 * freq) * 0.4
-                    + math.cos(self.time * 2.5 + i * 0.5) * 0.3
-                    + 0.5
-                ) * (self.size - 22.0) * (0.4 + 0.6 * beat)
+                    (
+                        math.sin(self.time * 4.0 * freq) * 0.4
+                        + math.cos(self.time * 2.5 + i * 0.5) * 0.3
+                        + 0.5
+                    )
+                    * (self.size - 22.0)
+                    * (0.4 + 0.6 * beat)
+                )
 
             target = max(2.0, min(float(self.size - 14), raw_target))
             self.heights[i] += (target - self.heights[i]) * min(1.0, dt * 16.0)
@@ -357,16 +376,23 @@ class SpectrumAnalyzerEffect(VisualizerEffect):
                 self.peak_speeds[i] = 0.0
             else:
                 self.peak_speeds[i] += dt * 38.0  # gravity
-                self.peaks[i] = max(self.heights[i], self.peaks[i] - self.peak_speeds[i] * dt)
+                self.peaks[i] = max(
+                    self.heights[i], self.peaks[i] - self.peak_speeds[i] * dt
+                )
 
-    def draw(self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64) -> None:
+    def draw(
+        self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
+    ) -> None:
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(2, 2, 8))
         baseline = size - 10
 
         # Sub-bass bottom floor glow
         floor_glow = int(80 * self.beat_energy)
         if floor_glow > 5:
-            draw.rectangle([(0, baseline), (size - 1, baseline + 2)], fill=(floor_glow, 0, floor_glow * 2))
+            draw.rectangle(
+                [(0, baseline), (size - 1, baseline + 2)],
+                fill=(floor_glow, 0, floor_glow * 2),
+            )
 
         for i in range(self.num_bars):
             x0 = i * (self.bar_width + self.bar_gap)
@@ -416,7 +442,11 @@ class BeatWarpTunnelEffect(VisualizerEffect):
         self.num_rings = 7
         self.ring_z = [(i / self.num_rings) for i in range(self.num_rings)]
         self.stars = [
-            [random.uniform(-1.0, 1.0), random.uniform(-1.0, 1.0), random.uniform(0.1, 1.0)]
+            [
+                random.uniform(-1.0, 1.0),
+                random.uniform(-1.0, 1.0),
+                random.uniform(0.1, 1.0),
+            ]
             for _ in range(36)
         ]
         self.beat_warp = 0.0
@@ -449,7 +479,9 @@ class BeatWarpTunnelEffect(VisualizerEffect):
                 star[1] = random.uniform(-1.0, 1.0)
                 star[2] = 1.0
 
-    def draw(self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64) -> None:
+    def draw(
+        self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
+    ) -> None:
         draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(3, 2, 7))
         cx, cy = self.center
 

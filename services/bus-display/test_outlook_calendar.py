@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 
 import requests
+
 from outlook_calendar import MADISON, OutlookCalendar, upcoming_events
 
 

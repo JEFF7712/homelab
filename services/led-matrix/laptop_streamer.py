@@ -325,7 +325,11 @@ class AudioTap:
                     for i in range(16):
                         b_val = float(
                             np.mean(
-                                fft[self.bins[i] : max(self.bins[i] + 1, self.bins[i + 1])]
+                                fft[
+                                    self.bins[i] : max(
+                                        self.bins[i] + 1, self.bins[i + 1]
+                                    )
+                                ]
                             )
                         )
                         weight = 1.0 + (i / 16.0) * 2.0

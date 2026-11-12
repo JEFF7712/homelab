@@ -94,10 +94,14 @@ def fetch_leaves(session) -> list:
 
 def find_member(leaves: list, slug: str) -> dict | None:
     for leaf in leaves:
-        members = leaf.get("memberLeaves") or ([leaf] if leaf.get("type") == "device" else [])
+        members = leaf.get("memberLeaves") or (
+            [leaf] if leaf.get("type") == "device" else []
+        )
         for m in members:
             dev = m.get("device", {}) if isinstance(m, dict) else {}
-            macs = [str(x).replace(":", "").upper() for x in dev.get("macAddresses", [])]
+            macs = [
+                str(x).replace(":", "").upper() for x in dev.get("macAddresses", [])
+            ]
             partner = str(dev.get("partnerDeviceId", "")).replace(":", "").upper()
             if slug in macs or partner == slug:
                 return m
@@ -113,7 +117,9 @@ def ha_to_cloud(cmd: dict) -> list[tuple[str, dict]]:
     if state == "ON":
         out.append(("power", {"power": "on"}))
     if "color_temp" in cmd and cmd["color_temp"] is not None:
-        kelvin = clamp(round(1_000_000 / int(cmd["color_temp"])), TEMP_MIN_K, TEMP_MAX_K)
+        kelvin = clamp(
+            round(1_000_000 / int(cmd["color_temp"])), TEMP_MIN_K, TEMP_MAX_K
+        )
         out.append(("color", {"colorType": "temperature", "temperature": kelvin}))
     elif isinstance(cmd.get("color"), dict):
         c = cmd["color"]
@@ -135,7 +141,10 @@ def ha_to_cloud(cmd: dict) -> list[tuple[str, dict]]:
         out.append(("color", {"colorType": "rgb", "rgb": [r, g, b]}))
     if "brightness" in cmd and cmd["brightness"] is not None:
         out.append(
-            ("brightness", {"level": clamp(round(int(cmd["brightness"]) * 100 / 255), 0, 100)})
+            (
+                "brightness",
+                {"level": clamp(round(int(cmd["brightness"]) * 100 / 255), 0, 100)},
+            )
         )
     return out
 
@@ -215,7 +224,9 @@ def discovery_payload(mac: str, name: str, prefix: str) -> dict:
     }
 
 
-async def _ws_send(cookie_header: str, leaf_id: str, cmds: list[tuple[str, dict]]) -> None:
+async def _ws_send(
+    cookie_header: str, leaf_id: str, cmds: list[tuple[str, dict]]
+) -> None:
     import websockets
 
     try:
@@ -248,7 +259,7 @@ async def _ws_send(cookie_header: str, leaf_id: str, cmds: list[tuple[str, dict]
                     break
                 try:
                     await asyncio.wait_for(ws.recv(), timeout=remaining)
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     break
     except Exception as e:
         status = getattr(getattr(e, "response", None), "status_code", None)
@@ -273,7 +284,10 @@ def _state_settled(cmd: dict, member: dict) -> bool:
         level = state.get("brightness", {}).get("level")
         if level is None:
             return False
-        if abs(clamp(round(int(cmd["brightness"]) * 100 / 255), 0, 100) - int(level)) > 1:
+        if (
+            abs(clamp(round(int(cmd["brightness"]) * 100 / 255), 0, 100) - int(level))
+            > 1
+        ):
             return False
     return True
 
@@ -281,7 +295,10 @@ def _state_settled(cmd: dict, member: dict) -> bool:
 def cookie_header(session) -> str:
     import requests
 
-    return "; ".join(f"{k}={v}" for k, v in requests.utils.dict_from_cookiejar(session.cookies).items())
+    return "; ".join(
+        f"{k}={v}"
+        for k, v in requests.utils.dict_from_cookiejar(session.cookies).items()
+    )
 
 
 def _handle_set(
@@ -331,10 +348,16 @@ def _handle_set(
                     )
                     break
         state = cloud_state_to_ha(member, cmd)
-        mqtt_client.publish(f"{prefix}/light/{slug}/state", json.dumps(state), retain=True)
+        mqtt_client.publish(
+            f"{prefix}/light/{slug}/state", json.dumps(state), retain=True
+        )
         print(f"{slug} == {state}", flush=True)
     except SessionExpired as e:
-        print(f"session expired on {topic}: {e} (re-seed cookies)", file=sys.stderr, flush=True)
+        print(
+            f"session expired on {topic}: {e} (re-seed cookies)",
+            file=sys.stderr,
+            flush=True,
+        )
     except Exception as e:
         print(
             f"error on {topic}: {type(e).__name__}: {e}",
@@ -405,8 +428,15 @@ def run(
                 retain=True,
             )
             executors[slug].submit(
-                _handle_set, c, cloud_lock, cloud, prefix, bulbs, slug,
-                raw, msg.topic,
+                _handle_set,
+                c,
+                cloud_lock,
+                cloud,
+                prefix,
+                bulbs,
+                slug,
+                raw,
+                msg.topic,
             )
         except Exception as e:
             print(
@@ -436,8 +466,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--mqtt-pass", default=os.environ.get("MQTT_PASS", ""))
     a = p.parse_args(argv)
     return run(
-        a.config, a.cookies, a.cookie_seed, a.prefix,
-        a.mqtt_host, a.mqtt_port, a.mqtt_user, a.mqtt_pass,
+        a.config,
+        a.cookies,
+        a.cookie_seed,
+        a.prefix,
+        a.mqtt_host,
+        a.mqtt_port,
+        a.mqtt_user,
+        a.mqtt_pass,
     )
 
 

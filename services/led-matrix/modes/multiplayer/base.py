@@ -4,7 +4,6 @@ from collections.abc import Callable
 from PIL import ImageDraw
 
 
-
 class MultiplayerGame(ABC):
     """Abstract interface for a multiplayer game engine."""
 
@@ -30,7 +29,6 @@ class MultiplayerGame(ABC):
 
     @abstractmethod
     def reset(self) -> None:
-
         """Reset the game state for a new round/match."""
 
     @abstractmethod

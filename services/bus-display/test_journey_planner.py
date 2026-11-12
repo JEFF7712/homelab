@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 import pytest
+
 from journey_planner import BOARD_BUFFER, JourneyPlanner, service_epoch
 from outlook_calendar import MADISON
 from transit_map import TransitMap
