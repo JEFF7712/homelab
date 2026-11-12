@@ -5,6 +5,34 @@ Music Assistant owns the Connect devices for the soundbar satellite on
 uses go-librespot; the Spotify music provider is separate. Runtime provider
 settings and pairing credentials belong to MA's persistent `/data` directory.
 
+## Speaker availability buttons
+
+`input_boolean.spotify_connect` selects the soundbar and
+`input_boolean.spotify_connect_bedroom` selects the bedroom speaker.
+`automation.spotify_connect_sync` applies both helpers together through
+`shell_command.set_music_assistant_spotify_connect` in HA's core configuration.
+The command uses the MA integration's saved URL and token, reads the current
+provider config, saves only when needed, and verifies the selected players.
+It never starts playback. Both buttons off leaves the provider enabled but
+idle, with an empty connected-player list and no Connect daemons advertised.
+
+The automation queues changes so rapid taps cannot leave an older request
+winning. It also reconciles every minute and at HA startup, so an MA restart
+or temporary API outage recovers without another tap. Unknown/unavailable
+helper states are ignored. Failed requests create a persistent HA notification;
+the buttons retain the requested state until reconciliation succeeds. A
+successful verification dismisses the notification. Matching settings make no
+provider write and do not interrupt existing sessions.
+
+Observed failure before this fix: YAML folding joined a Python `if` statement
+after a semicolon in the inline command. The process failed before calling MA,
+while the helper/card still changed color. Preserve the literal multiline block
+and run `python -m unittest tests.test_spotify_connect_toggle -v`; these tests
+execute the rendered command for every speaker combination and failure paths.
+After deployment, exercise both helpers, compare MA's `connected_players`, and
+confirm the corresponding daemon disappears/reappears. Restore the initial
+helper states afterwards. Use idle players and do not start playback.
+
 ## Pause/resume stops responding
 
 Observed with MA 2.10.4 and go-librespot 0.9.0: music works until pause/stop,
