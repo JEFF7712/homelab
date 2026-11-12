@@ -7626,6 +7626,44 @@
       ],
       "destination_repository": "upstream/docker.io/seerr/seerr",
       "destination_tags": [
+        "retention-deployed-aadee014b40e28cf",
+        "v3.5.2"
+      ],
+      "digest": "sha256:aadee014b40e28cf9aa4928bc9d1183a6eb08f8c44d543cddc9efdcb16549be2",
+      "id": "upstream-seerr-seerr-8c85ba50a672",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:aadee014b40e28cf9aa4928bc9d1183a6eb08f8c44d543cddc9efdcb16549be2",
+        "reference": "docker.io/seerr/seerr:v3.5.2@sha256:aadee014b40e28cf9aa4928bc9d1183a6eb08f8c44d543cddc9efdcb16549be2",
+        "registry": "docker.io",
+        "repository": "seerr/seerr",
+        "tag": "v3.5.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:46"
+      ],
+      "destination_repository": "upstream/docker.io/seerr/seerr",
+      "destination_tags": [
         "retention-deployed-d8fab675b55ad293",
         "v3.5.1"
       ],
