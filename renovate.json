@@ -30,6 +30,9 @@
     "secrets/**"
   ],
   "printConfig": false,
+  "automergeType": "pr",
+  "platformAutomerge": true,
+  "automergeStrategy": "merge-commit",
   "branchTopic": "{{{depNameSanitized}}}-{{{newVersion}}}{{#if isLockfileUpdate}}-lockfile{{/if}}",
   "commitMessagePrefix": "renovate:",
   "commitMessageAction": "Bump",
