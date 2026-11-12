@@ -538,63 +538,229 @@ views:
                   target:
                     entity_id: script.shared_lights_off
       - cards:
+          - heading: Music Mode
+            icon: mdi:music
+            type: heading
+          - type: custom:mushroom-template-card
+            entity: input_boolean.shared_music_mode
+            primary: Music Mode
+            secondary: >-
+              {% set d = 'sensor.music_director' %}
+              {% if not is_state('input_boolean.shared_music_mode', 'on') %}
+                Off · tap to light the room to the music
+              {% elif state_attr(d, 'title') %}
+                {{ state_attr(d, 'title') }} · {{ states(d) | replace('_', ' ') }}
+                {%- set g = state_attr(d, 'genres') or [] %}
+                {%- if g %} · {{ g[0] }}{% endif %}
+              {% else %}
+                On · waiting for music
+              {% endif %}
+            icon: mdi:music
+            icon_color: >-
+              {% if is_state('input_boolean.shared_music_mode', 'on') %}
+                purple
+              {% else %}
+                grey
+              {% endif %}
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - heading: Lights that join Music Mode
+            heading_style: subtitle
+            type: heading
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_led_strip
+            primary: LED Strip
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_led_strip', 'on') %}
+                Joins: LedFx effect
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:led-strip-variant
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_led_strip', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_led_strip', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_kitchen_ceiling
+            primary: Kitchen Ceiling
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_kitchen_ceiling', 'on') %}
+                Joins: album colour
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:ceiling-light
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_kitchen_ceiling', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_kitchen_ceiling', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_dining_table
+            primary: Dining Table
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_dining_table', 'on') %}
+                Joins: album colour
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:ceiling-light-multiple
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_dining_table', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_dining_table', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_floor_lamp
+            primary: Floor Lamp
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_floor_lamp', 'on') %}
+                Joins: album colour
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:floor-lamp
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_floor_lamp', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_floor_lamp', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_tulip_lamp
+            primary: Tulip Lamp
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_tulip_lamp', 'on') %}
+                Joins: album colour
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:lamp
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_tulip_lamp', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_tulip_lamp', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_ceiling_strip
+            primary: Ceiling Strip
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_ceiling_strip', 'on') %}
+                Joins: album colour
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:led-strip
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_ceiling_strip', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_ceiling_strip', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_mushroom_lamp
+            primary: Mushroom Lamp
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_mushroom_lamp', 'on') %}
+                Joins: switches off
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:mushroom
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_mushroom_lamp', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_mushroom_lamp', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+            grid_options:
+              columns: 6
+      - cards:
           - heading: Adaptive Lighting
             type: heading
-          - entity: input_boolean.shared_music_mode
-            name: Music Mode
-            icon: mdi:music
-            features:
-              - type: toggle
-            type: tile
-          - entity: input_boolean.music_mode_led_strip
-            name: LED Strip
-            tap_action:
-              action: toggle
-            grid_options:
-              columns: 6
-            type: tile
-          - entity: input_boolean.music_mode_kitchen_ceiling
-            name: Kitchen Ceiling
-            tap_action:
-              action: toggle
-            grid_options:
-              columns: 6
-            type: tile
-          - entity: input_boolean.music_mode_dining_table
-            name: Dining Table
-            tap_action:
-              action: toggle
-            grid_options:
-              columns: 6
-            type: tile
-          - entity: input_boolean.music_mode_floor_lamp
-            name: Floor Lamp
-            tap_action:
-              action: toggle
-            grid_options:
-              columns: 6
-            type: tile
-          - entity: input_boolean.music_mode_tulip_lamp
-            name: Tulip Lamp
-            tap_action:
-              action: toggle
-            grid_options:
-              columns: 6
-            type: tile
-          - entity: input_boolean.music_mode_ceiling_strip
-            name: Ceiling Strip
-            tap_action:
-              action: toggle
-            grid_options:
-              columns: 6
-            type: tile
-          - entity: input_boolean.music_mode_mushroom_lamp
-            name: Mushroom Lamp
-            tap_action:
-              action: toggle
-            grid_options:
-              columns: 6
-            type: tile
           - entity: switch.shared_spaces_sleep_mode
             name: Sleep Mode
             features:
