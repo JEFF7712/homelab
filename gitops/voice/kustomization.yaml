@@ -24,3 +24,17 @@ configMapGenerator:
       - local-decision/app.py
       - local-decision/pyproject.toml
       - local-decision/uv.lock
+  # Unhashed names keep today's behaviour: a script edit does not roll pods by
+  # itself. The source files are the deployed bytes; edit them, not YAML.
+  - name: satellite-patch-code
+    options:
+      disableNameSuffixHash: true
+    files:
+      - satellite/healthcheck.py
+      - satellite/__main__.py
+      - satellite/satellite.py
+  - name: jarvis-exporter-code
+    options:
+      disableNameSuffixHash: true
+    files:
+      - exporter/exporter.py
