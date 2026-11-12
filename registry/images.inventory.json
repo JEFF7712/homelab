@@ -4148,6 +4148,23 @@
         "repository": "seerr/seerr",
         "tag": "v3.5.2"
       }
+    },
+    {
+      "consumers": [
+        "gitops/immich/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/ghcr.io/immich-app/immich-server",
+      "id": "upstream-immich-app-immich-server-37161c5af70e",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b",
+        "reference": "ghcr.io/immich-app/immich-server:v3.4.1@sha256:7c489add298fc2f92cda4c777de6462aa206877e04087b815f62c7664af0b53b",
+        "registry": "ghcr.io",
+        "repository": "immich-app/immich-server",
+        "tag": "v3.4.1"
+      }
     }
   ],
   "kind": "registry-inventory",
