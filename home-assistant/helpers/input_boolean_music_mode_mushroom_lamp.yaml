@@ -1,3 +1,0 @@
-name: 'Music Mode: Mushroom Lamp'
-icon: mdi:mushroom
-entity_id: input_boolean.music_mode_mushroom_lamp

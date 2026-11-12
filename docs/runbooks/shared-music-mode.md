@@ -19,7 +19,10 @@ dashboard. The toggles keep their last values between sessions.
 | `input_boolean.music_mode_floor_lamp` | floor lamp | one shade |
 | `input_boolean.music_mode_tulip_lamp` | tulip lamp | one shade |
 | `input_boolean.music_mode_ceiling_strip` | Apollo ceiling strip | one shade |
-| `input_boolean.music_mode_mushroom_lamp` | mushroom lamp (on/off only) | off |
+
+The mushroom lamp (on/off only) has no toggle: Music Mode always switches it
+off on entry (snapshot `scene.pre_music_mushroom_lamp`) and restores it on
+exit. Switching it on by hand during Music Mode sticks.
 
 An area with its toggle off is left alone and stays on Adaptive Lighting.
 Joining snapshots the area to `scene.pre_music_<area>` and locks Adaptive
@@ -66,13 +69,30 @@ fall back to a hue for the genre. `sensor.music_director` attributes
 | calm | ambient, classical, acoustic, folk, soundtrack; energy < 0.35 | melt, lava_lamp |
 | smooth | R&B, soul, funk, jazz, reggae; hip-hop with energy < 0.5 | melt, energy |
 | bass | hip-hop, rap, trap, drill, reggaeton | power, energy |
-| drive | electronic, house, dance; energetic danceable 110-140 BPM | scroll, bands |
+| drive | electronic, house, dance; energetic danceable 110-140 BPM | scroll, bands, strobe |
 | rock | rock, metal, punk | wavelength, bands |
 | default | nothing known | energy |
 
 Within a family the effect is a stable hash of the track, and consecutive
-tracks avoid repeating the same effect. A manual LedFx change holds until the
-next track.
+tracks avoid repeating the same effect. A manual change made in LedFx itself
+holds until the next track.
+
+Besides colours, the director sets tempo and energy dynamics inside each
+LedFx schema range (`rules.dynamics`): speed scales from 70 BPM (slowest) to
+160 BPM (fastest) for `melt`, `lava_lamp` and `scroll`; energy raises
+`reactivity` (melt, lava_lamp), `sensitivity` (energy), `bass_decay_rate`
+(power) and shortens `decay` (scroll). Unknown tempo or energy keeps the
+LedFx default. On start it sets the strip virtual's `transition_time`
+(crossfade between effects) to `music_director.transition_time` (1.5 s).
+
+## Manual effect override
+
+`input_select.music_mode_effect` ("LED Strip Effect" on the dashboard)
+offers Auto plus every effect above. Any choice other than Auto applies at
+once and holds across tracks, still with each track's colours and dynamics,
+until it is set back to Auto, which restores that track's automatic effect.
+`sensor.music_director` reports `effect_mode` (auto or manual) and
+`auto_effect`.
 
 ## Verify and troubleshoot
 

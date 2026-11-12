@@ -566,6 +566,12 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          - entity: input_select.music_mode_effect
+            name: LED Strip Effect
+            icon: mdi:auto-fix
+            features:
+              - type: select-options
+            type: tile
           - heading: Lights that join Music Mode
             heading_style: subtitle
             type: heading
@@ -722,33 +728,6 @@ views:
               {% endif %}
             badge_icon: >-
               {% if is_state('input_boolean.music_mode_ceiling_strip', 'on') %}
-                mdi:music-note
-              {% endif %}
-            badge_color: purple
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-            grid_options:
-              columns: 6
-          - type: custom:mushroom-template-card
-            entity: input_boolean.music_mode_mushroom_lamp
-            primary: Mushroom Lamp
-            secondary: >-
-              {% if is_state('input_boolean.music_mode_mushroom_lamp', 'on') %}
-                Joins: switches off
-              {% else %}
-                Not in music mode
-              {% endif %}
-            icon: mdi:mushroom
-            icon_color: >-
-              {% if is_state('input_boolean.music_mode_mushroom_lamp', 'on') %}
-                purple
-              {% else %}
-                disabled
-              {% endif %}
-            badge_icon: >-
-              {% if is_state('input_boolean.music_mode_mushroom_lamp', 'on') %}
                 mdi:music-note
               {% endif %}
             badge_color: purple

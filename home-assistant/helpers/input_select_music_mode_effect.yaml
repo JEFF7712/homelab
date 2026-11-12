@@ -1,0 +1,3 @@
+name: 'Music Mode: Effect'
+icon: null
+entity_id: input_select.music_mode_effect

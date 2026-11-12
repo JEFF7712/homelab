@@ -36,7 +36,7 @@ from .metadata import (
     spotify_track_id,
 )
 from .palette import Palette, area_colors, extract_palette, genre_palette, gradient
-from .rules import choose_effect, classify, effect_config
+from .rules import EFFECTS, choose_effect, classify, effect_config
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -61,6 +61,8 @@ class DirectorConfig:
     ledfx_virtual: str
     library_url: str
     areas: tuple[str, ...]
+    effect_select: str
+    transition_time: float
     lastfm_key: str | None = field(default=None, repr=False)
 
 
@@ -71,8 +73,13 @@ class Decision:
     info: TrackInfo
     palette: Palette
     family: str
+    auto_effect: str
     effect: str
     config: dict[str, Any]
+
+    @property
+    def manual(self) -> bool:
+        return self.effect != self.auto_effect
 
 
 def _track_key(state: State | None) -> str | None:
@@ -108,12 +115,18 @@ class Director:
         self._track_key: str | None = None
         self._last_effect: str | None = None
         self._decision: Decision | None = None
+        self._transition_set = False
 
     @callback
     def async_start(self) -> None:
         async_track_state_change_event(
             self.hass,
-            [self.config.player, self.config.enabled, self.config.strip],
+            [
+                self.config.player,
+                self.config.enabled,
+                self.config.strip,
+                self.config.effect_select,
+            ],
             self._on_change,
         )
         if self._is_on(self.config.enabled):
@@ -136,6 +149,12 @@ class Director:
             return
         if not self._is_on(self.config.enabled):
             return
+        if entity_id == self.config.effect_select:
+            if self._decision is not None:
+                self.hass.async_create_task(
+                    self._apply(self._recompose(self._decision))
+                )
+            return
         if entity_id == self.config.strip:
             if new_state is not None and new_state.state == STATE_ON:
                 if self._decision is not None:
@@ -157,7 +176,46 @@ class Director:
         self._cancel()
         self._task = self.hass.async_create_task(self._run(force))
 
+    def _override(self) -> str | None:
+        """The dropdown's effect, or None for Auto or an unknown option."""
+        state = self.hass.states.get(self.config.effect_select)
+        option = (state.state if state else "").strip().lower().replace(" ", "_")
+        return option if option in EFFECTS else None
+
+    def _compose(
+        self,
+        title: str,
+        artist: str,
+        info: TrackInfo,
+        palette: Palette,
+        family: str,
+        auto_effect: str,
+    ) -> Decision:
+        effect = self._override() or auto_effect
+        config = effect_config(effect, palette, info.features())
+        return Decision(
+            title, artist, info, palette, family, auto_effect, effect, config
+        )
+
+    def _recompose(self, decision: Decision) -> Decision:
+        return self._compose(
+            decision.title,
+            decision.artist,
+            decision.info,
+            decision.palette,
+            decision.family,
+            decision.auto_effect,
+        )
+
+    async def _apply(self, decision: Decision) -> None:
+        self._decision = decision
+        self._publish(decision)
+        if self._is_on(self.config.strip):
+            await self._push_strip(decision)
+
     async def _run(self, force: bool) -> None:
+        if not self._transition_set:
+            self._transition_set = await self._ensure_transition()
         player = self.hass.states.get(self.config.player)
         key = _track_key(player)
         if key is None:
@@ -171,17 +229,13 @@ class Director:
             self._track_key = key
             assert player is not None
             decision = await self._decide(player, key)
-        self._decision = decision
-        self._last_effect = decision.effect
-        self._publish(decision)
-        if self._is_on(self.config.strip):
-            await self._push_strip(decision)
+        # Repeat avoidance follows the automatic choice, not the override.
+        self._last_effect = decision.auto_effect
+        await self._apply(decision)
 
     def _idle_decision(self) -> Decision:
-        info = TrackInfo()
-        palette = genre_palette(())
-        return Decision(
-            "", "", info, palette, "default", "energy", effect_config("energy", palette)
+        return self._compose(
+            "", "", TrackInfo(), genre_palette(()), "default", "energy"
         )
 
     async def _decide(self, player: State, key: str) -> Decision:
@@ -202,19 +256,19 @@ class Director:
         effect = choose_effect(family, key, self._last_effect)
         title = player.attributes.get("media_title") or ""
         artist = player.attributes.get("media_artist") or ""
+        decision = self._compose(title, artist, info, palette, family, effect)
         _LOGGER.info(
-            "%s - %s: %s/%s, palette %s (hue %.0f), sources %s",
+            "%s - %s: %s/%s%s, palette %s (hue %.0f), sources %s",
             artist,
             title,
             family,
-            effect,
+            decision.effect,
+            " (manual)" if decision.manual else "",
             palette.source,
             palette.hue,
             ",".join(info.sources) or "none",
         )
-        return Decision(
-            title, artist, info, palette, family, effect, effect_config(effect, palette)
-        )
+        return decision
 
     async def _get_json(self, url: str, params: dict[str, str], label: str) -> Any:
         try:
@@ -328,6 +382,11 @@ class Director:
                 "energy": info.energy,
                 "family": decision.family,
                 "effect": decision.effect,
+                "auto_effect": decision.auto_effect,
+                "effect_mode": "manual" if decision.manual else "auto",
+                "effect_config": {
+                    k: v for k, v in decision.config.items() if k != "gradient"
+                },
                 "palette_source": decision.palette.source,
                 "metadata_sources": list(info.sources),
                 "area_colors": {
@@ -355,6 +414,40 @@ class Director:
                     )
         except (aiohttp.ClientError, TimeoutError) as error:
             _LOGGER.warning("LedFx %s failed: %s", method, error)
+
+    async def _ensure_transition(self) -> bool:
+        """Set the strip's crossfade between effects. LedFx keeps virtual
+        config on POST /api/virtuals with an id, so send the full config back
+        with only transition_time changed. Returns True once it is in place."""
+        base = f"{self.config.ledfx_url}/api/virtuals"
+        virtual = self.config.ledfx_virtual
+        try:
+            async with self._session.get(
+                f"{base}/{virtual}", timeout=HTTP_TIMEOUT
+            ) as response:
+                body = await response.json(content_type=None)
+            config = dict(body[virtual]["config"])
+            if config.get("transition_time") == self.config.transition_time:
+                return True
+            config["transition_time"] = self.config.transition_time
+            async with self._session.post(
+                base, json={"id": virtual, "config": config}, timeout=HTTP_TIMEOUT
+            ) as response:
+                if response.status >= 400:
+                    _LOGGER.warning(
+                        "LedFx transition update returned %s", response.status
+                    )
+                    return False
+            return True
+        except (
+            aiohttp.ClientError,
+            TimeoutError,
+            ValueError,
+            KeyError,
+            TypeError,
+        ) as error:
+            _LOGGER.warning("LedFx transition update failed: %s", type(error).__name__)
+            return False
 
     async def _push_strip(self, decision: Decision) -> None:
         await self._ledfx("POST", {"type": decision.effect, "config": decision.config})

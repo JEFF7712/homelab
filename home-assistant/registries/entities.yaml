@@ -125,10 +125,6 @@
   icon: mdi:led-strip-variant
   labels: []
   name: 'Music Mode: LED Strip'
-- entity_id: input_boolean.music_mode_mushroom_lamp
-  icon: mdi:mushroom
-  labels: []
-  name: 'Music Mode: Mushroom Lamp'
 - entity_id: input_boolean.music_mode_tulip_lamp
   icon: mdi:lamp
   labels: []
