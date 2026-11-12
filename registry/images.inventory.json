@@ -4150,6 +4150,23 @@
         "repository": "astral-sh/uv",
         "tag": "0.13.8"
       }
+    },
+    {
+      "consumers": [
+        "gitops/media/registry-sources.yaml:26"
+      ],
+      "destination_repository": "upstream/ghcr.io/gameyfin/gameyfin",
+      "id": "upstream-gameyfin-gameyfin-662f8145b618",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:1042f8c7ccce1ce98b9d6b4314937f80c37c360f2e1fbbe7e4a0a9434facb930",
+        "reference": "ghcr.io/gameyfin/gameyfin:2.6.2@sha256:1042f8c7ccce1ce98b9d6b4314937f80c37c360f2e1fbbe7e4a0a9434facb930",
+        "registry": "ghcr.io",
+        "repository": "gameyfin/gameyfin",
+        "tag": "2.6.2"
+      }
     }
   ],
   "kind": "registry-inventory",
