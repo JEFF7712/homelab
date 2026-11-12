@@ -20,6 +20,7 @@ from scripts.navidrome_lookup import (
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "gitops" / "media" / "music.yaml"
+NETWORK_POLICY = ROOT / "gitops" / "media" / "network-policy.yaml"
 SCRIPT = ROOT / "scripts" / "navidrome_lookup.py"
 
 
@@ -163,6 +164,25 @@ class TestManifest(unittest.TestCase):
         self.assertEqual(
             sidecar["args"][sidecar["args"].index("--database") + 1],
             "/data/navidrome.db",
+        )
+
+    def test_host_network_clients_reach_only_the_lookup_port(self) -> None:
+        # Home Assistant is hostNetwork, so the namespace selector in
+        # media-isolate-ingress does not admit it.
+        policies = list(yaml.safe_load_all(NETWORK_POLICY.read_text()))
+        policy = next(
+            p
+            for p in policies
+            if p["kind"] == "CiliumNetworkPolicy"
+            and p["metadata"]["name"] == "navidrome-lookup-from-nodes"
+        )
+        self.assertEqual(
+            policy["spec"]["endpointSelector"]["matchLabels"], {"app": "navidrome"}
+        )
+        (rule,) = policy["spec"]["ingress"]
+        self.assertEqual(set(rule["fromEntities"]), {"host", "remote-node"})
+        self.assertEqual(
+            rule["toPorts"], [{"ports": [{"port": "4534", "protocol": "TCP"}]}]
         )
 
     def test_lookup_service_is_separate_from_the_public_one(self) -> None:

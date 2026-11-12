@@ -35,3 +35,24 @@ spec:
     - from:
         - ipBlock:
             cidr: 100.64.0.0/10
+---
+# Home Assistant runs with hostNetwork, so its requests to the navidrome
+# lookup sidecar arrive with a node identity that the selectors above do not
+# match. Admit host and remote-node traffic to the read-only lookup port only.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: navidrome-lookup-from-nodes
+  namespace: media
+spec:
+  endpointSelector:
+    matchLabels:
+      app: navidrome
+  ingress:
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "4534"
+              protocol: TCP
