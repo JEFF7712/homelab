@@ -1,7 +1,10 @@
 id: spotify_connect_sync
 alias: "Music Assistant: Spotify Connect Sync"
-description: "Sync Music Assistant Spotify Connect provider players with input booleans."
-mode: restart
+description: >-
+  Apply and verify both Spotify Connect speaker toggles. Serialize changes and
+  retry after Music Assistant restarts or a temporary connection failure.
+mode: queued
+max: 10
 triggers:
   - trigger: state
     entity_id:
@@ -9,9 +12,33 @@ triggers:
       - input_boolean.spotify_connect_bedroom
   - trigger: homeassistant
     event: start
-conditions: []
+  - trigger: time_pattern
+    minutes: "/1"
+conditions:
+  - condition: template
+    value_template: >-
+      {{ states('input_boolean.spotify_connect') in ['on', 'off']
+         and states('input_boolean.spotify_connect_bedroom') in ['on', 'off'] }}
 actions:
   - action: shell_command.set_music_assistant_spotify_connect
+    response_variable: sync_result
     data:
       living_room: "{{ states('input_boolean.spotify_connect') == 'on' }}"
       bedroom: "{{ states('input_boolean.spotify_connect_bedroom') == 'on' }}"
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ sync_result['returncode'] == 0 }}"
+        sequence:
+          - action: persistent_notification.dismiss
+            data:
+              notification_id: spotify_connect_sync_failure
+    default:
+      - action: persistent_notification.create
+        data:
+          notification_id: spotify_connect_sync_failure
+          title: Spotify Connect update failed
+          message: >-
+            The speaker availability settings could not be applied. The buttons
+            show your requested settings; Music Assistant will be retried within
+            one minute. See the Spotify Connect Sync automation trace for details.

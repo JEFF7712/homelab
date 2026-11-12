@@ -1,14 +1,151 @@
 from __future__ import annotations
 
+import contextlib
+import io
+import itertools
+import json
+import shlex
 import unittest
+import urllib.error
 from pathlib import Path
+from unittest import mock
 
 import yaml
+from jinja2 import Environment, StrictUndefined
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 class TestSpotifyConnectToggle(unittest.TestCase):
+    def run_sync(
+        self,
+        living_room: bool | None,
+        bedroom: bool | None,
+        current: list[str],
+        *,
+        enabled: bool = True,
+        fail: bool = False,
+        ignore_save: bool = False,
+    ) -> list[dict]:
+        """Execute the actual rendered shell-command Python, replacing only I/O."""
+        config = yaml.load(
+            (REPO_ROOT / "home-assistant/core/configuration.yaml").read_text(),
+            Loader=yaml.BaseLoader,
+        )
+        command = config["shell_command"]["set_music_assistant_spotify_connect"]
+        variables = {}
+        if living_room is not None:
+            variables["living_room"] = living_room
+        if bedroom is not None:
+            variables["bedroom"] = bedroom
+        rendered = (
+            Environment(undefined=StrictUndefined)
+            .from_string(command)
+            .render(**variables)
+        )
+        argv = shlex.split(rendered)
+        self.assertEqual(argv[:2], ["python3", "-c"])
+        code = compile(argv[2], "spotify-connect-shell-command", "exec")
+        state = {
+            "enabled": enabled,
+            "values": {"connected_players": {"value": list(current)}},
+        }
+        requests = []
+
+        def urlopen(request, *, timeout):
+            self.assertEqual(timeout, 15)
+            self.assertEqual(request.full_url, "http://configured-ma:8095/api")
+            self.assertEqual(
+                request.get_header("Authorization"), "Bearer test-only-token"
+            )
+            if fail:
+                raise urllib.error.HTTPError(
+                    request.full_url, 503, "unavailable", {}, None
+                )
+            data = json.loads(request.data)
+            requests.append(data)
+            if data["command"] == "config/providers/save" and not ignore_save:
+                values = data["args"]["values"]
+                state["enabled"] = values["enabled"]
+                state["values"]["connected_players"]["value"] = values[
+                    "connected_players"
+                ]
+            return io.BytesIO(json.dumps(state).encode())
+
+        entries = {
+            "data": {
+                "entries": [
+                    {
+                        "domain": "music_assistant",
+                        "data": {
+                            "url": "http://configured-ma:8095/",
+                            "token": "test-only-token",
+                        },
+                    }
+                ]
+            }
+        }
+        with (
+            mock.patch("builtins.open", mock.mock_open(read_data=json.dumps(entries))),
+            mock.patch("urllib.request.urlopen", side_effect=urlopen),
+            mock.patch("sys.argv", ["-c", *argv[3:]]),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            exec(code, {"__name__": "__main__"})  # noqa: S102 - execute the repository-owned command under mocked I/O
+        return requests
+
+    def test_command_applies_and_reads_back_all_speaker_combinations(self) -> None:
+        for living_room, bedroom in itertools.product((False, True), repeat=2):
+            with self.subTest(living_room=living_room, bedroom=bedroom):
+                requests = self.run_sync(living_room, bedroom, ["old-player"])
+                self.assertEqual(
+                    [r["command"] for r in requests],
+                    [
+                        "config/providers/get",
+                        "config/providers/save",
+                        "config/providers/get",
+                    ],
+                )
+                expected = []
+                if living_room:
+                    expected.append("media_player.homelab_05_satellite_media_player")
+                if bedroom:
+                    expected.append("up4f07df12")
+                self.assertEqual(
+                    requests[1]["args"]["values"],
+                    {
+                        "enabled": True,
+                        "connected_players": expected,
+                    },
+                )
+
+    def test_unchanged_settings_do_not_reload_provider(self) -> None:
+        requests = self.run_sync(
+            True,
+            True,
+            [
+                "up4f07df12",
+                "media_player.homelab_05_satellite_media_player",
+            ],
+        )
+        self.assertEqual([r["command"] for r in requests], ["config/providers/get"])
+
+    def test_disabled_provider_can_be_reenabled(self) -> None:
+        requests = self.run_sync(False, True, ["up4f07df12"], enabled=False)
+        self.assertTrue(requests[1]["args"]["values"]["enabled"])
+
+    def test_missing_service_arguments_default_to_off(self) -> None:
+        requests = self.run_sync(None, None, ["up4f07df12"])
+        self.assertEqual(requests[1]["args"]["values"]["connected_players"], [])
+
+    def test_unavailable_api_fails_instead_of_reporting_success(self) -> None:
+        with self.assertRaisesRegex(SystemExit, "HTTP 503"):
+            self.run_sync(True, False, [], fail=True)
+
+    def test_failed_readback_fails_instead_of_reporting_success(self) -> None:
+        with self.assertRaisesRegex(SystemExit, "RuntimeError"):
+            self.run_sync(True, False, [], ignore_save=True)
+
     def test_helper_definition(self) -> None:
         helper_file = (
             REPO_ROOT
@@ -50,6 +187,7 @@ class TestSpotifyConnectToggle(unittest.TestCase):
         data = yaml.safe_load(auto_file.read_text(encoding="utf-8"))
         self.assertEqual(data.get("id"), "spotify_connect_sync")
         self.assertEqual(data.get("alias"), "Music Assistant: Spotify Connect Sync")
+        self.assertEqual(data["mode"], "queued")
         actions = data.get("actions", [])
         self.assertTrue(
             any(
@@ -68,6 +206,9 @@ class TestSpotifyConnectToggle(unittest.TestCase):
                 trigger_entities.append(ent)
         self.assertIn("input_boolean.spotify_connect", trigger_entities)
         self.assertIn("input_boolean.spotify_connect_bedroom", trigger_entities)
+        self.assertTrue(any(t.get("trigger") == "time_pattern" for t in triggers))
+        self.assertEqual(actions[0]["response_variable"], "sync_result")
+        self.assertIn("persistent_notification.create", json.dumps(actions))
 
     def test_core_configuration_shell_command(self) -> None:
         core_file = REPO_ROOT / "home-assistant" / "core" / "configuration.yaml"

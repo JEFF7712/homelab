@@ -53,23 +53,48 @@ rest_command:
     url: "http://10.0.30.20:8889/disconnect"
     method: post
 shell_command:
-  set_music_assistant_spotify_connect: >-
-    python3 -c 'import urllib.request, json, sys;
-    entries = json.load(open("/config/.storage/core.config_entries"))["data"]["entries"];
-    t = [e["data"]["token"] for e in entries if e.get("domain") == "music_assistant"][0];
-    lr = sys.argv[1].lower() in ("true", "on", "1");
-    br = sys.argv[2].lower() in ("true", "on", "1") if len(sys.argv) > 2 else False;
-    players = [];
-    if lr:
-        players.append("media_player.homelab_05_satellite_media_player");
-    if br:
-        players.append("up4f07df12");
-    body = json.dumps({"command": "config/providers/save", "args": {"provider_domain":
-    "spotify_connect", "instance_id": "spotify_connect", "values": {"enabled":
-    len(players) > 0, "connected_players": players}}, "message_id": "ha_spotify_connect"}).encode();
-    req = urllib.request.Request("http://10.0.30.15:8095/api", data=body,
-    headers={"Authorization": f"Bearer {t}", "Content-Type": "application/json"});
-    urllib.request.urlopen(req)' "{{ living_room | default(enabled) }}" "{{ bedroom | default('false') }}"
+  set_music_assistant_spotify_connect: |-
+    python3 -c '
+    import json
+    import sys
+    import urllib.error
+    import urllib.request
+
+    try:
+        with open("/config/.storage/core.config_entries") as source:
+            entries = json.load(source)["data"]["entries"]
+        connection = next(e["data"] for e in entries if e.get("domain") == "music_assistant")
+        flags = [value.lower() in ("true", "on", "1") for value in sys.argv[1:3]]
+        players = [player for player, enabled in zip(
+            ("media_player.homelab_05_satellite_media_player", "up4f07df12"), flags
+        ) if enabled]
+
+        def rpc(command, args):
+            body = json.dumps({"command": command, "args": args,
+                               "message_id": "ha_spotify_connect"}).encode()
+            request = urllib.request.Request(connection["url"].rstrip("/") + "/api", data=body,
+                headers={"Authorization": "Bearer " + connection["token"],
+                         "Content-Type": "application/json"})
+            with urllib.request.urlopen(request, timeout=15) as response:
+                return json.load(response)
+
+        def matches(config):
+            actual = config.get("values", {}).get("connected_players", {}).get("value", [])
+            return config.get("enabled") is True and set(actual) == set(players)
+
+        config = rpc("config/providers/get", {"instance_id": "spotify_connect"})
+        if not matches(config):
+            rpc("config/providers/save", {"provider_domain": "spotify_connect",
+                "instance_id": "spotify_connect",
+                "values": {"enabled": True, "connected_players": players}})
+            if not matches(rpc("config/providers/get", {"instance_id": "spotify_connect"})):
+                raise RuntimeError("Spotify Connect player settings did not match after saving")
+        print("Spotify Connect speaker settings verified")
+    except urllib.error.HTTPError as error:
+        raise SystemExit("Music Assistant API returned HTTP " + str(error.code))
+    except Exception as error:
+        raise SystemExit("Spotify Connect sync failed: " + type(error).__name__)
+    ' "{{ living_room | default('false') }}" "{{ bedroom | default('false') }}"
 automation: !include automations.yaml
 script: !include scripts.yaml
 scene: !include scenes.yaml
