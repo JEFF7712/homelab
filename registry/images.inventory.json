@@ -2374,10 +2374,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "ci-12832-4f699c158c34",
-        "retention-candidate-23ba1513e4e5e0d3"
+        "ci-13604-80f5a50e208d",
+        "retention-candidate-7c0511cb8c36e069"
       ],
-      "digest": "sha256:23ba1513e4e5e0d32815c08ba3d7915bdb2d13d2d975f111cfe3356850f98ae6",
+      "digest": "sha256:7c0511cb8c36e069a14bf108ec63c4211cde2b6d9e4b134aa88ec9ff5f8ce430",
       "retention_class": "candidate",
       "producer": {
         "owner": "JEFF7712/homelab",
@@ -2387,9 +2387,9 @@
       "source": {
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "ci-12832-4f699c158c34",
-        "digest": "sha256:23ba1513e4e5e0d32815c08ba3d7915bdb2d13d2d975f111cfe3356850f98ae6",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-12832-4f699c158c34@sha256:23ba1513e4e5e0d32815c08ba3d7915bdb2d13d2d975f111cfe3356850f98ae6"
+        "tag": "ci-13604-80f5a50e208d",
+        "digest": "sha256:7c0511cb8c36e069a14bf108ec63c4211cde2b6d9e4b134aa88ec9ff5f8ce430",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-13604-80f5a50e208d@sha256:7c0511cb8c36e069a14bf108ec63c4211cde2b6d9e4b134aa88ec9ff5f8ce430"
       }
     },
     {
@@ -4113,6 +4113,23 @@
         "registry": "docker.io",
         "repository": "library/node",
         "tag": "24-alpine"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/analytics/registry-sources.yaml:13"
+      ],
+      "destination_repository": "upstream/ghcr.io/umami-software/umami",
+      "id": "upstream-umami-software-umami-e30b1d5f2d5c",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc",
+        "reference": "ghcr.io/umami-software/umami:3.5.0@sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc",
+        "registry": "ghcr.io",
+        "repository": "umami-software/umami",
+        "tag": "3.5.0"
       }
     }
   ],

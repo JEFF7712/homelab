@@ -68,6 +68,17 @@ class ScopeTest(unittest.TestCase):
                 (),
             ),
             (["schemas/kubernetes/example.json"], ("gitops",), ()),
+            # Mounted Python under the lint and type gates also runs them.
+            (
+                ["gitops/observability/network-monitor/monitor.py"],
+                ("python", "gitops"),
+                (),
+            ),
+            (
+                ["gitops/observability/network-monitor/deployment.yaml"],
+                ("gitops",),
+                (),
+            ),
             (["tofu/opnsense/main.tf"], ("tofu",), ()),
             (
                 ["registry/images.lock.json"],

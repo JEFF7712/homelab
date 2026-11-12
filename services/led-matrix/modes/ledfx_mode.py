@@ -18,6 +18,7 @@ from modes.visualizer import VisualizerRenderer
 @dataclass
 class AudioFrame:
     """Real-time audio FFT frame streamed from nas-01."""
+
     rms: float
     beat: float
     bands: list[float]
@@ -45,7 +46,9 @@ class LedFxReceiver:
         if self._running:
             return
         self._running = True
-        self._thread = threading.Thread(target=self._listen_loop, daemon=True, name="ledfx-udp")
+        self._thread = threading.Thread(
+            target=self._listen_loop, daemon=True, name="ledfx-udp"
+        )
         self._thread.start()
 
     def stop(self) -> None:
@@ -58,7 +61,9 @@ class LedFxReceiver:
 
     def has_recent_frame(self, timeout: float = 3.0) -> bool:
         with self._lock:
-            return (self._current_frame is not None) and (time.monotonic() - self._last_packet_time < timeout)
+            return (self._current_frame is not None) and (
+                time.monotonic() - self._last_packet_time < timeout
+            )
 
     def get_frame(self) -> Image.Image | None:
         with self._lock:
@@ -66,7 +71,9 @@ class LedFxReceiver:
 
     def get_latest_audio(self, timeout: float = 2.0) -> AudioFrame | None:
         with self._lock:
-            if self._latest_audio is not None and (time.monotonic() - self._latest_audio.timestamp < timeout):
+            if self._latest_audio is not None and (
+                time.monotonic() - self._latest_audio.timestamp < timeout
+            ):
                 return self._latest_audio
             return None
 
@@ -76,7 +83,10 @@ class LedFxReceiver:
             self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             self._sock.bind((self.host, self.port))
             self._sock.settimeout(1.0)
-            print(f"[LedFx] Listening for pixel stream on UDP {self.host}:{self.port}", flush=True)
+            print(
+                f"[LedFx] Listening for pixel stream on UDP {self.host}:{self.port}",
+                flush=True,
+            )
         except OSError as e:
             print(f"[LedFx] UDP bind error ({self.host}:{self.port}): {e}", flush=True)
             return
@@ -114,21 +124,25 @@ class LedFxReceiver:
         if len(data) >= 10 and (data[0] & 0x40):
             offset = int.from_bytes(data[4:8], "big")
             length = int.from_bytes(data[8:10], "big")
-            payload = data[10:10 + length]
+            payload = data[10 : 10 + length]
             with self._lock:
                 end = min(offset + len(payload), self.expected_bytes)
                 if offset < self.expected_bytes:
-                    self._buffer[offset:end] = payload[:end - offset]
+                    self._buffer[offset:end] = payload[: end - offset]
                 self._last_packet_time = now
                 is_push = bool(data[0] & 0x01)
                 if is_push or end >= self.expected_bytes:
-                    arr = np.frombuffer(self._buffer, dtype=np.uint8).reshape((self.size, self.size, 3))
+                    arr = np.frombuffer(self._buffer, dtype=np.uint8).reshape(
+                        (self.size, self.size, 3)
+                    )
                     self._current_frame = Image.fromarray(arr, mode="RGB")
         # 2. Exact raw frame (12288 bytes)
         elif len(data) == self.expected_bytes:
             with self._lock:
                 self._last_packet_time = now
-                arr = np.frombuffer(data, dtype=np.uint8).reshape((self.size, self.size, 3))
+                arr = np.frombuffer(data, dtype=np.uint8).reshape(
+                    (self.size, self.size, 3)
+                )
                 self._current_frame = Image.fromarray(arr, mode="RGB")
         # 3. WLED DRGB (0x02, wait, RGB...)
         elif len(data) > 2 and data[0] == 0x02 and len(data) - 2 <= self.expected_bytes:
@@ -137,7 +151,9 @@ class LedFxReceiver:
                 self._last_packet_time = now
                 end = min(len(payload), self.expected_bytes)
                 self._buffer[:end] = payload[:end]
-                arr = np.frombuffer(self._buffer, dtype=np.uint8).reshape((self.size, self.size, 3))
+                arr = np.frombuffer(self._buffer, dtype=np.uint8).reshape(
+                    (self.size, self.size, 3)
+                )
                 self._current_frame = Image.fromarray(arr, mode="RGB")
 
 

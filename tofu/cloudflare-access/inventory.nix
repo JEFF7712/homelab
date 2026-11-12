@@ -139,10 +139,6 @@
           type = "public";
           uri = "obsidian.rupan.dev";
         }
-        {
-          type = "public";
-          uri = "n8n.rupan.dev";
-        }
       ];
       domain = "music.rupan.dev";
       enable_binding_cookie = false;
@@ -239,26 +235,14 @@
       destinations = [
         {
           type = "public";
-          uri = "apptly.rupan.dev";
-        }
-        {
-          type = "public";
           uri = "lidarr.rupan.dev";
-        }
-        {
-          type = "public";
-          uri = "aurral.rupan.dev";
-        }
-        {
-          type = "public";
-          uri = "spotify.rupan.dev";
         }
         {
           type = "public";
           uri = "seerr.rupan.dev";
         }
       ];
-      domain = "apptly.rupan.dev";
+      domain = "lidarr.rupan.dev";
       enable_binding_cookie = false;
       http_only_cookie_attribute = true;
       name = "Bypass - Requests and music tools";

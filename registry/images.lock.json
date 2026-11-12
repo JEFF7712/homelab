@@ -217,10 +217,10 @@
       ],
       "destination_repository": "apps/spotify-matrix",
       "destination_tags": [
-        "ci-12832-4f699c158c34",
-        "retention-candidate-23ba1513e4e5e0d3"
+        "ci-13604-80f5a50e208d",
+        "retention-candidate-7c0511cb8c36e069"
       ],
-      "digest": "sha256:23ba1513e4e5e0d32815c08ba3d7915bdb2d13d2d975f111cfe3356850f98ae6",
+      "digest": "sha256:7c0511cb8c36e069a14bf108ec63c4211cde2b6d9e4b134aa88ec9ff5f8ce430",
       "id": "first-party-apps-spotify-matrix",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -241,11 +241,11 @@
       },
       "retention_class": "candidate",
       "source": {
-        "digest": "sha256:23ba1513e4e5e0d32815c08ba3d7915bdb2d13d2d975f111cfe3356850f98ae6",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-12832-4f699c158c34@sha256:23ba1513e4e5e0d32815c08ba3d7915bdb2d13d2d975f111cfe3356850f98ae6",
+        "digest": "sha256:7c0511cb8c36e069a14bf108ec63c4211cde2b6d9e4b134aa88ec9ff5f8ce430",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-13604-80f5a50e208d@sha256:7c0511cb8c36e069a14bf108ec63c4211cde2b6d9e4b134aa88ec9ff5f8ce430",
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "ci-12832-4f699c158c34"
+        "tag": "ci-13604-80f5a50e208d"
       }
     },
     {
@@ -7969,6 +7969,45 @@
         "registry": "ghcr.io",
         "repository": "umami-software/umami",
         "tag": "3.4.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/analytics/registry-sources.yaml:13"
+      ],
+      "destination_repository": "upstream/ghcr.io/umami-software/umami",
+      "destination_tags": [
+        "3.5.0",
+        "retention-deployed-b64f40400d77bcad"
+      ],
+      "digest": "sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc",
+      "id": "upstream-umami-software-umami-e30b1d5f2d5c",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc",
+        "reference": "ghcr.io/umami-software/umami:3.5.0@sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc",
+        "registry": "ghcr.io",
+        "repository": "umami-software/umami",
+        "tag": "3.5.0"
       }
     },
     {

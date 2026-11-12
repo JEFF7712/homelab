@@ -67,7 +67,6 @@ class MultiplayerArcadeRenderer(ModeRenderer):
             self.hub.phase = "lobby"
             self.hub.play_sfx("button")
 
-
     def reset(self) -> None:
         with self._lock:
             self.last_update = time.time()
@@ -136,10 +135,12 @@ class MultiplayerArcadeRenderer(ModeRenderer):
                         status_text = game.get_status_text()
                     except Exception:  # noqa: BLE001, S110
                         pass
-                    self.hub.broadcast_sync({
-                        "type": "game_update",
-                        "score_text": status_text,
-                    })
+                    self.hub.broadcast_sync(
+                        {
+                            "type": "game_update",
+                            "score_text": status_text,
+                        }
+                    )
 
                 if game.is_game_over():
                     self.hub.phase = "gameover"
@@ -156,21 +157,25 @@ class MultiplayerArcadeRenderer(ModeRenderer):
                         pass
 
                     final_score = game.get_final_score()
-                    is_new, best = self.hub.record_game_score(self.hub.selected_game, final_score)
+                    is_new, best = self.hub.record_game_score(
+                        self.hub.selected_game, final_score
+                    )
                     self.is_new_high = is_new
                     self.best_score = best
                     if is_new:
                         self.hub.play_sfx("high_score")
 
-                    self.hub.broadcast_sync({
-                        "type": "game_over",
-                        "winner": winner,
-                        "winner_text": winner_text,
-                        "score_text": status_text,
-                        "score": final_score,
-                        "high_score": best,
-                        "new_high": is_new,
-                    })
+                    self.hub.broadcast_sync(
+                        {
+                            "type": "game_over",
+                            "winner": winner,
+                            "winner_text": winner_text,
+                            "score_text": status_text,
+                            "score": final_score,
+                            "high_score": best,
+                            "new_high": is_new,
+                        }
+                    )
 
             elif phase == "gameover":
                 winner = game.winner if game else 1
@@ -194,4 +199,3 @@ class MultiplayerArcadeRenderer(ModeRenderer):
                 )
 
         return image
-
