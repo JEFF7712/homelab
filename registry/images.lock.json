@@ -2620,6 +2620,45 @@
       ],
       "destination_repository": "upstream/ghcr.io/gameyfin/gameyfin",
       "destination_tags": [
+        "2.6.2",
+        "retention-deployed-1042f8c7ccce1ce9"
+      ],
+      "digest": "sha256:1042f8c7ccce1ce98b9d6b4314937f80c37c360f2e1fbbe7e4a0a9434facb930",
+      "id": "upstream-gameyfin-gameyfin-662f8145b618",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:1042f8c7ccce1ce98b9d6b4314937f80c37c360f2e1fbbe7e4a0a9434facb930",
+        "reference": "ghcr.io/gameyfin/gameyfin:2.6.2@sha256:1042f8c7ccce1ce98b9d6b4314937f80c37c360f2e1fbbe7e4a0a9434facb930",
+        "registry": "ghcr.io",
+        "repository": "gameyfin/gameyfin",
+        "tag": "2.6.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:26"
+      ],
+      "destination_repository": "upstream/ghcr.io/gameyfin/gameyfin",
+      "destination_tags": [
         "2.6.0",
         "retention-deployed-c0c94f348c0cee5a"
       ],
