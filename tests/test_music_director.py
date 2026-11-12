@@ -258,6 +258,23 @@ class TestPalette(unittest.TestCase):
             palette.hue_distance(hue_of(palette.area_colors(amber, 1)[0]), 72.0), 15
         )
 
+    def test_spread_label_explains_the_lights(self) -> None:
+        def label(**kwargs: object) -> str:
+            return palette.spread_label(
+                palette.Palette(hue=20.0, chroma=0.15, source="cover", **kwargs)
+            )
+
+        self.assertEqual(label(intensity=0.2), "one colour")
+        self.assertEqual(label(related=(60.0,), intensity=0.2), "the cover's colours")
+        self.assertEqual(label(spread=10.0, intensity=0.2), "±10° around one colour")
+        self.assertEqual(
+            label(spread=10.0, intensity=0.9), "one sharp colour (intense)"
+        )
+        self.assertEqual(
+            palette.spread_label(palette.chosen_palette((255, 0, 0))),
+            "one chosen colour",
+        )
+
     def test_wheel_colours_keep_their_hue(self) -> None:
         for rgb in (
             (255, 0, 0),
