@@ -132,6 +132,29 @@ def classify(features: Features) -> str:
     return "default"
 
 
+# How intense each family is before audio features: drives colour vividness.
+FAMILY_INTENSITY: dict[str, float] = {
+    "calm": 0.15,
+    "smooth": 0.3,
+    "default": 0.5,
+    "bass": 0.75,
+    "rock": 0.8,
+    "drive": 0.85,
+}
+
+
+def intensity(features: Features, family: str) -> float:
+    """0 (calm) to 1 (intense): the family prior blended with energy, or
+    with tempo when ReccoBeats has no features."""
+    prior = FAMILY_INTENSITY[family]
+    if features.energy is not None:
+        return round(0.5 * prior + 0.5 * _unit(features.energy), 3)
+    tempo = tempo_level(features.bpm)
+    if tempo is not None:
+        return round(0.7 * prior + 0.3 * tempo, 3)
+    return prior
+
+
 def choose_effect(family: str, track_key: str, previous: str | None) -> str:
     candidates = FAMILIES[family]
     index = zlib.crc32(track_key.encode("utf-8")) % len(candidates)

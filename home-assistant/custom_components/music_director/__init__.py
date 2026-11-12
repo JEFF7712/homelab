@@ -11,8 +11,40 @@ from homeassistant.core import Event, HomeAssistant, ServiceCall
 from homeassistant.helpers.typing import ConfigType
 
 from .director import Director, DirectorConfig
+from .metadata import SongOverride
+from .palette import NAMED_HUES
+from .rules import EFFECTS
 
 DOMAIN = "music_director"
+
+
+def _colour_name(value: object) -> str:
+    name = " ".join(str(value).lower().replace("_", " ").split())
+    if name not in NAMED_HUES:
+        raise vol.Invalid(f"unknown colour {value!r}; use one of {sorted(NAMED_HUES)}")
+    return name
+
+
+def _effect_name(value: object) -> str:
+    name = str(value).strip().lower().replace(" ", "_")
+    if name not in EFFECTS:
+        raise vol.Invalid(f"unknown effect {value!r}; use one of {list(EFFECTS)}")
+    return name
+
+
+OVERRIDE_SCHEMA = vol.All(
+    vol.Schema(
+        {
+            vol.Optional("artist"): cv.string,
+            vol.Optional("album"): cv.string,
+            vol.Optional("title"): cv.string,
+            vol.Optional("color"): _colour_name,
+            vol.Optional("effect"): _effect_name,
+        }
+    ),
+    cv.has_at_least_one_key("artist", "album", "title"),
+    cv.has_at_least_one_key("color", "effect"),
+)
 
 CONFIG_SCHEMA = vol.Schema(
     {
@@ -27,6 +59,10 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Required("library_url"): cv.url,
                 vol.Required("areas"): vol.All(cv.ensure_list, [cv.slug]),
                 vol.Required("effect_select"): cv.entity_id,
+                vol.Required("color_select"): cv.entity_id,
+                vol.Optional("overrides", default=[]): vol.All(
+                    cv.ensure_list, [OVERRIDE_SCHEMA]
+                ),
                 vol.Optional("transition_time", default=1.5): vol.All(
                     vol.Coerce(float), vol.Range(min=0, max=5)
                 ),
@@ -51,6 +87,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             library_url=conf["library_url"].rstrip("/"),
             areas=tuple(conf["areas"]),
             effect_select=conf["effect_select"],
+            color_select=conf["color_select"],
+            overrides=tuple(SongOverride(**item) for item in conf["overrides"]),
             transition_time=conf["transition_time"],
             lastfm_key=os.environ.get("LASTFM_API_KEY") or None,
         ),

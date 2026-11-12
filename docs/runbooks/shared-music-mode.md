@@ -68,13 +68,27 @@ purple to deep red (happy) axis, the genre pulls it 30% toward its own hue,
 energy (or tempo) raises saturation and brightness, and the accent is the
 other end of the axis, after Palmer et al. (PNAS 2013).
 
-On output the lights favour vivid blues and reds (`palette.steer`): oranges
-and yellows become reds and corals, yellow-greens become green, and sky blues
-become deep blue. Blues and reds have a lightness ceiling so they stay deep,
-and the yellow-green band keeps a lightness floor so nothing renders as
-mustard or olive, as Material's DislikeAnalyzer does. `sensor.music_director`
-attributes `metadata_sources` and `palette_source` (`cover`, `vibe` or
-`default`) show what each decision used.
+Each track gets an intensity from 0 (calm) to 1 (intense)
+(`rules.intensity`): the effect family's prior (calm 0.15, smooth 0.3,
+default 0.5, bass 0.75, rock 0.8, drive 0.85) blended with ReccoBeats energy,
+or with tempo when there is no energy. Intensity sets how vivid the output is
+(`palette._led`):
+
+- Intense tracks (rap, house, rock, high energy) are steered toward vivid reds
+  and deep blues (`palette.steer`: oranges and yellows into reds, yellow-greens
+  into green, sky blues into deep blue) with boosted saturation.
+- Calm tracks (R&B, soul, acoustic) keep their cover's own hue and
+  saturation, so an orange cover stays orange; a vivid cover stays vivid.
+- At every intensity, yellows lean at least partly toward orange, blues and
+  reds keep a lightness ceiling so they stay deep, and the yellow-green band
+  keeps a lightness floor so nothing renders as mustard or olive.
+
+In the vibe fallback the genre pulls the mood-axis hue toward its own colour
+by 95% for calm tracks and 30% for intense ones, so calm R&B stays warm
+orange (genre hue) and intense rap follows mood between deep blue and red.
+`sensor.music_director` attributes `metadata_sources`, `palette_source`
+(`cover`, `vibe`, `default`, `override` or `manual`), `auto_palette_source`
+and `intensity` show what each decision used.
 
 ## Effects
 
@@ -98,6 +112,29 @@ LedFx schema range (`rules.dynamics`): speed scales from 70 BPM (slowest) to
 (power) and shortens `decay` (scroll). Unknown tempo or energy keeps the
 LedFx default. On start it sets the strip virtual's `transition_time`
 (crossfade between effects) to `music_director.transition_time` (1.5 s).
+
+## Manual colour and per-song overrides
+
+`input_select.music_mode_color` ("Colour" on the dashboard) offers Auto plus
+named colours (`palette.NAMED_HUES`). Any choice other than Auto applies at
+once to the strip and every taking-part area, and holds across tracks until
+set back to Auto. Chosen colours are never steered or muted.
+
+`music_director.overrides` in `home-assistant/core/configuration.yaml` pins
+a colour and/or effect for matching tracks. Each entry needs at least one of
+`artist`, `album` or `title` (artist and album match by prefix, title
+exactly, case and punctuation ignored) and at least one of `color` (a
+`NAMED_HUES` name) or `effect` (an effect from the table above). The first
+matching entry wins; the dropdowns still take precedence. Example:
+
+```yaml
+  overrides:
+    - album: channel ORANGE
+      color: orange
+    - artist: The Weeknd
+      album: Dawn FM
+      color: deep blue
+```
 
 ## Manual effect override
 

@@ -1,0 +1,3 @@
+name: 'Music Mode: Colour'
+icon: null
+entity_id: input_select.music_mode_color

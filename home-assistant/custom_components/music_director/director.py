@@ -28,15 +28,32 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_state_change_event
 
 from .metadata import (
+    SongOverride,
     TrackInfo,
     apply_lastfm,
     apply_library,
     apply_reccobeats,
+    find_override,
     same_track,
     spotify_track_id,
 )
-from .palette import Palette, area_colors, extract_palette, gradient, vibe_palette
-from .rules import EFFECTS, choose_effect, classify, effect_config, tempo_level
+from .palette import (
+    Palette,
+    area_colors,
+    extract_palette,
+    gradient,
+    named_palette,
+    vibe_palette,
+    with_intensity,
+)
+from .rules import (
+    EFFECTS,
+    choose_effect,
+    classify,
+    effect_config,
+    intensity,
+    tempo_level,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -62,7 +79,9 @@ class DirectorConfig:
     library_url: str
     areas: tuple[str, ...]
     effect_select: str
+    color_select: str
     transition_time: float
+    overrides: tuple[SongOverride, ...] = ()
     lastfm_key: str | None = field(default=None, repr=False)
 
 
@@ -71,6 +90,7 @@ class Decision:
     title: str
     artist: str
     info: TrackInfo
+    auto_palette: Palette
     palette: Palette
     family: str
     auto_effect: str
@@ -126,6 +146,7 @@ class Director:
                 self.config.enabled,
                 self.config.strip,
                 self.config.effect_select,
+                self.config.color_select,
             ],
             self._on_change,
         )
@@ -149,7 +170,7 @@ class Director:
             return
         if not self._is_on(self.config.enabled):
             return
-        if entity_id == self.config.effect_select:
+        if entity_id in (self.config.effect_select, self.config.color_select):
             if self._decision is not None:
                 self.hass.async_create_task(
                     self._apply(self._recompose(self._decision))
@@ -182,19 +203,33 @@ class Director:
         option = (state.state if state else "").strip().lower().replace(" ", "_")
         return option if option in EFFECTS else None
 
+    def _colour_override(self) -> Palette | None:
+        """The colour dropdown's palette, or None for Auto."""
+        state = self.hass.states.get(self.config.color_select)
+        return named_palette(state.state, "manual") if state else None
+
     def _compose(
         self,
         title: str,
         artist: str,
         info: TrackInfo,
-        palette: Palette,
+        auto_palette: Palette,
         family: str,
         auto_effect: str,
     ) -> Decision:
+        palette = self._colour_override() or auto_palette
         effect = self._override() or auto_effect
         config = effect_config(effect, palette, info.features())
         return Decision(
-            title, artist, info, palette, family, auto_effect, effect, config
+            title,
+            artist,
+            info,
+            auto_palette,
+            palette,
+            family,
+            auto_effect,
+            effect,
+            config,
         )
 
     def _recompose(self, decision: Decision) -> Decision:
@@ -202,7 +237,7 @@ class Director:
             decision.title,
             decision.artist,
             decision.info,
-            decision.palette,
+            decision.auto_palette,
             decision.family,
             decision.auto_effect,
         )
@@ -249,23 +284,41 @@ class Director:
         else:
             self._cache.move_to_end(key)
         info, cover = cached
-        palette = cover or vibe_palette(
-            info.genres, info.energy, info.valence, tempo_level(info.bpm)
-        )
-        family = classify(info.features())
-        effect = choose_effect(family, key, self._last_effect)
+        features = info.features()
+        family = classify(features)
+        level = intensity(features, family)
         title = player.attributes.get("media_title") or ""
         artist = player.attributes.get("media_artist") or ""
+        album = player.attributes.get("media_album_name") or ""
+        song = find_override(self.config.overrides, title, artist, album)
+        palette = named_palette(song.color, "override") if song and song.color else None
+        if palette is None:
+            palette = (
+                with_intensity(cover, level)
+                if cover
+                else vibe_palette(
+                    info.genres,
+                    info.energy,
+                    info.valence,
+                    tempo_level(info.bpm),
+                    level,
+                )
+            )
+        if song and song.effect:
+            effect = song.effect
+        else:
+            effect = choose_effect(family, key, self._last_effect)
         decision = self._compose(title, artist, info, palette, family, effect)
         _LOGGER.info(
-            "%s - %s: %s/%s%s, palette %s (hue %.0f), sources %s",
+            "%s - %s: %s/%s%s, intensity %.2f, palette %s (hue %.0f), sources %s",
             artist,
             title,
             family,
             decision.effect,
             " (manual)" if decision.manual else "",
-            palette.source,
-            palette.hue,
+            level,
+            decision.palette.source,
+            decision.palette.hue,
             ",".join(info.sources) or "none",
         )
         return decision
@@ -389,6 +442,8 @@ class Director:
                     k: v for k, v in decision.config.items() if k != "gradient"
                 },
                 "palette_source": decision.palette.source,
+                "auto_palette_source": decision.auto_palette.source,
+                "intensity": decision.auto_palette.intensity,
                 "metadata_sources": list(info.sources),
                 "area_colors": {
                     area: list(colour)

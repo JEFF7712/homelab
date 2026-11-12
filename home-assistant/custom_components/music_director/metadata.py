@@ -41,6 +41,41 @@ def same_track(title: str, artist: str, other_title: str, other_artist: str) -> 
     return not a or not b or a in b or b in a
 
 
+@dataclass(frozen=True)
+class SongOverride:
+    """A configured colour and/or effect for matching tracks. Every given
+    field must match; album and artist match by prefix after normalising,
+    so "channel ORANGE" also matches a deluxe edition."""
+
+    artist: str | None = None
+    album: str | None = None
+    title: str | None = None
+    color: str | None = None
+    effect: str | None = None
+
+    def matches(self, title: str, artist: str, album: str) -> bool:
+        pairs = [
+            (self.title, title, False),
+            (self.artist, artist, True),
+            (self.album, album, True),
+        ]
+        given = [(want, have, prefix) for want, have, prefix in pairs if want]
+        if not given:
+            return False
+        for want, have, prefix in given:
+            w, h = normalize(want or ""), normalize(have)
+            if not w or not (h == w or (prefix and h.startswith(w))):
+                return False
+        return True
+
+
+def find_override(
+    overrides: tuple[SongOverride, ...], title: str, artist: str, album: str
+) -> SongOverride | None:
+    """The first override matching the track, or None."""
+    return next((o for o in overrides if o.matches(title, artist, album)), None)
+
+
 def spotify_track_id(content_id: str | None) -> str | None:
     match = SPOTIFY_TRACK_URI.match(content_id or "")
     return match.group(1) if match else None
