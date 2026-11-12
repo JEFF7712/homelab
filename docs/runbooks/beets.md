@@ -9,6 +9,11 @@ embeds it. It does not move or copy music. Quiet mode skips uncertain matches;
 `incremental_skip_later: true` leaves those albums eligible for a later retry.
 The `musicbrainz` plugin must be explicitly enabled with beets 2.13.
 
+`lastgenre` adds up to three whitelisted Last.fm genres to each imported album
+that has no genre (`force: false` keeps existing genre tags). Navidrome reads
+them from the files, and shared music mode's library lookup uses them to pick
+effects and colours (see [shared-music-mode.md](shared-music-mode.md)).
+
 The database, resume/incremental state, append-only import decision log, and
 latest completed run summary live on the media-library PVC:
 

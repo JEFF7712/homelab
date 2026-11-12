@@ -46,6 +46,7 @@ from .palette import (
     Palette,
     area_colors,
     chosen_palette,
+    spread_label,
     extract_palette,
     gradient,
     named_palette,
@@ -474,6 +475,7 @@ class Director:
                     k: v for k, v in decision.config.items() if k != "gradient"
                 },
                 "palette_source": decision.palette.source,
+                "palette_spread": spread_label(decision.palette),
                 "colour_mode": "manual" if self.manual_rgb else "auto",
                 "brightness_pct": self.brightness_pct,
                 "auto_palette_source": decision.auto_palette.source,

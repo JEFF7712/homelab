@@ -118,6 +118,12 @@ class TestNightlyConfiguration(unittest.TestCase):
         self.assertFalse(CONFIG["import"]["copy"])
         self.assertTrue(CONFIG["import"]["write"])
 
+    def test_genres_fill_gaps_without_overwriting(self):
+        # Music lighting reads genres through Navidrome; lastgenre only fills
+        # albums that have none.
+        self.assertIn("lastgenre", CONFIG["plugins"].split())
+        self.assertFalse(CONFIG["lastgenre"]["force"])
+
     def test_serial_execution_and_runner_mount(self):
         cron = next(
             d

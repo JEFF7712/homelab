@@ -283,6 +283,21 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertTrue(colour["show_color_control"])
         self.assertIn("number.music_mode_brightness", entities)
         self.assertNotIn("input_select.music_mode_color", entities)
+        # The preview sits under the toggle and only shows while it is on.
+        preview = music[2]
+        self.assertEqual(preview["type"], "markdown")
+        self.assertEqual(
+            preview["visibility"],
+            [
+                {
+                    "condition": "state",
+                    "entity": "input_boolean.shared_music_mode",
+                    "state": "on",
+                }
+            ],
+        )
+        for attribute in ("area_colors", "gradient", "palette_spread", "intensity"):
+            self.assertIn(f"state_attr(d, '{attribute}')", preview["content"])
         for area in ("led_strip", *AREAS):
             entity = f"input_boolean.music_mode_{area}"
             card = music[entities.index(entity)]

@@ -439,6 +439,20 @@ def _led(palette: Palette, hue: float, lightness: float = LED_LIGHTNESS) -> RGB:
     return oklch_to_rgb(lightness, chroma, hue)
 
 
+def spread_label(palette: Palette) -> str:
+    """How the lights spread around the primary, for the dashboard."""
+    width = 1.0 - boost(palette.intensity)
+    if palette.source in CHOSEN_SOURCES:
+        return "one chosen colour"
+    if width == 0.0 and (palette.related or palette.spread):
+        return "one sharp colour (intense)"
+    if palette.related:
+        return "the cover's colours"
+    if palette.spread * width < 1.0:
+        return "one colour"
+    return f"±{round(palette.spread * width)}° around one colour"
+
+
 def shade_hues(palette: Palette, count: int) -> list[float]:
     """One hue per slot: the primary alternating with the cover's related
     hues, or steps across the spread. Intensity narrows both toward the

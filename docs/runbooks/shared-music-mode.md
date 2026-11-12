@@ -103,7 +103,10 @@ by 95% for calm tracks and 30% for intense ones, so calm R&B stays warm
 orange (genre hue) and intense rap follows mood between deep blue and red.
 `sensor.music_director` attributes `metadata_sources`, `palette_source`
 (`cover`, `vibe`, `default`, `override` or `manual`), `auto_palette_source`
-and `intensity` show what each decision used.
+and `intensity` show what each decision used; `palette_spread`
+(`palette.spread_label`) says how the lights spread. While Music Mode is on,
+the dashboard's preview card under the toggle shows the strip gradient, each
+area's colour, where the colour came from, its spread and the intensity.
 
 ## Effects
 

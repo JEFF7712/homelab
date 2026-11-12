@@ -566,6 +566,46 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          - type: markdown
+            visibility:
+              - condition: state
+                entity: input_boolean.shared_music_mode
+                state: "on"
+            content: |
+              {% set d = 'sensor.music_director' %}
+              {% set names = {'kitchen_ceiling': 'Kitchen ceiling',
+                              'dining_table': 'Dining table',
+                              'floor_lamp': 'Floor lamp',
+                              'tulip_lamp': 'Tulip lamp',
+                              'ceiling_strip': 'Ceiling strip'} %}
+              {% set sources = {'cover': 'the album cover',
+                                'vibe': 'the genre and mood (no usable cover colour)',
+                                'default': 'the default (nothing known yet)',
+                                'override': 'a song override',
+                                'manual': 'your colour'} %}
+              {% set areas = state_attr(d, 'area_colors') or {} %}
+              {% if areas %}
+              {% set strip = (state_attr(d, 'gradient') or '')
+                 | regex_findall('rgb\((\d+), (\d+), (\d+)\)') %}
+              {% set i = state_attr(d, 'intensity') | float(0) %}
+              {% set n = (i * 10) | round(0, 'floor') | int %}
+              {%- for c in strip -%}
+              {% set hex = '#%02x%02x%02x' | format(c[0] | int, c[1] | int, c[2] | int) -%}
+              <font color="{{ hex }}">▇▇▇</font>
+              {%- endfor %} LED strip · {{ states(d) | replace('_', ' ') }}<br>
+              {%- for area, c in areas.items() %}
+              {% set hex = '#%02x%02x%02x' | format(c[0], c[1], c[2]) -%}
+              <font color="{{ hex }}">▇▇▇▇▇▇▇▇▇▇▇▇</font> {{ names.get(area, area) }}<br>
+              {%- endfor %}
+
+              **Colour from** {{ sources.get(state_attr(d, 'palette_source'), 'unknown') }}:
+              {{ state_attr(d, 'palette_spread') or '' }}<br>
+              **Intensity** {{ '▰' * n }}{{ '▱' * (10 - n) }}
+              {{ 'calm' if i < 0.35 else 'medium' if i < 0.65 else 'intense' }}
+              ({{ (i * 100) | round | int }}%)
+              {% else %}
+              Waiting for music…
+              {% endif %}
           - entity: input_select.music_mode_effect
             name: LED Strip Effect
             icon: mdi:auto-fix
