@@ -24,7 +24,10 @@ restart persistence, not disk-reboot persistence, ZFS recovery or backup restore
 
 Zot and the k3s registry configuration are deployed configuration, not a pending
 migration. Inspect `flake/hosts/nas-01/default.nix`, `flake/modules/zot-registry.nix`,
-`flake/modules/k3s-registry-client.nix`, and the five cluster host declarations.
+`flake/modules/k3s-server.nix`, and the five cluster host declarations. Every k3s
+node loads `/persist/secrets/k3s-registries.yaml` and pulls only through the local
+registry (`--disable-default-registry-endpoint`); there is no upstream fallback
+configuration.
 The lock and `gitops/clusters/homelab-01/` own image mappings and Flux paths.
 
 Before a service or storage change, collect fresh NAS pool/mount/capacity checks,
@@ -136,7 +139,12 @@ the hyphenated operation keys in `config/ci/operations.json`, including
 `deploy-registry-platform`, `deploy-registry-dns`, `deploy-registry-node-01`
 through `deploy-registry-node-05`, and their catalog prerequisites. Inspect the
 operation before selecting it: platform and node bootstrap steps install runtime
-credentials and are broader than an ordinary NixOS service update.
+credentials and are broader than an ordinary NixOS service update. The node
+operations are the only writers of `/persist/secrets/k3s-registries.yaml`: run
+one for a newly installed or reinstalled node, after rotating the `node`
+password, and when `scripts.registry node-config` output changes. Ordinary
+NixOS changes go through `deploy-fleet`, which builds the same host-named
+configuration and leaves the credential file alone.
 
 1. Verify target identity, storage mounts, available capacity, backup recovery
    and the exact source/lock before activation.

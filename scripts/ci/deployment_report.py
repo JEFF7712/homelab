@@ -332,7 +332,7 @@ class Reporter:
                     "--option",
                     "allow-import-from-derivation",
                     "false",
-                    f"{flake}#nixosConfigurations.{host.flake_attr}.config.system.build.toplevel",
+                    f"{flake}#nixosConfigurations.{host.name}.config.system.build.toplevel",
                     "--apply",
                     "s: { drv_path = s.drvPath; store_path = s.outPath; }",
                 ]
@@ -341,7 +341,7 @@ class Reporter:
         return measurement(
             "exact",
             "Evaluated identity; this does not realize the candidate.",
-            flake_attr=host.flake_attr,
+            flake_attr=host.name,
             drv_path=store_path(data["drv_path"], derivation=True),
             store_path=store_path(data["store_path"]),
         )

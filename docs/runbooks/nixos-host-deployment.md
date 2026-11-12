@@ -35,7 +35,7 @@ by Git flake semantics; add and commit all intended source files first.
 Each host reports its observed running system, generation and profile pointer,
 candidate derivation/output, closure sizes and delta, package changes,
 build/substitution requirements, and previous retained generation. Kubernetes
-hosts use the same `-registry` variants as the deployer. `configurationRevision`
+hosts use the same host-named configurations as the deployer. `configurationRevision`
 is reported when available; the nixpkgs revision is never substituted for a
 missing homelab source revision. The running and profile generations may differ.
 If multiple retained generations match the running closure and the profile
@@ -256,7 +256,7 @@ glibc; the exporter reads NVML directly.
 ## Preparation, verification and recovery
 
 The deployer evaluates the exact `system.build.toplevel.outPath` for each host
-(using the registry variant for k3s) and compares it to `/run/current-system`
+(`nixosConfigurations.<host>`) and compares it to `/run/current-system`
 on that host. It checks configured NAS datasets, then builds changed closures
 with the existing remote builder and cache configuration. All selected builds
 finish before the first drain. Temporary remote GC roots retain the candidate

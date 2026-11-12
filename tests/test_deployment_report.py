@@ -154,7 +154,7 @@ class DeploymentReportTest(unittest.TestCase):
         report = self.report(target)
         self.assertEqual(report["status"], "complete")
         self.assertEqual(report["deployed"]["generation"], 10)
-        self.assertEqual(report["candidate"]["flake_attr"], "homelab-04-registry")
+        self.assertEqual(report["candidate"]["flake_attr"], "homelab-04")
         self.assertEqual(report["current_closure"]["nar_bytes"], 1000)
         self.assertEqual(report["candidate_closure"]["nar_bytes"], 2000)
         self.assertEqual(report["closure_delta"]["nar_bytes"], 1000)
@@ -336,7 +336,7 @@ class DeploymentReportTest(unittest.TestCase):
         self.assertIn(
             "git+file:///source?dir=flake&rev="
             + "a" * 40
-            + "#nixosConfigurations.homelab-04-registry.config.system.build.toplevel",
+            + "#nixosConfigurations.homelab-04.config.system.build.toplevel",
             evaluation,
         )
         self.assertIn("allow-import-from-derivation", evaluation)

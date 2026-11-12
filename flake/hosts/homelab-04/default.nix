@@ -19,7 +19,6 @@ in
     ../../modules/kubernetes-ci-credentials.nix
     ../../modules/disko-single-disk.nix
     ../../modules/k3s-server.nix
-    ../../modules/k3s-registry-client.nix
     ../../modules/kiosk.nix
     ../../modules/monero.nix
     ../../modules/moonlight-client.nix

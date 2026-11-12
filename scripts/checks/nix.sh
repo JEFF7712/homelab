@@ -16,11 +16,6 @@ hosts=(
   homelab-03
   homelab-04
   homelab-05
-  homelab-01-registry
-  homelab-02-registry
-  homelab-03-registry
-  homelab-04-registry
-  homelab-05-registry
 )
 if [[ $target != all ]]; then hosts=("$target"); fi
 if [[ "${SKIP_NIX_EVAL:-0}" != "1" ]]; then
