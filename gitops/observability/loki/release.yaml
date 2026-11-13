@@ -57,6 +57,12 @@ spec:
         # Alloy replays pod logs after restarts; a single stale entry makes
         # Loki reject the whole batch, which silently stops all ingestion.
         reject_old_samples: false
+        # About 110 MiB/day on disk (6.6 GiB for 60 days measured on the old
+        # NFS store), so 30 days stays well inside the 20Gi local PV.
+        retention_period: 720h
+      compactor:
+        retention_enabled: true
+        delete_request_store: filesystem
       schemaConfig:
         configs:
           - from: "2024-04-01"
