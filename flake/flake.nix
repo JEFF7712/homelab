@@ -67,7 +67,7 @@
       nixosConfigurations =
         let
           mkHost =
-            hostName: extraModules:
+            hostName:
             nixpkgs.lib.nixosSystem {
               system = "x86_64-linux";
               specialArgs = { inherit fleetInventory; };
@@ -78,24 +78,11 @@
                 niks3.nixosModules.niks3
                 sops-nix.nixosModules.sops
                 (./hosts + "/${hostName}")
-              ]
-              ++ extraModules;
+              ];
             };
           fleetInventory = import ../inventory { lib = nixpkgs.lib; };
-          baseHosts = builtins.attrNames fleetInventory.hosts;
-          registryHosts = fleetInventory.k3sHosts;
         in
-        builtins.listToAttrs (
-          map (hostName: nixpkgs.lib.nameValuePair hostName (mkHost hostName [ ])) baseHosts
-        )
-        // builtins.listToAttrs (
-          map (
-            hostName:
-            nixpkgs.lib.nameValuePair "${hostName}-registry" (
-              mkHost hostName [ ./modules/k3s-registry-client.nix ]
-            )
-          ) registryHosts
-        );
+        nixpkgs.lib.genAttrs (builtins.attrNames fleetInventory.hosts) mkHost;
     }
     // flake-utils.lib.eachDefaultSystem (
       system:

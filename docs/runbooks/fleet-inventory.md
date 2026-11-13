@@ -37,7 +37,7 @@ remains in the owning NixOS modules. CI checks these manifests for exact
 freshness alongside CoreDNS. Deliver manifest changes through Flux and verify
 all three services from a pod after the `cloudflare` Kustomization reconciles.
 
-The flake reads the inventory to select canonical hosts and registry variants.
+The flake reads the inventory to define one configuration per host.
 Host profiles derive k3s node addresses and join endpoints from it. Network
 modules derive their primary addresses, gateways, DNS resolver addresses,
 registry host mapping, and the Cilium BGP peer address. Tofunix uses the same

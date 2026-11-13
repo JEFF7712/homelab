@@ -669,7 +669,7 @@ class ManifestTests(unittest.TestCase):
         )
         sources = [
             *sorted((ROOT / "gitops/observability").rglob("*.yaml")),
-            ROOT / "gitops/automation/cluster-sentinel-script.yaml",
+            ROOT / "gitops/automation/cluster-sentinel/cluster-sentinel.sh",
         ]
         for path in sources:
             for match in literal.finditer(path.read_text()):

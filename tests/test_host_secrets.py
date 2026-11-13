@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-# scripts/deploy_fleet.py activates the registry variant on k3s nodes.
+# scripts/deploy_fleet.py activates nixosConfigurations.<host> on every node.
 K3S_NODES = {"homelab-01", "homelab-02", "homelab-03", "homelab-04", "homelab-05"}
 HOSTS = ["adguard-netbird-01", "nas-01", *sorted(K3S_NODES)]
 # Registry pull credentials are rendered from the image lock by the registry
@@ -78,15 +78,12 @@ class HostSecretsTest(unittest.TestCase):
                 unitConfig = s.unitConfig;
               }) cfg.systemd.services;
             };
-            attribute = host: if builtins.elem host K3S_NODES then "${host}-registry" else host;
-          in lib.genAttrs HOSTS (host: describe flake.nixosConfigurations.${attribute host}.config)
+          in lib.genAttrs HOSTS (host: describe flake.nixosConfigurations.${host}.config)
         """
         expression = expression.replace(
             "ROOT_FLAKE", json.dumps(f"git+file://{ROOT}?dir=flake")
         )
-        expression = expression.replace(
-            "K3S_NODES", json.dumps(sorted(K3S_NODES)).replace(",", " ")
-        ).replace("HOSTS", json.dumps(HOSTS).replace(",", " "))
+        expression = expression.replace("HOSTS", json.dumps(HOSTS).replace(",", " "))
         result = subprocess.run(
             ["nix", "eval", "--impure", "--json", "--expr", expression],
             cwd=ROOT,

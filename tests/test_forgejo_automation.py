@@ -10,21 +10,18 @@ from contextlib import chdir
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import yaml
-
 from scripts.ci import promote_commit
+from tests.gitops_render import config_map
 
 ROOT = Path(__file__).resolve().parents[1]
 SHA = "a" * 40
 
 
-def embedded(filename: str, key: str) -> dict:
-    source = yaml.safe_load((ROOT / "gitops/automation" / filename).read_text())[
-        "data"
-    ][key]
+def embedded(config_map_name: str, key: str) -> dict:
+    source = config_map("automation", config_map_name)["data"][key]
     scope = {"__name__": "migration_test"}
     with patch("builtins.open", return_value=io.StringIO("test-topic")):
-        exec(compile(source, filename, "exec"), scope)  # noqa: S102 - test the mounted script
+        exec(compile(source, key, "exec"), scope)  # noqa: S102 - test the mounted script
     return scope
 
 
@@ -311,7 +308,7 @@ class AutomationTest(unittest.TestCase):
             self.assertIn("git.rupan.dev", request.full_url)
 
     def test_dashboard_preserves_ui_and_binds_approval_to_validated_head(self) -> None:
-        scope = embedded("forgejo-dashboard-script.yaml", "dashboard.py")
+        scope = embedded("forgejo-dashboard-script", "dashboard.py")
         self.assertIn("status_payload", scope)
         self.assertIn("reviewer_run_status", scope)
         self.assertIn("github_status", scope)
@@ -348,7 +345,7 @@ class AutomationTest(unittest.TestCase):
             ("renovate", "/renovate-agent approve " + SHA, False),
             ("JEFF7712", "/renovate-agent approve", False),
         ]:
-            scope = embedded("renovate-reviewer-script.yaml", "renovate-agent.py")
+            scope = embedded("renovate-reviewer-script", "renovate-agent.py")
             api = Mock(
                 side_effect=[
                     {
@@ -382,9 +379,7 @@ class AutomationTest(unittest.TestCase):
         for context in ("ci/woodpecker/validation-v2", "policy/merge"):
             for state in (None, "pending", "failure", "error"):
                 with self.subTest(context=context, state=state):
-                    scope = embedded(
-                        "renovate-reviewer-script.yaml", "renovate-agent.py"
-                    )
+                    scope = embedded("renovate-reviewer-script", "renovate-agent.py")
                     statuses = [
                         {
                             "context": name,
@@ -420,7 +415,7 @@ class AutomationTest(unittest.TestCase):
                     self.assertIn(context, scope["notify"].call_args.args[2])
 
     def test_native_automerge_owns_eligible_prs(self) -> None:
-        scope = embedded("renovate-reviewer-script.yaml", "renovate-agent.py")
+        scope = embedded("renovate-reviewer-script", "renovate-agent.py")
         api = Mock(
             side_effect=[
                 {
