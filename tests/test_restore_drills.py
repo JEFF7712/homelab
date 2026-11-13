@@ -10,6 +10,8 @@ from pathlib import Path
 
 import yaml
 
+from tests.gitops_render import config_map
+
 ROOT = Path(__file__).resolve().parents[1]
 BACKUPS = ROOT / "gitops/backups"
 RECORD = BACKUPS / "restore-drill/record.sh"
@@ -37,8 +39,9 @@ def script(container: dict) -> str:
 
 
 def sentinel_datasets() -> set[str]:
-    source = documents(ROOT / "gitops/automation/cluster-sentinel-script.yaml")[0]
-    body = source["data"]["cluster-sentinel.sh"]
+    body = config_map("automation", "cluster-sentinel-config")["data"][
+        "cluster-sentinel.sh"
+    ]
     match = re.search(r"for item in ([^;]+); do\n\s+drill_ns=", body)
     assert match, "sentinel has no restore drill loop"
     return set(match[1].split())

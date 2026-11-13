@@ -55,6 +55,20 @@
   "nix": {
     "enabled": true
   },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Cilium Helm chart that k3s bootstraps from flake/modules/k3s-server.nix; [^{}] keeps the match inside the HelmChart spec attributes, before valuesContent",
+      "managerFilePatterns": [
+        "/^flake/modules/k3s-server\\.nix$/"
+      ],
+      "matchStrings": [
+        "repo = \"(?<registryUrl>https://helm\\.cilium\\.io)\";[^{}]*?version = \"(?<currentValue>[^\"]+)\";"
+      ],
+      "depNameTemplate": "cilium",
+      "datasourceTemplate": "helm"
+    }
+  ],
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": [
@@ -192,6 +206,22 @@
         "helm"
       ],
       "automerge": false
+    },
+    {
+      "description": "Cilium is the CNI and its chart pins three mirrored image digests beside the version in k3s-server.nix; Renovate can only move the version, so the PR stays open until a person mirrors and pins the matching digests",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchDatasources": [
+        "helm"
+      ],
+      "matchDepNames": [
+        "cilium"
+      ],
+      "automerge": false,
+      "prBodyNotes": [
+        "**Do not merge as is.** This PR moves only the Cilium chart version. `flake/modules/k3s-server.nix` also pins the `cilium`, `cilium-envoy` and `operator-generic` image digests under `registry.rupan.dev/upstream/quay.io/cilium/`, which must match this chart release. Declare and import the new images through the registry flow (docs/runbooks/local-registry.md), replace the three digests on this branch, then deploy homelab-01 (the Cilium bootstrap server)."
+      ]
     },
     {
       "description": "Chart image declarations move with their chart's upgrade, never on their own",
