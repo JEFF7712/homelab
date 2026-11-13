@@ -52,6 +52,27 @@ def runbook_ingress() -> list:
 
 
 class TestTunnelIngressParity(unittest.TestCase):
+    def test_distrojeff_product_route_precedes_storefront(self) -> None:
+        routes = [r for r in config_ingress() if r.get("hostname") == "distrojeff.com"]
+
+        def origin(path: str) -> str:
+            return next(
+                r["service"]
+                for r in routes
+                if "path" not in r or re.search(r["path"], path)
+            )
+
+        self.assertEqual(
+            origin("/products/etsy-63304540-4413315628-28095070299"),
+            "http://pod-agent-feed.pod-agent:80",
+        )
+        self.assertEqual(
+            origin("/products/etsy-63304540-4413315628-28095070299/"),
+            "http://pod-agent-feed.pod-agent:80",
+        )
+        for path in ["/", "/products/not-a-product", "/products/etsy-1-2-3"]:
+            self.assertEqual(origin(path), "http://distrojeff-site-svc.distrojeff:80")
+
     def test_config_matches_runbook_order(self) -> None:
         cfg = config_ingress()
         self.assertEqual(cfg[-1], {"service": "http_status:404"})

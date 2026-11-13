@@ -53,7 +53,15 @@ spec:
           containers:
             - name: export
               image: registry.rupan.dev/apps/pod-agent@sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb  # yamllint disable-line rule:line-length
-              args: [feed, export, --shop, distrojeff, --directory, /data/chatgpt-feeds]
+              args:
+                - feed
+                - export
+                - --shop
+                - distrojeff
+                - --directory
+                - /data/chatgpt-feeds
+                - --product-base-url
+                - https://distrojeff.com
               env:
                 - name: DB_PATH
                   value: /data/state.db
