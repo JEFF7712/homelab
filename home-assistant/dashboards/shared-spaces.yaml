@@ -133,174 +133,26 @@ views:
                 navigation_path: /map
     sections:
       - cards:
-          - type: markdown
-            content: |
-              ## Shared Spaces
-              {{ states.light | selectattr('state', 'eq', 'on') | list | count }} lights are on right now
-          - type: custom:mushroom-chips-card
-            chips:
-              - type: weather
-                entity: weather.forecast_home
-                show_temperature: true
-                show_conditions: true
-              - type: entity
-                entity: sun.sun
-              - type: entity
-                entity: sensor.sun_next_rising
-                name: Sunrise
-                icon: mdi:weather-sunset-up
-              - type: entity
-                entity: sensor.sun_next_setting
-                name: Sunset
-                icon: mdi:weather-sunset-down
-          - type: custom:mediocre-massive-media-player-card
-            entity_id: media_player.homelab_05_satellite_media_player_2
-            ma_entity_id: media_player.homelab_05_satellite_media_player_2
-            ma_favorite_button_entity_id: button.homelab_05_satellite_media_player_favorite_current_song
-            use_art_colors: true
-            mode: card
-            speaker_group:
-              entities:
-                - media_player.bedroom_speaker
-            media_browser:
-              - entity_id: media_player.homelab_05_satellite_media_player_2
-                name: Soundbar
-          - type: custom:mushroom-template-card
-            entity: input_boolean.spotify_connect
-            primary: Spotify Connect
-            secondary: >-
-              {% if is_state('input_boolean.spotify_connect', 'on') %}
-                Available in Spotify app
-              {% else %}
-                Disabled
-              {% endif %}
-            icon: mdi:spotify
-            icon_color: >-
-              {% if is_state('input_boolean.spotify_connect', 'on') %}
-                green
-              {% else %}
-                grey
-              {% endif %}
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - heading: Gaming
-            type: heading
-          - type: custom:mushroom-template-card
-            primary: Pair Controller
-            secondary: >-
-              {% set s = states('sensor.shared_spaces_gaming_controller_pairing_status') %}
-              {% if s in ['unknown', 'unavailable', ''] %}
-                Ready
-              {% else %}
-                {{ s }}
-              {% endif %}
-            icon: mdi:controller
-            icon_color: >-
-              {% set s = states('sensor.shared_spaces_gaming_controller_pairing_status') %}
-              {% if 'Scanning' in s or 'Pairing' in s %}
-                blue
-              {% elif 'Connected' in s %}
-                green
-              {% else %}
-                amber
-              {% endif %}
-            badge_icon: >-
-              {% set s = 'sensor.shared_spaces_gaming_controller_pairing_status' %}
-              {% set count = state_attr(s, 'connected_count') | int(0) %}
-              {% if count == 1 %}
-                mdi:numeric-1
-              {% elif count == 2 %}
-                mdi:numeric-2
-              {% elif count == 3 %}
-                mdi:numeric-3
-              {% elif count == 4 %}
-                mdi:numeric-4
-              {% elif count > 4 %}
-                mdi:numeric-9-plus
-              {% endif %}
-            badge_color: green
-            tap_action:
-              action: perform-action
-              perform_action: button.press
-              target:
-                entity_id: button.shared_spaces_gaming_pair_game_controller
-      - cards:
-          - heading: Family
-            type: heading
-          - type: custom:mushroom-person-card
-            entity: person.rupan_sunderapandyan
-            fill_container: true
-          - type: custom:mushroom-person-card
-            entity: person.sam
-            fill_container: true
-          - type: custom:mushroom-person-card
-            entity: person.jayanth
-            fill_container: true
-          - heading: Scenes
-            type: heading
-          - type: custom:mushroom-chips-card
-            chips:
-              - type: action
-                name: Cooking
-                icon: mdi:stove
-                tap_action:
-                  action: perform-action
-                  perform_action: scene.turn_on
-                  target:
-                    entity_id: scene.cooking_bright_kitchen
-              - type: action
-                name: Dinner
-                icon: mdi:food-fork-drink
-                tap_action:
-                  action: perform-action
-                  perform_action: scene.turn_on
-                  target:
-                    entity_id: scene.dinner_warm_dim
-              - type: action
-                name: Movie
-                icon: mdi:movie
-                tap_action:
-                  action: perform-action
-                  perform_action: scene.turn_on
-                  target:
-                    entity_id: scene.movie_low_living_room
-              - type: action
-                name: Music
-                icon: mdi:music
-                tap_action:
-                  action: perform-action
-                  perform_action: script.turn_on
-                  target:
-                    entity_id: script.effects_music_mode
-              - type: action
-                name: Party
-                icon: mdi:party-popper
-                tap_action:
-                  action: perform-action
-                  perform_action: script.turn_on
-                  target:
-                    entity_id: script.effects_party_mode
-              - type: action
-                name: Candlelight
-                icon: mdi:candle
-                tap_action:
-                  action: perform-action
-                  perform_action: script.turn_on
-                  target:
-                    entity_id: script.effects_candlelight_dinner
-              - type: action
-                name: Night
-                icon: mdi:weather-night
-                tap_action:
-                  action: perform-action
-                  perform_action: script.turn_on
-                  target:
-                    entity_id: script.effects_night_light
-      - cards:
           - heading: All Lights
             type: heading
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: All On
+                icon: mdi:power
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  target:
+                    entity_id: script.shared_lights_on
+              - type: button
+                name: All Off
+                icon: mdi:power-off
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  target:
+                    entity_id: script.shared_lights_off
           - entity: light.shared_zigbee_lights
             name: Shared Bulbs
             fill_container: true
@@ -423,86 +275,6 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_kitchen_led_strip
-            name: 8-Light LED Strip
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_control: true
-            collapsible_controls: true
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - type: custom:mushroom-chips-card
-            alignment: center
-            chips:
-              - type: action
-                name: Rainbow
-                icon: mdi:looks
-                icon_color: purple
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: rainbow
-              - type: action
-                name: Pulse
-                icon: mdi:heart-pulse
-                icon_color: red
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: pulse
-              - type: action
-                name: Chase
-                icon: mdi:transit-connection-horizontal
-                icon_color: blue
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: chase
-              - type: action
-                name: Fire
-                icon: mdi:fire
-                icon_color: orange
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: fire
-              - type: action
-                name: Sparkle
-                icon: mdi:creation
-                icon_color: amber
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: sparkle
-              - type: action
-                name: Solid
-                icon: mdi:circle
-                icon_color: red
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: solid
           - entity: light.living_room_good_vibes_sign
             name: Good Vibes Sign
             fill_container: true
@@ -519,24 +291,100 @@ views:
               action: toggle
             hold_action:
               action: more-info
-          - type: horizontal-stack
-            cards:
-              - type: button
-                name: All On
-                icon: mdi:power
+      - cards:
+          - heading: Scenes
+            type: heading
+          - type: custom:mushroom-chips-card
+            chips:
+              - type: action
+                name: Cooking
+                icon: mdi:stove
+                tap_action:
+                  action: perform-action
+                  perform_action: scene.turn_on
+                  target:
+                    entity_id: scene.cooking_bright_kitchen
+              - type: action
+                name: Dinner
+                icon: mdi:food-fork-drink
+                tap_action:
+                  action: perform-action
+                  perform_action: scene.turn_on
+                  target:
+                    entity_id: scene.dinner_warm_dim
+              - type: action
+                name: Movie
+                icon: mdi:movie
+                tap_action:
+                  action: perform-action
+                  perform_action: scene.turn_on
+                  target:
+                    entity_id: scene.movie_low_living_room
+              - type: action
+                name: Music
+                icon: mdi:music
                 tap_action:
                   action: perform-action
                   perform_action: script.turn_on
                   target:
-                    entity_id: script.shared_lights_on
-              - type: button
-                name: All Off
-                icon: mdi:power-off
+                    entity_id: script.effects_music_mode
+              - type: action
+                name: Party
+                icon: mdi:party-popper
                 tap_action:
                   action: perform-action
                   perform_action: script.turn_on
                   target:
-                    entity_id: script.shared_lights_off
+                    entity_id: script.effects_party_mode
+              - type: action
+                name: Candlelight
+                icon: mdi:candle
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  target:
+                    entity_id: script.effects_candlelight_dinner
+              - type: action
+                name: Night
+                icon: mdi:weather-night
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  target:
+                    entity_id: script.effects_night_light
+      - cards:
+          - type: custom:mediocre-massive-media-player-card
+            entity_id: media_player.homelab_05_satellite_media_player_2
+            ma_entity_id: media_player.homelab_05_satellite_media_player_2
+            ma_favorite_button_entity_id: button.homelab_05_satellite_media_player_favorite_current_song
+            use_art_colors: true
+            mode: card
+            speaker_group:
+              entities:
+                - media_player.bedroom_speaker
+            media_browser:
+              - entity_id: media_player.homelab_05_satellite_media_player_2
+                name: Soundbar
+          - type: custom:mushroom-template-card
+            entity: input_boolean.spotify_connect
+            primary: Spotify Connect
+            secondary: >-
+              {% if is_state('input_boolean.spotify_connect', 'on') %}
+                Available in Spotify app
+              {% else %}
+                Disabled
+              {% endif %}
+            icon: mdi:spotify
+            icon_color: >-
+              {% if is_state('input_boolean.spotify_connect', 'on') %}
+                green
+              {% else %}
+                grey
+              {% endif %}
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
       - cards:
           - heading: Music Mode
             icon: mdi:music
@@ -815,6 +663,79 @@ views:
               action: more-info
             grid_options:
               columns: 6
+      - cards:
+          - type: markdown
+            content: |
+              ## Shared Spaces
+              {{ states.light | selectattr('state', 'eq', 'on') | list | count }} lights are on right now
+          - type: custom:mushroom-chips-card
+            chips:
+              - type: weather
+                entity: weather.forecast_home
+                show_temperature: true
+                show_conditions: true
+              - type: entity
+                entity: sun.sun
+              - type: entity
+                entity: sensor.sun_next_rising
+                name: Sunrise
+                icon: mdi:weather-sunset-up
+              - type: entity
+                entity: sensor.sun_next_setting
+                name: Sunset
+                icon: mdi:weather-sunset-down
+          - heading: Family
+            type: heading
+          - type: custom:mushroom-person-card
+            entity: person.rupan_sunderapandyan
+            fill_container: true
+          - type: custom:mushroom-person-card
+            entity: person.sam
+            fill_container: true
+          - type: custom:mushroom-person-card
+            entity: person.jayanth
+            fill_container: true
+          - heading: Gaming
+            type: heading
+          - type: custom:mushroom-template-card
+            primary: Pair Controller
+            secondary: >-
+              {% set s = states('sensor.shared_spaces_gaming_controller_pairing_status') %}
+              {% if s in ['unknown', 'unavailable', ''] %}
+                Ready
+              {% else %}
+                {{ s }}
+              {% endif %}
+            icon: mdi:controller
+            icon_color: >-
+              {% set s = states('sensor.shared_spaces_gaming_controller_pairing_status') %}
+              {% if 'Scanning' in s or 'Pairing' in s %}
+                blue
+              {% elif 'Connected' in s %}
+                green
+              {% else %}
+                amber
+              {% endif %}
+            badge_icon: >-
+              {% set s = 'sensor.shared_spaces_gaming_controller_pairing_status' %}
+              {% set count = state_attr(s, 'connected_count') | int(0) %}
+              {% if count == 1 %}
+                mdi:numeric-1
+              {% elif count == 2 %}
+                mdi:numeric-2
+              {% elif count == 3 %}
+                mdi:numeric-3
+              {% elif count == 4 %}
+                mdi:numeric-4
+              {% elif count > 4 %}
+                mdi:numeric-9-plus
+              {% endif %}
+            badge_color: green
+            tap_action:
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.shared_spaces_gaming_pair_game_controller
       - cards:
           - heading: Adaptive Lighting
             type: heading

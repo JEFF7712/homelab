@@ -1,11 +1,17 @@
 alias: "Effects: Party Mode"
 description: >-
-  Run the Zigbee color loop effect on all shared bulbs. Re-tap any static
-  scene or toggle a bulb off and on to return it to Adaptive Lighting.
+  Run the Zigbee color loop effect on all shared bulbs and WLED's Colorloop
+  on the living room LED strip. Re-tap any static scene or toggle a bulb off
+  and on to return it to Adaptive Lighting.
 sequence:
   - action: light.turn_on
     target:
       entity_id: light.shared_zigbee_lights
     data:
       effect: colorloop
+  - action: light.turn_on
+    target:
+      entity_id: light.living_room_led_strip
+    data:
+      effect: Colorloop
 mode: single
