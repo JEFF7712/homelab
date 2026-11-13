@@ -2479,6 +2479,14 @@ class PromoteFirstPartyTests(unittest.TestCase):
             select_promotion_candidate(["latest", "0.0.99"], "latest"), "latest"
         )
 
+    def test_woodpecker_release_does_not_revert_to_legacy_timestamp(self) -> None:
+        tags = ["0.0.1791435600", "0.0.1000075", "0.0.1000080"]
+        self.assertEqual(select_promotion_candidate(tags, "0.0.1000075"), "0.0.1000080")
+        self.assertIsNone(select_promotion_candidate(["0.0.1791435600"], "0.0.1000075"))
+        self.assertEqual(
+            select_promotion_candidate(tags, "0.0.1791435600"), "0.0.1791435600"
+        )
+
     def test_skips_up_to_date_record(self) -> None:
         raw = manifest()
         lock = first_party_lock(raw)
