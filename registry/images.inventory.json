@@ -4167,6 +4167,23 @@
         "repository": "gameyfin/gameyfin",
         "tag": "2.6.2"
       }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:29"
+      ],
+      "destination_repository": "upstream/docker.io/library/nginx",
+      "id": "upstream-library-nginx-dadf3599c510",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72",
+        "reference": "docker.io/library/nginx:1.31-alpine@sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72",
+        "registry": "docker.io",
+        "repository": "library/nginx",
+        "tag": "1.31-alpine"
+      }
     }
   ],
   "kind": "registry-inventory",
