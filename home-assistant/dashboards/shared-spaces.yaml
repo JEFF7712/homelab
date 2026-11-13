@@ -442,7 +442,7 @@ views:
               {% set sources = {'cover': 'the album cover',
                                 'vibe': 'the genre and mood (no usable cover colour)',
                                 'default': 'the default (nothing known yet)',
-                                'override': 'a song override',
+                                'override': "this album's pinned colour",
                                 'manual': 'your colour'} %}
               {% set areas = state_attr(d, 'area_colors') or {} %}
               {% if areas %}
@@ -464,6 +464,9 @@ views:
               **Intensity** {{ '▰' * n }}{{ '▱' * (10 - n) }}
               {{ 'calm' if i < 0.35 else 'medium' if i < 0.65 else 'intense' }}
               ({{ (i * 100) | round | int }}%)
+              {% if state_attr(d, 'spotify_status') == 'unavailable' %}
+              <br>⚠️ Spotify isn't answering (rate limited?): energy and tempo are estimated
+              {% endif %}
               {% else %}
               Waiting for music…
               {% endif %}
@@ -490,15 +493,25 @@ views:
           - type: custom:mushroom-template-card
             entity: light.music_mode_colour
             primary: >-
-              {{ 'Your colour' if is_state('light.music_mode_colour', 'on')
-                 else 'Auto colour' }}
+              {% if is_state('light.music_mode_colour', 'on') %}
+                Your colour
+              {% elif is_state('light.music_mode_pin', 'on') %}
+                Pinned colour
+              {% else %}
+                Auto colour
+              {% endif %}
             secondary: >-
+              {% set album = state_attr('light.music_mode_pin', 'album') %}
               {% if is_state('light.music_mode_colour', 'on') %}
                 Every light holds this colour · tap to go back to Auto
+              {% elif is_state('light.music_mode_pin', 'on') %}
+                {{ album or 'This song' }} always shows its pinned colour
               {% else %}
                 From the album cover · tap the palette to pick your own
               {% endif %}
-            icon: mdi:auto-fix
+            icon: >-
+              {{ 'mdi:pin' if is_state('light.music_mode_pin', 'on')
+                 and is_state('light.music_mode_colour', 'off') else 'mdi:auto-fix' }}
             icon_color: >-
               {{ 'purple' if is_state('light.music_mode_colour', 'off') else 'grey' }}
             tap_action:
@@ -506,6 +519,38 @@ views:
               perform_action: light.turn_off
               target:
                 entity_id: light.music_mode_colour
+          - type: custom:mushroom-light-card
+            entity: light.music_mode_pin
+            name: Pin colour to this album
+            secondary_info: none
+            icon: mdi:pin
+            use_light_color: true
+            show_color_control: true
+            collapsible_controls: true
+          - type: custom:mushroom-template-card
+            entity: light.music_mode_pin
+            primary: >-
+              {% if is_state('light.music_mode_pin', 'unavailable') %}
+                Nothing playing
+              {% elif is_state('light.music_mode_pin', 'on') %}
+                Pinned · {{ state_attr('light.music_mode_pin', 'pinned_colour') }}
+              {% else %}
+                Not pinned
+              {% endif %}
+            secondary: >-
+              {% if is_state('light.music_mode_pin', 'on') %}
+                Slide to change it · tap the pin to remove it
+              {% elif is_state('light.music_mode_pin', 'off') %}
+                Tap the pin to keep this album's current colour
+              {% else %}
+                Play a song to pin its album's colour
+              {% endif %}
+            icon: >-
+              {{ 'mdi:pin' if is_state('light.music_mode_pin', 'on') else 'mdi:pin-off' }}
+            icon_color: >-
+              {{ 'purple' if is_state('light.music_mode_pin', 'on') else 'grey' }}
+            tap_action:
+              action: toggle
           - type: custom:mushroom-number-card
             entity: number.music_mode_brightness
             name: Brightness

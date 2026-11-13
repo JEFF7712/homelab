@@ -2592,12 +2592,14 @@ data:
             ),
         )
         hass.data[DOMAIN] = director
+        await director.pins.async_load(director.config.overrides)
 
         async def refresh(_call: ServiceCall) -> None:
             director.schedule(force=True)
 
         hass.services.async_register(DOMAIN, "refresh", refresh)
-        # Music Mode Colour (light), Brightness (number), Strip Colours (select).
+        # Music Mode Colour and Pin (lights), Brightness (number), Strip Colours
+        # (select).
         for platform in (Platform.LIGHT, Platform.NUMBER, Platform.SELECT):
             hass.async_create_task(async_load_platform(hass, platform, DOMAIN, {}, config))
 
@@ -2618,9 +2620,9 @@ data:
     by the shared music mode automation from sensor.music_director, so all
     snapshot and Adaptive Lighting handling stays in Home Assistant YAML.
 
-    The manual colour and the music brightness live here and are set by the
-    integration's light (Music Mode Colour) and number (Music Mode Brightness)
-    entities.
+    The manual colour, album colour pins and the music brightness live here
+    and are set by the integration's lights (Music Mode Colour, Music Mode Pin)
+    and number (Music Mode Brightness).
     """
 
     from __future__ import annotations
@@ -2628,6 +2630,7 @@ data:
     import asyncio
     import io
     import logging
+    import time
     from collections import OrderedDict
     from dataclasses import dataclass, field
     from typing import Any
@@ -2644,6 +2647,7 @@ data:
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
     from homeassistant.helpers.dispatcher import async_dispatcher_send
     from homeassistant.helpers.event import async_track_state_change_event
+    from homeassistant.helpers.storage import Store
 
     from .metadata import (
         SongOverride,
@@ -2659,14 +2663,17 @@ data:
         Palette,
         area_colors,
         chosen_palette,
-        spread_label,
         extract_palette,
         gradient,
         named_palette,
+        solid_colour,
         solid_gradient,
+        spread_label,
+        to_hex,
         vibe_palette,
         with_intensity,
     )
+    from .pins import STORAGE_KEY, STORAGE_VERSION, PinStore
     from .rules import (
         EFFECTS,
         choose_effect,
@@ -2688,8 +2695,12 @@ data:
     RECCOBEATS_URL = "https://api.reccobeats.com/v1/audio-features"
     LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
     HTTP_TIMEOUT = aiohttp.ClientTimeout(total=8)
-    SPOTIFY_ATTEMPTS = 3
+    # The Spotify Web API quota is shared with Home Assistant's own polling: when
+    # Spotify lags the speaker, ask for at most one refresh per track change, and
+    # none within SPOTIFY_REFRESH_GAP seconds of the last or while Spotify is
+    # unavailable (it goes unavailable when rate limited).
     SPOTIFY_RETRY_SECONDS = 1.5
+    SPOTIFY_REFRESH_GAP = 30.0
     # The player's art can lag its title on a track change; try again before
     # falling back to the vibe palette.
     COVER_ATTEMPTS = 3
@@ -2719,8 +2730,13 @@ data:
     class Decision:
         title: str
         artist: str
+        album: str
         info: TrackInfo
+        # The cover or vibe palette, before any pin.
+        natural: Palette
+        # natural, or the album's pin.
         auto_palette: Palette
+        # auto_palette, or the manual colour.
         palette: Palette
         family: str
         auto_effect: str
@@ -2768,9 +2784,13 @@ data:
             self._last_effect: str | None = None
             self._decision: Decision | None = None
             self._transition_set = False
+            self._spotify_refreshed = 0.0
+            # Why the last track had no Spotify ID, for the dashboard.
+            self.spotify_status = "ok"
             # Chosen colour (Music Mode Colour light on), or None for Auto.
             self.manual_rgb: tuple[int, int, int] | None = None
             self.brightness_pct = DEFAULT_BRIGHTNESS
+            self.pins = PinStore(Store(hass, STORAGE_VERSION, STORAGE_KEY))
             # Music Mode Strip Colours: one solid colour instead of a gradient.
             self.strip_solid = False
 
@@ -2834,6 +2854,40 @@ data:
             async_dispatcher_send(self.hass, CONTROLS_UPDATED)
             self._reapply()
 
+        @property
+        def current_track(self) -> Decision | None:
+            """The playing track's decision, or None when idle."""
+            decision = self._decision
+            return decision if decision is not None and decision.title else None
+
+        def current_pin(self) -> str | None:
+            """The current track's pinned colour (a name or #rrggbb), or None."""
+            track = self.current_track
+            if track is None:
+                return None
+            pin = self.pins.pins.find(track.title, track.artist, track.album)
+            return pin.color if pin else None
+
+        def showing_rgb(self) -> tuple[int, int, int] | None:
+            """The colour the strip shows for the current track."""
+            track = self.current_track
+            return solid_colour(track.palette) if track else None
+
+        @callback
+        def set_pin(self, rgb: tuple[int, int, int] | None) -> None:
+            """Pin a colour to the current track's album, or None to unpin it so
+            the album goes back to automatic colours."""
+            track = self.current_track
+            if track is None:
+                return
+            if rgb is None:
+                self.pins.pins.unpin(track.title, track.artist, track.album)
+            else:
+                self.pins.pins.pin(track.title, track.artist, track.album, to_hex(rgb))
+            self.pins.save()
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            self._reapply()
+
         @callback
         def set_strip_solid(self, solid: bool) -> None:
             self.strip_solid = solid
@@ -2870,12 +2924,16 @@ data:
             self,
             title: str,
             artist: str,
+            album: str,
             info: TrackInfo,
-            auto_palette: Palette,
+            natural: Palette,
             family: str,
             auto_effect: str,
             level: float,
         ) -> Decision:
+            pin = self.pins.pins.find(title, artist, album) if title else None
+            pinned = named_palette(pin.color, "override") if pin and pin.color else None
+            auto_palette = pinned or natural
             palette = self._colour_override() or auto_palette
             effect = self._override() or auto_effect
             config = {
@@ -2885,7 +2943,9 @@ data:
             return Decision(
                 title,
                 artist,
+                album,
                 info,
+                natural,
                 auto_palette,
                 palette,
                 family,
@@ -2899,8 +2959,9 @@ data:
             return self._compose(
                 decision.title,
                 decision.artist,
+                decision.album,
                 decision.info,
-                decision.auto_palette,
+                decision.natural,
                 decision.family,
                 decision.auto_effect,
                 decision.level,
@@ -2909,6 +2970,8 @@ data:
         async def _apply(self, decision: Decision) -> None:
             self._decision = decision
             self._publish(decision)
+            # The pin light follows the playing track.
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
             if self._is_on(self.config.strip):
                 await self._push_strip(decision)
 
@@ -2935,7 +2998,7 @@ data:
         def _idle_decision(self) -> Decision:
             idle = vibe_palette()
             return self._compose(
-                "", "", TrackInfo(), idle, "default", "energy", idle.intensity
+                "", "", "", TrackInfo(), idle, "default", "energy", idle.intensity
             )
 
         async def _decide(self, player: State, key: str) -> Decision:
@@ -2961,25 +3024,29 @@ data:
             title = player.attributes.get("media_title") or ""
             artist = player.attributes.get("media_artist") or ""
             album = player.attributes.get("media_album_name") or ""
-            song = find_override(self.config.overrides, title, artist, album)
-            palette = named_palette(song.color, "override") if song and song.color else None
-            if palette is None:
-                palette = (
-                    with_intensity(cover, level)
-                    if cover
-                    else vibe_palette(
-                        info.genres,
-                        info.energy,
-                        info.valence,
-                        tempo_level(info.bpm),
-                        level,
-                    )
+            # Colours come from pins (seeded from configured overrides); the
+            # configured overrides still set effects.
+            song = find_override(
+                tuple(o for o in self.config.overrides if o.effect), title, artist, album
+            )
+            palette = (
+                with_intensity(cover, level)
+                if cover
+                else vibe_palette(
+                    info.genres,
+                    info.energy,
+                    info.valence,
+                    tempo_level(info.bpm),
+                    level,
                 )
+            )
             if song and song.effect:
                 effect = song.effect
             else:
                 effect = choose_effect(family, key, self._last_effect)
-            decision = self._compose(title, artist, info, palette, family, effect, level)
+            decision = self._compose(
+                title, artist, album, info, palette, family, effect, level
+            )
             _LOGGER.info(
                 "%s - %s: %s/%s%s, intensity %.2f, palette %s (hue %.0f), sources %s",
                 artist,
@@ -3008,29 +3075,44 @@ data:
                 _LOGGER.debug("%s lookup failed: %s", label, type(error).__name__)
                 return None
 
-        async def _spotify_id(self, title: str, artist: str) -> str | None:
-            for attempt in range(SPOTIFY_ATTEMPTS):
-                state = self.hass.states.get(self.config.spotify)
-                if state is not None and same_track(
-                    title,
-                    artist,
-                    state.attributes.get("media_title") or "",
-                    state.attributes.get("media_artist") or "",
-                ):
-                    return spotify_track_id(state.attributes.get("media_content_id"))
-                if attempt == SPOTIFY_ATTEMPTS - 1:
-                    break
-                try:
-                    await self.hass.services.async_call(
-                        "homeassistant",
-                        "update_entity",
-                        {"entity_id": self.config.spotify},
-                        blocking=True,
-                    )
-                except Exception as error:  # noqa: BLE001 - polling is best effort
-                    _LOGGER.debug("Spotify refresh failed: %s", type(error).__name__)
-                await asyncio.sleep(SPOTIFY_RETRY_SECONDS)
+        def _spotify_match(self, title: str, artist: str) -> str | None:
+            state = self.hass.states.get(self.config.spotify)
+            if state is None or state.state in ("unavailable", "unknown"):
+                self.spotify_status = "unavailable"
+                return None
+            if same_track(
+                title,
+                artist,
+                state.attributes.get("media_title") or "",
+                state.attributes.get("media_artist") or "",
+            ):
+                self.spotify_status = "ok"
+                return spotify_track_id(state.attributes.get("media_content_id"))
+            self.spotify_status = "other track"
             return None
+
+        async def _spotify_id(self, title: str, artist: str) -> str | None:
+            """The track's Spotify ID from Spotify's media player. The speaker
+            plays through Spotify Connect into Music Assistant and reports no
+            ID, so this is the only source."""
+            found = self._spotify_match(title, artist)
+            if found or self.spotify_status == "unavailable":
+                return found
+            now = time.monotonic()
+            if now - self._spotify_refreshed < SPOTIFY_REFRESH_GAP:
+                return None
+            self._spotify_refreshed = now
+            try:
+                await self.hass.services.async_call(
+                    "homeassistant",
+                    "update_entity",
+                    {"entity_id": self.config.spotify},
+                    blocking=True,
+                )
+            except Exception as error:  # noqa: BLE001 - polling is best effort
+                _LOGGER.debug("Spotify refresh failed: %s", type(error).__name__)
+            await asyncio.sleep(SPOTIFY_RETRY_SECONDS)
+            return self._spotify_match(title, artist)
 
         async def _gather_info(self, player: State) -> TrackInfo:
             info = TrackInfo()
@@ -3154,6 +3236,10 @@ data:
                     "palette_source": decision.palette.source,
                     "palette_spread": spread_label(decision.palette),
                     "colour_mode": "manual" if self.manual_rgb else "auto",
+                    "album": decision.album,
+                    "pinned_colour": self.current_pin(),
+                    "natural_palette_source": decision.natural.source,
+                    "spotify_status": self.spotify_status,
                     "brightness_pct": self.brightness_pct,
                     "auto_palette_source": decision.auto_palette.source,
                     "intensity": round(decision.level, 3),
@@ -3237,11 +3323,19 @@ data:
             )
             await self._clear_strip()
   component.music_director.light.py: |
-    """Music Mode Colour: a virtual light whose colour wheel picks the music colour.
+    """Virtual lights whose colour wheels set the music colour.
 
-    Off means Auto (cover and vibe colours); on applies the chosen colour to the
-    strip and every taking-part area until it is switched off. Its brightness is
-    the music lights' brightness, shared with number.music_mode_brightness.
+    Music Mode Colour: off means Auto (cover, vibe or pinned colours); on applies
+    the chosen colour to the strip and every taking-part area until it is
+    switched off.
+
+    Music Mode Pin: on means the playing album has a pinned colour, shown each
+    time it plays; its colour wheel edits the pin and switching it off removes
+    the pin, so the album goes back to automatic colours. Unavailable while
+    nothing plays.
+
+    Both lights' brightness is the music lights' brightness, shared with
+    number.music_mode_brightness.
     """
 
     from __future__ import annotations
@@ -3259,9 +3353,10 @@ data:
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
     from homeassistant.helpers.restore_state import RestoreEntity
     from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
-    from homeassistant.util.color import color_hs_to_RGB
+    from homeassistant.util.color import color_hs_to_RGB, color_RGB_to_hs
 
     from .director import CONTROLS_UPDATED, DOMAIN, Director
+    from .palette import hex_rgb, named_palette, solid_colour
 
     # Red, the colour the light offers before anything has been picked.
     DEFAULT_HS = (0.0, 100.0)
@@ -3275,7 +3370,8 @@ data:
     ) -> None:
         if discovery_info is None:
             return
-        async_add_entities([MusicColourLight(hass.data[DOMAIN])])
+        director = hass.data[DOMAIN]
+        async_add_entities([MusicColourLight(director), MusicPinLight(director)])
 
 
     class MusicColourLight(LightEntity, RestoreEntity):
@@ -3331,6 +3427,90 @@ data:
 
         async def async_turn_off(self, **kwargs: Any) -> None:
             self._director.set_colour(None)
+
+
+    def _colour_rgb(colour: str) -> tuple[int, int, int] | None:
+        """RGB for a pinned colour: #rrggbb as is, a colour name as shown."""
+        rgb = hex_rgb(colour)
+        if rgb is not None:
+            return rgb
+        palette = named_palette(colour, "override")
+        return solid_colour(palette) if palette else None
+
+
+    class MusicPinLight(LightEntity):
+        _attr_name = "Music Mode Pin"
+        _attr_unique_id = "music_director_pin"
+        _attr_icon = "mdi:pin"
+        _attr_should_poll = False
+        _attr_color_mode = ColorMode.HS
+
+        def __init__(self, director: Director) -> None:
+            self._attr_supported_color_modes = {ColorMode.HS}
+            self._director = director
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        @property
+        def available(self) -> bool:
+            return self._director.current_track is not None
+
+        @property
+        def is_on(self) -> bool:
+            return self._director.current_pin() is not None
+
+        def _rgb(self) -> tuple[int, int, int] | None:
+            pin = self._director.current_pin()
+            if pin is not None:
+                return _colour_rgb(pin)
+            return self._director.showing_rgb()
+
+        @property
+        def hs_color(self) -> tuple[float, float] | None:
+            rgb = self._rgb()
+            return color_RGB_to_hs(*rgb) if rgb else None
+
+        @property
+        def brightness(self) -> int:
+            return round(self._director.brightness_pct * 255 / 100)
+
+        @property
+        def extra_state_attributes(self) -> dict[str, Any]:
+            track = self._director.current_track
+            return {
+                "album": track.album if track else None,
+                "pinned_colour": self._director.current_pin(),
+            }
+
+        async def async_turn_on(self, **kwargs: Any) -> None:
+            if ATTR_BRIGHTNESS in kwargs:
+                self._director.set_brightness(round(kwargs[ATTR_BRIGHTNESS] * 100 / 255))
+            if ATTR_HS_COLOR in kwargs:
+                hue, saturation = kwargs[ATTR_HS_COLOR]
+                rgb: tuple[int, int, int] | None = color_hs_to_RGB(
+                    float(hue), float(saturation)
+                )
+            elif self._director.current_pin() is not None:
+                # Already pinned: a brightness change only.
+                return
+            else:
+                # Pin what is showing: the held manual colour, else the auto one.
+                rgb = self._director.manual_rgb or self._director.showing_rgb()
+            if rgb is None:
+                return
+            self._director.set_pin(rgb)
+            # The pin now shows for this album; other songs go back to Auto.
+            if self._director.manual_rgb is not None:
+                self._director.set_colour(None)
+
+        async def async_turn_off(self, **kwargs: Any) -> None:
+            self._director.set_pin(None)
   component.music_director.manifest.json: |
     {
       "domain": "music_director",
@@ -4175,6 +4355,131 @@ data:
 
     def to_hex(rgb: RGB) -> str:
         return "#{:02x}{:02x}{:02x}".format(*rgb)
+  component.music_director.pins.py: |
+    """Album colour pins: song overrides set from the dashboard.
+
+    Pins live in Home Assistant storage, so they survive restarts and can be
+    changed or removed without a deploy. Colour overrides in
+    music_director.overrides seed the pins once each: after that the pin is the
+    source of truth, so removing a seeded pin from the dashboard sticks.
+    """
+
+    from __future__ import annotations
+
+    from dataclasses import asdict, dataclass, field
+    from typing import Any, Protocol
+
+    from .metadata import SongOverride, find_override, normalize
+
+    STORAGE_KEY = "music_director.pins"
+    STORAGE_VERSION = 1
+
+
+    class PinStorage(Protocol):
+        async def async_load(self) -> Any: ...
+
+        def async_delay_save(self, data_func: Any, delay: float = 0) -> None: ...
+
+
+    def pin_key(pin: SongOverride) -> str:
+        return "|".join(
+            normalize(part or "") for part in (pin.artist, pin.album, pin.title)
+        )
+
+
+    def primary_artist(artist: str) -> str:
+        """The first credited artist: pins match the artist by prefix, so
+        features and remixers on other tracks still match."""
+        return artist.split(",")[0].strip()
+
+
+    @dataclass
+    class Pins:
+        """Colour pins, plus the configured overrides already seeded."""
+
+        pins: list[SongOverride] = field(default_factory=list)
+        seeded: set[str] = field(default_factory=set)
+
+        @classmethod
+        def from_data(cls, data: Any) -> Pins:
+            data = data if isinstance(data, dict) else {}
+            pins = [
+                SongOverride(**{k: v for k, v in item.items() if k in _FIELDS})
+                for item in data.get("pins", [])
+                if isinstance(item, dict) and item.get("color")
+            ]
+            return cls(pins, set(data.get("seeded", [])))
+
+        def to_data(self) -> dict[str, Any]:
+            return {
+                "pins": [
+                    {k: v for k, v in asdict(pin).items() if v is not None}
+                    for pin in self.pins
+                ],
+                "seeded": sorted(self.seeded),
+            }
+
+        def seed(self, overrides: tuple[SongOverride, ...]) -> bool:
+            """Add each configured colour override once. Returns True if any
+            were added."""
+            added = False
+            for override in overrides:
+                if not override.color:
+                    continue
+                key = pin_key(override)
+                if key in self.seeded:
+                    continue
+                self.seeded.add(key)
+                self.pins.append(
+                    SongOverride(
+                        artist=override.artist,
+                        album=override.album,
+                        title=override.title,
+                        color=override.color,
+                    )
+                )
+                added = True
+            return added
+
+        def find(self, title: str, artist: str, album: str) -> SongOverride | None:
+            return find_override(tuple(self.pins), title, artist, album)
+
+        def pin(self, title: str, artist: str, album: str, color: str) -> SongOverride:
+            """Pin colour for the track's album (or the track, without an album),
+            replacing any pin that matches it."""
+            self.unpin(title, artist, album)
+            pin = SongOverride(
+                artist=primary_artist(artist) or None,
+                album=album or None,
+                title=None if album else title,
+                color=color,
+            )
+            self.pins.append(pin)
+            return pin
+
+        def unpin(self, title: str, artist: str, album: str) -> bool:
+            before = len(self.pins)
+            self.pins = [p for p in self.pins if not p.matches(title, artist, album)]
+            return len(self.pins) != before
+
+
+    _FIELDS = frozenset(("artist", "album", "title", "color"))
+
+
+    class PinStore:
+        """Pins persisted through a Home Assistant Store."""
+
+        def __init__(self, storage: PinStorage) -> None:
+            self._storage = storage
+            self.pins = Pins()
+
+        async def async_load(self, overrides: tuple[SongOverride, ...]) -> None:
+            self.pins = Pins.from_data(await self._storage.async_load())
+            if self.pins.seed(overrides):
+                self.save()
+
+        def save(self) -> None:
+            self._storage.async_delay_save(self.pins.to_data, 1)
   component.music_director.rules.py: |
     """Choose a LedFx effect for a track from its genre and audio features.
 

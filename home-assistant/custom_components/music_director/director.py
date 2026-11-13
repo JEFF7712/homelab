@@ -5,9 +5,9 @@ The LED strip is driven here through the LedFx API. Bulb areas are painted
 by the shared music mode automation from sensor.music_director, so all
 snapshot and Adaptive Lighting handling stays in Home Assistant YAML.
 
-The manual colour and the music brightness live here and are set by the
-integration's light (Music Mode Colour) and number (Music Mode Brightness)
-entities.
+The manual colour, album colour pins and the music brightness live here
+and are set by the integration's lights (Music Mode Colour, Music Mode Pin)
+and number (Music Mode Brightness).
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 import io
 import logging
+import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
@@ -31,6 +32,7 @@ from homeassistant.core import (
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.storage import Store
 
 from .metadata import (
     SongOverride,
@@ -46,14 +48,17 @@ from .palette import (
     Palette,
     area_colors,
     chosen_palette,
-    spread_label,
     extract_palette,
     gradient,
     named_palette,
+    solid_colour,
     solid_gradient,
+    spread_label,
+    to_hex,
     vibe_palette,
     with_intensity,
 )
+from .pins import STORAGE_KEY, STORAGE_VERSION, PinStore
 from .rules import (
     EFFECTS,
     choose_effect,
@@ -75,8 +80,12 @@ DEFAULT_BRIGHTNESS = 70
 RECCOBEATS_URL = "https://api.reccobeats.com/v1/audio-features"
 LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=8)
-SPOTIFY_ATTEMPTS = 3
+# The Spotify Web API quota is shared with Home Assistant's own polling: when
+# Spotify lags the speaker, ask for at most one refresh per track change, and
+# none within SPOTIFY_REFRESH_GAP seconds of the last or while Spotify is
+# unavailable (it goes unavailable when rate limited).
 SPOTIFY_RETRY_SECONDS = 1.5
+SPOTIFY_REFRESH_GAP = 30.0
 # The player's art can lag its title on a track change; try again before
 # falling back to the vibe palette.
 COVER_ATTEMPTS = 3
@@ -106,8 +115,13 @@ class DirectorConfig:
 class Decision:
     title: str
     artist: str
+    album: str
     info: TrackInfo
+    # The cover or vibe palette, before any pin.
+    natural: Palette
+    # natural, or the album's pin.
     auto_palette: Palette
+    # auto_palette, or the manual colour.
     palette: Palette
     family: str
     auto_effect: str
@@ -155,9 +169,13 @@ class Director:
         self._last_effect: str | None = None
         self._decision: Decision | None = None
         self._transition_set = False
+        self._spotify_refreshed = 0.0
+        # Why the last track had no Spotify ID, for the dashboard.
+        self.spotify_status = "ok"
         # Chosen colour (Music Mode Colour light on), or None for Auto.
         self.manual_rgb: tuple[int, int, int] | None = None
         self.brightness_pct = DEFAULT_BRIGHTNESS
+        self.pins = PinStore(Store(hass, STORAGE_VERSION, STORAGE_KEY))
         # Music Mode Strip Colours: one solid colour instead of a gradient.
         self.strip_solid = False
 
@@ -221,6 +239,40 @@ class Director:
         async_dispatcher_send(self.hass, CONTROLS_UPDATED)
         self._reapply()
 
+    @property
+    def current_track(self) -> Decision | None:
+        """The playing track's decision, or None when idle."""
+        decision = self._decision
+        return decision if decision is not None and decision.title else None
+
+    def current_pin(self) -> str | None:
+        """The current track's pinned colour (a name or #rrggbb), or None."""
+        track = self.current_track
+        if track is None:
+            return None
+        pin = self.pins.pins.find(track.title, track.artist, track.album)
+        return pin.color if pin else None
+
+    def showing_rgb(self) -> tuple[int, int, int] | None:
+        """The colour the strip shows for the current track."""
+        track = self.current_track
+        return solid_colour(track.palette) if track else None
+
+    @callback
+    def set_pin(self, rgb: tuple[int, int, int] | None) -> None:
+        """Pin a colour to the current track's album, or None to unpin it so
+        the album goes back to automatic colours."""
+        track = self.current_track
+        if track is None:
+            return
+        if rgb is None:
+            self.pins.pins.unpin(track.title, track.artist, track.album)
+        else:
+            self.pins.pins.pin(track.title, track.artist, track.album, to_hex(rgb))
+        self.pins.save()
+        async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+        self._reapply()
+
     @callback
     def set_strip_solid(self, solid: bool) -> None:
         self.strip_solid = solid
@@ -257,12 +309,16 @@ class Director:
         self,
         title: str,
         artist: str,
+        album: str,
         info: TrackInfo,
-        auto_palette: Palette,
+        natural: Palette,
         family: str,
         auto_effect: str,
         level: float,
     ) -> Decision:
+        pin = self.pins.pins.find(title, artist, album) if title else None
+        pinned = named_palette(pin.color, "override") if pin and pin.color else None
+        auto_palette = pinned or natural
         palette = self._colour_override() or auto_palette
         effect = self._override() or auto_effect
         config = {
@@ -272,7 +328,9 @@ class Director:
         return Decision(
             title,
             artist,
+            album,
             info,
+            natural,
             auto_palette,
             palette,
             family,
@@ -286,8 +344,9 @@ class Director:
         return self._compose(
             decision.title,
             decision.artist,
+            decision.album,
             decision.info,
-            decision.auto_palette,
+            decision.natural,
             decision.family,
             decision.auto_effect,
             decision.level,
@@ -296,6 +355,8 @@ class Director:
     async def _apply(self, decision: Decision) -> None:
         self._decision = decision
         self._publish(decision)
+        # The pin light follows the playing track.
+        async_dispatcher_send(self.hass, CONTROLS_UPDATED)
         if self._is_on(self.config.strip):
             await self._push_strip(decision)
 
@@ -322,7 +383,7 @@ class Director:
     def _idle_decision(self) -> Decision:
         idle = vibe_palette()
         return self._compose(
-            "", "", TrackInfo(), idle, "default", "energy", idle.intensity
+            "", "", "", TrackInfo(), idle, "default", "energy", idle.intensity
         )
 
     async def _decide(self, player: State, key: str) -> Decision:
@@ -348,25 +409,29 @@ class Director:
         title = player.attributes.get("media_title") or ""
         artist = player.attributes.get("media_artist") or ""
         album = player.attributes.get("media_album_name") or ""
-        song = find_override(self.config.overrides, title, artist, album)
-        palette = named_palette(song.color, "override") if song and song.color else None
-        if palette is None:
-            palette = (
-                with_intensity(cover, level)
-                if cover
-                else vibe_palette(
-                    info.genres,
-                    info.energy,
-                    info.valence,
-                    tempo_level(info.bpm),
-                    level,
-                )
+        # Colours come from pins (seeded from configured overrides); the
+        # configured overrides still set effects.
+        song = find_override(
+            tuple(o for o in self.config.overrides if o.effect), title, artist, album
+        )
+        palette = (
+            with_intensity(cover, level)
+            if cover
+            else vibe_palette(
+                info.genres,
+                info.energy,
+                info.valence,
+                tempo_level(info.bpm),
+                level,
             )
+        )
         if song and song.effect:
             effect = song.effect
         else:
             effect = choose_effect(family, key, self._last_effect)
-        decision = self._compose(title, artist, info, palette, family, effect, level)
+        decision = self._compose(
+            title, artist, album, info, palette, family, effect, level
+        )
         _LOGGER.info(
             "%s - %s: %s/%s%s, intensity %.2f, palette %s (hue %.0f), sources %s",
             artist,
@@ -395,29 +460,44 @@ class Director:
             _LOGGER.debug("%s lookup failed: %s", label, type(error).__name__)
             return None
 
-    async def _spotify_id(self, title: str, artist: str) -> str | None:
-        for attempt in range(SPOTIFY_ATTEMPTS):
-            state = self.hass.states.get(self.config.spotify)
-            if state is not None and same_track(
-                title,
-                artist,
-                state.attributes.get("media_title") or "",
-                state.attributes.get("media_artist") or "",
-            ):
-                return spotify_track_id(state.attributes.get("media_content_id"))
-            if attempt == SPOTIFY_ATTEMPTS - 1:
-                break
-            try:
-                await self.hass.services.async_call(
-                    "homeassistant",
-                    "update_entity",
-                    {"entity_id": self.config.spotify},
-                    blocking=True,
-                )
-            except Exception as error:  # noqa: BLE001 - polling is best effort
-                _LOGGER.debug("Spotify refresh failed: %s", type(error).__name__)
-            await asyncio.sleep(SPOTIFY_RETRY_SECONDS)
+    def _spotify_match(self, title: str, artist: str) -> str | None:
+        state = self.hass.states.get(self.config.spotify)
+        if state is None or state.state in ("unavailable", "unknown"):
+            self.spotify_status = "unavailable"
+            return None
+        if same_track(
+            title,
+            artist,
+            state.attributes.get("media_title") or "",
+            state.attributes.get("media_artist") or "",
+        ):
+            self.spotify_status = "ok"
+            return spotify_track_id(state.attributes.get("media_content_id"))
+        self.spotify_status = "other track"
         return None
+
+    async def _spotify_id(self, title: str, artist: str) -> str | None:
+        """The track's Spotify ID from Spotify's media player. The speaker
+        plays through Spotify Connect into Music Assistant and reports no
+        ID, so this is the only source."""
+        found = self._spotify_match(title, artist)
+        if found or self.spotify_status == "unavailable":
+            return found
+        now = time.monotonic()
+        if now - self._spotify_refreshed < SPOTIFY_REFRESH_GAP:
+            return None
+        self._spotify_refreshed = now
+        try:
+            await self.hass.services.async_call(
+                "homeassistant",
+                "update_entity",
+                {"entity_id": self.config.spotify},
+                blocking=True,
+            )
+        except Exception as error:  # noqa: BLE001 - polling is best effort
+            _LOGGER.debug("Spotify refresh failed: %s", type(error).__name__)
+        await asyncio.sleep(SPOTIFY_RETRY_SECONDS)
+        return self._spotify_match(title, artist)
 
     async def _gather_info(self, player: State) -> TrackInfo:
         info = TrackInfo()
@@ -541,6 +621,10 @@ class Director:
                 "palette_source": decision.palette.source,
                 "palette_spread": spread_label(decision.palette),
                 "colour_mode": "manual" if self.manual_rgb else "auto",
+                "album": decision.album,
+                "pinned_colour": self.current_pin(),
+                "natural_palette_source": decision.natural.source,
+                "spotify_status": self.spotify_status,
                 "brightness_pct": self.brightness_pct,
                 "auto_palette_source": decision.auto_palette.source,
                 "intensity": round(decision.level, 3),
