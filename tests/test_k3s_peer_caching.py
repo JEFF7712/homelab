@@ -40,9 +40,7 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
             }}).config;
           in {{
             defaultFlags = (evalWith {{}}).services.k3s.extraFlags;
-            withRegistry = (evalWith {{ homelab.k3s.registry.enable = true; }}).services.k3s.extraFlags;
-            withRegistryDisabledSpegel = (evalWith {{
-              homelab.k3s.registry.enable = true;
+            disabledSpegel = (evalWith {{
               homelab.k3s.registry.embeddedRegistry = false;
             }}).services.k3s.extraFlags;
             agentFlags = (evalWith {{
@@ -50,8 +48,11 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
               homelab.k3s.clusterInit = false;
               homelab.k3s.serverAddress = "https://10.0.30.11:6443";
               homelab.k3s.tokenFile = "/tmp/token";
-              homelab.k3s.registry.enable = true;
             }}).services.k3s.extraFlags;
+            k3sUnit = let unit = (evalWith {{}}).systemd.services.k3s; in {{
+              conditions = unit.unitConfig.ConditionPathExists;
+              credential = unit.serviceConfig.LoadCredential;
+            }};
             firewallRules = (evalWith {{}}).networking.firewall.extraInputRules;
             auditPolicy = builtins.fromJSON (evalWith {{}}).environment.etc."rancher/k3s/audit-policy.json".text;
           }}
@@ -72,15 +73,22 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
         )
         cls.evaluated = json.loads(proc.stdout)
 
-    def test_embedded_registry_flag_present_on_server_with_registry(self) -> None:
-        self.assertIn("--embedded-registry", self.evaluated["withRegistry"])
-
-    def test_embedded_registry_flag_absent_by_default(self) -> None:
-        self.assertNotIn("--embedded-registry", self.evaluated["defaultFlags"])
+    def test_embedded_registry_flag_present_on_servers_by_default(self) -> None:
+        self.assertIn("--embedded-registry", self.evaluated["defaultFlags"])
 
     def test_embedded_registry_flag_absent_when_explicitly_disabled(self) -> None:
-        self.assertNotIn(
-            "--embedded-registry", self.evaluated["withRegistryDisabledSpegel"]
+        self.assertNotIn("--embedded-registry", self.evaluated["disabledSpegel"])
+
+    def test_every_node_pulls_only_through_the_local_registry(self) -> None:
+        for key in ("defaultFlags", "disabledSpegel", "agentFlags"):
+            self.assertIn(
+                "--disable-default-registry-endpoint", self.evaluated[key], key
+            )
+        unit = self.evaluated["k3sUnit"]
+        self.assertIn("/persist/secrets/k3s-registries.yaml", unit["conditions"])
+        self.assertEqual(
+            unit["credential"],
+            "registries.yaml:/persist/secrets/k3s-registries.yaml",
         )
 
     def test_embedded_registry_flag_absent_on_agent_nodes(self) -> None:
@@ -91,7 +99,7 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
         self.assertIn("10.0.30.0/24 tcp dport { 22, 179, 2379, 2380, 5001,", rules)
 
     def test_only_servers_encrypt_secrets_and_record_bounded_audit_logs(self) -> None:
-        for key in ("defaultFlags", "withRegistry", "withRegistryDisabledSpegel"):
+        for key in ("defaultFlags", "disabledSpegel"):
             flags = self.evaluated[key]
             self.assertIn("--secrets-encryption", flags)
             self.assertIn("--kube-apiserver-arg=audit-log-maxsize=50", flags)

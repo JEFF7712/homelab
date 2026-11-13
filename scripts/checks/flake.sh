@@ -7,22 +7,16 @@ cd "$(dirname "$0")/../.."
 # near workers * cap (about 3.7 GiB) as hosts are added; CI jobs get two
 # CPUs, so more workers would not help. Host configurations are evaluated,
 # not built, matching nix flake check; the checks themselves are built.
-# A plain host with a "-registry" variant is skipped: that variant is the
-# plain host plus one module, so evaluating it covers the plain host too.
 # Match cache.sh's Git-filtered source. A path: source includes .git and
 # ignored CI artifacts, changing check derivations between otherwise
 # identical runs and preventing substitution from the published cache.
 flake='./flake'
-# The selection is a Nix expression; ${name} is Nix interpolation.
-# shellcheck disable=SC2016
-selection='flake: let
-  names = builtins.attrNames flake.nixosConfigurations;
-  covered = name: builtins.elem "${name}-registry" names;
-in {
+# The selection is a Nix expression.
+selection='flake: {
   checks = flake.checks.x86_64-linux;
-  hosts = flake.inputs.nixpkgs.lib.genAttrs (builtins.filter (name: !covered name) names) (
-    name: flake.nixosConfigurations.${name}.config.system.build.toplevel
-  );
+  hosts = builtins.mapAttrs (
+    _: host: host.config.system.build.toplevel
+  ) flake.nixosConfigurations;
 }'
 # Checks build as soon as they are evaluated, overlapping the host
 # evaluations; the unit-suite build adds about 0.5 GiB to the eval peak.

@@ -1082,6 +1082,11 @@ class RegistryCatalogContractTests(unittest.TestCase):
                     script.index("registry-verify"), script.index("nixos-rebuild")
                 )
                 self.assertNotIn("REGISTRY_MIGRATION_AUTH_FILE", script)
+                # Each host has one configuration, named after the host, and
+                # the credentials land where that configuration reads them.
+                self.assertIn('./flake#"$DEPLOY_HOST" ', script)
+                self.assertNotIn("-registry.config", script)
+                self.assertIn("registry.configFile", script)
 
     def test_drift_check_uses_node_credentials_and_preserves_the_report(
         self,

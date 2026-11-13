@@ -89,18 +89,6 @@ class DeployFleetTest(unittest.TestCase):
         self.assertNotIn("systemd-run", dry_run)
         self.assertIn(self.NEW + "/bin/switch-to-configuration dry-activate", dry_run)
 
-    def test_k3s_hosts_deploy_the_registry_variant(self) -> None:
-        for name in (
-            "homelab-01",
-            "homelab-02",
-            "homelab-03",
-            "homelab-04",
-            "homelab-05",
-        ):
-            self.assertEqual(FLEET_HOSTS[name].flake_attr, name + "-registry")
-        for name in ("nas-01", "adguard-netbird-01"):
-            self.assertEqual(FLEET_HOSTS[name].flake_attr, name)
-
     def test_nas_missing_dataset_blocks_rebuild_even_when_preflight_skipped(
         self,
     ) -> None:
@@ -706,8 +694,8 @@ class DeployFleetTest(unittest.TestCase):
         self.assertEqual(
             hosts_targeted,
             [
-                str(Path("./flake").resolve()) + "#homelab-02-registry",
-                str(Path("./flake").resolve()) + "#homelab-03-registry",
+                str(Path("./flake").resolve()) + "#homelab-02",
+                str(Path("./flake").resolve()) + "#homelab-03",
             ],
         )
         self.assertFalse(

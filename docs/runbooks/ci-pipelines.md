@@ -157,8 +157,7 @@ Nix-integration subset rather than running the suite twice.
 The flake lane evaluates every check and every host configuration with
 `nix-eval-jobs` (two workers, each restarted past 2048 MiB) instead of
 `nix flake check`, then builds only the checks from the evaluated
-derivations. Plain k3s hosts that have a `-registry` variant are skipped,
-because evaluating the variant evaluates the plain host as well. Each check
+derivations. Each host has one configuration, named after the host. Each check
 starts building as soon as it is evaluated (`scripts/checks/flake_jobs.py`),
 so the unit-suite build overlaps the host evaluations. Measured at two CPUs,
 evaluation takes about 48 s and peaks near 3.7 GiB; with the unit-suite
