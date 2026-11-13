@@ -9,16 +9,53 @@ resources:
   - state.yaml
   - rbac.yaml
   - registry-advance-access.yaml
-  - cluster-sentinel-script.yaml
   - cluster-sentinel.yaml
-  - dockerhub-retention-script.yaml
   - dockerhub-retention.yaml
-  - website-monitor-scripts.yaml
   - website-monitors.yaml
-  - renovate-reviewer-script.yaml
   - renovate-agent.yaml
-  - renovate-approval-webhook-script.yaml
   - renovate-dashboard.yaml
-  - forgejo-dashboard-script.yaml
   - renovate-forgejo.yaml
   - renovate-github.yaml
+
+# Script ConfigMaps are generated from the source files beside this file.
+# Unhashed names keep today's behaviour: a script edit does not roll pods by
+# itself (the renovate dashboard and approval webhook pods carry
+# reloader.stakater.com/auto). Edit the source files, not YAML.
+configMapGenerator:
+  - name: cluster-sentinel-config
+    namespace: automation
+    options:
+      disableNameSuffixHash: true
+    files:
+      - cluster-sentinel/cluster-sentinel.sh
+  - name: dockerhub-retention-config
+    namespace: automation
+    options:
+      disableNameSuffixHash: true
+    files:
+      - dockerhub-retention/dockerhub-retention.sh
+  - name: website-monitor-config
+    namespace: automation
+    options:
+      disableNameSuffixHash: true
+    files:
+      - website-monitor/healthcheck.sh
+      - website-monitor/image-watch.sh
+  - name: renovate-reviewer-script
+    namespace: automation
+    options:
+      disableNameSuffixHash: true
+    files:
+      - renovate-reviewer/renovate-agent.py
+  - name: renovate-approval-webhook-script
+    namespace: automation
+    options:
+      disableNameSuffixHash: true
+    files:
+      - renovate-approval-webhook/renovate-approval-webhook.py
+  - name: forgejo-dashboard-script
+    namespace: automation
+    options:
+      disableNameSuffixHash: true
+    files:
+      - forgejo-dashboard/dashboard.py
