@@ -457,19 +457,22 @@ class SyncEngine:
                             },
                         }
                     )
+                    # A dry run indexes the payload it would send so later
+                    # names for the same artist are not "added" twice, but
+                    # leaves record unset: nothing exists in Lidarr to monitor.
+                    added_record = payload
                     if self.args.dry_run:
                         logger.info("Would add %s to Lidarr", artist)
                     else:
                         created = self.lidarr.post("/api/v1/artist", payload)
                         if isinstance(created, dict):
-                            record = created
-                        else:
-                            record = exact
-                    existing[key] = record
-                    if record.get("cleanName"):
-                        existing[record["cleanName"]] = record
-                    if record.get("foreignArtistId"):
-                        existing[record["foreignArtistId"]] = record
+                            added_record = created
+                        record = added_record
+                    existing[key] = added_record
+                    if added_record.get("cleanName"):
+                        existing[added_record["cleanName"]] = added_record
+                    if added_record.get("foreignArtistId"):
+                        existing[added_record["foreignArtistId"]] = added_record
                     added += 1
                     logger.info("Added %s to Lidarr", artist)
             if record is not None and not record.get("monitored", True):

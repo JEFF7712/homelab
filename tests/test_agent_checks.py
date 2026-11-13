@@ -166,6 +166,7 @@ class AgentCheckSelectionTest(unittest.TestCase):
             "services/led-matrix/modes/physics.py": ("led-matrix",),
             "gitops/observability/network-monitor/monitor.py": ("gitops", "python"),
             "gitops/observability/network-monitor/deployment.yaml": ("gitops",),
+            "gitops/media/spotify-sync/sync.py": ("gitops", "python"),
             "tofu/cloudflare/.terraform.lock.hcl": ("tofu",),
         }
         for path, checks in expected.items():

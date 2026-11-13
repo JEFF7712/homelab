@@ -91,7 +91,10 @@ _CHECK_ORDER = (
 
 # Python mounted into workloads from gitops/ that scripts/checks/python.sh
 # lints and type-checks (scripts/agent/checks.py routes the same prefixes).
-_PYTHON_GITOPS_PREFIXES = ("gitops/observability/network-monitor/",)
+_PYTHON_GITOPS_PREFIXES = (
+    "gitops/observability/network-monitor/",
+    "gitops/media/spotify-sync/",
+)
 
 
 _RELEASE_RECORDS = frozenset(

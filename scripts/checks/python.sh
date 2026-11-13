@@ -5,7 +5,7 @@ for tool in ruff pyright python; do command -v "$tool" >/dev/null || { echo "mis
 # Keep equal to python_paths in the justfile (tests/test_python_gate_paths.py).
 ruff_paths=(
   scripts opnsense_reconciler tests flake/modules services/bus-display
-  services/led-matrix gitops/observability/network-monitor
+  services/led-matrix gitops/observability/network-monitor gitops/media/spotify-sync
 )
 if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then
   ruff format --check "${ruff_paths[@]}"
@@ -26,13 +26,13 @@ pyright_paths=(
   scripts/jev_decision_gate.py scripts/k3s_backup_source.py scripts/nemotron_bench.py
   scripts/netbird_agent_workspaces.py scripts/prometheus_storage_migrate.py
   scripts/record_jev_decisions.py scripts/recovery_guest.py scripts/recovery_host.py
-  scripts/recovery_pack.py scripts/score_l1_acceptance.py scripts/spotify_sync.py
+  scripts/recovery_pack.py scripts/score_l1_acceptance.py
   scripts/navidrome_lookup.py
   scripts/voice_stt_switch.py scripts/voice_topology.py
   flake/modules/repo_monitor.py flake/modules/kiosk-rotate.py
   flake/modules/kiosk-ha-token-seed.py flake/modules/jarvis-spectrum.py
   flake/modules/bedroom-bluetooth.py flake/modules/omarchy_vm
-  gitops/observability/network-monitor/monitor.py
+  gitops/observability/network-monitor/monitor.py gitops/media/spotify-sync/sync.py
   opnsense_reconciler
 )
 pyright "${pyright_paths[@]}" &

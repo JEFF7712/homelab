@@ -102,7 +102,10 @@ COMMANDS = {
 
 # Python mounted into workloads from gitops/ that scripts/checks/python.sh
 # lints and type-checks; scripts/ci/scope.py routes the same prefixes.
-PYTHON_GITOPS_PREFIXES = ("gitops/observability/network-monitor/",)
+PYTHON_GITOPS_PREFIXES = (
+    "gitops/observability/network-monitor/",
+    "gitops/media/spotify-sync/",
+)
 
 
 def _route(path: str) -> list[tuple[str, str]]:

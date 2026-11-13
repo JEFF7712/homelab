@@ -74,6 +74,7 @@ class ScopeTest(unittest.TestCase):
                 ("python", "gitops"),
                 (),
             ),
+            (["gitops/media/spotify-sync/sync.py"], ("python", "gitops"), ()),
             (
                 ["gitops/observability/network-monitor/deployment.yaml"],
                 ("gitops",),

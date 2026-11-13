@@ -6,7 +6,7 @@ set shell := ["bash", "-c", 'if [[ -n "${HOMELAB_DEV_SHELL:-}" || -n "${AGENT_HO
 
 # Python under the ruff lint and format gates; scripts/checks/python.sh lists
 # the same paths (tests/test_python_gate_paths.py keeps them equal).
-python_paths := "scripts opnsense_reconciler tests flake/modules services/bus-display services/led-matrix gitops/observability/network-monitor"
+python_paths := "scripts opnsense_reconciler tests flake/modules services/bus-display services/led-matrix gitops/observability/network-monitor gitops/media/spotify-sync"
 
 agent-context *args:
     python -m scripts.agent context {{args}}
