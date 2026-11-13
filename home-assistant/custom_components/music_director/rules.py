@@ -144,9 +144,11 @@ FAMILY_INTENSITY: dict[str, float] = {
 
 
 def intensity(features: Features, family: str) -> float:
-    """0 (calm) to 1 (intense): the family prior blended with energy, or
-    with tempo when ReccoBeats has no features."""
-    prior = FAMILY_INTENSITY[family]
+    """0 (calm) to 1 (intense): the genre's family prior (else the chosen
+    family's) blended with energy, or with tempo when ReccoBeats has no
+    features. The genre sets the prior, so mellow rap that plays a smooth
+    effect still rates as fairly intense; energy pulls it down."""
+    prior = FAMILY_INTENSITY[genre_family(features.genres) or family]
     if features.energy is not None:
         return round(0.5 * prior + 0.5 * _unit(features.energy), 3)
     tempo = tempo_level(features.bpm)

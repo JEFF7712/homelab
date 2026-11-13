@@ -45,7 +45,7 @@ ITERATIONS = 12
 VIVID_CHROMA = 0.03
 # Clusters at least this colourful join hue groups; greys and blacks do not.
 TINT_CHROMA = 0.025
-GROUP_HUE_WIDTH = 30.0
+GROUP_HUE_WIDTH = 20.0
 # A colour group counts toward the cover's spread when it holds at least this
 # share of the cover's clean colour; the primary alone at SINGLE_SHARE or more
 # makes it a one-colour cover.
@@ -56,8 +56,9 @@ RELATED_HUE_WIDTH = 60.0
 # Hue offset either side of the primary for unrelated covers and vibes.
 DEFAULT_SPREAD = 10.0
 LED_LIGHTNESS = 0.70
-# Calm tracks keep the cover's saturation, but never wash out to grey.
-CALM_MIN_CHROMA = 0.09
+# Calm tracks keep the cover's hue, saturated at least this much: softer
+# colours read as white or pastel on bulbs.
+CALM_MIN_CHROMA = 0.17
 # Fully intense tracks ask for this, past sRGB for most hues, so the light
 # shows the most saturated version of its colour.
 LED_MAX_CHROMA = 0.25
@@ -502,7 +503,7 @@ def area_colors(palette: Palette, count: int) -> list[RGB]:
     """Shades for neighbouring areas; lightness varies so areas sharing one
     hue still read apart."""
     return [
-        _led(palette, hue, (0.64, 0.74, 0.69)[index % 3])
+        _led(palette, hue, (0.62, 0.68, 0.65)[index % 3])
         for index, hue in enumerate(shade_hues(palette, count))
     ]
 
