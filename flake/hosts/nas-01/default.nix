@@ -81,6 +81,10 @@
         # pairs without storing a link key and forgets the speaker on every
         # disconnect; reconnecting then needs a fresh pairing.
         AlwaysPairable = true;
+        # Classic only. In dual mode the speaker paired over LE and BlueZ
+        # derived the BR/EDR link key from it; the speaker rejected that key
+        # on reconnect (br-connection-key-missing). Nothing here uses LE.
+        ControllerMode = "bredr";
         Experimental = true;
         FastConnectable = true;
       };
