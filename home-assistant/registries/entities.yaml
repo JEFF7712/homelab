@@ -188,8 +188,7 @@
   name: Dining Table Ceiling Light 2
 - area_id: kitchen
   entity_id: light.kitchen_kitchen_led_strip
-  labels:
-    - shared_space
+  labels: []
   name: 8-Light LED Strip
 - area_id: kitchen
   entity_id: light.kitchen_mushroom_lamp
@@ -199,8 +198,10 @@
   labels:
     - shared_space
   name: Living Room Floor Lamp
-- entity_id: light.living_room_led_strip
-  labels: []
+- area_id: living_room
+  entity_id: light.living_room_led_strip
+  labels:
+    - shared_space
   name: Living Room LED Strip
 - area_id: living_room
   entity_id: light.living_room_tulip_lamp
