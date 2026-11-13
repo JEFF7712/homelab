@@ -366,6 +366,9 @@ data:
         - artist: The Weeknd
           album: After Hours
           color: deep blue
+        - artist: Drake
+          album: More Life
+          color: blue
 
     input_boolean:
       bedroom_matrix_power:
