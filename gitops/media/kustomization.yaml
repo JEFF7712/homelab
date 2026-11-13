@@ -75,6 +75,8 @@ configMapGenerator:
       disableNameSuffixHash: true
     files:
       - arr-queue-hygiene/hygiene.py
+  # spotify-sync/sync.py is the only copy of the sync script: the ruff and
+  # pyright gates and tests/test_spotify_sync.py read it here.
   - name: spotify-sync
     namespace: media
     options:
