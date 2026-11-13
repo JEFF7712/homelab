@@ -694,6 +694,79 @@ class ShipKilledValidationTest(unittest.TestCase):
         self.assertIsNone(killed_validation([failed, self.KILLED]))
 
 
+class ShipLostWebhookTest(unittest.TestCase):
+    """A PR head whose validation never starts lost its forge webhook."""
+
+    def shipper(self, pipelines: list[list[dict]]) -> ship.Shipper:
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.say = lambda message: None
+        shipper.remaining = lambda: 60.0
+        shipper.reported = {}
+        shipper.restarted = {}
+        shipper.nudged = {}
+        self.patches: list[tuple[str, str, dict]] = []
+        self.status = "missing"
+
+        def call(method: str, path: str, body: dict | None = None) -> dict:
+            if method == "PATCH":
+                self.patches.append((method, path, body or {}))
+                return {}
+            return {"statuses": [{"context": REQUIRED_CONTEXT, "status": self.status}]}
+
+        shipper.forgejo = unittest.mock.Mock()
+        shipper.forgejo.call.side_effect = call
+        shipper.woodpecker = unittest.mock.Mock()
+        shipper.woodpecker.pipelines_for.side_effect = pipelines
+        clock = iter(range(0, 100000, 60))
+        for name, value in (
+            ("sleep", lambda seconds: None),
+            ("monotonic", lambda: next(clock)),
+        ):
+            patcher = patch.object(ship.time, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        return shipper
+
+    def test_lost_event_reopens_the_pr_then_validation_runs(self) -> None:
+        running = [{"number": 7001, "event": "pull_request", "status": "running"}]
+
+        def pipelines(sha: str) -> list[dict]:
+            if not self.patches:
+                return []
+            self.status = "success"
+            return running
+
+        shipper = self.shipper([])
+        shipper.woodpecker.pipelines_for.side_effect = pipelines
+        shipper.wait_status(SHA, "PR #4", 4)
+        self.assertEqual(
+            self.patches,
+            [
+                ("PATCH", "/pulls/4", {"state": "closed"}),
+                ("PATCH", "/pulls/4", {"state": "open"}),
+            ],
+        )
+
+    def test_gives_up_with_instructions_after_two_reopens(self) -> None:
+        shipper = self.shipper([[]] * 10)
+        with self.assertRaisesRegex(ShipError, "Push a new head"):
+            shipper.wait_status(SHA, "PR #4", 4)
+        self.assertEqual(len(self.patches), 2 * ship.LOST_EVENT_NUDGES)
+
+    def test_a_queued_pipeline_is_not_nudged(self) -> None:
+        queued = [{"number": 7002, "event": "pull_request", "status": "pending"}]
+        shipper = self.shipper([queued, queued])
+
+        def pipelines(sha: str) -> list[dict]:
+            if shipper.woodpecker.pipelines_for.call_count >= 2:
+                self.status = "success"
+            return queued
+
+        shipper.woodpecker.pipelines_for.side_effect = pipelines
+        shipper.wait_status(SHA, "PR #4", 4)
+        self.assertEqual(self.patches, [])
+
+
 class ShipResumeTest(unittest.TestCase):
     def shipper(self) -> ship.Shipper:
         from argparse import Namespace
