@@ -1,0 +1,19 @@
+directory: /data/music
+library: /data/.beets/library.db
+statefile: /data/.beets/state.pickle
+plugins: musicbrainz fetchart embedart scrub lastgenre
+# Fill empty genres from Last.fm tags (whitelisted) as albums import;
+# existing genre tags are kept. Navidrome serves them to music lighting.
+lastgenre:
+  source: album
+  count: 3
+  force: false
+import:
+  move: false
+  copy: false
+  write: true
+  incremental: true
+  incremental_skip_later: true
+  quiet: true
+  quiet_fallback: skip
+  log: /data/.beets/import.log

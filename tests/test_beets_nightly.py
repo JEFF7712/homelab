@@ -10,12 +10,10 @@ from unittest.mock import patch
 
 import yaml
 
+from tests.gitops_render import config_map
+
 ROOT = Path(__file__).resolve().parent.parent
-CONFIG_MAP = next(
-    doc
-    for doc in yaml.safe_load_all((ROOT / "gitops/media/configs.yaml").read_text())
-    if doc["metadata"]["name"] == "beets-config"
-)
+CONFIG_MAP = config_map("media", "beets-config")
 CONFIG = yaml.safe_load(CONFIG_MAP["data"]["config.yaml"])
 MOD = {"__name__": "beets_under_test"}
 exec(compile(CONFIG_MAP["data"]["nightly.py"], "nightly.py", "exec"), MOD)

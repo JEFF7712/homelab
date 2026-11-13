@@ -3,6 +3,8 @@ from pathlib import Path
 
 import yaml
 
+from tests.gitops_render import config_map
+
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "gitops" / "media" / "spotify-sync.yaml"
 KUSTOMIZATION = ROOT / "gitops" / "media" / "kustomization.yaml"
@@ -13,7 +15,7 @@ class TestSpotifySyncManifest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         documents = list(yaml.safe_load_all(MANIFEST.read_text()))
-        cls.config_map = next(doc for doc in documents if doc["kind"] == "ConfigMap")
+        cls.config_map = config_map("media", "spotify-sync")
         cls.cronjob = next(doc for doc in documents if doc["kind"] == "CronJob")
 
     def test_manifest_is_owned_by_media_kustomization(self) -> None:

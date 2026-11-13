@@ -1,0 +1,109 @@
+##### LIDARR EXTENDED SCRIPTS SETTINGS #####
+
+##### PATHS
+downloadPath="/config/extended/downloads"
+importPath="/config/extended/import"
+videoPath=""
+
+##### SCRIPT ENABLEMENT
+enableAutoConfig="false"
+enableAudio="true"
+enableVideo="false"
+enableUnmappedFilesCleaner="false"
+enableQueueCleaner="true"
+enableChangeCategory="false"
+
+##### SCRIPT INTERVALS
+audioScriptInterval=15m
+videoScriptInterval=15m
+autoArtistAdderInterval=12h
+unmappedFolderCleanerScriptInterval=15m
+queueCleanerScriptInterval=15m
+
+##### AUTOCONFIG SCRIPT SETTINGS
+configureMediaManagement="false"
+configureMetadataConsumerSettings="false"
+configureMetadataProviderSettings="false"
+configureCustomScripts="true"
+configureLidarrUiSettings="false"
+configureMetadataProfileSettings="false"
+configureTrackNamingSettings="false"
+
+##### AUDIO SCRIPT
+# SEARCH
+searchSort="date"
+matchDistance="3"
+lidarrSearchForMissing="true"
+retryNotFound="90"
+ignoreInstrumentalRelease="false"
+preferSpecialEditions="true"
+
+# CLIENT (arlToken rendered at boot from DEEZER_ARL)
+# "both" routes missing albums through Deezer (deemix) and Tidal
+# (tidaler via the tidal-dl compat shim installed by lidarr-boot.sh).
+# Tidal auth is a pre-provisioned token on the config PVC, not a
+# secret in this file; see docs/runbooks/arr-credentials.md.
+dlClientSource="both"
+arlToken="__DEEZER_ARL__"
+tidalCountryCode="US"
+# Upstream default canary (166356219) no longer returns audio streams
+# from the Tidal API, which would fail the client self-test and exit
+# the Audio daemon. This album is verified downloadable via tidaler.
+failedDownloadAttemptThreshold="6"
+deezerClientTestDownloadId="197472472"
+# Upstream default canary (166356219) no longer returns audio streams
+# from the Tidal API, which would fail the client self-test and exit
+# the Audio daemon. This album is verified downloadable via tidaler.
+tidalClientTestDownloadId="77610756"
+downloadClientTimeOut="10m"
+
+# QUALITY
+audioLyricType="both"
+audioFormat="native"
+audioBitrate="lossless"
+requireQuality="false"
+
+# POST PROCESSING
+enableBeetsTagging="false"
+beetsMatchPercentage="90"
+enableReplaygainTags="true"
+
+# ADD ARTIST AUTOMATION
+addDeezerTopArtists="false"
+addDeezerTopAlbumArtists="false"
+addDeezerTopTrackArtists="false"
+topLimit="3"
+addRelatedArtists="false"
+numberOfRelatedArtistsToAddPerArtist="1"
+autoArtistAdderMonitored="true"
+preventRelatedArtistsLoop="true"
+
+##### VIDEO SCRIPT
+addFeaturedVideoArtists="false"
+videoFormat="bv[width>=1920]+ba"
+videoInfoJson="false"
+youtubeSubtitleLanguage="en"
+disableImvd="false"
+
+##### PLEX NOTIFY SCRIPT
+plexUrl=""
+plexToken=""
+
+##### DEEZER ARLCHECKER
+arlUpdateInterval="24h"
+telegramBotEnable="false"
+telegramBotToken=""
+telegramUserChatID=""
+pushoverEnable="false"
+pushoverUserKey=""
+pushoverAppAPIKey=""
+ntfyEnable="false"
+ntfyServerTopic=""
+ntfyUserToken=""
+AppriseEnable="false"
+AppriseString=""
+
+
+lidarrUrl="http://127.0.0.1:8686"
+lidarrAPI="__LIDARR_API_KEY__"
+autoUpdate="false"

@@ -62,7 +62,8 @@ restart, so this is also manual:
 Lidarr downloads music via the hotio extended Audio script (deemix +
 Deezer ARL), not just indexers. The scripts execute
 `/config/extended.conf` as bash, so the `lidarr-extended-config`
-ConfigMap must stay in shell `KEY="value"` format; ini section headers
+ConfigMap (generated from `gitops/media/lidarr-extended/`) must stay in shell
+`KEY="value"` format; ini section headers
 break every assignment and silently exit all extended services at boot
 (no downloads, empty queue, indexer searches find nothing).
 
@@ -151,7 +152,7 @@ the first time needs a `slskd` Deployment restart so it picks up the env:
    `/api/v0/transfers/downloads` going non-empty.
 
 Tune grabs per run via `number_of_albums_to_grab` in the
-`config.ini.template` (`gitops/media/soularr.yaml`).
+`config.ini.template` (`gitops/media/soularr/config.ini.template`).
 
 Keep `SLSKD_SHARE_CACHE_WORKERS` pinned to eight. Soulseek includes this count
 in its saved share-cache options; using a host-dependent default invalidates

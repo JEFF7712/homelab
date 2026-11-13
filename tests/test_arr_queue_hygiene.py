@@ -1,8 +1,8 @@
 """Import-failure hygiene for the Lidarr download chain.
 
-Covers the hygiene script embedded in gitops/media/arr-queue-hygiene.yaml
-(loaded from the ConfigMap so tests track the shipped code) plus the
-manifest wiring (CronJob, PVC mount, kustomization).
+Covers the hygiene script gitops/media/arr-queue-hygiene/hygiene.py (loaded
+from the rendered arr-queue-hygiene ConfigMap so tests track the shipped code)
+plus the manifest wiring (CronJob, PVC mount, kustomization).
 """
 
 import datetime
@@ -11,14 +11,14 @@ from pathlib import Path
 
 import yaml
 
+from tests.gitops_render import config_map
+
 ROOT = Path(__file__).resolve().parent.parent
 HYGIENE_MANIFEST = ROOT / "gitops" / "media" / "arr-queue-hygiene.yaml"
 
 
 def load_module():
-    docs = list(yaml.safe_load_all(HYGIENE_MANIFEST.read_text(encoding="utf-8")))
-    cm = next(d for d in docs if d["kind"] == "ConfigMap")
-    source = cm["data"]["hygiene.py"]
+    source = config_map("media", "arr-queue-hygiene")["data"]["hygiene.py"]
     compile(source, "hygiene.py", "exec")
     ns: dict = {"__name__": "hygiene_under_test"}
     exec(source, ns)

@@ -48,7 +48,9 @@ per track, and on colour or brightness changes, at
   `home-assistant/scripts/shared_music_area.yaml`: area join, leave and
   paint from `sensor.music_director` attribute `area_colors`.
 - `navidrome-lookup` sidecar (`gitops/media/music.yaml`, source
-  `scripts/navidrome_lookup.py`): read-only lookup into the Navidrome
+  `scripts/navidrome_lookup.py`, copied byte for byte to
+  `gitops/media/navidrome-lookup/lookup.py` for the ConfigMap generator;
+  `tests/test_navidrome_lookup.py` keeps them equal): read-only lookup into the Navidrome
   database at `http://navidrome-lookup.media.svc.cluster.local:4534/lookup`.
 - `gitops/secrets/lastfm-api.sops.yaml`: Last.fm API key, exposed to Home
   Assistant as `LASTFM_API_KEY`.

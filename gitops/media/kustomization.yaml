@@ -21,3 +21,86 @@ resources:
   - recommender.yaml
   - games.yaml
   - clamav.yaml
+
+# Script ConfigMaps are generated from the source files beside this file.
+# Unhashed names keep today's behaviour: a script edit does not roll pods by
+# itself. Edit the source files, not YAML.
+configMapGenerator:
+  # extended.conf.template is shell format, NOT ini. The hotio extended
+  # scripts (`source /config/extended.conf`) execute it as bash; ini section
+  # headers break every assignment and fail ConfValidationCheck, which exits
+  # all extended services (Audio/ARLChecker) at boot. Secrets are
+  # placeholders there, rendered at container start by
+  # 10-render-extended-conf from the media-app Secret. Never put real
+  # arlToken/lidarrAPI values in that file.
+  # 10-render-extended-conf renders /config/extended.conf at container start;
+  # it is run by lidarr-boot.sh (this image's init does not process
+  # custom-cont-init.d) and fails the start loudly when DEEZER_ARL or
+  # LIDARR_API_KEY is missing, instead of silently downloading nothing.
+  # lidarr-boot.sh is the container entrypoint wrapper (Deployment command):
+  # hotio's init starts only its own s6 services, so the wrapper installs the
+  # extended toolchain, renders secrets, launches the extended daemons enabled
+  # in extended.conf.template (Audio, ARLChecker) in the background, then
+  # execs /init.
+  # tidal-dl-shim translates the legacy tidal-dl CLI used by the upstream
+  # Audio script to tidaler (maintained tidal-dl-ng fork); lidarr-boot.sh
+  # installs it as /usr/local/bin/tidal-dl. It handles bare (session check),
+  # -o DIR, and -q QUALITY -o DIR -l LINK, and never prompts: a dead session
+  # exits 1 so the script fails fast into its retry path.
+  - name: lidarr-extended-config
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - lidarr-extended/extended.conf.template
+      - lidarr-extended/10-render-extended-conf
+      - lidarr-extended/lidarr-boot.sh
+      - lidarr-extended/tidal-dl-shim
+  - name: beets-config
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - beets/config.yaml
+      - beets/nightly.py
+  - name: arr-credential-sync
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - arr-secret-sync/sync.py
+  - name: arr-queue-hygiene
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - arr-queue-hygiene/hygiene.py
+  - name: spotify-sync
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - spotify-sync/sync.py
+  - name: soularr
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - soularr/config.ini.template
+      - soularr/run.py
+  - name: jellyfin-backup
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - jellyfin-backup/backup.py
+  # navidrome-lookup/lookup.py is a byte-for-byte copy of
+  # scripts/navidrome_lookup.py, the linted and tested source, which kustomize
+  # cannot load from outside this directory. Edit that file and copy it here;
+  # tests/test_navidrome_lookup.py keeps the two equal.
+  - name: navidrome-lookup
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - lookup.py=navidrome-lookup/lookup.py

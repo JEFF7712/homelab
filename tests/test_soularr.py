@@ -1,9 +1,9 @@
 """Soularr wiring: Lidarr wanted list -> Soulseek downloads via slskd.
 
-Covers the ConfigMap template plus boot script embedded in
-gitops/media/soularr.yaml (loaded from the manifest so tests track the
-shipped code) and the cross-manifest wiring (CronJob, slskd env,
-ExternalSecret key, kustomization, PVC).
+Covers the config template plus boot script in gitops/media/soularr/
+(loaded from the rendered soularr ConfigMap so tests track the shipped code)
+and the cross-manifest wiring (CronJob, slskd env, ExternalSecret key,
+kustomization, PVC).
 """
 
 import configparser
@@ -12,6 +12,8 @@ import unittest
 from pathlib import Path
 
 import yaml
+
+from tests.gitops_render import config_map
 
 ROOT = Path(__file__).resolve().parent.parent
 SOULARR_MANIFEST = ROOT / "gitops" / "media" / "soularr.yaml"
@@ -29,10 +31,7 @@ def load_docs(path):
 
 
 def soularr_configmap():
-    for doc in load_docs(SOULARR_MANIFEST):
-        if doc.get("kind") == "ConfigMap" and doc["metadata"]["name"] == "soularr":
-            return doc
-    raise AssertionError("soularr ConfigMap not found")
+    return config_map("media", "soularr")
 
 
 def soularr_cronjob():

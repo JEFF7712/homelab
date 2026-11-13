@@ -1,8 +1,10 @@
 # Nightly beets tagging
 
 The `media/beets-nightly` CronJob runs at 03:00 America/Chicago. Its owning
-sources are `gitops/media/music.yaml` and the `beets-config` ConfigMap in
-`gitops/media/configs.yaml`. Flux deploys both through the media Kustomization.
+sources are `gitops/media/music.yaml` and the `beets-config` ConfigMap, which
+`gitops/media/kustomization.yaml` generates from `gitops/media/beets/config.yaml`
+and `gitops/media/beets/nightly.py`. Flux deploys both through the media
+Kustomization.
 
 The importer tags strong MusicBrainz matches in place, fetches artwork and
 embeds it. It does not move or copy music. Quiet mode skips uncertain matches;

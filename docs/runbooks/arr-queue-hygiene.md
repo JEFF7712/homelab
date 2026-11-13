@@ -29,7 +29,8 @@ search stay on). Note: a Prowlarr full sync may re-enable it; re-check
 ## What the CronJob does
 
 `arr-queue-hygiene` (nightly 06:15 America/Chicago, manifest
-`gitops/media/arr-queue-hygiene.yaml`) purges queue items stuck in
+`gitops/media/arr-queue-hygiene.yaml`, script
+`gitops/media/arr-queue-hygiene/hygiene.py`) purges queue items stuck in
 `importFailed` longer than `RETENTION_DAYS` (default 3):
 
 1. Bulk-removes them from the Lidarr queue (`removeFromClient=false`,
