@@ -29,7 +29,7 @@ pyright_paths=(
   scripts/recovery_pack.py scripts/score_l1_acceptance.py
   scripts/navidrome_lookup.py
   scripts/voice_stt_switch.py scripts/voice_topology.py
-  flake/modules/repo_monitor.py flake/modules/kiosk-rotate.py
+  flake/modules/moonlight-autostart.py flake/modules/repo_monitor.py flake/modules/kiosk-rotate.py
   flake/modules/kiosk-ha-token-seed.py flake/modules/jarvis-spectrum.py
   flake/modules/bedroom-bluetooth.py flake/modules/omarchy_vm
   gitops/observability/network-monitor/monitor.py gitops/media/spotify-sync/sync.py
