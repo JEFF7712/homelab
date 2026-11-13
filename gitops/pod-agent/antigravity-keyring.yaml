@@ -28,7 +28,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: prepare-profile
-          image: registry.rupan.dev/apps/pod-agent@sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/pod-agent@sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           command:
             - pod-agent
@@ -50,7 +50,7 @@ spec:
             runAsGroup: 101
       containers:
         - name: keyring
-          image: registry.rupan.dev/apps/pod-agent@sha256:d8eb13487bfa610fd71c62ee9764880a50a5df0973e0d7a9c69516568a1292fb  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/pod-agent@sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           command:
             - python
