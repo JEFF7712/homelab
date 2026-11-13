@@ -4804,6 +4804,50 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/producer-base-images/base-images.yaml:29"
+      ],
+      "destination_repository": "upstream/docker.io/library/nginx",
+      "destination_tags": [
+        "retention-deployed-fed7e14be83cbd26"
+      ],
+      "digest": "sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72",
+      "id": "upstream-library-nginx-dadf3599c510",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72",
+        "reference": "docker.io/library/nginx:1.31-alpine@sha256:fed7e14be83cbd2661a75cdc5b872d936cf155d46c327084d30b8df19ae88d72",
+        "registry": "docker.io",
+        "repository": "library/nginx",
+        "tag": "1.31-alpine"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/producer-base-images/base-images.yaml:25"
       ],
       "destination_repository": "upstream/docker.io/library/node",
