@@ -325,7 +325,10 @@ def mapping_for(cwd: Path, config: Path) -> tuple[str, Path, Path] | None:
     for entry in settings.get("repos", []):
         if local is None or Path(entry["local"]).resolve() != local:
             continue
-        host, remote = entry["host"], Path(entry["remote"])
+        host = entry.get("host")
+        if not host or host == "local":
+            return None
+        remote = Path(entry["remote"])
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", host):
             raise ValueError("Invalid SSH host alias in remote agent configuration")
         if not remote.is_absolute() or ".." in remote.parts or "\0" in str(remote):
@@ -345,6 +348,10 @@ def mapping_for(cwd: Path, config: Path) -> tuple[str, Path, Path] | None:
             if local is not None and local.is_relative_to(root)
             else root / cwd.relative_to(root).parts[0]
         )
+        if any(
+            Path(excluded).resolve() == project for excluded in entry.get("exclude", [])
+        ):
+            continue
         host, remote = entry["host"], Path(entry["remote"])
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", host):
             raise ValueError("Invalid SSH host alias in remote agent configuration")

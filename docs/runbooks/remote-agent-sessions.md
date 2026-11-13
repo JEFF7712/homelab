@@ -34,7 +34,9 @@ The laptop mapping is `~/.config/homelab-agent/repos.json`:
 Interactive coding sessions in those locations connect to the VM. Root mappings
 also cover newly created projects, nested repositories, directories without Git,
 and laptop worktrees inside the configured root. The projects directory itself
-stays local. Other locations stay local unless explicitly mapped.
+stays local. Other locations stay local unless explicitly mapped. Specific repositories
+under a root can be kept local by mapping them with `"host": "local"` in `repos` or
+adding them to the root's `"exclude"` list.
 Help, version, login, and noninteractive CLI
 commands retain their native local behavior. `HOMELAB_AGENT_LOCAL=1` explicitly
 bypasses routing. Existing fish abbreviations still supply their normal flags.
