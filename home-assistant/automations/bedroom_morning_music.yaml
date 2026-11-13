@@ -1,0 +1,109 @@
+id: bedroom_morning_music
+alias: "Bedroom: Morning Wake-Up Music"
+description: >-
+  At the Bedroom Wake Time helper (08:00, shared with the wake-up light fade
+  and weather briefing), play the Zam playlist shuffled at low volume on the
+  bedroom Bose speaker, then stop it 20 minutes later.
+  Shuffle is settled before the play so the first track is random: the
+  Music Assistant shuffle and clear commands are no-ops while the player's
+  source is Spotify Connect, so the queue source is selected first, and
+  clearing drops any dynamic (radio) source that would otherwise reset
+  shuffle on replace. The Spotify playlist URI is used rather than the
+  library id because a local-file copy of the playlist shares its name.
+  The stop only fires while the speaker is still playing from the Music
+  Assistant queue at the morning volume, so playback taken over from a
+  phone via Spotify Connect, or turned up, keeps going. The prior volume is
+  restored after the stop. The wake+20 trigger is a fallback for a restart
+  that interrupted the run's own delay; it never restores volume because
+  the prior level was lost with the run.
+triggers:
+  - trigger: time
+    at: input_datetime.bedroom_wake_time
+    id: "start"
+  - trigger: template
+    value_template: >-
+      {% set wake = states('input_datetime.bedroom_wake_time') %}
+      {% set wake_ts = as_timestamp(today_at(wake), none)
+      if wake not in ('unknown', 'unavailable', '') else none %}
+      {{ wake_ts is not none and as_timestamp(now()) >= wake_ts + 1200 }}
+    id: "stop"
+conditions: []
+actions:
+  - variables:
+      player: media_player.bedroom_speaker
+      morning_volume: 0.2
+      queue_source: Music Assistant Queue
+      prior_volume: "{{ state_attr('media_player.bedroom_speaker', 'volume_level') | float(0.37) }}"
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: "start"
+          - condition: state
+            entity_id: person.rupan_sunderapandyan
+            state: "home"
+          - condition: state
+            entity_id: input_boolean.vacation_mode
+            state: "off"
+        sequence:
+          # The speaker may have dropped off nas-01 overnight; a failed
+          # connect (speaker off) must not stop the rest of the run.
+          - action: rest_command.bose_speaker_connect
+            continue_on_error: true
+          - action: media_player.select_source
+            target:
+              entity_id: media_player.bedroom_speaker
+            data:
+              source: "{{ queue_source }}"
+          - action: media_player.clear_playlist
+            target:
+              entity_id: media_player.bedroom_speaker
+          - action: media_player.shuffle_set
+            target:
+              entity_id: media_player.bedroom_speaker
+            data:
+              shuffle: true
+          - action: media_player.volume_set
+            target:
+              entity_id: media_player.bedroom_speaker
+            data:
+              volume_level: "{{ morning_volume }}"
+          - action: music_assistant.play_media
+            target:
+              entity_id: media_player.bedroom_speaker
+            data:
+              media_type: playlist
+              media_id: spotify:playlist:4OqFps0bUsOrPUNVGi6Mqx
+              enqueue: replace
+          - delay:
+              minutes: 20
+          - if:
+              - condition: template
+                value_template: >-
+                  {{ is_state(player, 'playing')
+                  and state_attr(player, 'source') == queue_source
+                  and ((state_attr(player, 'volume_level') | float(0)) - morning_volume) | abs < 0.01 }}
+            then:
+              - action: media_player.media_stop
+                target:
+                  entity_id: media_player.bedroom_speaker
+              - action: media_player.volume_set
+                target:
+                  entity_id: media_player.bedroom_speaker
+                data:
+                  volume_level: "{{ prior_volume }}"
+      - conditions:
+          - condition: trigger
+            id: "stop"
+          - condition: template
+            value_template: >-
+              {{ is_state(player, 'playing')
+              and state_attr(player, 'source') == queue_source
+              and ((state_attr(player, 'volume_level') | float(0)) - morning_volume) | abs < 0.01 }}
+        sequence:
+          - action: media_player.media_stop
+            target:
+              entity_id: media_player.bedroom_speaker
+# Single: the wake+20 trigger is a restart fallback and is dropped silently
+# while the start run is still in its delay.
+mode: single
+max_exceeded: silent
