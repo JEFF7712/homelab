@@ -3,12 +3,13 @@ description: >-
   Join, stand by, paint, switch off or leave one shared music mode area.
   When Music Mode starts, every area is snapshotted to
   scene.pre_music_<area> and taken off Adaptive Lighting: join then paints a
-  taking-part area and standby switches the others off. Mid-session, paint
+  taking-part area and standby switches the others off. Mid-session, relight
   and off follow the area's toggle without touching the snapshot. Leave
   restores the snapshot and hands the area back to Adaptive Lighting.
-  Painting uses the area's shade and brightness_pct from
-  sensor.music_director (number.music_mode_brightness), one write per track
-  or brightness change.
+  Join and relight set the area's shade from sensor.music_director at its
+  brightness_pct (number.music_mode_brightness); paint, on every new track,
+  changes only the colour of lights that are on, so brightness set on a
+  light by hand, or a light switched off by hand, stays as it is.
 mode: parallel
 max: 20
 fields:
@@ -25,7 +26,7 @@ fields:
           - tulip_lamp
           - ceiling_strip
   step:
-    description: join, standby, paint, off or leave.
+    description: join, standby, paint, relight, off or leave.
     required: true
     example: join
     selector:
@@ -34,6 +35,7 @@ fields:
           - join
           - standby
           - paint
+          - relight
           - "off"
           - leave
 sequence:
@@ -65,7 +67,7 @@ sequence:
       snapshot: "scene.pre_music_{{ area }}"
       rgb: "{{ (state_attr('sensor.music_director', 'area_colors') or {}).get(area) }}"
   - condition: template
-    value_template: "{{ config is mapping and step in ['join', 'standby', 'paint', 'off', 'leave'] }}"
+    value_template: "{{ config is mapping and step in ['join', 'standby', 'paint', 'relight', 'off', 'leave'] }}"
   - choose:
       - conditions:
           - condition: template
@@ -125,10 +127,27 @@ sequence:
       - condition: template
         value_template: "{{ rgb is sequence and rgb is not string and rgb | length == 3 }}"
     then:
-      - action: light.turn_on
-        target:
-          entity_id: "{{ config.lights }}"
-        data:
-          rgb_color: "{{ rgb }}"
-          brightness_pct: "{{ state_attr('sensor.music_director', 'brightness_pct') | int(70) }}"
-          transition: 2
+      - if:
+          - condition: template
+            value_template: "{{ step == 'paint' }}"
+        then:
+          - variables:
+              lit: "{{ config.lights | select('is_state', 'on') | list }}"
+          - if:
+              - condition: template
+                value_template: "{{ lit | length > 0 }}"
+            then:
+              - action: light.turn_on
+                target:
+                  entity_id: "{{ lit }}"
+                data:
+                  rgb_color: "{{ rgb }}"
+                  transition: 2
+        else:
+          - action: light.turn_on
+            target:
+              entity_id: "{{ config.lights }}"
+            data:
+              rgb_color: "{{ rgb }}"
+              brightness_pct: "{{ state_attr('sensor.music_director', 'brightness_pct') | int(70) }}"
+              transition: 2

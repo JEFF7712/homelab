@@ -63,6 +63,12 @@ per track, and on colour or brightness changes, at
    and BPM.
 4. Last.fm top tags for the track, then the artist, when no genre is known.
 
+Cover art comes from Spotify's media player when it reports the same
+track (its art changes with the title), else from the speaker's player. When
+no art can be downloaded the director retries twice, 2 s apart
+(`COVER_ATTEMPTS`), and a track whose cover was missed is retried on replay
+rather than cached; the log says `No cover art` or `No usable cover colour`.
+
 The cover palette merges colour clusters of similar hue (so a cover-wide
 tint such as Dawn FM's muted blue counts as one colour), then takes the most
 vivid well-represented group. Skin tones, browns and olives (`palette.muddy`)
@@ -152,7 +158,11 @@ The light restores its colour and on/off state after a restart.
 `number.py`) sets the brightness of the painted areas (`brightness_pct` on
 `sensor.music_director`) and of the strip effect (LedFx `brightness`), in
 Auto and manual colour alike. The colour light's brightness slider is the
-same value.
+same value. Areas take it when they join or are switched on, and moving it
+relights every taking-part area (`relight`). New tracks and colour changes
+only recolour lights that are on (`paint`), so a bulb's own brightness slider
+holds across tracks and a bulb switched off by hand stays off until Music
+Mode next starts.
 
 `music_director.overrides` in `home-assistant/core/configuration.yaml` pins
 a colour and/or effect for matching tracks. Each entry needs at least one of
