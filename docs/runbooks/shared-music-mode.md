@@ -56,7 +56,15 @@ per track, and on colour or brightness changes, at
 ## Metadata order
 
 1. Spotify track ID from `media_player.spotify_rupan` when its title matches
-   the soundbar (the integration refreshes that entity up to twice).
+   the soundbar. The soundbar plays through Spotify Connect into Music
+   Assistant and reports no track ID, so this is the only source. The Web
+   API quota is shared with Home Assistant's own polling: the director asks
+   for at most one refresh per track change, none within 30 s of the last
+   (`SPOTIFY_REFRESH_GAP`) and none while the entity is unavailable (Spotify
+   rate limiting, `429 QUOTA_EXCEEDED`). `sensor.music_director` reports
+   `spotify_status` (`ok`, `other track` or `unavailable`), and the preview
+   card warns when Spotify is unavailable, since energy and tempo are then
+   estimated from the library and Last.fm.
 2. ReccoBeats `audio-features` by Spotify ID: tempo, energy, danceability,
    acousticness and ISRC. No key is needed.
 3. Local library by ISRC, else by artist, cleaned title and duration: genres
@@ -185,13 +193,32 @@ part, Music Mode switches `light.living_room_led_strip` on at full
 brightness, so `number.music_mode_brightness` alone sets the strip's level;
 the WLED snapshot restores its own brightness afterwards.
 
-`music_director.overrides` in `home-assistant/core/configuration.yaml` pins
-a colour and/or effect for matching tracks. Each entry needs at least one of
-`artist`, `album` or `title` (artist and album match by prefix, title
-exactly, case and punctuation ignored) and at least one of `color` (a
+### Album pins
+
+`light.music_mode_pin` ("Pin colour to this album", `light.py`) pins a colour
+to the playing album. On means the album is pinned: every time it plays it
+shows that colour exactly. Switching it on pins the colour showing now (the
+held manual colour if any, which then goes back to Auto); its colour wheel
+edits the pin; switching it off removes the pin, so the album goes back to
+automatic colours. It is unavailable while nothing plays. Pins match the
+first credited artist and the album by prefix, so features and deluxe
+editions follow; a track without an album is pinned by title.
+
+Pins live in Home Assistant storage (`.storage/music_director.pins`,
+`pins.py`), so they survive restarts and change without a deploy.
+`sensor.music_director` reports `album`, `pinned_colour` and
+`palette_source: override` for pinned tracks. The held manual colour still
+beats a pin.
+
+`music_director.overrides` in `home-assistant/core/configuration.yaml` seeds
+pins and sets effects. Each colour entry becomes a pin once (keys recorded
+in the store), so removing it from the dashboard sticks; edit or remove
+seeded colours from the dashboard, not the YAML. Each entry needs at least
+one of `artist`, `album` or `title` (artist and album match by prefix,
+title exactly, case and punctuation ignored) and at least one of `color` (a
 `NAMED_HUES` name, or a quoted `"#RRGGBB"` colour that every light shows
-exactly) or `effect` (an effect from the table above). The first
-matching entry wins; the dropdowns still take precedence. Example:
+exactly) or `effect` (an effect from the table above). The first matching
+entry wins; the dropdowns still take precedence. Example:
 
 ```yaml
   overrides:

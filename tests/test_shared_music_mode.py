@@ -357,6 +357,10 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertEqual(colour["type"], "custom:mushroom-light-card")
         self.assertTrue(colour["show_color_control"])
         self.assertIn("number.music_mode_brightness", entities)
+        # Pins: a colour wheel to pin, edit or remove the album's colour.
+        pin = music[entities.index("light.music_mode_pin")]
+        self.assertEqual(pin["type"], "custom:mushroom-light-card")
+        self.assertTrue(pin["show_color_control"])
         strip = music[entities.index("select.music_mode_strip_colours")]
         self.assertEqual(strip["features"], [{"type": "select-options"}])
         self.assertNotIn("input_select.music_mode_color", entities)

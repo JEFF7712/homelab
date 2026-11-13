@@ -96,12 +96,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         ),
     )
     hass.data[DOMAIN] = director
+    await director.pins.async_load(director.config.overrides)
 
     async def refresh(_call: ServiceCall) -> None:
         director.schedule(force=True)
 
     hass.services.async_register(DOMAIN, "refresh", refresh)
-    # Music Mode Colour (light), Brightness (number), Strip Colours (select).
+    # Music Mode Colour and Pin (lights), Brightness (number), Strip Colours
+    # (select).
     for platform in (Platform.LIGHT, Platform.NUMBER, Platform.SELECT):
         hass.async_create_task(async_load_platform(hass, platform, DOMAIN, {}, config))
 
