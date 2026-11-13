@@ -28,10 +28,12 @@ in
 
   networking.hostName = "homelab-05";
 
-  # Retained local Prometheus TSDB; the PV binds only on this host.
+  # Retained local Prometheus TSDB and Loki store; their PVs bind only on this
+  # host. Loki runs as 10001:10001 (chart pod security context).
   systemd.tmpfiles.rules = [
     "d /persist/prometheus 0750 1000 2000 -"
     "d /persist/prometheus/prometheus-db 0750 1000 2000 -"
+    "d /persist/loki 0750 10001 10001 -"
   ];
 
   # The e1000e transmit queue hung on 2026-10-16 and never recovered.
