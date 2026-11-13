@@ -16,6 +16,7 @@ resources:
   - kube-prometheus-stack/repo-monitor-rules.yaml
   - loki/repository.yaml
   - loki/rules-configmap.yaml
+  - loki/local-storage.yaml
   - loki/release.yaml
   - alloy/release.yaml
   - grafana/service.yaml
