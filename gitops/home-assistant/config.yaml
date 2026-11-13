@@ -369,6 +369,9 @@ data:
         - artist: Drake
           album: More Life
           color: blue
+        - artist: Playboi Carti
+          album: Whole Lotta Red
+          color: red
 
     input_boolean:
       bedroom_matrix_power:
