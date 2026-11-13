@@ -26,6 +26,13 @@ backend fetchers without browser headers. The distrojeff.com mirror may reject
 default library user agents with Cloudflare error 1010. This route changes no
 WAF rules or credentials.
 
+The exporter requires `--product-base-url https://distrojeff.com`. Each variant's
+feed URL serves a real product detail page on that verified domain, with its
+exact price, image, description and options from the same atomic snapshot.
+The explicit Buy on Etsy link opens the actual listing for checkout; product
+URLs do not redirect. Removed variants remain unavailable. The public server
+caches the read-only snapshot and has no API credentials or database access.
+
 After the application image containing `pod-agent feed` is released and
 promoted, run the CronJob once and check its audit result, readiness, and the
 public gzip CSV before entering the URL in Business Hub. Account-side ingestion

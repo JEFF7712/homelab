@@ -539,6 +539,12 @@ credential and `scripts/ci/promote_commit.py` to open and merge a promotion PR
 through required checks. The separate
 `registry-promote-nix-agent` operation owns the nix-agent promotion exception.
 
+After explicitly migrating a producer pin to Woodpecker's `0.0.(1000000 +
+pipeline number)` tag range, promotion stays in that range. Legacy timestamp
+tags are numerically larger but must not roll an enrolled producer back to an
+older image. Producers still pinned to legacy tags retain their existing
+selection until explicitly migrated.
+
 ## Producer ownership
 
 Producer source and release contracts are declared in `config/ci/applications.json`
