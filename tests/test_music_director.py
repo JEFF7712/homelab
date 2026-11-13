@@ -384,6 +384,39 @@ class TestRules(unittest.TestCase):
             rules.effect_config("fire", base)
 
 
+class TestGraduation(unittest.TestCase):
+    def test_purple_and_pink_stay_separate_cover_colours(self) -> None:
+        # Like Graduation: a purple sky with pink, which used to merge into
+        # one magenta.
+        sky = cover(
+            ((150, 70, 170), 650), ((215, 85, 150), 650), ((250, 245, 230), 400)
+        )
+        result = palette.extract_palette(sky)
+        assert result is not None
+        hues = {round(result.hue), *(round(h) for h in result.related)}
+        self.assertTrue(any(300 <= h <= 330 for h in hues), hues)
+        self.assertTrue(any(335 <= h <= 360 for h in hues), hues)
+
+    def test_calm_bulbs_are_never_pastel(self) -> None:
+        for hue in range(0, 360, 15):
+            muted = palette.Palette(
+                hue=float(hue), chroma=0.08, source="cover", intensity=0.1
+            )
+            for rgb in palette.area_colors(muted, 5):
+                r, g, b = (c / 255 for c in rgb)
+                saturation = (max(r, g, b) - min(r, g, b)) / max(r, g, b)
+                self.assertGreater(saturation, 0.45, (hue, rgb))
+
+    def test_mellow_rap_still_rates_fairly_intense(self) -> None:
+        # I Wonder: rap at energy 0.47 plays a smooth effect but is not calm.
+        features = rules.Features(genres=("Rap", "Hip Hop"), energy=0.47)
+        family = rules.classify(features)
+        self.assertEqual(family, "smooth")
+        self.assertGreater(rules.intensity(features, family), 0.55)
+        rnb = rules.Features(genres=("R&B",), energy=0.47)
+        self.assertLess(rules.intensity(rnb, rules.classify(rnb)), 0.45)
+
+
 class TestStripColours(unittest.TestCase):
     def test_strip_gradient_is_saturated_and_slight(self) -> None:
         # Whites and pastels look poor on the strip: every gradient stop and

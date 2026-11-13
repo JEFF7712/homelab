@@ -69,7 +69,7 @@ no art can be downloaded the director retries twice, 2 s apart
 (`COVER_ATTEMPTS`), and a track whose cover was missed is retried on replay
 rather than cached; the log says `No cover art` or `No usable cover colour`.
 
-The cover palette merges colour clusters of similar hue (so a cover-wide
+The cover palette merges colour clusters within 20° of hue (so a cover-wide
 tint such as Dawn FM's muted blue counts as one colour), then takes the most
 vivid well-represented group. Skin tones, browns and olives (`palette.muddy`)
 are judged per cluster, never merge with clean colours (so Whole Lotta Red's
@@ -98,17 +98,20 @@ and energy (or tempo) raises saturation and brightness, after Palmer et
 al. (PNAS 2013).
 
 Each track gets an intensity from 0 (calm) to 1 (intense)
-(`rules.intensity`): the effect family's prior (calm 0.15, smooth 0.3,
-default 0.5, bass 0.75, rock 0.8, drive 0.85) blended with ReccoBeats energy,
-or with tempo when there is no energy. Intensity sets how vivid the output is
+(`rules.intensity`): the family prior (calm 0.15, smooth 0.3, default 0.5,
+bass 0.75, rock 0.8, drive 0.85) of the genre, else of the chosen effect
+family, blended with ReccoBeats energy, or with tempo when there is no
+energy. Mellow rap that plays a smooth effect therefore still rates fairly
+intense (Graduation's I Wonder: about 0.6). Intensity sets how vivid the output is
 (`palette._led`):
 
 - Intense tracks (rap, house, rock, high energy) are steered toward vivid reds
   and deep blues (`palette.steer`: oranges and yellows into reds, yellow-greens
   into green, sky blues into deep blue) and, at full intensity, the most
   saturated version of the colour the LEDs can show.
-- Calm tracks (R&B, soul, acoustic) keep their cover's own hue and
-  saturation, so an orange cover stays orange; a vivid cover stays vivid.
+- Calm tracks (R&B, soul, acoustic) keep their cover's own hue, so an
+  orange cover stays orange, saturated to at least `CALM_MIN_CHROMA` (0.17)
+  because softer colours read as white or pastel on bulbs.
 - At every intensity, yellows lean at least partly toward orange, blues and
   reds keep a lightness ceiling so they stay deep, and the yellow-green band
   keeps a lightness floor so nothing renders as mustard or olive.
