@@ -3839,6 +3839,24 @@ data:
         return merged
 
 
+    # Light, soft coral and salmon read as pink on a cover, but saturating their
+    # hue for LEDs gives red-orange; such groups take a hot pink hue instead.
+    PASTEL_CORAL_HUES = (15.0, 45.0)
+    PASTEL_MIN_LIGHTNESS = 0.68
+    PASTEL_MAX_CHROMA = 0.16
+    PINK_HUE = 355.0
+
+
+    def pastel_pink(hue: float, lightness: float, chroma: float) -> float:
+        if (
+            PASTEL_CORAL_HUES[0] <= hue <= PASTEL_CORAL_HUES[1]
+            and lightness >= PASTEL_MIN_LIGHTNESS
+            and chroma < PASTEL_MAX_CHROMA
+        ):
+            return PINK_HUE
+        return hue
+
+
     def extract_palette(pixels: list[RGB]) -> Palette | None:
         """Pick the most vivid well-represented colour group and read the cover's
         spread from the other clean groups (see the module docstring). Returns
@@ -3846,11 +3864,12 @@ data:
         if not pixels:
             return None
         vivid = []
-        for share, _, chroma, hue, dirty in _hue_groups(
+        for share, lightness, chroma, hue, dirty in _hue_groups(
             kmeans([rgb_to_oklab(p) for p in pixels])
         ):
             if chroma < VIVID_CHROMA:
                 continue
+            hue = pastel_pink(hue, lightness, chroma)
             weight = MUDDY_WEIGHT if dirty else 1.0
             score = math.sqrt(share) * min(chroma, 0.25) * weight
             vivid.append((score, hue, chroma, share, dirty))
@@ -3989,12 +4008,24 @@ data:
     CHOSEN_SOURCES = frozenset({"manual", "override"})
 
 
-    def _led(palette: Palette, hue: float, lightness: float = LED_LIGHTNESS) -> RGB:
+    def _steer_amount(palette: Palette, hue: float) -> float:
         k = boost(palette.intensity)
-        hue = hue % 360.0
         if palette.source not in CHOSEN_SOURCES and YELLOW_BAND[0] < hue < YELLOW_BAND[1]:
             k = max(k, YELLOW_MIN_STEER)
-        hue = _toward(hue, steer(hue), k)
+        return k
+
+
+    def _led(
+        palette: Palette,
+        hue: float,
+        lightness: float = LED_LIGHTNESS,
+        output_hue: float | None = None,
+    ) -> RGB:
+        """An LED colour for hue: steered and saturated by intensity. output_hue,
+        when given, replaces the steered hue (the strip steers its primary once)."""
+        hue = hue % 360.0
+        k = _steer_amount(palette, hue)
+        hue = _toward(hue, steer(hue), k) if output_hue is None else output_hue % 360.0
         faithful = max(palette.chroma * 1.15, CALM_MIN_CHROMA)
         chroma = min(LED_MAX_CHROMA, faithful + (LED_MAX_CHROMA - faithful) * k)
         lightness = max(lightness + palette.lift, lightness_floor(hue))
@@ -4039,19 +4070,45 @@ data:
         ]
 
 
+    # The strip shows whites and pastels badly, so its colours stay saturated,
+    # mid-lightness and within a few degrees of the primary: a slight gradient.
+    STRIP_HUE_SPREAD = 8.0
+    STRIP_MIN_CHROMA = 0.20
+    STRIP_LIGHTNESS = 0.64
+
+
+    def _strip_hues(palette: Palette, count: int) -> list[float]:
+        hues = []
+        for hue in shade_hues(palette, count):
+            distance = hue_distance(hue, palette.hue)
+            fraction = 1.0 if distance <= STRIP_HUE_SPREAD else STRIP_HUE_SPREAD / distance
+            hues.append(_toward(palette.hue, hue, fraction))
+        return hues
+
+
+    def _strip(palette: Palette, hue: float, lightness: float = STRIP_LIGHTNESS) -> RGB:
+        """A strip colour: the primary is steered once and hue keeps its small
+        offset from it, so a steering boundary cannot split the gradient."""
+        vivid = replace(palette, chroma=max(palette.chroma, STRIP_MIN_CHROMA / 1.15))
+        primary = palette.hue % 360.0
+        base = _toward(primary, steer(primary), _steer_amount(vivid, primary))
+        offset = (hue - primary + 180.0) % 360.0 - 180.0
+        return _led(vivid, primary, lightness, output_hue=base + offset)
+
+
     def triad(palette: Palette) -> tuple[RGB, RGB, RGB]:
         """Low, mid and high colours for three-colour LedFx effects."""
-        low, mid, high = shade_hues(palette, 3)
+        low, mid, high = _strip_hues(palette, 3)
         return (
-            _led(palette, low, 0.58),
-            _led(palette, mid, 0.70),
-            _led(palette, high, 0.84),
+            _strip(palette, low, 0.58),
+            _strip(palette, mid, 0.64),
+            _strip(palette, high, 0.68),
         )
 
 
     def solid_colour(palette: Palette) -> RGB:
         """The one colour the strip shows when set to solid."""
-        return _led(palette, palette.hue)
+        return _strip(palette, palette.hue)
 
 
     def _css(stops: list[tuple[RGB, int]]) -> str:
@@ -4066,14 +4123,15 @@ data:
 
 
     def gradient(palette: Palette) -> str:
-        """A CSS linear-gradient in the format LedFx gradient effects accept."""
-        hues = shade_hues(palette, 4)
+        """A CSS linear-gradient in the format LedFx gradient effects accept: a
+        slight shift of saturated colour, never toward white."""
+        hues = _strip_hues(palette, 4)
         return _css(
             [
-                (_led(palette, hues[0], 0.55), 0),
-                (_led(palette, hues[1], 0.70), 35),
-                (_led(palette, hues[2], 0.72), 70),
-                (_led(palette, hues[3], 0.82), 100),
+                (_strip(palette, hues[0], 0.60), 0),
+                (_strip(palette, hues[1], 0.64), 35),
+                (_strip(palette, hues[2], 0.66), 70),
+                (_strip(palette, hues[3], 0.62), 100),
             ]
         )
 

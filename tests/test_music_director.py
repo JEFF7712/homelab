@@ -384,6 +384,56 @@ class TestRules(unittest.TestCase):
             rules.effect_config("fire", base)
 
 
+class TestStripColours(unittest.TestCase):
+    def test_strip_gradient_is_saturated_and_slight(self) -> None:
+        # Whites and pastels look poor on the strip: every gradient stop and
+        # three-colour slot stays saturated, within a few degrees of the
+        # primary, even for muted calm covers with spread.
+        for hue in range(0, 360, 15):
+            for base in (
+                palette.Palette(
+                    hue=float(hue), chroma=0.05, source="cover", intensity=0.1
+                ),
+                palette.Palette(
+                    hue=float(hue),
+                    chroma=0.12,
+                    source="cover",
+                    related=((hue + 50) % 360.0,),
+                    intensity=0.1,
+                ),
+            ):
+                stops = [
+                    tuple(int(v) for v in m)
+                    for m in re.findall(
+                        r"rgb\((\d+), (\d+), (\d+)\)", palette.gradient(base)
+                    )
+                ]
+                colours = (*stops, *palette.triad(base))
+                for rgb in colours:
+                    r, g, b = (c / 255 for c in rgb)
+                    saturation = (max(r, g, b) - min(r, g, b)) / max(r, g, b)
+                    self.assertGreater(saturation, 0.45, (hue, rgb))
+                hues = [hue_of(rgb) for rgb in colours]
+                span = max(palette.hue_distance(a, b) for a in hues for b in hues)
+                self.assertLessEqual(
+                    span, 2 * palette.STRIP_HUE_SPREAD + 6, (hue, colours)
+                )
+
+    def test_pastel_coral_cover_reads_as_pink(self) -> None:
+        # Like Funk Wav Bounces: a pale coral sunset reads as pink.
+        sunset = cover(((248, 150, 130), 1400), ((20, 20, 30), 900))
+        result = palette.extract_palette(sunset)
+        assert result is not None
+        self.assertEqual(result.hue, palette.PINK_HUE)
+        # Saturated coral and orange covers keep their own hue.
+        orange = palette.extract_palette(cover(((255, 120, 0), 1500), ((0, 0, 0), 800)))
+        assert orange is not None
+        self.assertNotEqual(orange.hue, palette.PINK_HUE)
+        coral = palette.extract_palette(cover(((235, 80, 50), 1500), ((0, 0, 0), 800)))
+        assert coral is not None
+        self.assertNotEqual(coral.hue, palette.PINK_HUE)
+
+
 class TestSolidStrip(unittest.TestCase):
     def test_solid_strip_uses_one_colour_in_every_slot(self) -> None:
         base = palette.Palette(
