@@ -26,7 +26,10 @@ just ship --verify 'curl --fail https://service.example/health'
 5. Waits for `ci/woodpecker/validation-v2` on the PR head. On failure it prints
    the tail of each failing Woodpecker step and exits nonzero. A validation
    run that was killed rather than failed (an agent or server restart, runner
-   pressure) is restarted once per head; a second kill fails the ship.
+   pressure) is restarted once per head; a second kill fails the ship. When
+   a head has no Woodpecker pipeline at all after 4 minutes, the forge's
+   webhook was lost: ship closes and reopens the PR to resend it, at most
+   twice, then fails asking for a new head (rebase onto main and resume).
 6. Waits for `policy/merge` and merges through the merge queue (see below).
    Repair findings return to the agent; authority findings require operator
    passkey approval of that exact head on the [approvals dashboard](approvals.md).

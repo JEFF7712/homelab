@@ -6,6 +6,7 @@ exposes only the pure modules.
 
 from __future__ import annotations
 
+import asyncio
 import importlib
 import re
 import sys
@@ -32,6 +33,7 @@ def load(name: str) -> types.ModuleType:
 palette = load("palette")
 rules = load("rules")
 metadata = load("metadata")
+pins = load("pins")
 
 CSS_GRADIENT = re.compile(
     r"^linear-gradient\(90deg(, rgb\(\d{1,3}, \d{1,3}, \d{1,3}\) \d{1,3}%)+\)$"
@@ -632,6 +634,68 @@ class TestIntensity(unittest.TestCase):
                 self.assertIsNotNone(palette.named_palette(item["color"]), item)
             if "effect" in item:
                 self.assertIn(item["effect"], rules.EFFECTS, item)
+
+
+class TestPins(unittest.TestCase):
+    SEEDS = (
+        metadata.SongOverride(artist="Drake", album="More Life", color="blue"),
+        metadata.SongOverride(artist="The Weeknd", album="Dawn FM", effect="melt"),
+    )
+
+    def test_configured_colours_seed_once_and_unpinning_sticks(self) -> None:
+        store = pins.Pins()
+        self.assertTrue(store.seed(self.SEEDS))
+        # Effect-only overrides are not pins.
+        self.assertEqual(len(store.pins), 1)
+        found = store.find("Passionfruit", "Drake", "More Life")
+        assert found is not None
+        self.assertEqual(found.color, "blue")
+        self.assertTrue(store.unpin("Passionfruit", "Drake", "More Life"))
+        self.assertFalse(store.seed(self.SEEDS))
+        self.assertIsNone(store.find("Passionfruit", "Drake", "More Life"))
+
+    def test_pin_covers_the_album_and_replaces_an_old_pin(self) -> None:
+        store = pins.Pins()
+        store.pin("HYFR", "Drake, Lil Wayne", "Take Care", "#ff0000")
+        store.pin("Marvins Room", "Drake", "Take Care (Deluxe)", "#00ddff")
+        self.assertEqual(len(store.pins), 1)
+        # Primary artist and album prefix: features and editions still match.
+        found = store.find("Crew Love", "Drake, The Weeknd", "Take Care (Deluxe)")
+        assert found is not None
+        self.assertEqual(found.color, "#00ddff")
+        self.assertIsNone(store.find("Hotline Bling", "Drake", "Views"))
+        # Without an album the pin is for that song only.
+        store.pin("Single", "Someone", "", "#123456")
+        self.assertIsNotNone(store.find("Single", "Someone", ""))
+        self.assertIsNone(store.find("Other", "Someone", ""))
+
+    def test_store_round_trip_and_persistence(self) -> None:
+        class Storage:
+            def __init__(self, data: object) -> None:
+                self.data = data
+                self.saved: object = None
+
+            async def async_load(self) -> object:
+                return self.data
+
+            def async_delay_save(self, data_func, delay: float = 0) -> None:
+                self.saved = data_func()
+
+        storage = Storage(None)
+        store = pins.PinStore(storage)
+        asyncio.run(store.async_load(self.SEEDS))
+        self.assertEqual(
+            storage.saved["pins"],
+            [{"artist": "Drake", "album": "More Life", "color": "blue"}],
+        )
+        again = pins.PinStore(Storage(storage.saved))
+        asyncio.run(again.async_load(self.SEEDS))
+        self.assertEqual(again.pins.pins, store.pins.pins)
+        self.assertEqual(again.pins.seeded, store.pins.seeded)
+
+    def test_pinned_colours_render(self) -> None:
+        for colour in ("blue", "#00ddff"):
+            self.assertIsNotNone(palette.named_palette(colour, "override"))
 
 
 class TestMetadata(unittest.TestCase):

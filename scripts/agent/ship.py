@@ -48,6 +48,10 @@ PATCH_END = "----- END PROMOTION PATCH -----"
 POLL_SECONDS = 5
 # Outage, log-storage, and mergeability retries keep their original window.
 RETRY_SECONDS = 15
+# A PR head that has no Woodpecker pipeline at all after this long lost its
+# forge webhook; reopening the PR resends the event, at most this many times.
+LOST_EVENT_SECONDS = 240
+LOST_EVENT_NUDGES = 2
 SUPERSEDED = "Operation source must be the current main commit"
 TERMINAL_FAILURES = {"failure", "error", "killed", "declined"}
 GRANT_PATTERN = re.compile(r"\(grant ([0-9a-f]{64})\): ([^<\n]*)")
@@ -602,6 +606,8 @@ class Shipper:
         self.reported: dict[str, str] = {}
         # Head -> validation pipeline restarted once after an external kill.
         self.restarted: dict[str, int] = {}
+        # Head -> times its PR was reopened to resend a lost webhook.
+        self.nudged: dict[str, int] = {}
 
     def say(self, message: str) -> None:
         print(f"[ship {time.strftime('%H:%M:%S')}] {message}", flush=True)
@@ -701,8 +707,9 @@ class Shipper:
 
     # CI side ---------------------------------------------------------------
 
-    def wait_status(self, sha: str, label: str) -> None:
+    def wait_status(self, sha: str, label: str, pull: int | None = None) -> None:
         last = self.reported.get(sha, "")
+        quiet_since = time.monotonic()
         while True:
             self.remaining()
             status = self.forgejo.call("GET", f"/commits/{sha}/status")
@@ -760,7 +767,32 @@ class Shipper:
                 raise ShipError(
                     f"Required validation failed for {sha[:12]}{again}\n{report}"
                 )
+            if (
+                pull is not None
+                and time.monotonic() - quiet_since >= LOST_EVENT_SECONDS
+            ):
+                quiet_since = time.monotonic()
+                if not self.woodpecker.pipelines_for(sha):
+                    self.nudge(pull, sha, label)
             time.sleep(POLL_SECONDS)
+
+    def nudge(self, pull: int, sha: str, label: str) -> None:
+        """Resend a lost forge webhook by closing and reopening the PR, which
+        Woodpecker treats as a new pull request event for the same head."""
+        count = self.nudged.get(sha, 0)
+        if count >= LOST_EVENT_NUDGES:
+            raise ShipError(
+                f"{label} {sha[:12]}: Woodpecker never started validation, even "
+                f"after reopening the PR {count} times; the forge webhook is not "
+                "arriving. Push a new head (rebase onto main) and resume."
+            )
+        self.nudged[sha] = count + 1
+        self.say(
+            f"{label} {sha[:12]}: no validation pipeline after {LOST_EVENT_SECONDS}s; "
+            "reopening the PR to resend the lost webhook"
+        )
+        self.forgejo.call("PATCH", f"/pulls/{pull}", {"state": "closed"})
+        self.forgejo.call("PATCH", f"/pulls/{pull}", {"state": "open"})
 
     def wait_policy(self, pull: dict[str, Any]) -> bool:
         """Wait for the merge policy's verdict on this exact head.
@@ -905,7 +937,7 @@ class Shipper:
         current = self.forgejo.call("GET", f"/pulls/{number}")
         if current.get("merged"):
             return current["merge_commit_sha"]
-        self.wait_status(current["head"]["sha"], f"PR #{number}")
+        self.wait_status(current["head"]["sha"], f"PR #{number}", number)
         while True:
             lease = MergeLease(self, f"{current['head']['ref']} (PR #{number})")
             lease.acquire()
@@ -926,7 +958,7 @@ class Shipper:
             if current.get("merged"):
                 return current["merge_commit_sha"]
             head = current["head"]["sha"]
-            self.wait_status(head, f"PR #{number}")
+            self.wait_status(head, f"PR #{number}", number)
             if policy_required(ROOT) and not self.wait_policy(current):
                 self.update_branch(number, f"{POLICY_CONTEXT}: {OUTDATED}")
                 continue
@@ -1503,7 +1535,7 @@ class Shipper:
         pull = self.pull_request(branch, cwd)
         self.summary["pull_request"] = pull["html_url"]
         if self.args.no_merge:
-            self.wait_status(head, f"PR #{pull['number']}")
+            self.wait_status(head, f"PR #{pull['number']}", pull["number"])
             self.summary["state"] = "validated"
             return self.summary
         merged = self.merge(pull)
