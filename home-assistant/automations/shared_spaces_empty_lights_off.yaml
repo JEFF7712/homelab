@@ -40,6 +40,7 @@ triggers:
       - light.living_room_tulip_lamp
       - light.kitchen_dining_table_ceiling_light_1
       - light.kitchen_dining_table_ceiling_light_2
+      - light.living_room_led_strip
     from: "off"
     to: "on"
     id: "enforced"
@@ -72,6 +73,7 @@ actions:
                 - light.living_room_tulip_lamp
                 - light.kitchen_dining_table_ceiling_light_1
                 - light.kitchen_dining_table_ceiling_light_2
+                - light.living_room_led_strip
           - action: homeassistant.turn_off
             target:
               label_id: shared_space
@@ -91,6 +93,7 @@ actions:
                 - light.living_room_tulip_lamp
                 - light.kitchen_dining_table_ceiling_light_1
                 - light.kitchen_dining_table_ceiling_light_2
+                - light.living_room_led_strip
       - conditions:
           - condition: trigger
             id: "enforced"
@@ -131,6 +134,7 @@ actions:
                 - light.living_room_tulip_lamp
                 - light.kitchen_dining_table_ceiling_light_1
                 - light.kitchen_dining_table_ceiling_light_2
+                - light.living_room_led_strip
       - conditions:
           - condition: trigger
             id: "return"
