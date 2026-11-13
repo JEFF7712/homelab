@@ -13,14 +13,19 @@ from homeassistant.helpers.typing import ConfigType
 
 from .director import DOMAIN, Director, DirectorConfig
 from .metadata import SongOverride
-from .palette import NAMED_HUES
+from .palette import NAMED_HUES, hex_rgb
 from .rules import EFFECTS
 
 
 def _colour_name(value: object) -> str:
+    """A NAMED_HUES colour name, or a #RRGGBB colour."""
+    if hex_rgb(str(value)) is not None:
+        return str(value).strip().lower()
     name = " ".join(str(value).lower().replace("_", " ").split())
     if name not in NAMED_HUES:
-        raise vol.Invalid(f"unknown colour {value!r}; use one of {sorted(NAMED_HUES)}")
+        raise vol.Invalid(
+            f"unknown colour {value!r}; use #RRGGBB or one of {sorted(NAMED_HUES)}"
+        )
     return name
 
 

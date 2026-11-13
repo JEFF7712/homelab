@@ -189,7 +189,8 @@ the WLED snapshot restores its own brightness afterwards.
 a colour and/or effect for matching tracks. Each entry needs at least one of
 `artist`, `album` or `title` (artist and album match by prefix, title
 exactly, case and punctuation ignored) and at least one of `color` (a
-`NAMED_HUES` name) or `effect` (an effect from the table above). The first
+`NAMED_HUES` name, or a quoted `"#RRGGBB"` colour that every light shows
+exactly) or `effect` (an effect from the table above). The first
 matching entry wins; the dropdowns still take precedence. Example:
 
 ```yaml

@@ -121,6 +121,8 @@ class Palette:
     intensity: float = 0.5
     # Hue offset either side of the primary when there are no related hues.
     spread: float = 0.0
+    # An exact colour (a #RRGGBB override) every light shows unchanged.
+    rgb: RGB | None = None
 
 
 def _to_linear(channel: float) -> float:
@@ -381,9 +383,24 @@ def vibe_palette(
     )
 
 
+def hex_rgb(value: str) -> RGB | None:
+    """(r, g, b) for a #RRGGBB colour, else None."""
+    text = value.strip()
+    if len(text) != 7 or not text.startswith("#"):
+        return None
+    try:
+        return (int(text[1:3], 16), int(text[3:5], 16), int(text[5:7], 16))
+    except ValueError:
+        return None
+
+
 def named_palette(name: str, source: str = "manual") -> Palette | None:
     """A vivid single-colour palette for a NAMED_HUES colour (case, spaces
-    and underscores ignored): every light shows that colour."""
+    and underscores ignored) or a #RRGGBB colour: every light shows that
+    colour."""
+    rgb = hex_rgb(name)
+    if rgb is not None:
+        return replace(chosen_palette(rgb, source), rgb=rgb)
     hue = NAMED_HUES.get(" ".join(name.lower().replace("_", " ").split()))
     if hue is None:
         return None
@@ -460,7 +477,10 @@ def _led(
     output_hue: float | None = None,
 ) -> RGB:
     """An LED colour for hue: steered and saturated by intensity. output_hue,
-    when given, replaces the steered hue (the strip steers its primary once)."""
+    when given, replaces the steered hue (the strip steers its primary once).
+    An exact palette colour is returned as is."""
+    if palette.rgb is not None:
+        return palette.rgb
     hue = hue % 360.0
     k = _steer_amount(palette, hue)
     hue = _toward(hue, steer(hue), k) if output_hue is None else output_hue % 360.0
