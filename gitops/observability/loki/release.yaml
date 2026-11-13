@@ -85,16 +85,44 @@ spec:
             store: inmemory
     singleBinary:
       replicas: 1
+      # The store is the static local claim in local-storage.yaml (homelab-05
+      # NVMe), not a claim template: the chart names its template "storage",
+      # which would rebind the retained NFS claim storage-loki-0.
+      persistence:
+        enabled: false
       extraVolumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: loki-local
         - name: loki-rules
           configMap:
             name: loki-alerting-rules
       extraVolumeMounts:
+        - name: storage
+          mountPath: /var/loki
         - name: loki-rules
           mountPath: /var/loki/rules/fake
-      persistence:
-        storageClass: nfs-cluster
-        size: 20Gi
+      # Refuse to start on an empty store before the cold copy from the NFS
+      # claim has verified and written its marker.
+      initContainers:
+        - name: require-store-migration
+          image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47  # yamllint disable-line rule:line-length
+          command: [/bin/sh, -ec, 'test -f /var/loki/.migration-complete']
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+          volumeMounts:
+            - name: storage
+              mountPath: /var/loki
+              readOnly: true
       resources:
         requests:
           cpu: 200m
