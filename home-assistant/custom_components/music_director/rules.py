@@ -11,7 +11,7 @@ import zlib
 from dataclasses import dataclass
 from typing import Any
 
-from .palette import Palette, gradient, to_hex, triad
+from .palette import Palette, gradient, solid_colour, solid_gradient, to_hex, triad
 
 FAMILIES: dict[str, tuple[str, ...]] = {
     "calm": ("melt", "lava_lamp"),
@@ -202,16 +202,23 @@ def dynamics(effect: str, features: Features) -> dict[str, Any]:
 
 
 def effect_config(
-    effect: str, palette: Palette, features: Features | None = None
+    effect: str,
+    palette: Palette,
+    features: Features | None = None,
+    solid: bool = False,
 ) -> dict[str, Any]:
     """Colours plus tempo and energy dynamics for the effect; LedFx fills
-    every other key with its schema default."""
+    every other key with its schema default. Solid gives every colour slot
+    the same one colour."""
+    colours = (solid_colour(palette),) * 3 if solid else triad(palette)
     if effect in GRADIENT_EFFECTS:
-        config: dict[str, Any] = {"gradient": gradient(palette)}
+        config: dict[str, Any] = {
+            "gradient": solid_gradient(palette) if solid else gradient(palette)
+        }
         if effect == "power":
-            config["sparks_color"] = to_hex(triad(palette)[2])
+            config["sparks_color"] = to_hex(colours[2])
     elif effect in TRIAD_EFFECTS:
-        lows, mids, high = triad(palette)
+        lows, mids, high = colours
         config = {
             "color_lows": to_hex(lows),
             "color_mids": to_hex(mids),

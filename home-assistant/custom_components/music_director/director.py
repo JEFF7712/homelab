@@ -50,6 +50,7 @@ from .palette import (
     extract_palette,
     gradient,
     named_palette,
+    solid_gradient,
     vibe_palette,
     with_intensity,
 )
@@ -157,6 +158,8 @@ class Director:
         # Chosen colour (Music Mode Colour light on), or None for Auto.
         self.manual_rgb: tuple[int, int, int] | None = None
         self.brightness_pct = DEFAULT_BRIGHTNESS
+        # Music Mode Strip Colours: one solid colour instead of a gradient.
+        self.strip_solid = False
 
     @callback
     def async_start(self) -> None:
@@ -219,6 +222,12 @@ class Director:
         self._reapply()
 
     @callback
+    def set_strip_solid(self, solid: bool) -> None:
+        self.strip_solid = solid
+        async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+        self._reapply()
+
+    @callback
     def set_brightness(self, pct: int) -> None:
         self.brightness_pct = min(MAX_BRIGHTNESS, max(MIN_BRIGHTNESS, pct))
         async_dispatcher_send(self.hass, CONTROLS_UPDATED)
@@ -257,7 +266,7 @@ class Director:
         palette = self._colour_override() or auto_palette
         effect = self._override() or auto_effect
         config = {
-            **effect_config(effect, palette, info.features()),
+            **effect_config(effect, palette, info.features(), self.strip_solid),
             "brightness": round(self.brightness_pct / 100, 2),
         }
         return Decision(
@@ -540,7 +549,12 @@ class Director:
                     area: list(colour)
                     for area, colour in zip(self.config.areas, colours, strict=True)
                 },
-                "gradient": gradient(decision.palette),
+                "strip_style": "solid" if self.strip_solid else "gradient",
+                "gradient": (
+                    solid_gradient(decision.palette)
+                    if self.strip_solid
+                    else gradient(decision.palette)
+                ),
             },
         )
 

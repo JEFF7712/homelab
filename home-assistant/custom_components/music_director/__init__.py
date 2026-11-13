@@ -96,8 +96,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         director.schedule(force=True)
 
     hass.services.async_register(DOMAIN, "refresh", refresh)
-    # Music Mode Colour (light) and Music Mode Brightness (number).
-    for platform in (Platform.LIGHT, Platform.NUMBER):
+    # Music Mode Colour (light), Brightness (number), Strip Colours (select).
+    for platform in (Platform.LIGHT, Platform.NUMBER, Platform.SELECT):
         hass.async_create_task(async_load_platform(hass, platform, DOMAIN, {}, config))
 
     if hass.is_running:

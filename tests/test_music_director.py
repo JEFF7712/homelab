@@ -384,6 +384,32 @@ class TestRules(unittest.TestCase):
             rules.effect_config("fire", base)
 
 
+class TestSolidStrip(unittest.TestCase):
+    def test_solid_strip_uses_one_colour_in_every_slot(self) -> None:
+        base = palette.Palette(
+            hue=250.0, chroma=0.15, source="cover", related=(300.0,), intensity=0.1
+        )
+        one = palette.to_hex(palette.solid_colour(base))
+        for effects in rules.FAMILIES.values():
+            for effect in effects:
+                config = rules.effect_config(effect, base, solid=True)
+                if effect in rules.GRADIENT_EFFECTS:
+                    self.assertRegex(config["gradient"], CSS_GRADIENT)
+                    stops = set(re.findall(r"rgb\([^)]*\)", config["gradient"]))
+                    self.assertEqual(len(stops), 1, effect)
+                else:
+                    self.assertEqual(
+                        {config[k] for k in ("color_lows", "color_mids", "color_high")},
+                        {one},
+                    )
+        self.assertEqual(
+            rules.effect_config("power", base, solid=True)["sparks_color"], one
+        )
+        # The gradient default still spreads across the cover's colours.
+        stops = set(re.findall(r"rgb\([^)]*\)", palette.gradient(base)))
+        self.assertGreater(len(stops), 1)
+
+
 class TestDynamics(unittest.TestCase):
     BASE = palette.Palette(hue=120.0, chroma=0.12, source="cover")
     # LedFx schema ranges for the keys the director sets.
