@@ -290,6 +290,20 @@ class TestPalette(unittest.TestCase):
                     palette.hue_distance(hue_of(out), hue_of(rgb)), 8, (rgb, out)
                 )
 
+    def test_hex_override_colours_keep_their_hue(self) -> None:
+        light_blue = palette.named_palette("#00DDFF", "override")
+        assert light_blue is not None
+        self.assertEqual(light_blue.source, "override")
+        # A hex override is shown exactly, on bulbs and strip alike.
+        self.assertEqual(set(palette.area_colors(light_blue, 5)), {(0, 221, 255)})
+        self.assertEqual(palette.solid_colour(light_blue), (0, 221, 255))
+        self.assertEqual(
+            set(re.findall(r"rgb\([^)]*\)", palette.gradient(light_blue))),
+            {"rgb(0, 221, 255)"},
+        )
+        self.assertIsNone(palette.hex_rgb("#00DDF"))
+        self.assertIsNone(palette.named_palette("#zzzzzz"))
+
     def test_named_colours_keep_their_hue(self) -> None:
         for name, hue in palette.NAMED_HUES.items():
             named = palette.named_palette(name.title())

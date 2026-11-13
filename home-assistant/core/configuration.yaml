@@ -365,6 +365,9 @@ music_director:
     - artist: Playboi Carti
       album: Whole Lotta Red
       color: red
+    - artist: Lil Uzi Vert
+      album: Watch This
+      color: "#00ddff"
 
 input_boolean:
   bedroom_matrix_power:
