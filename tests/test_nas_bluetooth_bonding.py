@@ -39,6 +39,11 @@ class NasBluetoothBondingTest(unittest.TestCase):
         # speaker had to be re-paired after every disconnect or power cycle.
         self.assertIs(self.settings["General"]["AlwaysPairable"], True)
 
+    def test_controller_is_classic_only(self) -> None:
+        # An LE pairing yields a derived BR/EDR key the speaker rejects on
+        # reconnect, so the adapter must not offer LE at all.
+        self.assertEqual(self.settings["General"]["ControllerMode"], "bredr")
+
     def test_general_has_no_keys_bluez_ignores(self) -> None:
         # bluetoothd logs "Unknown key" for these in [General] and ignores them.
         self.assertNotIn("Enable", self.settings["General"])
