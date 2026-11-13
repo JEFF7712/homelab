@@ -17,6 +17,7 @@ from scripts.navidrome_lookup import (
     clean_title,
     make_handler,
 )
+from tests.gitops_render import config_map
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "gitops" / "media" / "music.yaml"
@@ -150,8 +151,10 @@ class TestManifest(unittest.TestCase):
         )
 
     def test_configmap_matches_script_source(self) -> None:
-        config_map = self._doc("ConfigMap", "navidrome-lookup")
-        self.assertEqual(config_map["data"]["lookup.py"], SCRIPT.read_text())
+        # gitops/media/navidrome-lookup/lookup.py is the copy kustomize can
+        # load; the rendered ConfigMap must equal the tested source.
+        rendered = config_map("media", "navidrome-lookup")
+        self.assertEqual(rendered["data"]["lookup.py"], SCRIPT.read_text())
 
     def test_sidecar_is_read_only_and_non_root(self) -> None:
         pod = self._doc("Deployment", "navidrome")["spec"]["template"]["spec"]

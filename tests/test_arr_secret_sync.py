@@ -1,14 +1,16 @@
 """Credential sync for the media download chain.
 
-Covers the sync script embedded in gitops/media/arr-secret-sync.yaml
-(loaded from the ConfigMap so tests track the shipped code) plus the
-manifest wiring (CronJob, ExternalSecret keys, kustomization).
+Covers the sync script gitops/media/arr-secret-sync/sync.py (loaded from the
+rendered arr-credential-sync ConfigMap so tests track the shipped code) plus
+the manifest wiring (CronJob, ExternalSecret keys, kustomization).
 """
 
 import unittest
 from pathlib import Path
 
 import yaml
+
+from tests.gitops_render import config_map
 
 ROOT = Path(__file__).resolve().parent.parent
 SYNC_MANIFEST = ROOT / "gitops" / "media" / "arr-secret-sync.yaml"
@@ -25,9 +27,7 @@ EXPECTED_SECRET_KEYS = {
 
 
 def load_module():
-    docs = list(yaml.safe_load_all(SYNC_MANIFEST.read_text(encoding="utf-8")))
-    cm = next(d for d in docs if d["kind"] == "ConfigMap")
-    source = cm["data"]["sync.py"]
+    source = config_map("media", "arr-credential-sync")["data"]["sync.py"]
     compile(source, "sync.py", "exec")
     ns: dict = {"__name__": "sync_under_test"}
     exec(source, ns)
