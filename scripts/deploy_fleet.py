@@ -66,14 +66,6 @@ class HostConfig:
     host_type: str  # "k3s-worker", "k3s-stateful", "appliance-dns", "appliance-nas"
     order: int
 
-    @property
-    def flake_attr(self) -> str:
-        # The plain k3s configuration has no registries.yaml, and /etc is tmpfs,
-        # so the next restart leaves containerd without registry credentials.
-        if self.host_type in ("k3s-worker", "k3s-stateful"):
-            return f"{self.name}-registry"
-        return self.name
-
 
 FLEET_HOSTS: dict[str, HostConfig] = {
     name: HostConfig(**host)
@@ -778,7 +770,7 @@ class FleetDeployer:
                 "eval",
                 "--raw",
                 "--no-write-lock-file",
-                f"{self.flake_path}#nixosConfigurations.{host.flake_attr}.config.system.build.toplevel.outPath",
+                f"{self.flake_path}#nixosConfigurations.{host.name}.config.system.build.toplevel.outPath",
             ],
             runner=self.runner,
             timeout=120.0,
@@ -827,7 +819,7 @@ class FleetDeployer:
                     "build",
                     "--no-write-lock-file",
                     "--flake",
-                    f"{flake}#{host.flake_attr}",
+                    f"{flake}#{host.name}",
                     "--target-host",
                     f"{self.ssh_user}@{host.ip}",
                     "--build-host",

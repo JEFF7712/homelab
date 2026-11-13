@@ -1,8 +1,11 @@
 # Forgejo automation runtime
 
-Application code is authoritative in homelab ConfigMaps:
-`gitops/automation/forgejo-dashboard-script.yaml` and
-`gitops/automation/renovate-reviewer-script.yaml`. Flux deploys this source.
+Application code is authoritative in the source files
+`gitops/automation/forgejo-dashboard/dashboard.py` and
+`gitops/automation/renovate-reviewer/renovate-agent.py`.
+`gitops/automation/kustomization.yaml` generates the unhashed
+`forgejo-dashboard-script` and `renovate-reviewer-script` ConfigMaps from
+them, and Flux deploys those ConfigMaps.
 
 The dashboard uses the retained upstream Python runtime. It imports only
 standard-library modules, including the bundled IANA timezone data. The

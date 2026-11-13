@@ -76,22 +76,10 @@ in
     };
 
     registry = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Load the node's private registry configuration from a runtime secret file.";
-      };
-
       configFile = lib.mkOption {
         type = lib.types.str;
         default = "/persist/secrets/k3s-registries.yaml";
         description = "Runtime-provisioned k3s registries.yaml containing node pull credentials.";
-      };
-
-      enforceLocalImages = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Disable fallback to configured upstream registry endpoints after local content is populated.";
       };
 
       embeddedRegistry = lib.mkOption {
@@ -133,10 +121,6 @@ in
       {
         assertion = !(cfg.role == "agent" && cfg.clusterInit);
         message = "An agent node cannot initialize a cluster.";
-      }
-      {
-        assertion = !cfg.registry.enforceLocalImages || cfg.registry.enable;
-        message = "Local-only image enforcement requires the private registry configuration.";
       }
     ];
 
@@ -255,10 +239,10 @@ in
           # The unit joins flags unescaped, so quote the whole word for systemd.
           "\"--etcd-snapshot-schedule-cron=0 3 * * *\""
         ]
-        ++ lib.optional cfg.registry.enforceLocalImages "--disable-default-registry-endpoint"
-        ++ lib.optional (
-          cfg.role == "server" && cfg.registry.enable && cfg.registry.embeddedRegistry
-        ) "--embedded-registry";
+        # Images come only from the local registry; registries.yaml rewrites
+        # every upstream to it, so no default endpoint is a fallback.
+        ++ [ "--disable-default-registry-endpoint" ]
+        ++ lib.optional (cfg.role == "server" && cfg.registry.embeddedRegistry) "--embedded-registry";
     };
 
     environment.etc."rancher/k3s/audit-policy.json" = lib.mkIf (cfg.role == "server") {
@@ -267,11 +251,11 @@ in
     };
 
     systemd.services.k3s = {
-      unitConfig.ConditionPathExists =
-        lib.optional (!cfg.clusterInit) cfg.tokenFile
-        ++ lib.optional cfg.registry.enable cfg.registry.configFile;
-      serviceConfig.LoadCredential = lib.mkIf cfg.registry.enable "registries.yaml:${cfg.registry.configFile}";
-      preStart = lib.mkIf cfg.registry.enable ''
+      unitConfig.ConditionPathExists = lib.optional (!cfg.clusterInit) cfg.tokenFile ++ [
+        cfg.registry.configFile
+      ];
+      serviceConfig.LoadCredential = "registries.yaml:${cfg.registry.configFile}";
+      preStart = ''
         install -d -m 0700 /etc/rancher/k3s
         install -m 0600 "$CREDENTIALS_DIRECTORY/registries.yaml" /etc/rancher/k3s/registries.yaml
       '';
@@ -292,41 +276,38 @@ in
           repo = "https://helm.cilium.io";
           targetNamespace = "kube-system";
           version = "1.20.1";
-          valuesContent = builtins.toJSON (
-            {
-              bgpControlPlane.enabled = true;
-              gatewayAPI.enabled = true;
-              gatewayAPI.gatewayClass.create = false;
-              ingressController.enabled = true;
-              ipam.operator.clusterPoolIPv4PodCIDRList = [ "10.42.0.0/16" ];
-              ipv4NativeRoutingCIDR = "10.42.0.0/16";
-              k8sServiceHost = "127.0.0.1";
-              k8sServicePort = 6443;
-              kubeProxyReplacement = true;
-              operator.replicas = 2;
-              securityContext.capabilities.ciliumAgent = [
-                "CHOWN"
-                "KILL"
-                "NET_ADMIN"
-                "NET_RAW"
-                "IPC_LOCK"
-                "SYS_MODULE"
-                "SYS_ADMIN"
-                "SYS_RESOURCE"
-                "DAC_OVERRIDE"
-                "FOWNER"
-                "SETGID"
-                "SETUID"
-                "SYSLOG"
-                "NET_BIND_SERVICE"
-              ];
-            }
-            // lib.optionalAttrs cfg.registry.enable {
-              image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium@sha256:ae9ea21f7427fe24bc6ea7247eb552157a1b0a431744045d3f641545ca71d11b";
-              envoy.image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium-envoy@sha256:75b8094c7127736a2ffd2dce3945e0931cb6df21b0372ff661940eca26730b91";
-              operator.image.override = "registry.rupan.dev/upstream/quay.io/cilium/operator-generic@sha256:6c3885fc7b629099fdbe2a5c87869c86feb825fa18fae299eac0f61918d16ecf";
-            }
-          );
+          # operator.replicas stays at the chart default (2): the image
+          # overrides used to replace the whole operator attribute set.
+          valuesContent = builtins.toJSON {
+            bgpControlPlane.enabled = true;
+            envoy.image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium-envoy@sha256:75b8094c7127736a2ffd2dce3945e0931cb6df21b0372ff661940eca26730b91";
+            gatewayAPI.enabled = true;
+            gatewayAPI.gatewayClass.create = false;
+            image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium@sha256:ae9ea21f7427fe24bc6ea7247eb552157a1b0a431744045d3f641545ca71d11b";
+            ingressController.enabled = true;
+            ipam.operator.clusterPoolIPv4PodCIDRList = [ "10.42.0.0/16" ];
+            ipv4NativeRoutingCIDR = "10.42.0.0/16";
+            k8sServiceHost = "127.0.0.1";
+            k8sServicePort = 6443;
+            kubeProxyReplacement = true;
+            operator.image.override = "registry.rupan.dev/upstream/quay.io/cilium/operator-generic@sha256:6c3885fc7b629099fdbe2a5c87869c86feb825fa18fae299eac0f61918d16ecf";
+            securityContext.capabilities.ciliumAgent = [
+              "CHOWN"
+              "KILL"
+              "NET_ADMIN"
+              "NET_RAW"
+              "IPC_LOCK"
+              "SYS_MODULE"
+              "SYS_ADMIN"
+              "SYS_RESOURCE"
+              "DAC_OVERRIDE"
+              "FOWNER"
+              "SETGID"
+              "SETUID"
+              "SYSLOG"
+              "NET_BIND_SERVICE"
+            ];
+          };
         };
       };
       bgp-peer.content = {
@@ -417,11 +398,7 @@ in
                 spec.containers = [
                   {
                     name = "web";
-                    image =
-                      if cfg.registry.enable then
-                        "registry.rupan.dev/upstream/docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10"
-                      else
-                        "docker.io/library/nginx:1.27-alpine";
+                    image = "registry.rupan.dev/upstream/docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10";
                     ports = [ { containerPort = 80; } ];
                   }
                 ];
