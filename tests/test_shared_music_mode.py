@@ -166,6 +166,32 @@ class TestSharedMusicMode(unittest.TestCase):
             ).exists()
         )
 
+    def test_music_mode_disables_adaptive_lighting_until_it_ends(self) -> None:
+        branches = self._automation()["actions"][1]["choose"]
+
+        def branch(trigger_id: str) -> list:
+            return next(
+                b["sequence"]
+                for b in branches
+                if {"condition": "trigger", "id": trigger_id} in b["conditions"]
+            )
+
+        switches = [
+            "switch.adaptive_lighting_all_dimmable_lights",
+            "switch.adaptive_lighting_govee_dining_bulbs",
+        ]
+        snapshot, turn_off = branch("mode_on")[:2]
+        self.assertEqual(snapshot["data"]["scene_id"], "pre_music_adaptive_lighting")
+        self.assertEqual(snapshot["data"]["snapshot_entities"], switches)
+        self.assertEqual(turn_off["action"], "switch.turn_off")
+        self.assertEqual(turn_off["target"]["entity_id"], switches)
+        # Restored before the areas leave, so leave can hand them back.
+        restore = branch("mode_off")[0]
+        self.assertEqual(
+            restore["then"][0]["target"]["entity_id"],
+            "scene.pre_music_adaptive_lighting",
+        )
+
     def test_area_script_snapshots_restores_and_hands_back_adaptive_lighting(
         self,
     ) -> None:
@@ -264,7 +290,7 @@ class TestSharedMusicMode(unittest.TestCase):
             / "automations"
             / "watchman_missing_report.yaml"
         ).read_text(encoding="utf-8")
-        for area in (*AREAS, "mushroom_lamp", "led_strip"):
+        for area in (*AREAS, "mushroom_lamp", "led_strip", "adaptive_lighting"):
             self.assertIn(f"scene.pre_music_{area}", raw)
 
     def test_voice_automation(self) -> None:

@@ -3,8 +3,9 @@ alias: "Lighting: Shared Music Mode"
 description: >-
   While Music Mode is on, only the lights whose input_boolean.music_mode_<area>
   toggle is on are lit. Starting Music Mode snapshots every shared area and
-  the living room LED strip and takes the areas off Adaptive Lighting
-  (script.shared_music_area); taking-part areas are painted with their shade
+  the living room LED strip, switches both Adaptive Lighting entries off
+  (restored to their prior state when Music Mode ends) and takes the areas
+  off Adaptive Lighting (script.shared_music_area); taking-part areas are painted with their shade
   of the track's palette from sensor.music_director, repainted on every new
   track and on colour or brightness changes, and the rest are switched off.
   New tracks change only the colour of lit areas, so a light's own brightness
@@ -68,6 +69,19 @@ actions:
           - condition: trigger
             id: "mode_on"
         sequence:
+          # Adaptive Lighting stays off for the whole session, so a light
+          # switched back on mid-session keeps its music colour.
+          - action: scene.create
+            data:
+              scene_id: pre_music_adaptive_lighting
+              snapshot_entities:
+                - switch.adaptive_lighting_all_dimmable_lights
+                - switch.adaptive_lighting_govee_dining_bulbs
+          - action: switch.turn_off
+            target:
+              entity_id:
+                - switch.adaptive_lighting_all_dimmable_lights
+                - switch.adaptive_lighting_govee_dining_bulbs
           - action: scene.create
             data:
               scene_id: pre_music_mushroom_lamp
@@ -107,6 +121,15 @@ actions:
           - condition: trigger
             id: "mode_off"
         sequence:
+          # Adaptive Lighting comes back first so leave can hand each area
+          # back to it.
+          - if:
+              - condition: template
+                value_template: "{{ state_attr('scene.pre_music_adaptive_lighting', 'entity_id') is not none }}"
+            then:
+              - action: scene.turn_on
+                target:
+                  entity_id: scene.pre_music_adaptive_lighting
           - repeat:
               for_each: "{{ areas }}"
               sequence:

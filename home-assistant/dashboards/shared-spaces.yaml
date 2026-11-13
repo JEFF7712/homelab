@@ -155,6 +155,7 @@ views:
                     entity_id: script.shared_lights_off
           - entity: light.shared_zigbee_lights
             name: Shared Bulbs
+            icon: mdi:lightbulb-group
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -167,6 +168,7 @@ views:
               action: more-info
           - entity: light.kitchen_ceiling_light_1
             name: Kitchen Ceiling Light 1
+            icon: mdi:ceiling-light
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -179,6 +181,7 @@ views:
               action: more-info
           - entity: light.kitchen_ceiling_light_2
             name: Kitchen Ceiling Light 2
+            icon: mdi:ceiling-light
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -191,6 +194,7 @@ views:
               action: more-info
           - entity: light.living_room_floor_lamp
             name: Floor Lamp
+            icon: mdi:floor-lamp
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -203,6 +207,7 @@ views:
               action: more-info
           - entity: light.living_room_tulip_lamp
             name: Tulip Lamp
+            icon: mdi:flower-tulip
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -215,6 +220,7 @@ views:
               action: more-info
           - entity: light.living_room_led_strip
             name: Living Room LED Strip
+            icon: mdi:led-strip-variant
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -226,6 +232,7 @@ views:
               action: more-info
           - entity: light.kitchen_dining_table_ceiling_light_1
             name: Dining Table Light 1
+            icon: mdi:table-chair
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -238,6 +245,7 @@ views:
               action: more-info
           - entity: light.kitchen_dining_table_ceiling_light_2
             name: Dining Table Light 2
+            icon: mdi:table-chair
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -250,6 +258,7 @@ views:
               action: more-info
           - entity: light.apollo_led_strip_apollo_led_strip
             name: Light Strip
+            icon: mdi:led-strip
             fill_container: true
             type: custom:mushroom-light-card
             show_brightness_control: true
@@ -261,6 +270,7 @@ views:
               action: more-info
           - entity: light.kitchen_mushroom_lamp
             name: Mushroom Lamp
+            icon: mdi:mushroom
             fill_container: true
             type: custom:mushroom-light-card
             tap_action:
@@ -269,6 +279,7 @@ views:
               action: more-info
           - entity: light.kitchen_fuck_off_sign
             name: Fuck Off Sign
+            icon: mdi:sign-text
             fill_container: true
             type: custom:mushroom-light-card
             tap_action:
@@ -277,6 +288,7 @@ views:
               action: more-info
           - entity: light.living_room_good_vibes_sign
             name: Good Vibes Sign
+            icon: mdi:hand-peace
             fill_container: true
             type: custom:mushroom-light-card
             tap_action:
@@ -285,6 +297,7 @@ views:
               action: more-info
           - entity: light.exit_sign
             name: Exit Sign
+            icon: mdi:exit-run
             fill_container: true
             type: custom:mushroom-light-card
             tap_action:

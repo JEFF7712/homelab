@@ -32,6 +32,7 @@ actions:
         - scene.pre_music_ceiling_strip
         - scene.pre_music_mushroom_lamp
         - scene.pre_music_led_strip
+        - scene.pre_music_adaptive_lighting
   - variables:
       wm_bad_count: >-
         {% set r = wm_report.service_response
