@@ -77,9 +77,11 @@
     powerOnBoot = true;
     settings = {
       General = {
-        Enable = "Source,Sink,Media,Socket";
+        # Without this the adapter is not bondable (Pairable: no), so BlueZ
+        # pairs without storing a link key and forgets the speaker on every
+        # disconnect; reconnecting then needs a fresh pairing.
+        AlwaysPairable = true;
         Experimental = true;
-        AutoEnable = true;
         FastConnectable = true;
       };
       Policy = {
