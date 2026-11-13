@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
@@ -35,7 +36,7 @@ in
 
     mqttHost = lib.mkOption {
       type = lib.types.str;
-      default = "10.0.30.10";
+      default = fleetInventory.hosts.adguard-netbird-01.address;
       description = "MQTT broker host";
     };
 

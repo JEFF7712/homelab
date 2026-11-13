@@ -1,4 +1,9 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  fleetInventory,
+  ...
+}:
 let
   # Pinned from github.com/JEFF7712/roku-bulb-local@7b717417f7b2dda0c5d112163b402b0b8fcd6f03
   # (scripts/bridge.py), vendored as ./roku-bridge.py. Verified functionally
@@ -32,7 +37,7 @@ in
 
   sops.templates."roku-bridge-mqtt.env" = {
     content = ''
-      MQTT_HOST=10.0.30.10
+      MQTT_HOST=${fleetInventory.hosts.adguard-netbird-01.address}
       MQTT_PORT=1883
       MQTT_USER=roku-bridge
       MQTT_PASS=${config.sops.placeholder."mosquitto-roku-bridge-password"}

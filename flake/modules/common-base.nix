@@ -129,7 +129,7 @@ in
           "flakes"
         ];
         extra-substituters = [
-          "http://10.0.30.20:8090"
+          "http://${fleetInventory.hosts.nas-01.address}:8090"
         ];
         extra-trusted-public-keys = [
           "homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec="

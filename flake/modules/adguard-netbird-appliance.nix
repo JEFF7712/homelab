@@ -1,5 +1,6 @@
 { pkgs, fleetInventory, ... }:
 let
+  inherit (fleetInventory) hosts networks;
   switchManagementAddresses = [
     "10.0.10.2/32"
     "10.0.10.3/32"
@@ -37,15 +38,15 @@ in
       extraInputRules = ''
         # Easy Smart switches broadcast native management replies to a fixed port.
         ip saddr { 10.0.10.2, 10.0.10.3 } udp sport 29808 udp dport 29809 accept
-        ip saddr 10.0.10.0/24 tcp dport { 22, 3000 } accept
-        ip saddr 10.0.10.0/24 tcp dport 53 accept
-        ip saddr 10.0.10.0/24 udp dport 53 accept
-        ip saddr { 10.0.30.14, 10.0.30.20 } tcp dport 22 accept
-        ip saddr 10.0.30.0/24 tcp dport 53 accept
-        ip saddr 10.0.30.0/24 udp dport 53 accept
-        ip saddr { 10.0.20.120, 10.0.30.11, 10.0.30.12, 10.0.30.13, 10.0.30.14, 10.0.30.15 } tcp dport 1883 accept
-        ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept
-        ip saddr 10.0.30.0/24 tcp dport 9100 accept
+        ip saddr ${networks.management.cidr} tcp dport { 22, 3000 } accept
+        ip saddr ${networks.management.cidr} tcp dport 53 accept
+        ip saddr ${networks.management.cidr} udp dport 53 accept
+        ip saddr { ${hosts.homelab-04.address}, ${hosts.nas-01.address} } tcp dport 22 accept
+        ip saddr ${networks.infrastructure.cidr} tcp dport 53 accept
+        ip saddr ${networks.infrastructure.cidr} udp dport 53 accept
+        ip saddr { 10.0.20.120, ${hosts.homelab-01.address}, ${hosts.homelab-02.address}, ${hosts.homelab-03.address}, ${hosts.homelab-04.address}, ${hosts.homelab-05.address} } tcp dport 1883 accept
+        ip saddr { ${hosts.homelab-05.address}, ${hosts.nas-01.address} } udp dport 9000 accept
+        ip saddr ${networks.infrastructure.cidr} tcp dport 9100 accept
         iifname "wt0" tcp dport { 22, 53, 3000 } accept
         iifname "wt0" udp dport 53 accept
       '';

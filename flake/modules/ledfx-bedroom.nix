@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
@@ -140,7 +141,7 @@ in
 
     oscTarget = lib.mkOption {
       type = lib.types.str;
-      default = "10.0.30.10:9000";
+      default = "${fleetInventory.hosts.adguard-netbird-01.address}:9000";
       description = "relay host:port that receives this instance's OSC frames.";
     };
 

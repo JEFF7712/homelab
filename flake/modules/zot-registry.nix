@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
@@ -172,8 +173,8 @@ in
     allowedSourceNetworks = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [
-        "10.0.10.0/24"
-        "10.0.30.0/24"
+        fleetInventory.networks.management.cidr
+        fleetInventory.networks.infrastructure.cidr
         "10.42.0.0/16"
         "100.64.0.0/10"
       ];
@@ -189,8 +190,8 @@ in
     metricsAllowedSourceNetworks = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [
-        "10.0.10.0/24"
-        "10.0.30.0/24"
+        fleetInventory.networks.management.cidr
+        fleetInventory.networks.infrastructure.cidr
         "10.42.0.0/16"
       ];
       description = "Management and cluster networks permitted to scrape node exporter.";
@@ -249,7 +250,7 @@ in
     # through the tunnel and fail large layers, and the AdGuard rewrite is
     # a single point of failure for on-host verification and imports.
     networking.hosts = {
-      "10.0.30.20" = [ cfg.hostName ];
+      ${fleetInventory.hosts.nas-01.address} = [ cfg.hostName ];
     };
 
     systemd.services.zot = {

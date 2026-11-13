@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -20,6 +22,31 @@ SHARED_AUTOMATION = REPO_ROOT / "home-assistant/automations/shared_music_mode.ya
 
 SHARED_HOST = "10.0.30.15"
 BEDROOM_HOST = "10.0.30.20"
+
+
+APPLIANCE_RULES = (
+    "nixosConfigurations.adguard-netbird-01.config.networking.firewall.extraInputRules"
+)
+
+
+def appliance_input_rules() -> str:
+    """Evaluated nftables input rules of the appliance that runs the relay."""
+    if shutil.which("nix") is None:
+        raise unittest.SkipTest("nix is required for configuration evaluation")
+    return json.loads(
+        subprocess.run(
+            [
+                "nix",
+                "eval",
+                "--json",
+                f"path:{REPO_ROOT}?dir=flake#{APPLIANCE_RULES}",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    )
+
 
 # Bluetooth sink that carries all bedroom playback on the NAS.
 BEDROOM_PULSE_SOURCE = "bluez_output.E4_58_BC_10_CA_C9.1.monitor"
@@ -165,9 +192,9 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         self.assertIn("100.64.0.0/10", module)
 
     def test_relay_accepts_frames_from_the_nas(self) -> None:
-        appliance = APPLIANCE.read_text()
         self.assertIn(
-            "ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept", appliance
+            f"ip saddr {{ {SHARED_HOST}, {BEDROOM_HOST} }} udp dport 9000 accept",
+            [line.strip() for line in appliance_input_rules().splitlines()],
         )
 
     def test_alsa_pulse_pcm_is_defined_for_the_container(self):

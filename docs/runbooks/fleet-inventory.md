@@ -71,7 +71,11 @@ ahead of the agent profiles to avoid kubelet/API-server version skew.
    changes to connectivity. See [host deployment](nixos-host-deployment.md)
    and [OPNsense recovery](opnsense-recovery.md).
 
-Primary addresses are centralized. Secondary overlay addresses, hardware
+Primary addresses are centralized. NixOS modules reference fleet hosts and
+network CIDRs through `fleetInventory` (firewall sources, the MQTT broker,
+backup sources, the binary-cache substituter); only values the inventory does
+not model stay literal, such as the pod CIDR, the `10.0.0.0/16` supernet,
+LoadBalancer VIPs and single client devices. Secondary overlay addresses, hardware
 interfaces, other application URLs, GitOps manifests, and reconciler inputs such
 BGP neighbor definitions retain their existing owners. Adding a physical host
 also requires its hardware/profile files; inventory membership alone cannot

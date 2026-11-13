@@ -2,9 +2,11 @@
   config,
   pkgs,
   lib,
+  fleetInventory,
   ...
 }:
 let
+  inherit (fleetInventory) hosts;
   backupScript = pkgs.writeShellScript "run-immich-external-backup" ''
         set -euo pipefail
 
@@ -123,7 +125,7 @@ let
         fi
 
         # Mount 1: nas-01 (/tank)
-        ${pkgs.sshfs}/bin/sshfs backup-reader@10.0.30.20:/tank "$NAS_MOUNT" \
+        ${pkgs.sshfs}/bin/sshfs backup-reader@${hosts.nas-01.address}:/tank "$NAS_MOUNT" \
           -o ro,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
           -o cache=yes,kernel_cache,auto_cache \
           -o IdentityFile="$SSH_KEY" \
@@ -132,21 +134,21 @@ let
         # Mount 2: nas-01 frozen ZFS snapshot (/tank/cluster/.zfs/snapshot/backup-nightly onto $NAS_CLUSTER_MOUNT)
         # This guarantees 100% transactional point-in-time consistency for all application PVCs (CouchDB, SQLite, Immich)
         ${pkgs.coreutils}/bin/mkdir -p "$NAS_CLUSTER_MOUNT"
-        ${pkgs.sshfs}/bin/sshfs backup-reader@10.0.30.20:/tank/cluster/.zfs/snapshot/backup-nightly "$NAS_CLUSTER_MOUNT" \
+        ${pkgs.sshfs}/bin/sshfs backup-reader@${hosts.nas-01.address}:/tank/cluster/.zfs/snapshot/backup-nightly "$NAS_CLUSTER_MOUNT" \
           -o ro,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
           -o cache=yes,kernel_cache,auto_cache \
           -o IdentityFile="$SSH_KEY" \
           -o StrictHostKeyChecking=accept-new
 
         # Mount 3: homelab-01 (/persist/backup-source/k3s)
-        ${pkgs.sshfs}/bin/sshfs backup-reader@10.0.30.11:/persist/backup-source/k3s "$K3S_MOUNT" \
+        ${pkgs.sshfs}/bin/sshfs backup-reader@${hosts.homelab-01.address}:/persist/backup-source/k3s "$K3S_MOUNT" \
           -o ro,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
           -o cache=yes,kernel_cache,auto_cache \
           -o IdentityFile="$SSH_KEY" \
           -o StrictHostKeyChecking=accept-new
 
         # Mount 4: homelab-04 (/persist/woodpecker/backups)
-        ${pkgs.sshfs}/bin/sshfs backup-reader@10.0.30.14:/persist/woodpecker/backups "$WOODPECKER_MOUNT" \
+        ${pkgs.sshfs}/bin/sshfs backup-reader@${hosts.homelab-04.address}:/persist/woodpecker/backups "$WOODPECKER_MOUNT" \
           -o ro,allow_other,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3 \
           -o cache=yes,kernel_cache,auto_cache \
           -o IdentityFile="$SSH_KEY" \

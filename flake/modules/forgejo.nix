@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
@@ -55,7 +56,7 @@ in
     ];
 
     networking.hosts = {
-      "10.0.30.20" = [ cfg.hostName ];
+      ${fleetInventory.hosts.nas-01.address} = [ cfg.hostName ];
     };
 
     services.nginx = {
