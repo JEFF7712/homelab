@@ -237,7 +237,11 @@ class TestSharedMusicMode(unittest.TestCase):
         area = branch("area")
         self.assertIn("'relight' if trigger.to_state.state == 'on' else 'off'", area)
         self.assertNotIn("scene.create", area)
-        self.assertIn("light.turn_{{ trigger.to_state.state }}", branch("strip"))
+        strip = branch("strip")
+        self.assertIn("trigger.to_state.state == 'on'", strip)
+        # WLED brightness scales LedFx's stream, so the strip joins at full.
+        self.assertIn('"brightness": 255', strip)
+        self.assertIn('"brightness": 255', mode_on)
         # Stopping restores every area and the strip.
         mode_off = branch("mode_off")
         self.assertIn('"for_each": "{{ areas }}"', mode_off)

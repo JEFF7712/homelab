@@ -74,7 +74,10 @@ tint such as Dawn FM's muted blue counts as one colour), then takes the most
 vivid well-represented group. Skin tones, browns and olives (`palette.muddy`)
 are judged per cluster, never merge with clean colours (so Whole Lotta Red's
 dark drips cannot turn its red lettering brown), and count for 0.15 of their
-score, so portrait covers do not turn the room amber.
+score, so portrait covers do not turn the room amber. Light, soft coral
+groups (hue 15-45°, lightness ≥ 0.68, chroma < 0.16; `palette.pastel_pink`)
+read as pink on a cover but saturate to red-orange, so they take a hot pink
+hue instead (Funk Wav Bounces).
 
 How far the lights spread in hue follows the cover (`extract_palette`,
 `shade_hues`). Groups holding at least 10% of the cover's clean colour count:
@@ -165,10 +168,19 @@ holds across tracks and a bulb switched off by hand stays off until Music
 Mode next starts.
 
 `select.music_mode_strip_colours` ("LED Strip Colours", `select.py`) shows
-the strip's colours as a Gradient (default) across the palette, or as one
-Solid colour (`palette.solid_colour`) in every LedFx colour slot. It applies
+the strip's colours as a Gradient (default), or as one Solid colour (`palette.solid_colour`) in every LedFx colour slot. It applies
 at once, holds across tracks and restores after a restart;
-`sensor.music_director` reports it as `strip_style`.
+`sensor.music_director` reports it as `strip_style`. Whites and pastels
+look poor on the strip, so every strip colour (`palette._strip`) keeps at
+least `STRIP_MIN_CHROMA` saturation and mid lightness (0.58-0.68), and the
+gradient stays within `STRIP_HUE_SPREAD` (8°) of the primary: a slight shift,
+not the bulbs' spread. The primary is steered once and the stops keep their
+offsets, so a steering boundary cannot split the gradient.
+
+WLED scales LedFx's DDP stream by its own brightness. When the strip takes
+part, Music Mode switches `light.living_room_led_strip` on at full
+brightness, so `number.music_mode_brightness` alone sets the strip's level;
+the WLED snapshot restores its own brightness afterwards.
 
 `music_director.overrides` in `home-assistant/core/configuration.yaml` pins
 a colour and/or effect for matching tracks. Each entry needs at least one of

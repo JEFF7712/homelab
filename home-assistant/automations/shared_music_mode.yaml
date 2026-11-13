@@ -15,7 +15,8 @@ description: >-
   mushroom lamp has no toggle: Music Mode always switches it off and
   restores it afterwards, and a manual switch-on during Music Mode is left
   alone. The strip's colours and effects come from the music_director
-  integration through LedFx; here it is only switched on or off.
+  integration through LedFx; here it is only switched on (at full WLED
+  brightness, which scales the LedFx stream) or off.
 mode: queued
 max: 10
 triggers:
@@ -80,11 +81,21 @@ actions:
               scene_id: pre_music_led_strip
               snapshot_entities:
                 - light.living_room_led_strip
-          - action: >-
-              light.turn_{{ 'on' if is_state('input_boolean.music_mode_led_strip', 'on')
-              else 'off' }}
-            target:
-              entity_id: light.living_room_led_strip
+          - if:
+              - condition: template
+                value_template: "{{ is_state('input_boolean.music_mode_led_strip', 'on') }}"
+            then:
+              # Full WLED brightness: WLED scales LedFx's stream by its own
+              # brightness, so Music Mode Brightness alone sets the level.
+              - action: light.turn_on
+                target:
+                  entity_id: light.living_room_led_strip
+                data:
+                  brightness: 255
+            else:
+              - action: light.turn_off
+                target:
+                  entity_id: light.living_room_led_strip
           - repeat:
               for_each: "{{ areas }}"
               sequence:
@@ -133,9 +144,21 @@ actions:
             entity_id: input_boolean.shared_music_mode
             state: "on"
         sequence:
-          - action: "light.turn_{{ trigger.to_state.state }}"
-            target:
-              entity_id: light.living_room_led_strip
+          - if:
+              - condition: template
+                value_template: "{{ trigger.to_state.state == 'on' }}"
+            then:
+              # Full WLED brightness: WLED scales LedFx's stream by its own
+              # brightness, so Music Mode Brightness alone sets the level.
+              - action: light.turn_on
+                target:
+                  entity_id: light.living_room_led_strip
+                data:
+                  brightness: 255
+            else:
+              - action: light.turn_off
+                target:
+                  entity_id: light.living_room_led_strip
       - conditions:
           - condition: trigger
             id: "palette"
