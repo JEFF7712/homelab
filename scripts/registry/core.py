@@ -1686,8 +1686,12 @@ def select_promotion_candidate(
         return current_tag
     best: str | None = None
     best_version = -1
+    current_version = promotion_version(current_tag)
+    woodpecker = current_version is not None and 1_000_000 < current_version < 2_000_000
     for tag in tags:
         version = promotion_version(tag)
+        if woodpecker and not (version is not None and 1_000_000 < version < 2_000_000):
+            continue
         if version is not None and version > best_version:
             best_version = version
             best = tag
