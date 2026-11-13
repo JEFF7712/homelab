@@ -100,6 +100,8 @@ pushoverAppAPIKey=""
 ntfyEnable="false"
 ntfyServerTopic=""
 ntfyUserToken=""
+# Apprise. This comment also ends gitleaks' generic-api-key match, which
+# otherwise reads past the empty value above into the next assignment.
 AppriseEnable="false"
 AppriseString=""
 
