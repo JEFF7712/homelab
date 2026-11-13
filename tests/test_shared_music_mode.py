@@ -327,6 +327,8 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertEqual(colour["type"], "custom:mushroom-light-card")
         self.assertTrue(colour["show_color_control"])
         self.assertIn("number.music_mode_brightness", entities)
+        strip = music[entities.index("select.music_mode_strip_colours")]
+        self.assertEqual(strip["features"], [{"type": "select-options"}])
         self.assertNotIn("input_select.music_mode_color", entities)
         # The preview sits under the toggle and only shows while it is on.
         preview = music[2]

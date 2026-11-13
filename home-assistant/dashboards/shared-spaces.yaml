@@ -612,6 +612,12 @@ views:
             features:
               - type: select-options
             type: tile
+          - entity: select.music_mode_strip_colours
+            name: LED Strip Colours
+            icon: mdi:gradient-horizontal
+            features:
+              - type: select-options
+            type: tile
           - type: custom:mushroom-light-card
             entity: light.music_mode_colour
             name: Colour

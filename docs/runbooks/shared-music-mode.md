@@ -164,6 +164,12 @@ only recolour lights that are on (`paint`), so a bulb's own brightness slider
 holds across tracks and a bulb switched off by hand stays off until Music
 Mode next starts.
 
+`select.music_mode_strip_colours` ("LED Strip Colours", `select.py`) shows
+the strip's colours as a Gradient (default) across the palette, or as one
+Solid colour (`palette.solid_colour`) in every LedFx colour slot. It applies
+at once, holds across tracks and restores after a restart;
+`sensor.music_director` reports it as `strip_style`.
+
 `music_director.overrides` in `home-assistant/core/configuration.yaml` pins
 a colour and/or effect for matching tracks. Each entry needs at least one of
 `artist`, `album` or `title` (artist and album match by prefix, title

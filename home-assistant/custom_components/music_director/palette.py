@@ -486,17 +486,33 @@ def triad(palette: Palette) -> tuple[RGB, RGB, RGB]:
     )
 
 
+def solid_colour(palette: Palette) -> RGB:
+    """The one colour the strip shows when set to solid."""
+    return _led(palette, palette.hue)
+
+
+def _css(stops: list[tuple[RGB, int]]) -> str:
+    parts = ", ".join(f"rgb({r}, {g}, {b}) {pos}%" for (r, g, b), pos in stops)
+    return f"linear-gradient(90deg, {parts})"
+
+
+def solid_gradient(palette: Palette) -> str:
+    """A single-colour gradient, for gradient effects on a solid strip."""
+    colour = solid_colour(palette)
+    return _css([(colour, 0), (colour, 100)])
+
+
 def gradient(palette: Palette) -> str:
     """A CSS linear-gradient in the format LedFx gradient effects accept."""
     hues = shade_hues(palette, 4)
-    stops = (
-        (_led(palette, hues[0], 0.55), 0),
-        (_led(palette, hues[1], 0.70), 35),
-        (_led(palette, hues[2], 0.72), 70),
-        (_led(palette, hues[3], 0.82), 100),
+    return _css(
+        [
+            (_led(palette, hues[0], 0.55), 0),
+            (_led(palette, hues[1], 0.70), 35),
+            (_led(palette, hues[2], 0.72), 70),
+            (_led(palette, hues[3], 0.82), 100),
+        ]
     )
-    parts = ", ".join(f"rgb({r}, {g}, {b}) {pos}%" for (r, g, b), pos in stops)
-    return f"linear-gradient(90deg, {parts})"
 
 
 def to_hex(rgb: RGB) -> str:

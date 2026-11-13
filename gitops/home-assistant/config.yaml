@@ -2581,8 +2581,8 @@ data:
             director.schedule(force=True)
 
         hass.services.async_register(DOMAIN, "refresh", refresh)
-        # Music Mode Colour (light) and Music Mode Brightness (number).
-        for platform in (Platform.LIGHT, Platform.NUMBER):
+        # Music Mode Colour (light), Brightness (number), Strip Colours (select).
+        for platform in (Platform.LIGHT, Platform.NUMBER, Platform.SELECT):
             hass.async_create_task(async_load_platform(hass, platform, DOMAIN, {}, config))
 
         if hass.is_running:
@@ -2647,6 +2647,7 @@ data:
         extract_palette,
         gradient,
         named_palette,
+        solid_gradient,
         vibe_palette,
         with_intensity,
     )
@@ -2754,6 +2755,8 @@ data:
             # Chosen colour (Music Mode Colour light on), or None for Auto.
             self.manual_rgb: tuple[int, int, int] | None = None
             self.brightness_pct = DEFAULT_BRIGHTNESS
+            # Music Mode Strip Colours: one solid colour instead of a gradient.
+            self.strip_solid = False
 
         @callback
         def async_start(self) -> None:
@@ -2816,6 +2819,12 @@ data:
             self._reapply()
 
         @callback
+        def set_strip_solid(self, solid: bool) -> None:
+            self.strip_solid = solid
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            self._reapply()
+
+        @callback
         def set_brightness(self, pct: int) -> None:
             self.brightness_pct = min(MAX_BRIGHTNESS, max(MIN_BRIGHTNESS, pct))
             async_dispatcher_send(self.hass, CONTROLS_UPDATED)
@@ -2854,7 +2863,7 @@ data:
             palette = self._colour_override() or auto_palette
             effect = self._override() or auto_effect
             config = {
-                **effect_config(effect, palette, info.features()),
+                **effect_config(effect, palette, info.features(), self.strip_solid),
                 "brightness": round(self.brightness_pct / 100, 2),
             }
             return Decision(
@@ -3137,7 +3146,12 @@ data:
                         area: list(colour)
                         for area, colour in zip(self.config.areas, colours, strict=True)
                     },
-                    "gradient": gradient(decision.palette),
+                    "strip_style": "solid" if self.strip_solid else "gradient",
+                    "gradient": (
+                        solid_gradient(decision.palette)
+                        if self.strip_solid
+                        else gradient(decision.palette)
+                    ),
                 },
             )
 
@@ -4035,17 +4049,33 @@ data:
         )
 
 
+    def solid_colour(palette: Palette) -> RGB:
+        """The one colour the strip shows when set to solid."""
+        return _led(palette, palette.hue)
+
+
+    def _css(stops: list[tuple[RGB, int]]) -> str:
+        parts = ", ".join(f"rgb({r}, {g}, {b}) {pos}%" for (r, g, b), pos in stops)
+        return f"linear-gradient(90deg, {parts})"
+
+
+    def solid_gradient(palette: Palette) -> str:
+        """A single-colour gradient, for gradient effects on a solid strip."""
+        colour = solid_colour(palette)
+        return _css([(colour, 0), (colour, 100)])
+
+
     def gradient(palette: Palette) -> str:
         """A CSS linear-gradient in the format LedFx gradient effects accept."""
         hues = shade_hues(palette, 4)
-        stops = (
-            (_led(palette, hues[0], 0.55), 0),
-            (_led(palette, hues[1], 0.70), 35),
-            (_led(palette, hues[2], 0.72), 70),
-            (_led(palette, hues[3], 0.82), 100),
+        return _css(
+            [
+                (_led(palette, hues[0], 0.55), 0),
+                (_led(palette, hues[1], 0.70), 35),
+                (_led(palette, hues[2], 0.72), 70),
+                (_led(palette, hues[3], 0.82), 100),
+            ]
         )
-        parts = ", ".join(f"rgb({r}, {g}, {b}) {pos}%" for (r, g, b), pos in stops)
-        return f"linear-gradient(90deg, {parts})"
 
 
     def to_hex(rgb: RGB) -> str:
@@ -4064,7 +4094,7 @@ data:
     from dataclasses import dataclass
     from typing import Any
 
-    from .palette import Palette, gradient, to_hex, triad
+    from .palette import Palette, gradient, solid_colour, solid_gradient, to_hex, triad
 
     FAMILIES: dict[str, tuple[str, ...]] = {
         "calm": ("melt", "lava_lamp"),
@@ -4255,16 +4285,23 @@ data:
 
 
     def effect_config(
-        effect: str, palette: Palette, features: Features | None = None
+        effect: str,
+        palette: Palette,
+        features: Features | None = None,
+        solid: bool = False,
     ) -> dict[str, Any]:
         """Colours plus tempo and energy dynamics for the effect; LedFx fills
-        every other key with its schema default."""
+        every other key with its schema default. Solid gives every colour slot
+        the same one colour."""
+        colours = (solid_colour(palette),) * 3 if solid else triad(palette)
         if effect in GRADIENT_EFFECTS:
-            config: dict[str, Any] = {"gradient": gradient(palette)}
+            config: dict[str, Any] = {
+                "gradient": solid_gradient(palette) if solid else gradient(palette)
+            }
             if effect == "power":
-                config["sparks_color"] = to_hex(triad(palette)[2])
+                config["sparks_color"] = to_hex(colours[2])
         elif effect in TRIAD_EFFECTS:
-            lows, mids, high = triad(palette)
+            lows, mids, high = colours
             config = {
                 "color_lows": to_hex(lows),
                 "color_mids": to_hex(mids),
@@ -4275,6 +4312,62 @@ data:
         if features is not None:
             config.update(dynamics(effect, features))
         return config
+  component.music_director.select.py: |
+    """Music Mode Strip Colours: the LED strip's colours as a gradient or one solid colour."""
+
+    from __future__ import annotations
+
+    from homeassistant.components.select import SelectEntity
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.restore_state import RestoreEntity
+    from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+
+    from .director import CONTROLS_UPDATED, DOMAIN, Director
+
+    GRADIENT = "Gradient"
+    SOLID = "Solid"
+
+
+    async def async_setup_platform(
+        hass: HomeAssistant,
+        config: ConfigType,
+        async_add_entities: AddEntitiesCallback,
+        discovery_info: DiscoveryInfoType | None = None,
+    ) -> None:
+        if discovery_info is None:
+            return
+        async_add_entities([StripColours(hass.data[DOMAIN])])
+
+
+    class StripColours(SelectEntity, RestoreEntity):
+        _attr_name = "Music Mode Strip Colours"
+        _attr_unique_id = "music_director_strip_colours"
+        _attr_icon = "mdi:gradient-horizontal"
+        _attr_should_poll = False
+
+        def __init__(self, director: Director) -> None:
+            self._attr_options = [GRADIENT, SOLID]
+            self._director = director
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            last = await self.async_get_last_state()
+            if last is not None and last.state in self._attr_options:
+                self._director.set_strip_solid(last.state == SOLID)
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        @property
+        def current_option(self) -> str:
+            return SOLID if self._director.strip_solid else GRADIENT
+
+        async def async_select_option(self, option: str) -> None:
+            self._director.set_strip_solid(option == SOLID)
   component.music_director.services.yaml: |
     refresh:
       name: Refresh
