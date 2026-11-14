@@ -215,9 +215,18 @@ VM reaches it through the Home Assistant pod).
 Other WLED settings, also set live on 2026-11-14 and not managed from the
 repo:
 
-- Power limiter 4000 mA (per output 3098 + 902, 55 mA per LED) on a 5 V 5 A
+- One output: 103 WS2812B LEDs on GPIO 16 (WLED segment 0-103). A phantom
+  second output (30 LEDs on GPIO 2, nothing attached) took 902 mA of the
+  limit until it was removed on 2026-11-14.
+- Power limiter 4000 mA (55 mA per LED), all on that output, with a 5 V 5 A
   supply fed from one end: keep it there; above ~4.5 A the first connector
   and strip copper carry too much without power injection.
+- LedFx device `living-room-led-strip` has 103 pixels; its virtual uses two
+  segments, 0-50 and 51-102, as a 52-pixel virtual so both halves show the
+  same effect. Changing the device's pixel count resets the virtual to one
+  segment: restore the two with `POST /api/virtuals/living-room-led-strip`
+  `{"segments": [["living-room-led-strip", 0, 50, false],
+  ["living-room-led-strip", 51, 102, false]]}`.
 - OTA lock on with a passcode and Arduino OTA off, so firmware cannot be
   flashed from the network without the passcode. The fallback access point
   (`WLED-AP`, opened when Wi-Fi fails after boot) has its own password. Both
