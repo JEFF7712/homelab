@@ -5,8 +5,7 @@ Chromium under `cage` on a dedicated host and reuses it to show one dashboard
 or rotate through several. Two hosts use it:
 
 - `homelab-05`: the Jarvis voice face, a single `url`.
-- `homelab-04`: a wall panel that rotates the Grafana fleet overview and the
-  Home Assistant 3D-printing dashboard.
+- `homelab-04`: the event-driven workshop display described below.
 
 ## Views and rotation
 
@@ -69,3 +68,43 @@ The re-seed exists only because each boot starts from a fresh browser profile.
 - The seeded `hassTokens` entry must have `hassUrl` equal to the page origin;
   the seeder derives it from `haDashboardUrl`, so a mismatch there is the
   first thing to check.
+
+## Workshop display v1 (homelab-04)
+
+`homelab.workshopDisplay.enable` replaces dashboard rotation on homelab-04.
+The owning module is `flake/modules/workshop-display.nix`; its standard-library
+HTTP service serves the UI and polls the A1's Home Assistant entities every five
+seconds using a systemd credential. The browser never receives the HA token.
+An idle display shows the clock; between 22:00 and 07:00 it dims. Running,
+preparing, paused, and failed prints select the custom print screen, with a
+camera snapshot refreshed every five seconds. Missing/stale HA observations
+are visibly identified. Nighttime does not dim an active print or shared content.
+
+Scan the QR code on the physical monitor and bookmark the resulting paired
+phone page. Paste a YouTube link or upload a PNG/JPEG/WebP under 6 MB. Shared
+content takes priority until **Return to dashboard** is pressed. The random
+pairing key and shared content live in memory: service restarts revoke bookmarks
+and clear content, so scan again. No images are persisted. iPhone HEIC photos
+need conversion to JPEG/PNG; a screenshot is a convenient alternative.
+YouTube embedding depends on the video's embed permissions and network access;
+use AirPlay for videos that disallow embedding. The kiosk permits autoplay.
+
+UxPlay starts inside the Sway session, advertising **Workshop**. On iPhone use
+Control Center → Screen Mirroring → Workshop. Its Wayland video window covers
+the dashboard; stopping mirroring closes it and reveals the dashboard again.
+AirPlay playback and audio must be tested with a real iPhone. The receiver is
+for the trusted LAN; v1 has no print overlay over AirPlay. Print completion
+returns to the clock rather than retaining a finished screen.
+
+Phone controls listen on TCP 8094. Dashboard observations, camera proxy, and
+pairing information are loopback-only; writes require the pairing key. AirPlay
+uses TCP/UDP 7100–7102 plus Avahi mDNS. These host firewall additions require
+operator approval under the repository's host-exposure policy. No WAN ingress
+or router rules are added. If the phone is on a different VLAN, mDNS discovery
+and routing depend on existing network rules; do not open unrelated networks.
+
+Check `systemctl status workshop-display sway-tty1`,
+`curl --fail http://127.0.0.1:8094/health`, and Sway's process tree for UxPlay.
+Inspect the monitor via Chromium's loopback CDP endpoint. For rollback, revert
+the workshop module import/enable and restore the previous host kiosk views,
+then ship the revert through the fleet deployment path. homelab-05 is unchanged.
