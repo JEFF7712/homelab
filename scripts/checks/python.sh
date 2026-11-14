@@ -7,10 +7,16 @@ ruff_paths=(
   scripts opnsense_reconciler tests flake/modules services/bus-display
   services/led-matrix gitops/observability/network-monitor gitops/media/spotify-sync
 )
+# Scripts that ConfigMap generators deploy from gitops/, linted but not
+# formatted: they were extracted byte for byte from inline ConfigMaps, and
+# reformatting them would only churn running workloads.
+ruff_lint_only_paths=(
+  gitops/automation
+)
 if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then
   ruff format --check "${ruff_paths[@]}"
 fi
-ruff check --select E,F,I,UP --ignore E501 "${ruff_paths[@]}"
+ruff check --select E,F,I,UP --ignore E501 "${ruff_paths[@]}" "${ruff_lint_only_paths[@]}"
 # Left out of pyright because their imports exist only on the target host or
 # in a separate environment, not in this dev shell: the MQTT/BLE/NVML/numpy
 # host bridges in flake/modules (ledfx-roku-bridge, roku-bridge,
@@ -33,6 +39,9 @@ pyright_paths=(
   flake/modules/kiosk-ha-token-seed.py flake/modules/jarvis-spectrum.py
   flake/modules/bedroom-bluetooth.py flake/modules/omarchy_vm
   gitops/observability/network-monitor/monitor.py gitops/media/spotify-sync/sync.py
+  gitops/automation/forgejo-dashboard/dashboard.py
+  gitops/automation/renovate-approval-webhook/renovate-approval-webhook.py
+  gitops/automation/renovate-reviewer/renovate-agent.py
   opnsense_reconciler
 )
 pyright "${pyright_paths[@]}" &

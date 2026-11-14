@@ -36,17 +36,30 @@ class PythonGatePathsTest(unittest.TestCase):
         self.assertEqual(evaluated, _bash_array("ruff_paths"))
 
     def test_gate_paths_exist(self) -> None:
-        for path in _bash_array("ruff_paths") + _bash_array("pyright_paths"):
+        for path in (
+            _bash_array("ruff_paths")
+            + _bash_array("ruff_lint_only_paths")
+            + _bash_array("pyright_paths")
+        ):
             with self.subTest(path=path):
                 self.assertTrue((ROOT / path).exists())
 
+    def test_lint_only_paths_are_not_formatted(self) -> None:
+        formatted = _bash_array("ruff_paths")
+        for path in _bash_array("ruff_lint_only_paths"):
+            with self.subTest(path=path):
+                self.assertNotIn(path, formatted)
+
     def test_routed_gitops_python_is_linted_and_type_checked(self) -> None:
         self.assertEqual(PYTHON_GITOPS_PREFIXES, _PYTHON_GITOPS_PREFIXES)
-        ruff = _bash_array("ruff_paths")
+        ruff = _bash_array("ruff_paths") + _bash_array("ruff_lint_only_paths")
         pyright = _bash_array("pyright_paths")
         for prefix in PYTHON_GITOPS_PREFIXES:
             with self.subTest(prefix=prefix):
-                self.assertIn(prefix.rstrip("/"), ruff)
+                self.assertTrue(
+                    any(prefix.startswith(path.rstrip("/") + "/") for path in ruff),
+                    f"{prefix} is not under a ruff path",
+                )
                 scripts = sorted((ROOT / prefix).glob("*.py"))
                 self.assertTrue(scripts)
                 for script in scripts:

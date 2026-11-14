@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import json
 import os
-import urllib.parse
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -138,8 +138,8 @@ class Handler(BaseHTTPRequestHandler):
       notify("Renovate approval failed", "high", str(exc)[:1000])
       self.write_json(500, {"error": str(exc)})
 
-  def log_message(self, fmt, *args):
-    print("%s - %s" % (self.address_string(), fmt % args), flush=True)
+  def log_message(self, format, *args):
+    print(f"{self.address_string()} - {format % args}", flush=True)
 
 if __name__ == "__main__":
   ThreadingHTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

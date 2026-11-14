@@ -18,56 +18,56 @@ spec:
             seccompProfile:
               type: RuntimeDefault
           containers:
-          - name: dockerhub-retention
-            image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042  # yamllint disable-line rule:line-length
-            resources:
-              requests:
-                cpu: 50m
-                memory: 64Mi
-              limits:
-                memory: 256Mi
-            securityContext:
-              allowPrivilegeEscalation: false
-              capabilities:
-                drop:
-                - ALL
-              readOnlyRootFilesystem: true
-              runAsNonRoot: true
-              runAsUser: 65532
-              runAsGroup: 65532
-            command:
-            - /bin/sh
-            - /config/dockerhub-retention.sh
-            env:
-            - name: NTFY_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: renovate-secrets
-                  key: ntfy-token
-            - name: DOCKERHUB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: renovate-secrets
-                  key: dockerhub-username
-            - name: DOCKERHUB_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: renovate-secrets
-                  key: dockerhub-token
-            volumeMounts:
-            - name: config
-              mountPath: /config
-              readOnly: true
-            - name: tmp
-              mountPath: /tmp
+            - name: dockerhub-retention
+              image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+              command:
+                - /bin/sh
+                - /config/dockerhub-retention.sh
+              env:
+                - name: NTFY_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: renovate-secrets
+                      key: ntfy-token
+                - name: DOCKERHUB_USERNAME
+                  valueFrom:
+                    secretKeyRef:
+                      name: renovate-secrets
+                      key: dockerhub-username
+                - name: DOCKERHUB_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: renovate-secrets
+                      key: dockerhub-token
+              volumeMounts:
+                - name: config
+                  mountPath: /config
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
           volumes:
-          - name: config
-            projected:
-              defaultMode: 493
-              sources:
-              - configMap:
-                  name: automation-config
-              - configMap:
-                  name: dockerhub-retention-config
-          - name: tmp
-            emptyDir: {}
+            - name: config
+              projected:
+                defaultMode: 493
+                sources:
+                  - configMap:
+                      name: automation-config
+                  - configMap:
+                      name: dockerhub-retention-config
+            - name: tmp
+              emptyDir: {}

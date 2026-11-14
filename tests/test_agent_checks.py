@@ -167,6 +167,8 @@ class AgentCheckSelectionTest(unittest.TestCase):
             "gitops/observability/network-monitor/monitor.py": ("gitops", "python"),
             "gitops/observability/network-monitor/deployment.yaml": ("gitops",),
             "gitops/media/spotify-sync/sync.py": ("gitops", "python"),
+            "gitops/automation/forgejo-dashboard/dashboard.py": ("gitops", "python"),
+            "gitops/automation/website-monitor/healthcheck.sh": ("gitops",),
             "tofu/cloudflare/.terraform.lock.hcl": ("tofu",),
         }
         for path, checks in expected.items():
