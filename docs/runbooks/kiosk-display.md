@@ -95,7 +95,9 @@ to appear without resolving its SRV/TXT records and could return bridge addresse
 for the hostname. Verify `avahi-browse -rpt _airplay._tcp` includes a resolved
 `=` record at `10.0.30.14:7101`, rather than only a `+` discovery record.
 
-UxPlay starts inside the Sway session, advertising **Workshop**. On iPhone use
+Sway imports its display environment into the kiosk user manager and restarts
+`workshop-airplay.service`, advertising **Workshop**. The user service has
+`Restart=always` so receiver crashes recover automatically. On iPhone use
 Control Center → Screen Mirroring → Workshop. Its software X11 video window runs under XWayland. The native Wayland sink
 failed on this monitor with `Invalid stride (1496)`; the OpenGL sink also failed
 to initialize reliably. Sway matches the actual X11 class `GStreamer` and
@@ -103,7 +105,13 @@ instance `Workshop`, then makes that window fullscreen and focuses it over the
 dashboard. Stopping mirroring closes it and reveals the dashboard again.
 The launcher waits for the previous kiosk receiver to exit before starting a
 replacement, avoiding a bind race on the fixed ports. Normal receiver logs are
-line-buffered in the journal; debug logging is not enabled in deployed config.
+line-buffered in the user-service journal; debug logging is not enabled in
+deployed config. Optional HLS/direct-YouTube mode (`-hls`) is disabled: it crashed
+with `video_renderer_choose_codec: assertion failed: (!hls_video)` during a
+real disconnect/reconnect cycle. Use screen mirroring or the paired YouTube-link
+page instead. Check recovery with the user service
+`systemctl --user show workshop-airplay -p NRestarts -p MainPID`; a forced
+receiver exit must restore both TCP 7101 and its resolved AirPlay advertisement.
 AirPlay playback and audio must be tested with a real iPhone. The receiver is
 for the trusted LAN; v1 has no print overlay over AirPlay. Print completion
 returns to the clock rather than retaining a finished screen.
