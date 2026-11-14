@@ -298,7 +298,7 @@ in
           fi
           sleep 2
         done
-        if [ ! -S "${"sock:-"}" ]; then
+        if [ ! -S "$sock" ]; then
           echo "Wayland socket did not appear within 120 seconds" >&2
           exit 1
         fi
