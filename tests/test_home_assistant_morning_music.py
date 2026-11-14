@@ -81,6 +81,42 @@ class BedroomMorningMusicTests(unittest.TestCase):
         self.assertEqual(play["data"]["enqueue"], "replace")
         self.assertEqual(self.variables["queue_source"], QUEUE)
 
+    def test_skips_when_speaker_does_not_connect(self) -> None:
+        # A powered-off speaker played 20 minutes into silence (2026-11-14);
+        # the run must end before touching the player when Bluetooth is down.
+        sequence = self.start["sequence"]
+        order = [step.get("action") for step in sequence]
+        connect = order.index("rest_command.bose_speaker_connect")
+        guard = next(
+            i
+            for i, step in enumerate(sequence)
+            if "if" in step and "stop" in step["then"][0]
+        )
+        wait = next(i for i, step in enumerate(sequence) if "wait_template" in step)
+        self.assertLess(connect, wait)
+        self.assertLess(wait, guard)
+        self.assertLess(guard, order.index("media_player.select_source"))
+        self.assertTrue(sequence[wait]["continue_on_timeout"])
+
+        template = sequence[guard]["if"][0]["value_template"]
+        for sensor_state, skips in [
+            ("on", False),
+            ("off", True),
+            ("unavailable", True),
+        ]:
+            with self.subTest(sensor_state=sensor_state):
+                env = NativeEnvironment(undefined=StrictUndefined)
+                env.globals["is_state"] = lambda entity, value, s=sensor_state: (
+                    entity == "binary_sensor.bedroom_speaker_bluetooth" and s == value
+                )
+                rendered = env.from_string(template).render()
+                value = (
+                    ast.literal_eval(rendered.strip())
+                    if isinstance(rendered, str)
+                    else rendered
+                )
+                self.assertIs(value, skips)
+
     def test_stops_after_twenty_minutes_and_restores_volume(self) -> None:
         delay = next(step for step in self.start["sequence"] if "delay" in step)
         self.assertEqual(delay["delay"], {"minutes": 20})
