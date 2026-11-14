@@ -203,6 +203,15 @@ part, Music Mode switches `light.living_room_led_strip` on at full
 brightness, so `number.music_mode_brightness` alone sets the strip's level;
 the WLED snapshot restores its own brightness afterwards.
 
+WLED (`10.0.20.181`, Gledopto) must apply gamma correction to realtime data
+(Config → Sync Interfaces → Realtime, "Skip gamma correction" unticked;
+`/json/cfg` `if.live.no-gc: false`, set 2026-11-14). Without it the weaker
+channels of LedFx's colours show far too bright and the strip drifts toward
+white. This device setting is not managed from the repo; after a WLED reset
+or replacement, set it again and check with
+`curl -s http://10.0.20.181/json/cfg` from a host on the IoT VLAN (the agent
+VM reaches it through the Home Assistant pod).
+
 ### Album pins
 
 `light.music_mode_pin` ("Pin colour to this album", `light.py`) pins a colour
