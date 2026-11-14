@@ -4184,6 +4184,40 @@
         "repository": "library/nginx",
         "tag": "1.31-alpine"
       }
+    },
+    {
+      "consumers": [
+        "gitops/platform/cnpg/registry-sources.yaml:11"
+      ],
+      "destination_repository": "upstream/ghcr.io/cloudnative-pg/plugin-barman-cloud",
+      "id": "upstream-cloudnative-pg-plugin-barman-cloud-047d3c1e5476",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:6404a416718bd7aad943c67a25a7bb20d0558b43edfeab0bf167f013ca435882",
+        "reference": "ghcr.io/cloudnative-pg/plugin-barman-cloud:v0.16.0@sha256:6404a416718bd7aad943c67a25a7bb20d0558b43edfeab0bf167f013ca435882",
+        "registry": "ghcr.io",
+        "repository": "cloudnative-pg/plugin-barman-cloud",
+        "tag": "v0.16.0"
+      }
+    },
+    {
+      "consumers": [
+        "gitops/platform/cnpg/registry-sources.yaml:12"
+      ],
+      "destination_repository": "upstream/ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar",
+      "id": "upstream-cloudnative-pg-plugin-barman-cloud-sidecar-633cb90f101e",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c669259e20ed1e11fad821f735c396c19d929985aa05b9544b13ecc8b5a386d0",
+        "reference": "ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar:v0.16.0@sha256:c669259e20ed1e11fad821f735c396c19d929985aa05b9544b13ecc8b5a386d0",
+        "registry": "ghcr.io",
+        "repository": "cloudnative-pg/plugin-barman-cloud-sidecar",
+        "tag": "v0.16.0"
+      }
     }
   ],
   "kind": "registry-inventory",
