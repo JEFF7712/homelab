@@ -105,6 +105,9 @@ COMMANDS = {
 PYTHON_GITOPS_PREFIXES = (
     "gitops/observability/network-monitor/",
     "gitops/media/spotify-sync/",
+    "gitops/automation/forgejo-dashboard/",
+    "gitops/automation/renovate-approval-webhook/",
+    "gitops/automation/renovate-reviewer/",
 )
 
 

@@ -371,7 +371,6 @@ def forgejo_status(state_data):
         decision = state_item.get("decision", {}) or {}
         approval = state_item.get("approval", {}) or {}
         checks = forgejo_checks(namespace, project, sha)
-        labels = {label["name"].lower() for label in mr.get("labels", [])}
         approved = approval.get("approved", False) and state_item.get("sha") == sha
         merge_state = "mergeable" if mr.get("mergeable") else "conflict"
         has_conflicts = merge_state in ("conflict", "cannot_be_merged")
@@ -1147,8 +1146,8 @@ class Handler(BaseHTTPRequestHandler):
     except Exception as exc:
       self.send_json(500, {"error": str(exc)})
 
-  def log_message(self, fmt, *args):
-    print(fmt % args, flush=True)
+  def log_message(self, format, *args):
+    print(format % args, flush=True)
 
 if __name__ == "__main__":
   port = int(os.getenv("PORT", "8080"))

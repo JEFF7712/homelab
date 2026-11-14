@@ -10,76 +10,76 @@ kind: ClusterRole
 metadata:
   name: automation-deployment-reader
 rules:
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ''
-  resources:
-  - nodes
-  - pods
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - ''
-  resources:
-  - pods/log
-  verbs:
-  - get
-# registry check builds its live image inventory from `kubectl get
-# pods,jobs,cronjobs -A -o json`, so the reader also needs batch. Without these
-# two the refresh could not read the cluster, and the check silently fell back
-# to the committed snapshot instead of reporting live drift.
-- apiGroups:
-  - batch
-  resources:
-  - jobs
-  - cronjobs
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - kustomize.toolkit.fluxcd.io
-  resources:
-  - kustomizations
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - helm.toolkit.fluxcd.io
-  resources:
-  - helmreleases
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - cert-manager.io
-  resources:
-  - certificates
-  verbs:
-  - get
-  - list
-- apiGroups:
-  - external-secrets.io
-  resources:
-  - externalsecrets
-  verbs:
-  - get
-  - list
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - ''
+    resources:
+      - nodes
+      - pods
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - ''
+    resources:
+      - pods/log
+    verbs:
+      - get
+  # registry check builds its live image inventory from `kubectl get
+  # pods,jobs,cronjobs -A -o json`, so the reader also needs batch. Without these
+  # two the refresh could not read the cluster, and the check silently fell back
+  # to the committed snapshot instead of reporting live drift.
+  - apiGroups:
+      - batch
+    resources:
+      - jobs
+      - cronjobs
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - kustomize.toolkit.fluxcd.io
+    resources:
+      - kustomizations
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - helm.toolkit.fluxcd.io
+    resources:
+      - helmreleases
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - cert-manager.io
+    resources:
+      - certificates
+    verbs:
+      - get
+      - list
+  - apiGroups:
+      - external-secrets.io
+    resources:
+      - externalsecrets
+    verbs:
+      - get
+      - list
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
   name: automation-deployment-reader
 subjects:
-- kind: ServiceAccount
-  name: automation-runner
-  namespace: automation
+  - kind: ServiceAccount
+    name: automation-runner
+    namespace: automation
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -91,15 +91,15 @@ metadata:
   name: automation-state-writer
   namespace: automation
 rules:
-- apiGroups:
-  - ''
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - create
-  - update
-  - patch
+  - apiGroups:
+      - ''
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - create
+      - update
+      - patch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -107,11 +107,10 @@ metadata:
   name: automation-state-writer
   namespace: automation
 subjects:
-- kind: ServiceAccount
-  name: automation-runner
-  namespace: automation
+  - kind: ServiceAccount
+    name: automation-runner
+    namespace: automation
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
   name: automation-state-writer
-
