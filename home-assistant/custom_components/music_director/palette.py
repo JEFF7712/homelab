@@ -33,6 +33,7 @@ overrides; they keep their hue at any intensity.
 
 from __future__ import annotations
 
+import colorsys
 import math
 import random
 from dataclasses import dataclass, replace
@@ -400,7 +401,7 @@ def named_palette(name: str, source: str = "manual") -> Palette | None:
     colour."""
     rgb = hex_rgb(name)
     if rgb is not None:
-        return replace(chosen_palette(rgb, source), rgb=rgb)
+        return chosen_palette(rgb, source)
     hue = NAMED_HUES.get(" ".join(name.lower().replace("_", " ").split()))
     if hue is None:
         return None
@@ -408,9 +409,12 @@ def named_palette(name: str, source: str = "manual") -> Palette | None:
 
 
 def chosen_palette(rgb: RGB, source: str = "manual") -> Palette:
-    """A single-colour palette for a colour picked on the colour wheel."""
+    """A single-colour palette for a colour picked on a colour wheel or
+    pinned: every light shows exactly that colour."""
     lab = rgb_to_oklab(rgb)
-    return Palette(hue=_hue(lab), chroma=_chroma(lab), source=source, intensity=0.0)
+    return Palette(
+        hue=_hue(lab), chroma=_chroma(lab), source=source, intensity=0.0, rgb=rgb
+    )
 
 
 def with_intensity(palette: Palette, intensity: float) -> Palette:
@@ -470,15 +474,32 @@ def _steer_amount(palette: Palette, hue: float) -> float:
     return k
 
 
+# Bulbs take a colour's hue and saturation and set brightness separately, so
+# a mid-lightness colour shows paler on a bulb than on screen. Light colours
+# go out at full value with at least this saturation, rising to 100% for
+# fully intense tracks; what is sent is what the dashboard shows.
+LED_MIN_SATURATION = 0.82
+
+
+def led_native(rgb: RGB, intensity: float = 0.0) -> RGB:
+    """rgb at full value, saturated at least LED_MIN_SATURATION (more for
+    intense tracks), keeping its hue."""
+    h, s, _ = colorsys.rgb_to_hsv(*(c / 255 for c in rgb))
+    floor = LED_MIN_SATURATION + (1.0 - LED_MIN_SATURATION) * boost(intensity)
+    r, g, b = colorsys.hsv_to_rgb(h, max(s, floor), 1.0)
+    return (round(r * 255), round(g * 255), round(b * 255))
+
+
 def _led(
     palette: Palette,
     hue: float,
     lightness: float = LED_LIGHTNESS,
     output_hue: float | None = None,
 ) -> RGB:
-    """An LED colour for hue: steered and saturated by intensity. output_hue,
-    when given, replaces the steered hue (the strip steers its primary once).
-    An exact palette colour is returned as is."""
+    """An LED colour for hue: steered and saturated by intensity, then sent
+    as the bulbs show it (led_native). output_hue, when given, replaces the
+    steered hue (the strip steers its primary once). An exact palette colour
+    is returned as is."""
     if palette.rgb is not None:
         return palette.rgb
     hue = hue % 360.0
@@ -488,7 +509,7 @@ def _led(
     chroma = min(LED_MAX_CHROMA, faithful + (LED_MAX_CHROMA - faithful) * k)
     lightness = max(lightness + palette.lift, lightness_floor(hue))
     lightness = min(lightness, lightness_ceiling(hue))
-    return oklch_to_rgb(lightness, chroma, hue)
+    return led_native(oklch_to_rgb(lightness, chroma, hue), palette.intensity)
 
 
 def spread_label(palette: Palette) -> str:

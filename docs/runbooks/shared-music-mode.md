@@ -190,6 +190,14 @@ gradient stays within `STRIP_HUE_SPREAD` (8°) of the primary: a slight shift,
 not the bulbs' spread. The primary is steered once and the stops keep their
 offsets, so a steering boundary cannot split the gradient.
 
+Bulbs take a colour's hue and saturation and set brightness separately, so
+a mid-lightness RGB colour shows paler on a bulb than on screen. Every light
+and strip colour therefore goes out at full value with at least
+`LED_MIN_SATURATION` (82%) saturation, rising to 100% for fully intense
+tracks (`palette.led_native`); `area_colors` and the preview card show
+exactly what is sent. Colours picked on the Colour or Pin wheels, and
+`#RRGGBB` overrides, are sent exactly as picked.
+
 WLED scales LedFx's DDP stream by its own brightness. When the strip takes
 part, Music Mode switches `light.living_room_led_strip` on at full
 brightness, so `number.music_mode_brightness` alone sets the strip's level;
