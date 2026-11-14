@@ -1572,3 +1572,100 @@ subjects:
   - kind: ServiceAccount
     name: eso-analytics-db-reader
     namespace: external-secrets
+---
+# Garage key for the umami-cluster WAL archive (cnpg-wal bucket). Its
+# source is the separate operator-created Secret cnpg-wal-archive, not
+# homelab-values; see docs/runbooks/postgres-disaster-recovery.md.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: homelab-analytics-values
+  namespace: secret-source
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-secrets
+  target:
+    name: homelab-analytics-values
+    creationPolicy: Owner
+  data:
+    - secretKey: CNPG_WAL_ACCESS_KEY_ID
+      remoteRef:
+        key: cnpg-wal-archive
+        property: ACCESS_KEY_ID
+    - secretKey: CNPG_WAL_ACCESS_SECRET_KEY
+      remoteRef:
+        key: cnpg-wal-archive
+        property: ACCESS_SECRET_KEY
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: eso-analytics-reader
+  namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: eso-analytics-reader
+  namespace: secret-source
+rules:
+  - apiGroups:
+      - ''
+    resources:
+      - secrets
+    resourceNames:
+      - homelab-analytics-values
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: eso-analytics-reader
+  namespace: secret-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: eso-analytics-reader
+subjects:
+  - kind: ServiceAccount
+    name: eso-analytics-reader
+    namespace: external-secrets
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: eso-analytics-reader-self-review
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: eso-local-reader-self-review
+subjects:
+  - kind: ServiceAccount
+    name: eso-analytics-reader
+    namespace: external-secrets
+---
+apiVersion: external-secrets.io/v1
+kind: ClusterSecretStore
+metadata:
+  name: homelab-analytics
+spec:
+  conditions:
+    - namespaces:
+        - analytics
+  provider:
+    kubernetes:
+      remoteNamespace: secret-source
+      server:
+        url: https://kubernetes.default.svc
+        caProvider:
+          type: ConfigMap
+          name: kube-root-ca.crt
+          key: ca.crt
+          namespace: external-secrets
+      auth:
+        serviceAccount:
+          name: eso-analytics-reader
+          namespace: external-secrets

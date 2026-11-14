@@ -6,5 +6,6 @@ resources:
   - secrets.yaml
   - postgres-volumes.yaml
   - postgres-cluster.yaml
+  - wal-archive.yaml
   - postgres-podmonitor.yaml
   - umami.yaml
