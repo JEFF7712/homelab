@@ -1,0 +1,42 @@
+# CNPG-I Barman Cloud plugin: WAL archiving and base backups to an object
+# store for clusters that opt in through spec.plugins. The operator reaches
+# it over mTLS on Service barman-cloud:9090; cert-manager issues both ends.
+# See docs/runbooks/postgres-disaster-recovery.md#wal-archive-on-garage.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: plugin-barman-cloud
+  namespace: cnpg-system
+spec:
+  interval: 1h
+  dependsOn:
+    - name: cloudnative-pg
+  chart:
+    spec:
+      chart: plugin-barman-cloud
+      version: 0.9.0
+      sourceRef:
+        kind: HelmRepository
+        name: cnpg
+        namespace: flux-system
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
+  values:
+    image:
+      registry: registry.rupan.dev
+      repository: upstream/ghcr.io/cloudnative-pg/plugin-barman-cloud
+      tag: "v0.16.0@sha256:6404a416718bd7aad943c67a25a7bb20d0558b43edfeab0bf167f013ca435882"
+    # Injected into every opted-in instance pod as the plugin-barman-cloud
+    # sidecar, so a change here rolls those clusters.
+    sidecarImage:
+      registry: registry.rupan.dev
+      repository: upstream/ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar
+      tag: "v0.16.0@sha256:c669259e20ed1e11fad821f735c396c19d929985aa05b9544b13ecc8b5a386d0"
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 256Mi
