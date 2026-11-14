@@ -212,6 +212,22 @@ or replacement, set it again and check with
 `curl -s http://10.0.20.181/json/cfg` from a host on the IoT VLAN (the agent
 VM reaches it through the Home Assistant pod).
 
+Other WLED settings, also set live on 2026-11-14 and not managed from the
+repo:
+
+- Power limiter 4000 mA (per output 3098 + 902, 55 mA per LED) on a 5 V 5 A
+  supply fed from one end: keep it there; above ~4.5 A the first connector
+  and strip copper carry too much without power injection.
+- OTA lock on with a passcode and Arduino OTA off, so firmware cannot be
+  flashed from the network without the passcode. The fallback access point
+  (`WLED-AP`, opened when Wi-Fi fails after boot) has its own password. Both
+  are in `gitops/secrets/wled-living-room.sops.yaml` (Secret
+  `home-assistant/wled-living-room`, keys `ota-passcode`, `ap-password`);
+  enter the passcode in WLED's Security settings to update firmware.
+- Stays off at power-on with no boot preset; Home Assistant turns it on.
+- UDP sync receive off, so other WLED devices cannot change it.
+- DNS `10.0.20.1` (OPNsense), Wi-Fi sleep off.
+
 ### Album pins
 
 `light.music_mode_pin` ("Pin colour to this album", `light.py`) pins a colour
