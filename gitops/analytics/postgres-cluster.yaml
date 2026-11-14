@@ -9,6 +9,15 @@ spec:
   instances: 2
   imageName: registry.rupan.dev/upstream/ghcr.io/cloudnative-pg/postgresql:17@sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e  # yamllint disable-line rule:line-length
   primaryUpdateStrategy: unsupervised
+  # Cap how long a switchover waits for the old primary to archive its last
+  # WAL. The CNPG default (3600s) would stall writes for up to an hour while
+  # the NAS is down; the new primary keeps archiving its own timeline.
+  switchoverDelay: 120
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: umami-garage
   bootstrap:
     initdb:
       database: umami
