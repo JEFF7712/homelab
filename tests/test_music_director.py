@@ -34,6 +34,7 @@ palette = load("palette")
 rules = load("rules")
 metadata = load("metadata")
 pins = load("pins")
+sections = load("sections")
 
 CSS_GRADIENT = re.compile(
     r"^linear-gradient\(90deg(, rgb\(\d{1,3}, \d{1,3}, \d{1,3}\) \d{1,3}%)+\)$"
@@ -748,6 +749,53 @@ class TestPins(unittest.TestCase):
     def test_pinned_colours_render(self) -> None:
         for colour in ("blue", "#00ddff"):
             self.assertIsNotNone(palette.named_palette(colour, "override"))
+
+
+class TestSections(unittest.TestCase):
+    RATE = 30  # samples per second
+
+    def play(self, tracker, parts):
+        """Feed (seconds, level) parts; return [(time, new section)]."""
+        changes, now = [], 0.0
+        for seconds, level in parts:
+            for _ in range(int(seconds * self.RATE)):
+                now += 1 / self.RATE
+                changed = tracker.add(level, now)
+                if changed:
+                    changes.append((round(now, 1), changed))
+        return changes
+
+    def test_chorus_gets_loud_and_bridge_gets_quiet(self) -> None:
+        tracker = sections.SectionTracker()
+        tracker.reset(0.0)
+        changes = self.play(
+            tracker, [(40, 1.0), (20, 1.7), (25, 1.0), (20, 0.5), (20, 1.0)]
+        )
+        names = [name for _, name in changes]
+        self.assertIn(sections.LOUD, names)
+        self.assertIn(sections.QUIET, names)
+        loud_at = next(at for at, name in changes if name == sections.LOUD)
+        # Caught within about 8 s of the chorus starting.
+        self.assertTrue(40 < loud_at < 48.5, changes)
+
+    def test_beats_and_fills_do_not_flip_sections(self) -> None:
+        tracker = sections.SectionTracker()
+        tracker.reset(0.0)
+        # A steady verse with one-second hits every four seconds.
+        parts = [(3, 1.0), (1, 1.8)] * 20
+        self.assertEqual(self.play(tracker, parts), [])
+
+    def test_warmup_silence_and_dwell(self) -> None:
+        tracker = sections.SectionTracker()
+        tracker.reset(0.0)
+        self.assertEqual(self.play(tracker, [(30, 0.0)]), [])
+        changes = self.play(tracker, [(40, 1.0), (30, 2.0), (3, 0.2), (30, 2.0)])
+        for (a, _), (b, _) in zip(changes, changes[1:]):
+            self.assertGreaterEqual(b - a, sections.MIN_DWELL_SECONDS)
+
+    def test_strip_stays_bright(self) -> None:
+        self.assertGreaterEqual(min(sections.SECTION_BRIGHTNESS.values()), 0.8)
+        self.assertEqual(sections.SECTION_BRIGHTNESS[sections.LOUD], 1.0)
 
 
 class TestMetadata(unittest.TestCase):

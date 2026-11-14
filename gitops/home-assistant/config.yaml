@@ -2682,6 +2682,12 @@ data:
         intensity,
         tempo_level,
     )
+    from .sections import (
+        NORMAL,
+        SECTION_BRIGHTNESS,
+        SECTION_INTENSITY,
+        SectionTracker,
+    )
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -2794,6 +2800,10 @@ data:
             self.manual_rgb: tuple[int, int, int] | None = None
             self.brightness_pct = DEFAULT_BRIGHTNESS
             self.pins = PinStore(Store(hass, STORAGE_VERSION, STORAGE_KEY))
+            # Live song sections from LedFx's audio (sections.py).
+            self.sections = SectionTracker()
+            self.section = NORMAL
+            self._audio_task: asyncio.Task[None] | None = None
             # Music Mode Strip Colours: one solid colour instead of a gradient.
             self.strip_solid = False
 
@@ -2811,6 +2821,58 @@ data:
             )
             if self._is_on(self.config.enabled):
                 self.schedule(force=True)
+                self._start_audio()
+
+        def _start_audio(self) -> None:
+            if self._audio_task is None or self._audio_task.done():
+                self._audio_task = self.hass.async_create_background_task(
+                    self._listen_audio(), "music_director audio sections"
+                )
+
+        def _stop_audio(self) -> None:
+            if self._audio_task is not None and not self._audio_task.done():
+                self._audio_task.cancel()
+            self._audio_task = None
+
+        async def _listen_audio(self) -> None:
+            """Follow LedFx's live melbank loudness and turn sustained changes
+            into song sections. Reconnects while Music Mode is on."""
+            url = self.config.ledfx_url.replace("http", "ws", 1) + "/api/websocket"
+            while True:
+                try:
+                    async with self._session.ws_connect(url, heartbeat=30) as ws:
+                        await ws.send_json(
+                            {
+                                "id": 1,
+                                "type": "subscribe_event",
+                                "event_type": "graph_update",
+                            }
+                        )
+                        graph = None
+                        async for msg in ws:
+                            if msg.type != aiohttp.WSMsgType.TEXT:
+                                continue
+                            data = msg.json()
+                            if data.get("event_type") != "graph_update":
+                                continue
+                            graph = graph or data.get("graph_id")
+                            if data.get("graph_id") != graph:
+                                continue
+                            level = sum(float(v) for v in data.get("melbank") or ())
+                            changed = self.sections.add(level, time.monotonic())
+                            if changed is not None:
+                                self._set_section(changed)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as error:  # noqa: BLE001 - keep listening
+                    _LOGGER.debug("LedFx audio feed: %s", type(error).__name__)
+                await asyncio.sleep(10)
+
+        @callback
+        def _set_section(self, section: str) -> None:
+            self.section = section
+            _LOGGER.debug("Song section: %s", section)
+            self._reapply()
 
         def _is_on(self, entity_id: str) -> bool:
             state = self.hass.states.get(entity_id)
@@ -2823,7 +2885,9 @@ data:
             if entity_id == self.config.enabled:
                 if new_state is not None and new_state.state == STATE_ON:
                     self.schedule(force=True)
+                    self._start_audio()
                 else:
+                    self._stop_audio()
                     self._cancel()
                     self.hass.async_create_task(self._stop())
                 return
@@ -2934,6 +2998,11 @@ data:
             auto_effect: str,
             level: float,
         ) -> Decision:
+            # Sections nudge the automatic colours' vividness; chosen colours
+            # (pins, the manual colour) stay as picked.
+            natural = with_intensity(
+                natural, natural.intensity + SECTION_INTENSITY[self.section]
+            )
             pin = self.pins.pins.find(title, artist, album) if title else None
             pinned = named_palette(pin.color, "override") if pin and pin.color else None
             auto_palette = pinned or natural
@@ -2941,7 +3010,9 @@ data:
             effect = self._override() or auto_effect
             config = {
                 **effect_config(effect, palette, info.features(), self.strip_solid),
-                "brightness": round(self.brightness_pct / 100, 2),
+                "brightness": round(
+                    self.brightness_pct / 100 * SECTION_BRIGHTNESS[self.section], 2
+                ),
             }
             return Decision(
                 title,
@@ -2971,12 +3042,24 @@ data:
             )
 
         async def _apply(self, decision: Decision) -> None:
+            previous = self._decision
             self._decision = decision
             self._publish(decision)
             # The pin light follows the playing track.
             async_dispatcher_send(self.hass, CONTROLS_UPDATED)
             if self._is_on(self.config.strip):
-                await self._push_strip(decision)
+                if (
+                    previous is not None
+                    and previous.effect == decision.effect
+                    and previous.title == decision.title
+                ):
+                    # Same effect, new colours or brightness: update in place
+                    # instead of restarting the effect.
+                    await self._ledfx(
+                        "PUT", {"type": decision.effect, "config": decision.config}
+                    )
+                else:
+                    await self._push_strip(decision)
 
         async def _run(self, force: bool) -> None:
             if not self._transition_set:
@@ -2991,6 +3074,10 @@ data:
             else:
                 if key == self._track_key and not force:
                     return
+                if key != self._track_key:
+                    # A new song: a new loudness baseline.
+                    self.sections.reset(time.monotonic())
+                    self.section = NORMAL
                 self._track_key = key
                 assert player is not None
                 decision = await self._decide(player, key)
@@ -3275,6 +3362,7 @@ data:
                     "pinned_colour": self.current_pin(),
                     "natural_palette_source": decision.natural.source,
                     "spotify_status": self.spotify_status,
+                    "section": self.section,
                     "brightness_pct": self.brightness_pct,
                     "auto_palette_source": decision.auto_palette.source,
                     "intensity": round(decision.level, 3),
@@ -4783,6 +4871,97 @@ data:
         if features is not None:
             config.update(dynamics(effect, features))
         return config
+  component.music_director.sections.py: |
+    """Song sections from live loudness: quiet, normal and loud stretches.
+
+    The director feeds LedFx's live melbank level (about 60 times a second).
+    A fast average (a few seconds) is compared with a slow one (the song's
+    recent baseline, half a minute or so); sustained departures become sections.
+    Hysteresis and a minimum dwell keep single beats and fills from flipping
+    the lights. Pure logic: the caller supplies the clock.
+    """
+
+    from __future__ import annotations
+
+    import math
+    from dataclasses import dataclass
+
+    QUIET, NORMAL, LOUD = "quiet", "normal", "loud"
+
+    FAST_SECONDS = 6.0
+    SLOW_SECONDS = 40.0
+    # Ignore the first seconds of a track while the baseline settles.
+    WARMUP_SECONDS = 20.0
+    # A section must last this long before the next change.
+    MIN_DWELL_SECONDS = 16.0
+    # fast / slow ratio thresholds, with hysteresis.
+    ENTER_LOUD, LEAVE_LOUD = 1.3, 1.1
+    ENTER_QUIET, LEAVE_QUIET = 0.65, 0.85
+    # Below this baseline level the music is near silent: stay normal.
+    SILENCE = 1e-6
+
+    # How sections move the lights: strip brightness as a fraction of the set
+    # Music Mode Brightness (kept high), and an intensity offset for colours.
+    SECTION_BRIGHTNESS = {QUIET: 0.8, NORMAL: 0.9, LOUD: 1.0}
+    SECTION_INTENSITY = {QUIET: -0.1, NORMAL: 0.0, LOUD: 0.15}
+
+
+    @dataclass
+    class SectionTracker:
+        fast: float = 0.0
+        slow: float = 0.0
+        started: float | None = None
+        last_sample: float | None = None
+        section: str = NORMAL
+        changed: float = 0.0
+
+        def reset(self, now: float) -> None:
+            """Start a new track: forget the old baseline."""
+            self.fast = self.slow = 0.0
+            self.started = now
+            self.last_sample = None
+            self.section = NORMAL
+            self.changed = now
+
+        def add(self, level: float, now: float) -> str | None:
+            """Feed one loudness sample. Returns the new section when it
+            changes, else None."""
+            if self.started is None:
+                self.reset(now)
+            level = max(0.0, level)
+            if self.last_sample is None:
+                self.fast = self.slow = level
+            else:
+                dt = max(0.0, now - self.last_sample)
+                self.fast += (level - self.fast) * (1 - math.exp(-dt / FAST_SECONDS))
+                self.slow += (level - self.slow) * (1 - math.exp(-dt / SLOW_SECONDS))
+            self.last_sample = now
+            assert self.started is not None
+            if (
+                now - self.started < WARMUP_SECONDS
+                or now - self.changed < MIN_DWELL_SECONDS
+            ):
+                return None
+            wanted = self._wanted()
+            if wanted == self.section:
+                return None
+            self.section = wanted
+            self.changed = now
+            return wanted
+
+        def _wanted(self) -> str:
+            if self.slow <= SILENCE:
+                return NORMAL
+            ratio = self.fast / self.slow
+            if self.section == LOUD:
+                return LOUD if ratio > LEAVE_LOUD else NORMAL
+            if self.section == QUIET:
+                return QUIET if ratio < LEAVE_QUIET else NORMAL
+            if ratio >= ENTER_LOUD:
+                return LOUD
+            if ratio <= ENTER_QUIET:
+                return QUIET
+            return NORMAL
   component.music_director.select.py: |
     """Music Mode Strip Colours: the LED strip's colours as a gradient or one solid colour."""
 
