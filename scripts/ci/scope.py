@@ -89,7 +89,8 @@ _CHECK_ORDER = (
 )
 
 
-# Python mounted into workloads from gitops/ that scripts/checks/python.sh
+# Python mounted into workloads from gitops/ (directories, or an exact
+# file for an extensionless script) that scripts/checks/python.sh
 # lints and type-checks (scripts/agent/checks.py routes the same prefixes).
 _PYTHON_GITOPS_PREFIXES = (
     "gitops/observability/network-monitor/",
@@ -97,6 +98,14 @@ _PYTHON_GITOPS_PREFIXES = (
     "gitops/automation/forgejo-dashboard/",
     "gitops/automation/renovate-approval-webhook/",
     "gitops/automation/renovate-reviewer/",
+    "gitops/media/arr-queue-hygiene/",
+    "gitops/media/arr-secret-sync/",
+    "gitops/media/beets/",
+    "gitops/media/jellyfin-backup/",
+    "gitops/media/navidrome-lookup/",
+    "gitops/media/soularr/",
+    # An extensionless Python script, routed by its exact path.
+    "gitops/media/lidarr-extended/10-render-extended-conf",
 )
 
 
@@ -153,7 +162,9 @@ def classify(paths: Sequence[str]) -> Scope:
         if name.startswith("services/led-matrix/"):
             matrix = True
             continue
-        if name.startswith(_PYTHON_GITOPS_PREFIXES) and path.suffix == ".py":
+        if name.startswith(_PYTHON_GITOPS_PREFIXES) and (
+            path.suffix == ".py" or name in _PYTHON_GITOPS_PREFIXES
+        ):
             checks.update(("gitops", "python"))
             continue
         if name.startswith(("gitops/", "schemas/")):
