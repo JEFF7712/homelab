@@ -5,8 +5,9 @@ import json
 import os
 import shutil
 import sys
+import urllib.error
 import urllib.request
-from typing import Any, Optional
+from typing import Any
 
 TIMEOUT = 15
 PAGE_SIZE = 200
@@ -25,7 +26,7 @@ def api(
     base: str,
     api_key: str,
     path: str,
-    body: Optional[dict] = None,
+    body: dict | None = None,
 ) -> tuple[int, Any]:
     data = None
     headers = {"X-Api-Key": api_key, "Accept": "application/json"}
@@ -49,7 +50,7 @@ def api(
         raise ApiError(f"{method} {base}{path}: {e}") from e
 
 
-def parse_time(value: Any) -> Optional[datetime.datetime]:
+def parse_time(value: Any) -> datetime.datetime | None:
     if not isinstance(value, str) or not value:
         return None
     try:
@@ -57,7 +58,7 @@ def parse_time(value: Any) -> Optional[datetime.datetime]:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=datetime.timezone.utc)
+        parsed = parsed.replace(tzinfo=datetime.UTC)
     return parsed
 
 
@@ -79,7 +80,7 @@ def is_import_failed(record: dict) -> bool:
 def record_time(
     record: dict,
     import_root: str = "/lidarr-config/extended/import",
-) -> Optional[datetime.datetime]:
+) -> datetime.datetime | None:
     output = record.get("outputPath")
     if isinstance(output, str) and output.startswith(IMPORT_PREFIX):
         name = os.path.basename(output)
@@ -87,7 +88,7 @@ def record_time(
         if os.path.exists(path):
             try:
                 mtime = os.path.getmtime(path)
-                return datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc)
+                return datetime.datetime.fromtimestamp(mtime, tz=datetime.UTC)
             except OSError:
                 pass
     dl_id = record.get("downloadId") or ""
@@ -96,7 +97,7 @@ def record_time(
         if len(parts) == 2 and parts[1].isdigit():
             try:
                 ticks = int(parts[1])
-                base = datetime.datetime(1, 1, 1, tzinfo=datetime.timezone.utc)
+                base = datetime.datetime(1, 1, 1, tzinfo=datetime.UTC)
                 return base + datetime.timedelta(microseconds=ticks // 10)
             except (ValueError, OverflowError):
                 pass
@@ -145,7 +146,7 @@ def fetch_queue(base: str, api_key: str) -> list:
         page += 1
 
 
-def quarantine_dir(output_path: Any, stamp: str) -> Optional[str]:
+def quarantine_dir(output_path: Any, stamp: str) -> str | None:
     if not isinstance(output_path, str):
         return None
     if not output_path.startswith(IMPORT_PREFIX):
@@ -156,7 +157,7 @@ def quarantine_dir(output_path: Any, stamp: str) -> Optional[str]:
     return os.path.join(f"{QUARANTINE_ROOT}-{stamp}", leaf)
 
 
-def move_to_quarantine(src: str, dest: str) -> Optional[str]:
+def move_to_quarantine(src: str, dest: str) -> str | None:
     try:
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         if not os.path.isdir(src):
@@ -198,7 +199,7 @@ def run() -> int:
         api_key = required_env("LIDARR_API_KEY")
         retention = int(os.environ.get("RETENTION_DAYS", "3"))
         base = f"http://{LIDARR_HOST}"
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         records = fetch_queue(base, api_key)
         stale = select_stale(records, now, retention)
         print(f"queue: {len(records)} total, {len(stale)} stale importFailed")

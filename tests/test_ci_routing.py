@@ -76,6 +76,12 @@ class ScopeTest(unittest.TestCase):
             ),
             (["gitops/media/spotify-sync/sync.py"], ("python", "gitops"), ()),
             (
+                ["gitops/media/lidarr-extended/10-render-extended-conf"],
+                ("python", "gitops"),
+                (),
+            ),
+            (["gitops/media/lidarr-extended/tidal-dl-shim"], ("gitops",), ()),
+            (
                 ["gitops/automation/renovate-reviewer/renovate-agent.py"],
                 ("python", "gitops"),
                 (),

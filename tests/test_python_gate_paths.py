@@ -56,6 +56,13 @@ class PythonGatePathsTest(unittest.TestCase):
         pyright = _bash_array("pyright_paths")
         for prefix in PYTHON_GITOPS_PREFIXES:
             with self.subTest(prefix=prefix):
+                if not prefix.endswith("/"):
+                    # An exact extensionless script: ruff and pyright skip it
+                    # in a directory walk, so both must name it.
+                    self.assertTrue((ROOT / prefix).is_file())
+                    self.assertIn(prefix, ruff)
+                    self.assertIn(prefix, pyright)
+                    continue
                 self.assertTrue(
                     any(prefix.startswith(path.rstrip("/") + "/") for path in ruff),
                     f"{prefix} is not under a ruff path",

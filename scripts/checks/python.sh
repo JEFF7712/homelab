@@ -11,7 +11,8 @@ ruff_paths=(
 # formatted: they were extracted byte for byte from inline ConfigMaps, and
 # reformatting them would only churn running workloads.
 ruff_lint_only_paths=(
-  gitops/automation
+  gitops/automation gitops/media
+  gitops/media/lidarr-extended/10-render-extended-conf
 )
 if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then
   ruff format --check "${ruff_paths[@]}"
@@ -42,6 +43,10 @@ pyright_paths=(
   gitops/automation/forgejo-dashboard/dashboard.py
   gitops/automation/renovate-approval-webhook/renovate-approval-webhook.py
   gitops/automation/renovate-reviewer/renovate-agent.py
+  gitops/media/arr-queue-hygiene/hygiene.py gitops/media/arr-secret-sync/sync.py
+  gitops/media/beets/nightly.py gitops/media/jellyfin-backup/backup.py
+  gitops/media/soularr/run.py gitops/media/navidrome-lookup/lookup.py
+  gitops/media/lidarr-extended/10-render-extended-conf
   opnsense_reconciler
 )
 pyright "${pyright_paths[@]}" &
