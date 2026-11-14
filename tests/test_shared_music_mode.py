@@ -277,6 +277,13 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertIn("step in ['join', 'standby']", script)
         self.assertIn("step in ['standby', 'off']", script)
         self.assertIn("light.turn_off", script)
+        # Switching off has no fade: Zigbee bulbs fade to off slowly.
+        off = next(
+            step
+            for step in self._area_script()["sequence"]
+            if "step in ['standby', 'off']" in json.dumps(step)
+        )
+        self.assertNotIn("transition", json.dumps(off["then"]))
         # New tracks recolour lit lights only and leave their brightness.
         self.assertIn("select('is_state', 'on')", script)
         palette = branch("palette")

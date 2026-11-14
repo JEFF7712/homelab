@@ -90,6 +90,9 @@ SPOTIFY_REFRESH_GAP = 30.0
 # falling back to the vibe palette.
 COVER_ATTEMPTS = 3
 COVER_RETRY_SECONDS = 2.0
+# A track that fell back to the vibe palette checks its cover again this
+# long into the song, in case the art arrived late.
+COVER_RECHECK_SECONDS = (8.0, 25.0)
 ART_SIZE = 48
 MAX_ART_BYTES = 5_000_000
 CACHE_SIZE = 256
@@ -379,6 +382,38 @@ class Director:
         # Repeat avoidance follows the automatic choice, not the override.
         self._last_effect = decision.auto_effect
         await self._apply(decision)
+        if key is not None and decision.natural.source != "cover":
+            self.hass.async_create_task(self._recheck_cover(key))
+
+    async def _recheck_cover(self, key: str) -> None:
+        """Use the cover after all if its art arrives while the track plays."""
+        for delay in COVER_RECHECK_SECONDS:
+            await asyncio.sleep(delay)
+            decision = self._decision
+            if (
+                self._track_key != key
+                or decision is None
+                or decision.natural.source == "cover"
+            ):
+                return
+            cover = await self._cover_for(key)
+            if cover is None:
+                continue
+            self._cache[key] = (decision.info, cover)
+            _LOGGER.info("Late cover colour for %s", key.replace("\n", " - "))
+            await self._apply(
+                self._compose(
+                    decision.title,
+                    decision.artist,
+                    decision.album,
+                    decision.info,
+                    with_intensity(cover, decision.level),
+                    decision.family,
+                    decision.auto_effect,
+                    decision.level,
+                )
+            )
+            return
 
     def _idle_decision(self) -> Decision:
         idle = vibe_palette()

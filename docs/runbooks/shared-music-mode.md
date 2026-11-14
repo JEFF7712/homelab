@@ -29,7 +29,8 @@ every area to `scene.pre_music_<area>` and the WLED strip
 (`light.living_room_led_strip`) to `scene.pre_music_led_strip`, and locks
 Adaptive Lighting for every area's lights. Selected areas are painted
 (`script.shared_music_area` step `join`); the rest are switched off
-(`standby`), and so is the strip when its toggle is off. Toggling an area or
+(`standby`) with no fade, since the Zigbee bulbs fade to off slowly and
+unreliably, and so is the strip when its toggle is off. Toggling an area or
 the strip mid-session paints it or switches it off (`paint` / `off`) and
 keeps the snapshot. Turning Music Mode off restores every area and the strip
 and hands the areas back to Adaptive Lighting (`leave`). Bulbs change once
@@ -77,7 +78,10 @@ Cover art comes from Spotify's media player when it reports the same
 track (its art changes with the title), else from the speaker's player. When
 no art can be downloaded the director retries twice, 2 s apart
 (`COVER_ATTEMPTS`), and a track whose cover was missed is retried on replay
-rather than cached; the log says `No cover art` or `No usable cover colour`.
+rather than cached; the log says `No cover art` or `No usable cover colour`. A
+track that fell back to the vibe palette checks its cover again 8 s and
+25 s in (`COVER_RECHECK_SECONDS`) and switches to it if the art arrived
+late (log: `Late cover colour`).
 
 The cover palette merges colour clusters within 20° of hue (so a cover-wide
 tint such as Dawn FM's muted blue counts as one colour), then takes the most
@@ -105,7 +109,10 @@ hue still differ slightly in brightness. When no group scores at least
 (`palette.vibe_palette`): valence picks a point on a deep blue (sad) to
 purple to deep red (happy) axis, the genre pulls it 30% toward its own hue,
 and energy (or tempo) raises saturation and brightness, after Palmer et
-al. (PNAS 2013).
+al. (PNAS 2013). For intense tracks the hue is then pulled toward
+the nearer of deep red and deep blue (`palette.polarize`, by
+`boost(intensity)`), so intense rap is red or blue rather than the magenta
+between them.
 
 Each track gets an intensity from 0 (calm) to 1 (intense)
 (`rules.intensity`): the family prior (calm 0.15, smooth 0.3, default 0.5,
@@ -141,7 +148,7 @@ area's colour, where the colour came from, its spread and the intensity.
 | Family | Chosen when | LedFx effects |
 | --- | --- | --- |
 | calm | ambient, classical, acoustic, folk, soundtrack; energy < 0.35 | melt, lava_lamp |
-| smooth | R&B, soul, funk, jazz, reggae; hip-hop with energy < 0.5 | melt, energy |
+| smooth | R&B, soul, funk, jazz, reggae; hip-hop with energy < 0.5 | melt |
 | bass | hip-hop, rap, trap, drill, reggaeton | power, energy |
 | drive | electronic, house, dance; energetic danceable 110-140 BPM | scroll, bands, strobe |
 | rock | rock, metal, punk | wavelength, bands |

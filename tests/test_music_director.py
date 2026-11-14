@@ -172,6 +172,22 @@ class TestPalette(unittest.TestCase):
             palette.vibe_palette(("R&B",), tempo=0.0).chroma,
         )
 
+    def test_intense_vibe_is_red_or_blue_not_magenta(self) -> None:
+        # Intense rap in the vibe fallback used to land on the magenta
+        # between deep blue and red.
+        for valence in (0.2, 0.4, 0.5, 0.6, 0.8):
+            intense = palette.vibe_palette(
+                ("Rap",), energy=0.85, valence=valence, intensity=1.0
+            )
+            nearest = min(
+                palette.hue_distance(intense.hue, palette.RED_HUE),
+                palette.hue_distance(intense.hue, palette.BLUE_HUE),
+            )
+            self.assertLess(nearest, 1, (valence, intense.hue))
+        # Medium tracks move part way; calm ones keep their hue.
+        calm = palette.vibe_palette(("Rap",), valence=0.6, intensity=0.2)
+        self.assertEqual(calm.hue, palette.polarize(calm.hue, 0.2))
+
     def test_calm_vibe_keeps_the_genre_colour(self) -> None:
         # Calm R&B stays warm orange whatever the mood; rap's genre hue is red.
         orange = palette.NAMED_HUES["orange"]
@@ -372,6 +388,13 @@ class TestRules(unittest.TestCase):
         self.assertEqual(rules.classify(unplugged), "calm")
         loud_unknown = rules.Features(energy=0.9)
         self.assertEqual(rules.classify(loud_unknown), "drive")
+
+    def test_rnb_always_melts(self) -> None:
+        features = rules.Features(genres=("rnb", "soul"), energy=0.46)
+        family = rules.classify(features)
+        self.assertEqual(family, "smooth")
+        for key in ("a", "b", "Amaria\nLying To You\nAll For You"):
+            self.assertEqual(rules.choose_effect(family, key, "melt"), "melt")
 
     def test_effect_choice_is_stable_and_avoids_repeats(self) -> None:
         first = rules.choose_effect("bass", "artist\ntitle\nalbum", None)
