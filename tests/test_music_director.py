@@ -433,6 +433,35 @@ class TestGraduation(unittest.TestCase):
         self.assertLess(rules.intensity(rnb, rules.classify(rnb)), 0.45)
 
 
+class TestLedNative(unittest.TestCase):
+    """Bulbs take hue and saturation and set brightness themselves, so what
+    is sent must already be full value and saturated, or bulbs show paler
+    than the dashboard."""
+
+    def saturation_value(self, rgb: tuple[int, int, int]) -> tuple[float, float]:
+        r, g, b = (c / 255 for c in rgb)
+        top = max(r, g, b)
+        return ((top - min(r, g, b)) / top if top else 0.0), top
+
+    def test_every_light_colour_is_full_value_and_saturated(self) -> None:
+        for hue in range(0, 360, 15):
+            for chroma, level in ((0.05, 0.1), (0.15, 0.5), (0.2, 1.0)):
+                base = palette.Palette(
+                    hue=float(hue), chroma=chroma, source="cover", intensity=level
+                )
+                floor = 0.995 if level >= 0.8 else palette.LED_MIN_SATURATION - 0.01
+                for rgb in (*palette.area_colors(base, 5), *palette.triad(base)):
+                    s, v = self.saturation_value(rgb)
+                    self.assertGreaterEqual(v, 0.99, (hue, level, rgb))
+                    self.assertGreaterEqual(s, floor, (hue, level, rgb))
+
+    def test_picked_colours_are_sent_exactly(self) -> None:
+        for rgb in ((0, 0, 255), (255, 128, 0), (120, 40, 200)):
+            chosen = palette.chosen_palette(rgb)
+            self.assertEqual(set(palette.area_colors(chosen, 5)), {rgb})
+            self.assertEqual(palette.solid_colour(chosen), rgb)
+
+
 class TestStripColours(unittest.TestCase):
     def test_strip_gradient_is_saturated_and_slight(self) -> None:
         # Whites and pastels look poor on the strip: every gradient stop and
