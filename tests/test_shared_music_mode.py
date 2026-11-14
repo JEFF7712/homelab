@@ -323,11 +323,6 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertIn("script.effects_music_mode", shared_spaces)
         self.assertIn("input_boolean.shared_music_mode", shared_spaces)
 
-        lovelace_jarvis = (
-            REPO_ROOT / "home-assistant" / "dashboards" / "lovelace-jarvis.yaml"
-        ).read_text(encoding="utf-8")
-        self.assertIn("input_boolean.shared_music_mode", lovelace_jarvis)
-
     def test_area_toggles_sit_in_their_own_music_mode_section(self) -> None:
         dashboard = yaml.safe_load(
             (

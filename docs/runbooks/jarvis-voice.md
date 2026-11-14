@@ -122,9 +122,8 @@ retain the old host library directory until acceptance is complete.
 
 ## Canonical entity IDs
 
-Do not rename these without updating `home-assistant/www/jarvis/config.json`,
-`home-assistant/www/jarvis/app.js` defaults, and
-`home-assistant/dashboards/lovelace-jarvis.yaml` together:
+Do not rename these without updating `home-assistant/www/jarvis/config.json`
+and `home-assistant/www/jarvis/app.js` defaults together:
 
 - `assist_satellite.homelab_05_satellite_assist_satellite`
 - `switch.homelab_05_satellite_mute`
