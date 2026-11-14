@@ -29,10 +29,7 @@ let
   autostartScript =
     if cfg.autostartHost != null && cfg.autostartApp != null then
       pkgs.writeShellScript "moonlight-autostart" ''
-        # Automatically stream the configured app on startup.
-        # Fall back to the Moonlight GUI if streaming finishes or fails.
-        ${pkgs.moonlight-qt}/bin/moonlight stream ${lib.escapeShellArg cfg.autostartHost} ${lib.escapeShellArg cfg.autostartApp} || true
-        exec ${pkgs.moonlight-qt}/bin/moonlight
+        exec ${pkgs.python3}/bin/python ${./moonlight-autostart.py} ${pkgs.moonlight-qt}/bin/moonlight ${lib.escapeShellArg cfg.autostartHost} ${lib.escapeShellArg cfg.autostartApp}
       ''
     else
       "${pkgs.moonlight-qt}/bin/moonlight";
@@ -271,15 +268,15 @@ in
       }
     ];
 
-    # Supervised autostart: the sway exec it replaces is unsupervised, so any
-    # client exit (stream quit, crash, display loss) left Moonlight down until
-    # reboot. Restarting on every exit also reconnects automatically when the
-    # Sunshine host wakes. `after` on a missing sway unit is a harmless no-op,
-    # so hosts without the kiosk compositor need no special-casing.
+    # Supervise the GUI and stream across Sunshine availability changes.
     systemd.services.moonlight-stream = lib.mkIf cfg.autostart {
       description = "Moonlight game streaming autostart";
       wantedBy = [ "multi-user.target" ];
       after = [ "sway-tty1.service" ];
+      partOf = lib.optionals (config.homelab.kiosk.enable && config.homelab.kiosk.compositor == "sway") [
+        "sway-tty1.service"
+      ];
+      unitConfig.StartLimitIntervalSec = 0;
       environment = {
         XDG_RUNTIME_DIR = "/run/user/${toString config.users.users.${cfg.user}.uid}";
         XDG_SESSION_TYPE = "wayland";
@@ -288,19 +285,23 @@ in
       serviceConfig = {
         User = cfg.user;
         Restart = "always";
-        RestartSec = "10s";
+        RestartSec = "5s";
       };
       script = ''
         # The compositor names its socket dynamically; wait for it instead of
         # assuming WAYLAND_DISPLAY.
         for _ in $(seq 1 60); do
-          sock=$(ls "$XDG_RUNTIME_DIR"/wayland-[0-9] 2>/dev/null | head -n 1)
-          if [ -n "$sock" ]; then
+          sock=$(ls "$XDG_RUNTIME_DIR"/wayland-[0-9] 2>/dev/null | head -n 1 || true)
+          if [ -S "$sock" ]; then
             export WAYLAND_DISPLAY="$(basename "$sock")"
             break
           fi
           sleep 2
         done
+        if [ ! -S "${"sock:-"}" ]; then
+          echo "Wayland socket did not appear within 120 seconds" >&2
+          exit 1
+        fi
         exec ${autostartScript}
       '';
     };
