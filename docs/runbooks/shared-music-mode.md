@@ -233,7 +233,11 @@ repo:
   are in `gitops/secrets/wled-living-room.sops.yaml` (Secret
   `home-assistant/wled-living-room`, keys `ota-passcode`, `ap-password`);
   enter the passcode in WLED's Security settings to update firmware.
-- Stays off at power-on with no boot preset; Home Assistant turns it on.
+- Stays off at power-on (`def.on: false`). Boot preset 1 "Default 51-52"
+  restores the two WLED segments matching the strip's sections, 0-51 and
+  51-103, saved with segment bounds and without brightness or power, so it
+  does not turn the strip on. WLED forgets segments on reboot without it.
+  LedFx's stream ignores WLED segments.
 - UDP sync receive off, so other WLED devices cannot change it.
 - DNS `10.0.20.1` (OPNsense), Wi-Fi sleep off.
 - Firmware WLED 16.0.1 (official `WLED_16.0.1_ESP32.bin`, flashed over the
