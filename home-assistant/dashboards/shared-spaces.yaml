@@ -464,6 +464,8 @@ views:
               **Intensity** {{ '▰' * n }}{{ '▱' * (10 - n) }}
               {{ 'calm' if i < 0.35 else 'medium' if i < 0.65 else 'intense' }}
               ({{ (i * 100) | round | int }}%)
+              {%- set sec = state_attr(d, 'section') %}
+              {%- if sec and sec != 'normal' %} · {{ sec }} part{% endif %}
               {% if state_attr(d, 'spotify_status') == 'unavailable' %}
               <br>⚠️ Spotify isn't answering (rate limited?): energy and tempo are estimated
               {% endif %}

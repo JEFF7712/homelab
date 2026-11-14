@@ -67,6 +67,12 @@ from .rules import (
     intensity,
     tempo_level,
 )
+from .sections import (
+    NORMAL,
+    SECTION_BRIGHTNESS,
+    SECTION_INTENSITY,
+    SectionTracker,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -179,6 +185,10 @@ class Director:
         self.manual_rgb: tuple[int, int, int] | None = None
         self.brightness_pct = DEFAULT_BRIGHTNESS
         self.pins = PinStore(Store(hass, STORAGE_VERSION, STORAGE_KEY))
+        # Live song sections from LedFx's audio (sections.py).
+        self.sections = SectionTracker()
+        self.section = NORMAL
+        self._audio_task: asyncio.Task[None] | None = None
         # Music Mode Strip Colours: one solid colour instead of a gradient.
         self.strip_solid = False
 
@@ -196,6 +206,58 @@ class Director:
         )
         if self._is_on(self.config.enabled):
             self.schedule(force=True)
+            self._start_audio()
+
+    def _start_audio(self) -> None:
+        if self._audio_task is None or self._audio_task.done():
+            self._audio_task = self.hass.async_create_background_task(
+                self._listen_audio(), "music_director audio sections"
+            )
+
+    def _stop_audio(self) -> None:
+        if self._audio_task is not None and not self._audio_task.done():
+            self._audio_task.cancel()
+        self._audio_task = None
+
+    async def _listen_audio(self) -> None:
+        """Follow LedFx's live melbank loudness and turn sustained changes
+        into song sections. Reconnects while Music Mode is on."""
+        url = self.config.ledfx_url.replace("http", "ws", 1) + "/api/websocket"
+        while True:
+            try:
+                async with self._session.ws_connect(url, heartbeat=30) as ws:
+                    await ws.send_json(
+                        {
+                            "id": 1,
+                            "type": "subscribe_event",
+                            "event_type": "graph_update",
+                        }
+                    )
+                    graph = None
+                    async for msg in ws:
+                        if msg.type != aiohttp.WSMsgType.TEXT:
+                            continue
+                        data = msg.json()
+                        if data.get("event_type") != "graph_update":
+                            continue
+                        graph = graph or data.get("graph_id")
+                        if data.get("graph_id") != graph:
+                            continue
+                        level = sum(float(v) for v in data.get("melbank") or ())
+                        changed = self.sections.add(level, time.monotonic())
+                        if changed is not None:
+                            self._set_section(changed)
+            except asyncio.CancelledError:
+                raise
+            except Exception as error:  # noqa: BLE001 - keep listening
+                _LOGGER.debug("LedFx audio feed: %s", type(error).__name__)
+            await asyncio.sleep(10)
+
+    @callback
+    def _set_section(self, section: str) -> None:
+        self.section = section
+        _LOGGER.debug("Song section: %s", section)
+        self._reapply()
 
     def _is_on(self, entity_id: str) -> bool:
         state = self.hass.states.get(entity_id)
@@ -208,7 +270,9 @@ class Director:
         if entity_id == self.config.enabled:
             if new_state is not None and new_state.state == STATE_ON:
                 self.schedule(force=True)
+                self._start_audio()
             else:
+                self._stop_audio()
                 self._cancel()
                 self.hass.async_create_task(self._stop())
             return
@@ -319,6 +383,11 @@ class Director:
         auto_effect: str,
         level: float,
     ) -> Decision:
+        # Sections nudge the automatic colours' vividness; chosen colours
+        # (pins, the manual colour) stay as picked.
+        natural = with_intensity(
+            natural, natural.intensity + SECTION_INTENSITY[self.section]
+        )
         pin = self.pins.pins.find(title, artist, album) if title else None
         pinned = named_palette(pin.color, "override") if pin and pin.color else None
         auto_palette = pinned or natural
@@ -326,7 +395,9 @@ class Director:
         effect = self._override() or auto_effect
         config = {
             **effect_config(effect, palette, info.features(), self.strip_solid),
-            "brightness": round(self.brightness_pct / 100, 2),
+            "brightness": round(
+                self.brightness_pct / 100 * SECTION_BRIGHTNESS[self.section], 2
+            ),
         }
         return Decision(
             title,
@@ -356,12 +427,24 @@ class Director:
         )
 
     async def _apply(self, decision: Decision) -> None:
+        previous = self._decision
         self._decision = decision
         self._publish(decision)
         # The pin light follows the playing track.
         async_dispatcher_send(self.hass, CONTROLS_UPDATED)
         if self._is_on(self.config.strip):
-            await self._push_strip(decision)
+            if (
+                previous is not None
+                and previous.effect == decision.effect
+                and previous.title == decision.title
+            ):
+                # Same effect, new colours or brightness: update in place
+                # instead of restarting the effect.
+                await self._ledfx(
+                    "PUT", {"type": decision.effect, "config": decision.config}
+                )
+            else:
+                await self._push_strip(decision)
 
     async def _run(self, force: bool) -> None:
         if not self._transition_set:
@@ -376,6 +459,10 @@ class Director:
         else:
             if key == self._track_key and not force:
                 return
+            if key != self._track_key:
+                # A new song: a new loudness baseline.
+                self.sections.reset(time.monotonic())
+                self.section = NORMAL
             self._track_key = key
             assert player is not None
             decision = await self._decide(player, key)
@@ -660,6 +747,7 @@ class Director:
                 "pinned_colour": self.current_pin(),
                 "natural_palette_source": decision.natural.source,
                 "spotify_status": self.spotify_status,
+                "section": self.section,
                 "brightness_pct": self.brightness_pct,
                 "auto_palette_source": decision.auto_palette.source,
                 "intensity": round(decision.level, 3),

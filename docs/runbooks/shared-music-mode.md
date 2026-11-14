@@ -143,6 +143,29 @@ and `intensity` show what each decision used; `palette_spread`
 the dashboard's preview card under the toggle shows the strip gradient, each
 area's colour, where the colour came from, its spread and the intensity.
 
+## Song sections
+
+While Music Mode is on, the director follows LedFx's live loudness (the
+`graph_update` melbank feed on LedFx's websocket, about 60 per second) and
+turns sustained changes into sections (`sections.py`): a 6 s average is
+compared with the song's 40 s baseline; 1.3× or more is `loud`, 0.65× or
+less is `quiet`, with hysteresis, a 20 s warm-up per track and at least 16 s
+per section, so beats, fills and gaps between phrases do not flip it.
+
+| Section | Strip brightness (× Music Mode Brightness) | Colour intensity |
+| --- | --- | --- |
+| quiet | 0.8 | −0.1 |
+| normal | 0.9 | ±0 |
+| loud | 1.0 | +0.15 |
+
+The strip's effect is updated in place (`PUT …/effects`), not restarted.
+Bulbs keep their brightness; they only take the slightly more or less vivid
+colour, at most once per section. Pins and the manual colour are not
+changed. `sensor.music_director` reports `section`; the preview card shows
+loud and quiet parts. Settings were tuned on live recordings on 2026-11-14:
+hip-hop with gaps between phrases flipped every few seconds at shorter
+averages.
+
 ## Effects
 
 | Family | Chosen when | LedFx effects |
