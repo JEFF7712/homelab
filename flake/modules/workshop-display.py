@@ -113,7 +113,7 @@ def handler(app: Workshop):
         def log_message(self, *_args):
             pass  # Control URLs contain a pairing key.
 
-        def reply(self, code, body, mime="application/json"):
+        def reply(self, code, body, mime="application/json", frame_policy="DENY"):
             if not isinstance(body, bytes):
                 body = json.dumps(body).encode()
             self.send_response(code)
@@ -122,7 +122,7 @@ def handler(app: Workshop):
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
-            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("X-Frame-Options", frame_policy)
             self.end_headers()
             self.wfile.write(body)
 
@@ -139,6 +139,14 @@ def handler(app: Workshop):
                     200,
                     (app.assets / "control.html").read_bytes(),
                     "text/html; charset=utf-8",
+                )
+            if path in ("/preview", "/preview/clock"):
+                filename = "preview.html" if path == "/preview" else "display.html"
+                return self.reply(
+                    200,
+                    (app.assets / filename).read_bytes(),
+                    "text/html; charset=utf-8",
+                    frame_policy="SAMEORIGIN" if path == "/preview/clock" else "DENY",
                 )
             # Only the physical kiosk can read observations and the pairing URL.
             if self.client_address[0] not in ("127.0.0.1", "::1"):
