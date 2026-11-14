@@ -89,6 +89,12 @@ need conversion to JPEG/PNG; a screenshot is a convenient alternative.
 YouTube embedding depends on the video's embed permissions and network access;
 use AirPlay for videos that disallow embedding. The kiosk permits autoplay.
 
+Avahi publishes IPv4 discovery only on homelab-04's physical `enp0s31f6`
+interface. Publishing on Docker/Cilium/VM bridges caused the Workshop service
+to appear without resolving its SRV/TXT records and could return bridge addresses
+for the hostname. Verify `avahi-browse -rpt _airplay._tcp` includes a resolved
+`=` record at `10.0.30.14:7101`, rather than only a `+` discovery record.
+
 UxPlay starts inside the Sway session, advertising **Workshop**. On iPhone use
 Control Center → Screen Mirroring → Workshop. Its Wayland video window covers
 the dashboard; stopping mirroring closes it and reveals the dashboard again.

@@ -9,6 +9,9 @@ let
   cfg = config.homelab.workshopDisplay;
   python = pkgs.python3.withPackages (ps: [ ps.qrcode ]);
   airplay = pkgs.writeShellScript "workshop-airplay" ''
+    # PAM places desktop children in a logind scope; clear the previous receiver
+    # when Sway restarts so it cannot keep the fixed AirPlay ports occupied.
+    ${pkgs.procps}/bin/pkill -u ${config.homelab.kiosk.user} -x .uxplay-wrapped || true
     export GST_PLUGIN_SYSTEM_PATH_1_0=${
       lib.makeSearchPath "lib/gstreamer-1.0" [
         pkgs.gst_all_1.gst-plugins-base
@@ -38,6 +41,9 @@ in
     systemd.services.sway-tty1.after = [ "workshop-display.service" ];
     services.avahi = {
       enable = true;
+      # Publish the workshop on the physical LAN, not Docker, Cilium or VM bridges.
+      allowInterfaces = [ "enp0s31f6" ];
+      ipv6 = false;
       publish.enable = true;
       publish.userServices = true;
     };
