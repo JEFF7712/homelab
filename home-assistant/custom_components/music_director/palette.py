@@ -348,6 +348,14 @@ def _toward(hue: float, target: float, fraction: float) -> float:
     return (hue + delta * fraction) % 360.0
 
 
+def polarize(hue: float, intensity: float) -> float:
+    """Move hue toward the nearer of RED_HUE and BLUE_HUE by boost(intensity):
+    the vibe fallback's purples and magentas become deep blue or red on
+    intense tracks."""
+    target = min((RED_HUE, BLUE_HUE), key=lambda end: hue_distance(hue, end))
+    return _toward(hue, target, boost(intensity))
+
+
 def vibe_palette(
     genres: tuple[str, ...] = (),
     energy: float | None = None,
@@ -359,8 +367,11 @@ def vibe_palette(
     the mood axis (deep blue, purple, magenta, deep red) and the genre pulls
     it toward its own hue: strongly for calm tracks, so R&B stays warm
     orange, and weakly for intense ones, so mood decides. Without valence
-    the genre hue is used as is. Energy (or tempo, 0-1) raises saturation
-    and brightness. Lights spread DEFAULT_SPREAD around the hue."""
+    the genre hue is used as is. Intense tracks are then pulled toward the
+    nearer of deep red and deep blue (by boost(intensity)), so intense rap
+    is red or blue rather than the magenta between them. Energy (or tempo,
+    0-1) raises saturation and brightness. Lights spread DEFAULT_SPREAD
+    around the hue."""
     base = genre_hue(genres)
     drive = energy if energy is not None else tempo
     drive = 0.5 if drive is None else min(1.0, max(0.0, drive))
@@ -371,6 +382,7 @@ def vibe_palette(
         if base is not None:
             pull = GENRE_PULL_CALM + (GENRE_PULL_INTENSE - GENRE_PULL_CALM) * intensity
             hue = _toward(hue, base, pull)
+        hue = polarize(hue, intensity)
     else:
         hue = DEFAULT_HUE if base is None else base
     known = base is not None or energy is not None or valence is not None

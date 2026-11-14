@@ -15,7 +15,8 @@ from .palette import Palette, gradient, solid_colour, solid_gradient, to_hex, tr
 
 FAMILIES: dict[str, tuple[str, ...]] = {
     "calm": ("melt", "lava_lamp"),
-    "smooth": ("melt", "energy"),
+    # R&B, soul and mellow hip-hop always melt.
+    "smooth": ("melt",),
     "bass": ("power", "energy"),
     "drive": ("scroll", "bands", "strobe"),
     "rock": ("wavelength", "bands"),

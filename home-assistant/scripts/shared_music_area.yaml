@@ -90,11 +90,10 @@ sequence:
       - condition: template
         value_template: "{{ step in ['standby', 'off'] }}"
     then:
+      # No fade: Zigbee bulbs fade to off slowly and unreliably.
       - action: light.turn_off
         target:
           entity_id: "{{ config.lights }}"
-        data:
-          transition: 2
       - stop: Area off
   - choose:
       - conditions:
