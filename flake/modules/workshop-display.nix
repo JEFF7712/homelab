@@ -12,6 +12,16 @@ let
     # PAM places desktop children in a logind scope; clear the previous receiver
     # when Sway restarts so it cannot keep the fixed AirPlay ports occupied.
     ${pkgs.procps}/bin/pkill -u ${config.homelab.kiosk.user} -x .uxplay-wrapped || true
+    for attempt in {1..100}; do
+      if ! ${pkgs.procps}/bin/pgrep -u ${config.homelab.kiosk.user} -x .uxplay-wrapped >/dev/null; then
+        break
+      fi
+      ${pkgs.coreutils}/bin/sleep 0.1
+    done
+    if ${pkgs.procps}/bin/pgrep -u ${config.homelab.kiosk.user} -x .uxplay-wrapped >/dev/null; then
+      echo "Previous workshop AirPlay receiver did not exit; refusing to race its listening ports" >&2
+      exit 1
+    fi
     export GST_PLUGIN_SYSTEM_PATH_1_0=${
       lib.makeSearchPath "lib/gstreamer-1.0" [
         pkgs.gst_all_1.gst-plugins-base
@@ -20,7 +30,11 @@ let
         pkgs.gst_all_1.gst-libav
       ]
     }
-    exec ${pkgs.uxplay}/bin/uxplay -n Workshop -nh -hls -p 7100 -vs "waylandsink fullscreen=true" -avdec
+    exec ${pkgs.coreutils}/bin/stdbuf -oL -eL ${pkgs.uxplay}/bin/uxplay -n Workshop -nh -p 7100 -vs ximagesink -avdec
+  '';
+  startAirplay = pkgs.writeShellScript "start-workshop-airplay" ''
+    ${pkgs.systemd}/bin/systemctl --user import-environment DISPLAY WAYLAND_DISPLAY XDG_RUNTIME_DIR
+    exec ${pkgs.systemd}/bin/systemctl --user restart workshop-airplay.service
   '';
 in
 {
@@ -35,9 +49,19 @@ in
     homelab.kiosk.autoplay = true;
     homelab.kiosk.url = "http://127.0.0.1:8094";
     homelab.kiosk.swayExtraConfig = ''
-      exec ${airplay}
+      exec ${startAirplay}
       for_window [app_id="(?i).*uxplay.*"] fullscreen enable
+      for_window [class="^GStreamer$" instance="^Workshop$"] fullscreen enable, focus
     '';
+    systemd.user.services.workshop-airplay = {
+      description = "Workshop AirPlay receiver";
+      unitConfig.ConditionUser = config.homelab.kiosk.user;
+      serviceConfig = {
+        ExecStart = airplay;
+        Restart = "always";
+        RestartSec = "2s";
+      };
+    };
     systemd.services.sway-tty1.after = [ "workshop-display.service" ];
     services.avahi = {
       enable = true;
