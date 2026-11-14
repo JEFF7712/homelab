@@ -16,7 +16,7 @@ let
         pkgs.gst_all_1.gst-libav
       ]
     }
-    exec ${pkgs.uxplay}/bin/uxplay -n Workshop -p 7100 -vs "waylandsink fullscreen=true" -avdec
+    exec ${pkgs.uxplay}/bin/uxplay -n Workshop -nh -hls -p 7100 -vs "waylandsink fullscreen=true" -avdec
   '';
 in
 {
