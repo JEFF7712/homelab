@@ -129,3 +129,20 @@ Check `systemctl status workshop-display sway-tty1`,
 Inspect the monitor via Chromium's loopback CDP endpoint. For rollback, revert
 the workshop module import/enable and restore the previous host kiosk views,
 then ship the revert through the fleet deployment path. homelab-05 is unchanged.
+
+
+## Browser clock preview
+
+Open `http://10.0.30.14:8094/preview` from client Wi-Fi. It scales the shared
+clock UI to the monitor's 3440×1440 aspect ratio, with Day, Night and Refresh
+controls. `/preview/clock?mode=clock` and `?mode=night` serve that same layout
+without the preview toolbar. These modes do not poll Home Assistant/display
+state or fetch the real pairing QR; they use placeholder pairing details.
+They do not select a mode or change content on the physical monitor.
+
+Edit `flake/modules/workshop-display/display.html` to change the shared layout.
+After deployment, refresh the preview to see the new design. For quick local
+iteration, serve `flake/modules/workshop-display/` with `python -m http.server`
+and open `/display.html?preview=clock` (or `?preview=night`); no HA credentials
+or running backend are needed. The iframe preview is same-origin only; live
+state, camera and real QR endpoints remain loopback-only.

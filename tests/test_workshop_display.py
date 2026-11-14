@@ -46,6 +46,42 @@ class WorkshopTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             w.image_data("data:image/png;base64,PHN2Zz4=")
 
+    def test_remote_preview_does_not_expose_live_endpoints(self):
+        class RemoteServer(ThreadingHTTPServer):
+            def get_request(self):
+                connection, address = super().get_request()
+                return connection, ("10.0.20.123", address[1])
+
+        assets = Path(__file__).resolve().parents[1] / "flake/modules/workshop-display"
+        app = w.Workshop("http://unused", "private-ha-token", assets, "http://workshop")
+        server = RemoteServer(("127.0.0.1", 0), w.handler(app))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = "http://127.0.0.1:" + str(server.server_port)
+        try:
+            for path, policy in (
+                ("/preview", "DENY"),
+                ("/preview/clock?mode=night", "SAMEORIGIN"),
+            ):
+                with (
+                    self.subTest(path=path),
+                    urllib.request.urlopen(base + path) as response,
+                ):
+                    body = response.read().decode()
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(response.headers["X-Frame-Options"], policy)
+                    self.assertNotIn(app.key, body)
+                    self.assertNotIn(app.token, body)
+            for path in ("/", "/state", "/pair.svg", "/camera"):
+                with (
+                    self.subTest(path=path),
+                    self.assertRaises(urllib.error.HTTPError) as error,
+                ):
+                    urllib.request.urlopen(base + path)
+                self.assertEqual(error.exception.code, 403)
+        finally:
+            server.shutdown()
+            server.server_close()
+
     def test_share_auth_and_dismiss(self):
         app = w.Workshop(
             "http://unused", "private-ha-token", Path("."), "http://workshop"
