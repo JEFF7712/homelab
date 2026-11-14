@@ -227,6 +227,10 @@ repo:
 - Stays off at power-on with no boot preset; Home Assistant turns it on.
 - UDP sync receive off, so other WLED devices cannot change it.
 - DNS `10.0.20.1` (OPNsense), Wi-Fi sleep off.
+- Firmware WLED 16.0.1 (official `WLED_16.0.1_ESP32.bin`, flashed over the
+  network on 2026-11-14 from 0.15.4; every setting above survived). To
+  update: unlock OTA in Security settings with the passcode, upload the
+  ESP32 build, check the settings above, lock OTA again.
 
 ### Album pins
 
