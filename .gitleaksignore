@@ -18,3 +18,5 @@ b14d77c887de576d874cd7a1a860ffa2ec8cd7bb:.gitleaksignore:generic-api-key:7
 7c7c4f113092274ff3229cc3bffde5e641b116da:tests/test_fleet_ssh_access.py:generic-api-key:12
 bb76e169a777dd921fbaf5db234377b46edf8836:tests/test_fleet_ssh_access.py:generic-api-key:12
 32f43367b04b0febdc9930d52a1a8d6c3afacef4:tests/test_fleet_ssh_access.py:generic-api-key:12
+# Historical Lidarr template has an empty ntfy token; the match spans into the next setting.
+73dba3f2f12d8682303dac3cb34608d851df2ffd:gitops/media/lidarr-extended/extended.conf.template:generic-api-key:102
