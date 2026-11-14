@@ -123,13 +123,13 @@ class TestTunnelIngressIsMirrored(unittest.TestCase):
         self.assertTrue(rule["enabled"])
         self.assertEqual(rule["ref"], "personal_apps_us_only")
         # Compare the evaluated expression with a reviewed complete policy:
-        # non-US (including unknown geography) blocks only the explicit set;
+        # Countries outside US/India (including unknown geography) blocks only the explicit set;
         # the webhook exception is bound to HA, never other hosts or paths.
         host_set = " ".join(json.dumps(host) for host in sorted(hosts))
         self.assertEqual(
             rule["expression"],
             f"(http.host in {{{host_set}}}) "
-            'and (ip.src.country ne "US") '
+            'and not (ip.src.country in {"US" "IN"}) '
             'and not (http.host eq "ha.rupan.dev" '
             'and starts_with(http.request.uri.path, "/api/webhook/"))',
         )

@@ -13,14 +13,14 @@ let
     }).config.hosts;
   rule = {
     ref = "personal_apps_us_only";
-    description = "Personal homelab apps: block visitors outside the US";
+    description = "Personal homelab apps: block visitors outside the US and India";
     action = "block";
     enabled = true;
     expression = lib.concatStringsSep " " [
       "(http.host in {${
         lib.concatMapStringsSep " " builtins.toJSON (builtins.sort builtins.lessThan hosts)
       }})"
-      ''and (ip.src.country ne "US")''
+      ''and not (ip.src.country in {"US" "IN"})''
       ''and not (http.host eq "ha.rupan.dev" and starts_with(http.request.uri.path, "/api/webhook/"))''
     ];
   };

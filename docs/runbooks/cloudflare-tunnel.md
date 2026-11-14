@@ -166,14 +166,14 @@ and `cloudflare_deploy_api_token` (apply). `tofu` reads the token from
 `Account > Cloudflare Tunnel > Read` for plan and `Edit` for apply. The WAF
 declaration additionally requires zone permissions described below.
 
-## US-only personal apps
+## US and India personal apps
 
 `tofu/cloudflare/resources.nix` declares a custom WAF rule in the `rupan.dev` zone's
 `http_request_firewall_custom` entry point. Its explicit 26-host set covers
 personal media, sync, Home Assistant, dashboards and controls. It blocks when
-`ip.src.country ne "US"`, including unknown geography. It does not grant a WAF
-skip or bypass authentication for US visitors. VPN exit geography determines
-the result; travel outside the US needs a US exit or a reviewed rule change.
+`not (ip.src.country in {"US" "IN"})`, including unknown geography. It does not grant a WAF
+skip or bypass authentication for US or Indian visitors. VPN exit geography determines
+the result; travel outside the US and India needs an allowed-country exit or a reviewed rule change.
 
 Public sites, public notes and photography, Git/CI, analytics, ntfy and
 automation receivers are outside the hostname set. Home Assistant's
@@ -208,9 +208,9 @@ For credential provisioning or adoption in another zone:
    saved Cloudflare plan: only the new country block should change behavior;
    tunnel ingress and existing WAF rules must be preserved.
 5. Read the deployed entry point back and compare the expression, action,
-   enabled flag and existing rules. Probe a personal hostname from both a US
-   and non-US exit: only the non-US request should receive the country block.
-   Probe public and integration endpoints from the non-US exit as well.
+   enabled flag and existing rules. Probe a personal hostname from US, Indian
+   and other-country exits: only the other-country request should receive the country block.
+   Probe public and integration endpoints from the other-country exit as well.
 
 Recovery: disable only `personal_apps_us_only` in source and ship it; preserve
 all other rules. `prevent_destroy` protects the shared entry point from removal.
