@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -9,13 +11,36 @@ from unittest.mock import MagicMock
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MODULE = REPO_ROOT / "flake/modules/adguard-netbird/ledfx-roku-bridge.py"
 NIX = REPO_ROOT / "flake/modules/adguard-netbird/ledfx-roku-bridge.nix"
-APPLIANCE = REPO_ROOT / "flake/modules/adguard-netbird-appliance.nix"
 
 # Bedroom slugs verified against live HA entity registry unique_ids
 # (roku_<slug>) on 2026-09-27. Order: desk, floor. The light strip
 # (7C67AB2A0505) is excluded: local control is broken and a separate
 # cloud implementation is in progress.
 SLUGS = ["7C67AB0A83AB", "7C67AB1623B7"]
+
+
+APPLIANCE_RULES = (
+    "nixosConfigurations.adguard-netbird-01.config.networking.firewall.extraInputRules"
+)
+
+
+def appliance_input_rules() -> str:
+    """Evaluated nftables input rules of the appliance that runs the relay."""
+    if shutil.which("nix") is None:
+        raise unittest.SkipTest("nix is required for configuration evaluation")
+    return json.loads(
+        subprocess.run(
+            [
+                "nix",
+                "eval",
+                "--json",
+                f"path:{REPO_ROOT}?dir=flake#{APPLIANCE_RULES}",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    )
 
 
 def load_relay():
@@ -245,11 +270,16 @@ class NixContractTests(unittest.TestCase):
         self.assertNotIn("device_request", source)
 
     def test_appliance_opens_osc_port_only_to_ledfx_hosts(self) -> None:
-        appliance = APPLIANCE.read_text()
         # homelab-05 runs the shared instance, nas-01 the bedroom one. No other
         # host may reach the relay.
-        self.assertIn(
-            "ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept", appliance
+        relay_rules = [
+            line.strip()
+            for line in appliance_input_rules().splitlines()
+            if "dport 9000" in line
+        ]
+        self.assertEqual(
+            relay_rules,
+            ["ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept"],
         )
 
     def test_bedroom_bulbs_excluded_from_recorder(self) -> None:

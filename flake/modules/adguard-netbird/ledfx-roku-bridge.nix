@@ -1,4 +1,9 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  fleetInventory,
+  ...
+}:
 let
   # LedFx OSC relay for the bedroom Roku bulbs. LedFx has no device type that
   # speaks the bulbs' encrypted HTTP API, so one OSC device (pixel_count 2,
@@ -44,7 +49,7 @@ in
 
   sops.templates."ledfx-roku-bridge-mqtt.env" = {
     content = ''
-      MQTT_HOST=10.0.30.10
+      MQTT_HOST=${fleetInventory.hosts.adguard-netbird-01.address}
       MQTT_PORT=1883
       MQTT_USER=roku-bridge
       MQTT_PASS=${config.sops.placeholder."mosquitto-roku-bridge-password"}

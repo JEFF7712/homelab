@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 {
@@ -44,7 +45,7 @@
   homelab.s3.enable = true;
   homelab.niks3Cache = {
     enable = true;
-    address = "10.0.30.20";
+    address = fleetInventory.hosts.nas-01.address;
   };
   homelab.tofuState.enable = true;
   homelab.platformBackup.enable = true;

@@ -8,6 +8,13 @@
 let
   cfg = config.homelab.k3s;
   network = fleetInventory.networks.${fleetInventory.hosts.${config.networking.hostName}.network};
+  inherit (fleetInventory.networks)
+    management
+    clients
+    infrastructure
+    load-balancers
+    guest-iot
+    ;
   auditPolicy = {
     apiVersion = "audit.k8s.io/v1";
     kind = "Policy";
@@ -150,15 +157,15 @@ in
         enable = true;
         extraReversePathFilterRules = "ip saddr 10.42.0.0/16 accept";
         extraInputRules = ''
-          ip saddr 10.0.10.0/24 tcp dport 22 accept
-          ip saddr 10.0.10.0/24 tcp dport 6443 accept
-          ip saddr 10.0.30.0/24 tcp dport { 22, 179, 2379, 2380, 5001, 6443, 6444, 9100, 10250, 4240 } accept
-          ip saddr 10.0.30.0/24 udp dport 8472 accept
+          ip saddr ${management.cidr} tcp dport 22 accept
+          ip saddr ${management.cidr} tcp dport 6443 accept
+          ip saddr ${infrastructure.cidr} tcp dport { 22, 179, 2379, 2380, 5001, 6443, 6444, 9100, 10250, 4240 } accept
+          ip saddr ${infrastructure.cidr} udp dport 8472 accept
           ip saddr 10.42.0.0/16 tcp dport { 6443, 9100, 10250 } accept
-          ip saddr { 10.0.20.0/24, 10.0.30.0/24, 10.0.40.0/24, 10.42.0.0/16 } tcp dport { 8123, 21063 } accept
-          ip saddr { 10.0.10.0/24, 10.0.20.0/24, 10.0.30.0/24, 10.0.40.0/24, 10.0.50.0/24, 10.42.0.0/16 } tcp dport 8888 accept
-          ip saddr 10.0.30.0/24 udp dport 5353 accept
-          ip saddr 10.0.20.0/24 udp dport 4002 accept
+          ip saddr { ${clients.cidr}, ${infrastructure.cidr}, ${load-balancers.cidr}, 10.42.0.0/16 } tcp dport { 8123, 21063 } accept
+          ip saddr { ${management.cidr}, ${clients.cidr}, ${infrastructure.cidr}, ${load-balancers.cidr}, ${guest-iot.cidr}, 10.42.0.0/16 } tcp dport 8888 accept
+          ip saddr ${infrastructure.cidr} udp dport 5353 accept
+          ip saddr ${clients.cidr} udp dport 4002 accept
           ip6 saddr { fd42:20::/64, fd42:30::/64 } udp dport { 5353, 5540 } accept
         '';
       };
