@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import random
+
 import numpy as np
 from PIL import Image, ImageDraw
 
@@ -12,7 +14,7 @@ class PhysicsRenderer(ModeRenderer):
     PERIOD = 20.0
     NUM_SCENES = 9
 
-    def __init__(self) -> None:
+    def __init__(self, randomize: bool = True) -> None:
         rng = np.random.default_rng()
         self.pos = np.zeros((36, 2), dtype=np.float64)
         self.vel = np.zeros((36, 2), dtype=np.float64)
@@ -48,7 +50,48 @@ class PhysicsRenderer(ModeRenderer):
         self.last_scene = -1
         self.rng = rng
         self.scene_timer = 0.0
-        self.current_scene = 0
+        self.randomize = randomize
+        self.playlist: list[int] = list(range(self.NUM_SCENES))
+        self.playlist_pos = 0
+        if self.randomize:
+            random.shuffle(self.playlist)
+        self.current_scene = self.playlist[0] if self.randomize else 0
+
+    def reset(self) -> None:
+        """Reset rotation order (called when switching into Physics mode)."""
+        self.scene_timer = 0.0
+        if self.randomize:
+            random.shuffle(self.playlist)
+            self.playlist_pos = 0
+            self.current_scene = self.playlist[0]
+        else:
+            self.playlist_pos = 0
+            self.current_scene = 0
+
+    def set_scene(self, scene: int) -> None:
+        """Manually select a scene by index and reset the timer."""
+        self.current_scene = scene % self.NUM_SCENES
+        self.scene_timer = 0.0
+        if self.randomize and self.current_scene in self.playlist:
+            self.playlist_pos = self.playlist.index(self.current_scene)
+
+    def _next_scene(self) -> None:
+        if self.randomize:
+            self.playlist_pos += 1
+            if self.playlist_pos >= len(self.playlist):
+                last_idx = self.playlist[-1]
+                self.playlist = list(range(self.NUM_SCENES))
+                random.shuffle(self.playlist)
+                # Avoid playing the same scene consecutively across playlist loops
+                if len(self.playlist) > 1 and self.playlist[0] == last_idx:
+                    self.playlist[0], self.playlist[1] = (
+                        self.playlist[1],
+                        self.playlist[0],
+                    )
+                self.playlist_pos = 0
+            self.current_scene = self.playlist[self.playlist_pos]
+        else:
+            self.current_scene = (self.current_scene + 1) % self.NUM_SCENES
 
     @staticmethod
     def _build_fire_palette() -> np.ndarray:
@@ -144,7 +187,8 @@ class PhysicsRenderer(ModeRenderer):
             if self.scene_timer >= self.PERIOD:
                 steps = int(self.scene_timer // self.PERIOD)
                 self.scene_timer %= self.PERIOD
-                self.current_scene = (self.current_scene + steps) % self.NUM_SCENES
+                for _ in range(steps):
+                    self._next_scene()
         else:
             self.scene_timer = 0.0
 

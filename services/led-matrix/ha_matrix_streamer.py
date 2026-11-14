@@ -312,6 +312,11 @@ def main() -> None:
                         target_renderer.reset()
                     except Exception:
                         pass
+                if target_renderer and hasattr(target_renderer, "reset_rotation"):
+                    try:
+                        target_renderer.reset_rotation()
+                    except Exception:
+                        pass
 
             if active_mode == "Laptop":
                 if streamer.sock is not None:

@@ -881,7 +881,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertNotEqual(arcade.current_idx, initial_arcade_idx)
 
         # 2. PhysicsRenderer
-        physics = PhysicsRenderer()
+        physics = PhysicsRenderer(randomize=False)
         self.assertEqual(physics.current_scene, 0)
         physics.render(replace(ctx_no_cycle, dt=25.0))
         self.assertEqual(physics.current_scene, 0)
@@ -889,7 +889,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(physics.current_scene, 1)
 
         # 3. LifeRenderer
-        life = LifeRenderer(palette_interval=60.0)
+        life = LifeRenderer(palette_interval=60.0, randomize=False)
         self.assertEqual(life.palette_idx, 0)
         life.render(ctx_no_cycle)
         self.assertEqual(life.palette_idx, 0)
@@ -897,7 +897,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         self.assertEqual(life.palette_idx, 1)
 
         # 4. VisualizerRenderer
-        visualizer = VisualizerRenderer(cycle_interval=60.0)
+        visualizer = VisualizerRenderer(cycle_interval=60.0, randomize=False)
         self.assertEqual(visualizer.current_idx, 0)
         visualizer.render(ctx_no_cycle)
         self.assertEqual(visualizer.current_idx, 0)
@@ -1388,7 +1388,7 @@ class HubModeAndRendererTests(unittest.TestCase):
     def test_life_palette_rotation_default_interval(self) -> None:
         from modes import DEFAULT_PALETTES, LifeRenderer
 
-        life = LifeRenderer()
+        life = LifeRenderer(randomize=False)
         # Default palette rotation interval is 2 minutes (120 seconds)
         self.assertEqual(life.palette_interval, 120.0)
         self.assertGreaterEqual(len(DEFAULT_PALETTES), 4)
@@ -1413,7 +1413,7 @@ class HubModeAndRendererTests(unittest.TestCase):
     def test_life_palette_full_rotation_cycle(self) -> None:
         from modes import DEFAULT_PALETTES, LifeRenderer
 
-        life = LifeRenderer(palette_interval=120.0)
+        life = LifeRenderer(palette_interval=120.0, randomize=False)
         total_palettes = len(DEFAULT_PALETTES)
 
         # Step through every palette in sequence
@@ -1444,7 +1444,7 @@ class HubModeAndRendererTests(unittest.TestCase):
     def test_life_palette_render_colors(self) -> None:
         from modes import HAState, LifeRenderer, PlaybackState, RenderContext
 
-        life = LifeRenderer()
+        life = LifeRenderer(randomize=False)
         ctx = RenderContext(
             tick=10.0,
             dt=0.05,
@@ -1468,7 +1468,7 @@ class HubModeAndRendererTests(unittest.TestCase):
     def test_life_reset_preserves_palette_timer(self) -> None:
         from modes import LifeRenderer
 
-        life = LifeRenderer(palette_interval=120.0)
+        life = LifeRenderer(palette_interval=120.0, randomize=False)
         life.update(150.0)  # Advances to palette 1, 30s into next 2min cycle
         self.assertEqual(life.palette_idx, 1)
         self.assertAlmostEqual(life.palette_timer, 30.0)
@@ -1481,7 +1481,7 @@ class HubModeAndRendererTests(unittest.TestCase):
     def test_visualizer_effects_and_cycling(self) -> None:
         from modes import HAState, PlaybackState, RenderContext, VisualizerRenderer
 
-        vis = VisualizerRenderer(cycle_interval=60.0)
+        vis = VisualizerRenderer(cycle_interval=60.0, randomize=False)
         self.assertEqual(len(vis.effects), 5)
         names = [eff.name for eff in vis.effects]
         self.assertIn("FIBONACCI128", names)
@@ -1691,6 +1691,102 @@ class HubModeAndRendererTests(unittest.TestCase):
                 visited[i],
                 visited[i + 1],
                 f"Duplicate consecutive game at {i}: {visited[i]}",
+            )
+
+    def test_physics_renderer_random_cycle_and_reset(self) -> None:
+        import random
+
+        from modes.physics import PhysicsRenderer
+
+        random.seed(12345)
+        physics = PhysicsRenderer(randomize=True)
+        self.assertEqual(len(physics.playlist), physics.NUM_SCENES)
+        self.assertEqual(set(physics.playlist), set(range(physics.NUM_SCENES)))
+
+        initial_playlist = list(physics.playlist)
+
+        # Reset should re-shuffle
+        random.seed(67890)
+        physics.reset()
+        reset_playlist = list(physics.playlist)
+        self.assertNotEqual(initial_playlist, reset_playlist)
+
+        # Cycling through the full playlist covers all scenes without repeating consecutively
+        visited = []
+        for _ in range(physics.NUM_SCENES * 2):
+            visited.append(physics.current_scene)
+            physics._next_scene()
+
+        # Check no two consecutive scenes are the same
+        for i in range(len(visited) - 1):
+            self.assertNotEqual(
+                visited[i],
+                visited[i + 1],
+                f"Duplicate consecutive scene at {i}: {visited[i]}",
+            )
+
+    def test_visualizer_random_cycle_and_reset(self) -> None:
+        import random
+
+        from modes.visualizer import VisualizerRenderer
+
+        random.seed(12345)
+        vis = VisualizerRenderer(cycle_interval=1.0, randomize=True)
+        self.assertEqual(len(vis.playlist), len(vis.effects))
+        self.assertEqual(set(vis.playlist), set(range(len(vis.effects))))
+
+        initial_playlist = list(vis.playlist)
+
+        # Reset should re-shuffle
+        random.seed(67890)
+        vis.reset()
+        reset_playlist = list(vis.playlist)
+        self.assertNotEqual(initial_playlist, reset_playlist)
+
+        # Cycling through the full playlist covers all effects without repeating consecutively
+        visited = []
+        for _ in range(len(vis.effects) * 2):
+            visited.append(vis.current_idx)
+            vis._next_effect()
+
+        # Check no two consecutive effects are the same
+        for i in range(len(visited) - 1):
+            self.assertNotEqual(
+                visited[i],
+                visited[i + 1],
+                f"Duplicate consecutive effect at {i}: {visited[i]}",
+            )
+
+    def test_life_palette_random_cycle_and_reset(self) -> None:
+        import random
+
+        from modes.life import LifeRenderer
+
+        random.seed(12345)
+        life = LifeRenderer(palette_interval=1.0, randomize=True)
+        self.assertEqual(len(life.palette_playlist), len(life.palettes))
+        self.assertEqual(set(life.palette_playlist), set(range(len(life.palettes))))
+
+        initial_playlist = list(life.palette_playlist)
+
+        # reset_palettes should re-shuffle
+        random.seed(67890)
+        life.reset_palettes()
+        reset_playlist = list(life.palette_playlist)
+        self.assertNotEqual(initial_playlist, reset_playlist)
+
+        # Cycling through the full playlist covers all palettes without repeating consecutively
+        visited = []
+        for _ in range(len(life.palettes) * 2):
+            visited.append(life.palette_idx)
+            life._next_palette()
+
+        # Check no two consecutive palettes are the same
+        for i in range(len(visited) - 1):
+            self.assertNotEqual(
+                visited[i],
+                visited[i + 1],
+                f"Duplicate consecutive palette at {i}: {visited[i]}",
             )
 
     def test_multiplayer_arcade_thread_safety_and_game_change_stability(self) -> None:
@@ -2012,7 +2108,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         from modes import PhysicsRenderer
         from modes.base import HAState, PlaybackState, RenderContext
 
-        physics = PhysicsRenderer()
+        physics = PhysicsRenderer(randomize=False)
         self.assertEqual(physics.NUM_SCENES, 9)
         self.assertEqual(physics.current_scene, 0)
 
@@ -2060,7 +2156,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         from modes import PhysicsRenderer
         from modes.base import HAState, PlaybackState, RenderContext
 
-        physics = PhysicsRenderer()
+        physics = PhysicsRenderer(randomize=False)
         physics.current_scene = 7
         ha_state = HAState(
             connected=True,
@@ -2097,7 +2193,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         from modes import PhysicsRenderer
         from modes.base import HAState, PlaybackState, RenderContext
 
-        physics = PhysicsRenderer()
+        physics = PhysicsRenderer(randomize=False)
         physics.current_scene = 8
         ha_state = HAState(
             connected=True,
@@ -2131,7 +2227,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         from modes import PhysicsRenderer
         from modes.base import HAState, PlaybackState, RenderContext
 
-        physics = PhysicsRenderer()
+        physics = PhysicsRenderer(randomize=False)
         physics.current_scene = 3
         ha_state = HAState(
             connected=True,
@@ -2163,7 +2259,7 @@ class HubModeAndRendererTests(unittest.TestCase):
         from modes import PhysicsRenderer
         from modes.base import HAState, PlaybackState, RenderContext
 
-        physics = PhysicsRenderer()
+        physics = PhysicsRenderer(randomize=False)
         physics.current_scene = 1
         ha_state = HAState(
             connected=True,

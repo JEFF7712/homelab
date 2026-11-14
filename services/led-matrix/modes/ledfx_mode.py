@@ -170,6 +170,16 @@ class LedFxRenderer(ModeRenderer):
         self.fallback = fallback_renderer or VisualizerRenderer()
         self.stream_timeout = stream_timeout
 
+    def reset(self) -> None:
+        if hasattr(self.fallback, "reset"):
+            self.fallback.reset()
+
+    def reset_rotation(self) -> None:
+        if hasattr(self.fallback, "reset_rotation"):
+            self.fallback.reset_rotation()
+        elif hasattr(self.fallback, "reset"):
+            self.fallback.reset()
+
     def render(self, ctx: RenderContext, size: int = 64) -> Image.Image:
         if self.receiver.has_recent_frame(timeout=self.stream_timeout):
             frame = self.receiver.get_frame()

@@ -543,6 +543,7 @@ class VisualizerRenderer(ModeRenderer):
         cycle_interval: float = 60.0,
         effects: list[VisualizerEffect] | None = None,
         audio_source: Callable[[], Any] | None = None,
+        randomize: bool = True,
     ) -> None:
         self.size = size
         self.cycle_interval = cycle_interval
@@ -554,7 +555,12 @@ class VisualizerRenderer(ModeRenderer):
             BeatWarpTunnelEffect(size),
         ]
         self.audio_source = audio_source
-        self.current_idx = 0
+        self.randomize = randomize
+        self.playlist: list[int] = list(range(len(self.effects)))
+        self.playlist_pos = 0
+        if self.randomize:
+            random.shuffle(self.playlist)
+        self.current_idx = self.playlist[0] if self.randomize else 0
         self.timer = 0.0
         self.beat_phase = 0.0
 
@@ -566,10 +572,24 @@ class VisualizerRenderer(ModeRenderer):
     def current_effect_name(self) -> str:
         return self.current_effect.name
 
+    def reset(self) -> None:
+        """Reset rotation order (called when switching into Visualizer mode)."""
+        self.timer = 0.0
+        if self.randomize:
+            random.shuffle(self.playlist)
+            self.playlist_pos = 0
+            self.current_idx = self.playlist[0]
+        else:
+            self.playlist_pos = 0
+            self.current_idx = 0
+        self.current_effect.reset()
+
     def set_effect(self, index_or_name: int | str) -> None:
         if isinstance(index_or_name, int):
             self.current_idx = index_or_name % len(self.effects)
             self.timer = 0.0
+            if self.randomize and self.current_idx in self.playlist:
+                self.playlist_pos = self.playlist.index(self.current_idx)
             self.current_effect.reset()
         else:
             name_lower = index_or_name.lower()
@@ -577,9 +597,30 @@ class VisualizerRenderer(ModeRenderer):
                 if eff.name.lower() == name_lower:
                     self.current_idx = idx
                     self.timer = 0.0
+                    if self.randomize and self.current_idx in self.playlist:
+                        self.playlist_pos = self.playlist.index(self.current_idx)
                     eff.reset()
                     return
             raise ValueError(f"Unknown visualizer effect: {index_or_name}")
+
+    def _next_effect(self) -> None:
+        if self.randomize:
+            self.playlist_pos += 1
+            if self.playlist_pos >= len(self.playlist):
+                last_idx = self.playlist[-1]
+                self.playlist = list(range(len(self.effects)))
+                random.shuffle(self.playlist)
+                # Avoid playing the same effect consecutively across playlist loops
+                if len(self.playlist) > 1 and self.playlist[0] == last_idx:
+                    self.playlist[0], self.playlist[1] = (
+                        self.playlist[1],
+                        self.playlist[0],
+                    )
+                self.playlist_pos = 0
+            self.current_idx = self.playlist[self.playlist_pos]
+        else:
+            self.current_idx = (self.current_idx + 1) % len(self.effects)
+        self.current_effect.reset()
 
     def update(
         self,
@@ -594,8 +635,8 @@ class VisualizerRenderer(ModeRenderer):
             if self.timer >= self.cycle_interval:
                 steps = int(self.timer // self.cycle_interval)
                 self.timer %= self.cycle_interval
-                self.current_idx = (self.current_idx + steps) % len(self.effects)
-                self.current_effect.reset()
+                for _ in range(steps):
+                    self._next_effect()
         elif not should_cycle:
             self.timer = 0.0
 
