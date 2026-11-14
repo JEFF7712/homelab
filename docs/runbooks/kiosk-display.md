@@ -75,19 +75,41 @@ The re-seed exists only because each boot starts from a fresh browser profile.
 The owning module is `flake/modules/workshop-display.nix`; its standard-library
 HTTP service serves the UI and polls the A1's Home Assistant entities every five
 seconds using a systemd credential. The browser never receives the HA token.
-An idle display shows the clock; between 22:00 and 07:00 it dims. Running,
-preparing, paused, and failed prints select the custom print screen, with a
-camera snapshot refreshed every five seconds. Missing/stale HA observations
-are visibly identified. Nighttime does not dim an active print or shared content.
+An idle display shows the clock and the pairing QR code; between 22:00 and
+07:00 it dims. Running, preparing, paused, and failed prints select the custom
+print screen: a live camera (HA's MJPEG `camera_proxy_stream`, proxied at
+`/camera.mjpeg` and reconnected every minute or after an error), progress,
+finish time and time left, stage, layer, and nozzle/bed temperatures against
+their targets. A failed print turns red and lists the error text from the
+`print_error` and `hms_errors` binary sensors. When the service observes a
+print go from running/preparing/paused to `finish`, it shows a finished screen
+(finish time, duration, filament weight and length) for 30 minutes or until
+**Return to dashboard** is pressed. A service restart drops that record. Missing/stale HA observations
+are visibly identified. Nighttime does not dim an active print, a finished
+print, or shared content.
 
 Scan the QR code on the physical monitor and bookmark the resulting paired
-phone page. Paste a YouTube link or upload a PNG/JPEG/WebP under 6 MB. Shared
-content takes priority until **Return to dashboard** is pressed. The random
-pairing key and shared content live in memory: service restarts revoke bookmarks
-and clear content, so scan again. No images are persisted. iPhone HEIC photos
-need conversion to JPEG/PNG; a screenshot is a convenient alternative.
+phone page. Paste a YouTube link or upload a PNG/JPEG/WebP/HEIC image under
+6 MB. HEIC photos are converted server-side to JPEG (at most 3840 px) with
+`pillow-heif`; the file's contents decide its type, not the declared MIME type.
+Shared content takes priority until **Return to dashboard** is pressed. The
+pairing key persists in `/var/lib/private/workshop-display/pairing-key`
+(DynamicUser state, kept under `/persist`), so bookmarks survive restarts and
+reboots. To revoke every paired phone, delete that file and restart
+`workshop-display`. Shared content stays in memory only and is cleared by a
+restart. No images are persisted.
 YouTube embedding depends on the video's embed permissions and network access;
 use AirPlay for videos that disallow embedding. The kiosk permits autoplay.
+
+While a shared YouTube video is on screen, the paired page shows play/pause,
+±10 s, and a seek slider. The phone posts keyed `/media` commands
+(`play`, `pause`, `seek` with seconds). The server keeps the last eight in a
+sequenced queue so taps between kiosk polls are not lost, and the kiosk polls
+every second while a video shows. It runs commands through YouTube's iframe
+`postMessage` API (`enablejsapi=1`) and reports the player's position to the
+loopback-only, keyless `/player` endpoint; the phone reads it from keyed
+`GET /media`. A reloaded kiosk skips commands queued before it loaded. Sharing
+or dismissing content clears the reported position.
 
 Avahi publishes IPv4 discovery only on homelab-04's physical `enp0s31f6`
 interface. Publishing on Docker/Cilium/VM bridges caused the Workshop service
@@ -113,8 +135,7 @@ page instead. Check recovery with the user service
 `systemctl --user show workshop-airplay -p NRestarts -p MainPID`; a forced
 receiver exit must restore both TCP 7101 and its resolved AirPlay advertisement.
 AirPlay playback and audio must be tested with a real iPhone. The receiver is
-for the trusted LAN; v1 has no print overlay over AirPlay. Print completion
-returns to the clock rather than retaining a finished screen.
+for the trusted LAN; there is no print overlay over AirPlay.
 
 Phone controls listen on TCP 8094. Dashboard observations, camera proxy, and
 pairing information are loopback-only; writes require the pairing key. AirPlay
