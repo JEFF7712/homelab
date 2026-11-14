@@ -22,6 +22,7 @@ class ZotRegistryModuleTests(unittest.TestCase):
             flake = builtins.getFlake (toString {json.dumps(str(ROOT / "flake"))});
             system = flake.inputs.nixpkgs.lib.nixosSystem {{
               system = "x86_64-linux";
+              specialArgs.fleetInventory = import {json.dumps(str(ROOT / "inventory"))} {{ inherit (flake.inputs.nixpkgs) lib; }};
               modules = [
                 flake.inputs.impermanence.nixosModules.impermanence
                 flake.inputs.sops-nix.nixosModules.sops

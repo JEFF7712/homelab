@@ -2,16 +2,18 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
   cfg = config.homelab.omarchyVm;
+  inherit (fleetInventory) networks;
   root = "/persist/omarchy-vm/akshath";
   python = "${pkgs.python3}/bin/python3";
   runtime = ./omarchy_vm/runtime.py;
   firmware = pkgs.OVMF;
   privateRanges = "{ 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24, 224.0.0.0/4, 240.0.0.0/4 }";
-  ingress = "{ 10.0.10.0/24, 10.0.20.0/24, 10.0.30.10/32, 100.64.0.0/10 }";
+  ingress = "{ ${networks.management.cidr}, ${networks.clients.cidr}, ${fleetInventory.hosts.adguard-netbird-01.address}/32, 100.64.0.0/10 }";
   launch = pkgs.writeShellScript "omarchy-akshath-launch" ''
     set -euo pipefail
     test -f ${root}/system.qcow2
@@ -166,7 +168,9 @@ in
         }
         chain prerouting {
           type nat hook prerouting priority dstnat; policy accept;
-          iifname "enp0s31f6" ip saddr ${ingress} ip daddr 10.0.30.15 tcp dport 2222 dnat ip to 10.250.60.2:22
+          iifname "enp0s31f6" ip saddr ${ingress} ip daddr ${
+            fleetInventory.hosts.${config.networking.hostName}.address
+          } tcp dport 2222 dnat ip to 10.250.60.2:22
         }
         chain postrouting {
           type nat hook postrouting priority srcnat; policy accept;
@@ -177,7 +181,7 @@ in
     networking.firewall.extraInputRules = lib.mkAfter ''
       iifname "br-akshath" ip saddr { 0.0.0.0, 10.250.60.2 } udp sport 68 udp dport 67 accept
       iifname "br-akshath" ip saddr 10.250.60.2 tcp dport 5906 accept
-      ip saddr { 10.0.30.0/24, 10.42.0.0/16 } tcp dport 9126 accept
+      ip saddr { ${networks.infrastructure.cidr}, 10.42.0.0/16 } tcp dport 9126 accept
     '';
     networking.firewall.extraReversePathFilterRules = lib.mkAfter ''
       iifname "br-akshath" ip saddr { 0.0.0.0, 10.250.60.2 } accept

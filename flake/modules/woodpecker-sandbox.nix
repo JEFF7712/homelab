@@ -2,13 +2,15 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
   cfg = config.homelab.woodpeckerSandbox;
+  inherit (fleetInventory) hosts networks;
   tunnelUser = "woodpecker-sandbox-tunnel";
   knownHosts = pkgs.writeText "woodpecker-sandbox-known-hosts" ''
-    10.0.30.14 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPy04yANSz9NFohTBmfsxRCmzvrdV5OR29xTxD43gtHK
+    ${hosts.homelab-04.address} ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPy04yANSz9NFohTBmfsxRCmzvrdV5OR29xTxD43gtHK
   '';
 in
 {
@@ -57,8 +59,8 @@ in
           cgroup-parent = "ci.slice";
           data-root = "/persist/docker";
           dns = [
-            "10.0.30.10"
-            "10.0.30.1"
+            hosts.adguard-netbird-01.address
+            networks.infrastructure.gateway
           ];
           dns-opts = [ "no-aaaa" ];
         };
@@ -78,7 +80,7 @@ in
           chain forward {
             type filter hook forward priority filter - 10; policy accept;
             iifname { "docker0", "br-*" } ip daddr { 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 } meta l4proto { tcp, udp } th dport { 111, 2049 } counter drop
-            iifname { "docker0", "br-*" } ip daddr { 10.0.30.14, 10.0.30.15 } tcp dport { 22, 19000 } counter drop
+            iifname { "docker0", "br-*" } ip daddr { ${hosts.homelab-04.address}, ${hosts.homelab-05.address} } tcp dport { 22, 19000 } counter drop
           }
         '';
       };
@@ -90,7 +92,7 @@ in
           Type = "exec";
           DynamicUser = true;
           LoadCredential = "ssh-key:${config.sops.secrets.woodpecker-sandbox-ssh-key.path}";
-          ExecStart = "${pkgs.openssh}/bin/ssh -F /dev/null -N -T -i %d/ssh-key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHosts} -o GlobalKnownHostsFile=/dev/null -o ExitOnForwardFailure=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 127.0.0.1:19000:127.0.0.1:9000 ${tunnelUser}@10.0.30.14";
+          ExecStart = "${pkgs.openssh}/bin/ssh -F /dev/null -N -T -i %d/ssh-key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${knownHosts} -o GlobalKnownHostsFile=/dev/null -o ExitOnForwardFailure=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L 127.0.0.1:19000:127.0.0.1:9000 ${tunnelUser}@${hosts.homelab-04.address}";
           Restart = "always";
           RestartSec = 5;
           NoNewPrivileges = true;

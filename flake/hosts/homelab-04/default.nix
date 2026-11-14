@@ -225,9 +225,9 @@ in
             dns = [ "1.1.1.1" ];
             ntp = [ ];
             ingress_sources = [
-              "10.0.10.0/24"
-              "10.0.20.0/24"
-              "10.0.30.10/32"
+              fleetInventory.networks.management.cidr
+              fleetInventory.networks.clients.cidr
+              "${fleetInventory.hosts.adguard-netbird-01.address}/32"
               "100.94.191.33/32"
             ];
           };
@@ -249,9 +249,9 @@ in
             dns = [ "1.1.1.1" ];
             ntp = [ ];
             ingress_sources = [
-              "10.0.10.0/24"
-              "10.0.20.0/24"
-              "10.0.30.10/32"
+              fleetInventory.networks.management.cidr
+              fleetInventory.networks.clients.cidr
+              "${fleetInventory.hosts.adguard-netbird-01.address}/32"
               "100.94.191.33/32"
             ];
           };

@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
@@ -124,8 +125,8 @@ in
       allowedCidrs = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [
-          "10.0.10.0/24"
-          "10.0.20.0/24"
+          fleetInventory.networks.management.cidr
+          fleetInventory.networks.clients.cidr
           "100.64.0.0/10"
         ];
         description = "Client subnets allowed to reach restricted RPC: management, clients, and NetBird VPN. Guest IoT is deliberately excluded.";
@@ -227,7 +228,7 @@ in
 
     networking.firewall.extraInputRules = lib.mkAfter ''
       ${lib.optionalString cfg.openP2P "tcp dport ${toString cfg.p2pPort} accept"}
-      ip saddr 10.0.30.0/24 tcp dport ${toString cfg.exporterPort} accept
+      ip saddr ${fleetInventory.networks.infrastructure.cidr} tcp dport ${toString cfg.exporterPort} accept
       ip saddr 10.42.0.0/16 tcp dport ${toString cfg.exporterPort} accept
       ${lib.optionalString cfg.restrictedRpc.enable "ip saddr { ${lib.concatStringsSep ", " cfg.restrictedRpc.allowedCidrs} } tcp dport ${toString cfg.restrictedRpc.port} accept"}
     '';

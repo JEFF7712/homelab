@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
@@ -76,7 +77,9 @@ in
         exec ${python}/bin/python3 ${./workshop-display.py} \
           --ha http://10.0.40.13:8123 \
           --token-file "$CREDENTIALS_DIRECTORY/ha-token" \
-          --assets ${./workshop-display} --control-url http://10.0.30.14:8094
+          --assets ${./workshop-display} --control-url http://${
+            fleetInventory.hosts.${config.networking.hostName}.address
+          }:8094
       '';
     };
   };
