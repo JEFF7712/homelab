@@ -169,6 +169,11 @@ class AgentCheckSelectionTest(unittest.TestCase):
             "gitops/media/spotify-sync/sync.py": ("gitops", "python"),
             "gitops/automation/forgejo-dashboard/dashboard.py": ("gitops", "python"),
             "gitops/automation/website-monitor/healthcheck.sh": ("gitops",),
+            "gitops/media/lidarr-extended/10-render-extended-conf": (
+                "gitops",
+                "python",
+            ),
+            "gitops/media/lidarr-extended/tidal-dl-shim": ("gitops",),
             "tofu/cloudflare/.terraform.lock.hcl": ("tofu",),
         }
         for path, checks in expected.items():

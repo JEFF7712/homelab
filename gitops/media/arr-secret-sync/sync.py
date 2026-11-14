@@ -9,8 +9,9 @@ import copy
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
-from typing import Any, Optional
+from typing import Any
 
 TIMEOUT = 15
 
@@ -35,7 +36,7 @@ def api(
     base: str,
     api_key: str,
     path: str,
-    body: Optional[dict] = None,
+    body: dict | None = None,
 ) -> tuple[int, Any]:
     data = None
     headers = {"X-Api-Key": api_key, "Accept": "application/json"}

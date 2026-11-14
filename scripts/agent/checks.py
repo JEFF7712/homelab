@@ -100,7 +100,8 @@ COMMANDS = {
 }
 
 
-# Python mounted into workloads from gitops/ that scripts/checks/python.sh
+# Python mounted into workloads from gitops/ (directories, or an exact
+# file for an extensionless script) that scripts/checks/python.sh
 # lints and type-checks; scripts/ci/scope.py routes the same prefixes.
 PYTHON_GITOPS_PREFIXES = (
     "gitops/observability/network-monitor/",
@@ -108,6 +109,14 @@ PYTHON_GITOPS_PREFIXES = (
     "gitops/automation/forgejo-dashboard/",
     "gitops/automation/renovate-approval-webhook/",
     "gitops/automation/renovate-reviewer/",
+    "gitops/media/arr-queue-hygiene/",
+    "gitops/media/arr-secret-sync/",
+    "gitops/media/beets/",
+    "gitops/media/jellyfin-backup/",
+    "gitops/media/navidrome-lookup/",
+    "gitops/media/soularr/",
+    # An extensionless Python script, routed by its exact path.
+    "gitops/media/lidarr-extended/10-render-extended-conf",
 )
 
 
@@ -145,7 +154,9 @@ def _route(path: str) -> list[tuple[str, str]]:
         return [("nix-all-hosts", reason), ("tofu", reason), ("python", reason)]
     if path.startswith("opnsense_reconciler/") and path.endswith(".py"):
         return [("python", f"{path} changes Python reconciliation")]
-    if path.startswith(PYTHON_GITOPS_PREFIXES) and path.endswith(".py"):
+    if path.startswith(PYTHON_GITOPS_PREFIXES) and (
+        path.endswith(".py") or path in PYTHON_GITOPS_PREFIXES
+    ):
         return [
             ("gitops", f"{path} changes Kubernetes desired state"),
             ("python", f"{path} is Python under the lint and type gates"),
