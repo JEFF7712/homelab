@@ -344,6 +344,29 @@
         "enabled": true,
         "name": "wled_ports",
         "type": "port"
+      },
+      "workshop_airplay_ports": {
+        "content": [
+          "7100",
+          "7101",
+          "7102"
+        ],
+        "description": "Workshop AirPlay audio and video transport",
+        "enabled": true,
+        "name": "workshop_airplay_ports",
+        "type": "port"
+      },
+      "workshop_tcp_ports": {
+        "content": [
+          "7100",
+          "7101",
+          "7102",
+          "8094"
+        ],
+        "description": "Workshop AirPlay and paired phone controls",
+        "enabled": true,
+        "name": "workshop_tcp_ports",
+        "type": "port"
       }
     },
     "firewall_filters": {
@@ -658,6 +681,58 @@
           ]
         },
         "sequence": 216
+      },
+      "clients-allow-workshop-airplay-udp": {
+        "description": "Allow clients to workshop AirPlay transport",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.14",
+            "port": "workshop_airplay_ports"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "UDP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 213
+      },
+      "clients-allow-workshop-tcp": {
+        "description": "Allow clients to workshop phone controls and AirPlay",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.14",
+            "port": "workshop_tcp_ports"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 212
       },
       "clients-block-bambu-internet": {
         "description": "Block Bambu Lab A1 printer from the Internet (LAN mode only)",

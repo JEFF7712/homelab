@@ -178,6 +178,27 @@
         description = "NetBird peers may reach management, clients, infrastructure, and load-balancer VIPs";
         enabled = true;
       };
+      workshop_tcp_ports = {
+        type = "port";
+        content = [
+          "7100"
+          "7101"
+          "7102"
+          "8094"
+        ];
+        description = "Workshop AirPlay and paired phone controls";
+        enabled = true;
+      };
+      workshop_airplay_ports = {
+        type = "port";
+        content = [
+          "7100"
+          "7101"
+          "7102"
+        ];
+        description = "Workshop AirPlay audio and video transport";
+        enabled = true;
+      };
       spotify_connect_ports = {
         type = "port";
         content = [
@@ -471,6 +492,50 @@
           destination = {
             net = fleetInventory.hosts.homelab-05.address;
             port = "8888";
+          };
+        };
+      };
+      clients-allow-workshop-tcp = {
+        description = "Allow clients to workshop phone controls and AirPlay";
+        enabled = true;
+        sequence = 212;
+        interface.interface = [ "opt1" ];
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "TCP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.clients.cidr;
+            port = "";
+          };
+          destination = {
+            net = fleetInventory.hosts.homelab-04.address;
+            port = "workshop_tcp_ports";
+          };
+        };
+      };
+      clients-allow-workshop-airplay-udp = {
+        description = "Allow clients to workshop AirPlay transport";
+        enabled = true;
+        sequence = 213;
+        interface.interface = [ "opt1" ];
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.clients.cidr;
+            port = "";
+          };
+          destination = {
+            net = fleetInventory.hosts.homelab-04.address;
+            port = "workshop_airplay_ports";
           };
         };
       };

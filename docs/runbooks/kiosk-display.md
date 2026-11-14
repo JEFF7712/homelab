@@ -99,8 +99,9 @@ returns to the clock rather than retaining a finished screen.
 Phone controls listen on TCP 8094. Dashboard observations, camera proxy, and
 pairing information are loopback-only; writes require the pairing key. AirPlay
 uses TCP/UDP 7100–7102 plus Avahi mDNS. These host firewall additions require
-operator approval under the repository's host-exposure policy. No WAN ingress
-or router rules are added. If the phone is on a different VLAN, mDNS discovery
+operator approval under the repository's host-exposure policy. No WAN ingress is added. Narrow OPNsense client-VLAN rules allow only these
+TCP/UDP ports to homelab-04. Existing client/infrastructure mDNS relay policy is
+retained; actual discovery must be checked from an iPhone on client Wi-Fi. If the phone is on a different VLAN, mDNS discovery
 and routing depend on existing network rules; do not open unrelated networks.
 
 Check `systemctl status workshop-display sway-tty1`,
