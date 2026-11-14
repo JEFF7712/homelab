@@ -3,7 +3,9 @@ alias: "Bedroom: Morning Wake-Up Music"
 description: >-
   At the Bedroom Wake Time helper (08:00, shared with the wake-up light fade
   and weather briefing), play the Zam playlist shuffled at low volume on the
-  bedroom Bose speaker, then stop it 20 minutes later.
+  bedroom Bose speaker, then stop it 20 minutes later. If the speaker does
+  not connect within 30 seconds (it is powered off), the run ends without
+  playing.
   Shuffle is settled before the play so the first track is random: the
   Music Assistant shuffle and clear commands are no-ops while the player's
   source is Spotify Connect, so the queue source is selected first, and
@@ -45,10 +47,21 @@ actions:
             entity_id: input_boolean.vacation_mode
             state: "off"
         sequence:
-          # The speaker may have dropped off nas-01 overnight; a failed
-          # connect (speaker off) must not stop the rest of the run.
+          # The speaker may have dropped off nas-01 overnight. A failed
+          # connect is not an error here; the wait below decides.
           - action: rest_command.bose_speaker_connect
             continue_on_error: true
+          # The sensor polls nas-01 every 10 s. If the speaker is powered off
+          # nothing can be heard, so skip instead of playing into silence.
+          - wait_template: "{{ is_state('binary_sensor.bedroom_speaker_bluetooth', 'on') }}"
+            timeout:
+              seconds: 30
+            continue_on_timeout: true
+          - if:
+              - condition: template
+                value_template: "{{ not is_state('binary_sensor.bedroom_speaker_bluetooth', 'on') }}"
+            then:
+              - stop: Bedroom speaker is not connected; skipping wake-up music.
           - action: media_player.select_source
             target:
               entity_id: media_player.bedroom_speaker
