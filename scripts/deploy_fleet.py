@@ -42,6 +42,14 @@ DRAIN_TIMEOUT = 300.0
 # job before it can uncordon, so the next run releases a marked cordon once
 # the node runs the desired system healthily. Operator cordons carry no mark.
 CORDON_MARK = "homelab.fleet/deploy-cordon"
+# Embedded etcd members carry this k3s node label. Restarting k3s on one
+# restarts its member, so every member must answer healthy before one is
+# taken down and again after it returns: two members down loses quorum.
+ETCD_MEMBER_SELECTOR = "node-role.kubernetes.io/etcd=true"
+# The loopback metrics listener exists with or without --etcd-expose-metrics.
+# /health answers true only when the member has a leader and serves a
+# quorum read.
+ETCD_HEALTH = "curl -fsS --max-time 3 http://127.0.0.1:2381/health"
 # Every CloudNativePG cluster, as (namespace, name); test_deploy_fleet checks
 # this against gitops so a new cluster is not left out of the post-switch wait.
 POSTGRES_CLUSTERS = (
@@ -1090,6 +1098,71 @@ class FleetDeployer:
                 self.sleeper(3.0)
         return False
 
+    def etcd_members(self) -> list[HostConfig]:
+        result = run_command(
+            [
+                "kubectl",
+                "get",
+                "nodes",
+                "-l",
+                ETCD_MEMBER_SELECTOR,
+                "-o",
+                "jsonpath={.items[*].metadata.name}",
+            ],
+            runner=self.runner,
+            timeout=15.0,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise FleetDeploymentError(
+                f"Cannot list etcd members: {result.stderr.strip()}"
+            )
+        names = result.stdout.split()
+        unknown = sorted(set(names) - set(FLEET_HOSTS))
+        if unknown:
+            raise FleetDeploymentError(
+                f"etcd members outside the fleet inventory: {', '.join(unknown)}"
+            )
+        return [FLEET_HOSTS[name] for name in names]
+
+    def etcd_healthy(self, member: HostConfig) -> bool:
+        result = run_command(
+            self.ssh_command(member.ip, ETCD_HEALTH),
+            runner=self.runner,
+            timeout=15.0,
+            check=False,
+        )
+        if result.returncode != 0:
+            return False
+        try:
+            return json.loads(result.stdout).get("health") == "true"
+        except (ValueError, AttributeError):
+            return False
+
+    def wait_etcd_quorum(self, host: HostConfig) -> None:
+        """Hold an etcd member's deployment until every member is healthy."""
+        members = self.etcd_members()
+        if host.name not in {member.name for member in members}:
+            return
+        if self.dry_run:
+            logger.info("[%s] [DRY RUN] Would wait for etcd member health", host.name)
+            return
+        started = time.monotonic()
+        while True:
+            unhealthy = [m.name for m in members if not self.etcd_healthy(m)]
+            if not unhealthy:
+                logger.info(
+                    "[%s] etcd healthy on all %d members", host.name, len(members)
+                )
+                return
+            if time.monotonic() - started >= self.ready_timeout:
+                raise FleetDeploymentError(
+                    f"etcd members not healthy within {self.ready_timeout:.0f}s: "
+                    + ", ".join(unhealthy)
+                )
+            logger.info("[%s] Waiting for etcd health on %s", host.name, unhealthy)
+            self.sleeper(5.0)
+
     def ssh_command(self, ip: str, remote: str) -> list[str]:
         cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
         if self.ssh_opts is not None:
@@ -1174,6 +1247,9 @@ class FleetDeployer:
                 raise FleetDeploymentError(
                     f"{host.name} changed since preparation; retry deployment"
                 )
+            # A member may go down only while the other two are healthy.
+            if is_k3s:
+                self.wait_etcd_quorum(host)
             # 1. Cordon & Drain if K3s node and not skipped
             if is_k3s and not self.skip_drain:
                 self.cordon_node(host.name)
@@ -1184,6 +1260,8 @@ class FleetDeployer:
             activation_attempted = True
             self.rebuild_host(host)
             self.verify_host(host)
+            if is_k3s:
+                self.wait_etcd_quorum(host)
 
             # 3. Post-switch actions
             if is_k3s:

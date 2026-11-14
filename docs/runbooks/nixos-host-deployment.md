@@ -158,7 +158,12 @@ The deployer runs its connectivity and readiness preflight by default. It
 prepares changed closures, then cordons and drains affected k3s nodes. It runs
 the prepared closure's `switch-to-configuration dry-activate` in dry-run mode
 and `switch-to-configuration switch` for apply, verifies k3s readiness and newly
-failed units, then uncordons the node. Stateful k3s nodes also wait for PostgreSQL readiness. NAS deployment
+failed units, then uncordons the node. Stateful k3s nodes also wait for PostgreSQL readiness.
+Embedded etcd members (nodes labelled `node-role.kubernetes.io/etcd=true`)
+deploy one at a time behind a quorum gate: every member's loopback
+`http://127.0.0.1:2381/health` must answer `true` before the member is drained
+and again after its switch. An unhealthy peer stops the run before any drain,
+and a member that does not rejoin is rolled back. NAS deployment
 checks every configured ZFS dataset before rebuilding. Keep these defaults;
 do not use `--skip-preflight`, `--skip-drain`, or `--skip-cooldown` unless the
 task's owning runbook explicitly requires it.

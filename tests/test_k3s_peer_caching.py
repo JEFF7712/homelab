@@ -55,6 +55,15 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
               credential = unit.serviceConfig.LoadCredential;
             }};
             firewallRules = (evalWith {{}}).networking.firewall.extraInputRules;
+            agentFirewallRules = (evalWith {{
+              homelab.k3s.role = "agent";
+              homelab.k3s.clusterInit = false;
+              homelab.k3s.serverAddress = "https://10.0.30.11:6443";
+              homelab.k3s.tokenFile = "/tmp/token";
+            }}).networking.firewall.extraInputRules;
+            prometheusHost = (import {json.dumps(str(ROOT / "inventory"))} {{
+              inherit (flake.inputs.nixpkgs) lib;
+            }}).hosts.homelab-05.address;
             auditPolicy = builtins.fromJSON (evalWith {{}}).environment.etc."rancher/k3s/audit-policy.json".text;
           }}
         """
@@ -98,6 +107,24 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
     def test_firewall_allows_tcp_5001_for_spegel_p2p_gossip(self) -> None:
         rules = self.evaluated["firewallRules"]
         self.assertIn("10.0.30.0/24 tcp dport { 22, 179, 2379, 2380, 5001,", rules)
+
+    def test_only_servers_expose_etcd_metrics(self) -> None:
+        self.assertIn("--etcd-expose-metrics", self.evaluated["defaultFlags"])
+        self.assertNotIn("--etcd-expose-metrics", self.evaluated["agentFlags"])
+
+    def test_etcd_metrics_port_admits_only_the_prometheus_node(self) -> None:
+        # Prometheus is pinned to homelab-05 by its local PV, and Cilium
+        # masquerades its scrapes of other nodes as homelab-05's address.
+        rules = [
+            line.strip()
+            for line in self.evaluated["firewallRules"].splitlines()
+            if "2381" in line
+        ]
+        self.assertEqual(
+            rules,
+            [f"ip saddr {self.evaluated['prometheusHost']} tcp dport 2381 accept"],
+        )
+        self.assertNotIn("2381", self.evaluated["agentFirewallRules"])
 
     def test_only_servers_encrypt_secrets_and_record_bounded_audit_logs(self) -> None:
         for key in ("defaultFlags", "disabledSpegel"):
