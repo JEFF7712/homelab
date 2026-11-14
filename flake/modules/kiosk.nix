@@ -41,6 +41,7 @@ let
     exec ${pkgs.chromium}/bin/chromium \
       --ozone-platform=wayland \
       --enable-features=UseOzonePlatform \
+      ${lib.optionalString cfg.autoplay "--autoplay-policy=no-user-gesture-required"} \
       --no-first-run \
       --noerrdialogs \
       --disable-infobars \
@@ -89,6 +90,12 @@ in
 {
   options.homelab.kiosk = {
     enable = lib.mkEnableOption "homelab kiosk display using cage and chromium";
+
+    autoplay = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Allow shared videos to play without a local click.";
+    };
 
     url = lib.mkOption {
       type = lib.types.str;

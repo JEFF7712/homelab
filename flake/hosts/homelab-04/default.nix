@@ -20,6 +20,7 @@ in
     ../../modules/disko-single-disk.nix
     ../../modules/k3s-server.nix
     ../../modules/kiosk.nix
+    ../../modules/workshop-display.nix
     ../../modules/monero.nix
     ../../modules/moonlight-client.nix
     ../../modules/nvidia.nix
@@ -66,7 +67,7 @@ in
   };
 
   sops.defaultSopsFile = ../../../secrets/hosts/homelab-04.sops.yaml;
-  sops.secrets.kiosk-ha-token.restartUnits = [ "kiosk-rotate.service" ];
+  sops.secrets.kiosk-ha-token.restartUnits = [ "workshop-display.service" ];
 
   security.rtkit.enable = true;
   services.pipewire = {
@@ -76,33 +77,13 @@ in
     pulse.enable = true;
   };
 
+  homelab.workshopDisplay.enable = true;
+
   homelab.kiosk = {
     enable = true;
     compositor = "sway";
-    url = "http://10.0.40.12/d/homelab-fleet-overview?kiosk";
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
-    views = [
-      {
-        url = "http://10.0.40.12/d/homelab-fleet-overview?kiosk";
-        duration = 60;
-      }
-      {
-        url = "http://10.0.40.13:8123/3d-printing";
-        duration = 60;
-        # Home Assistant renders its own sidebar and top bar; strip them so the
-        # dashboard fills the panel like the Grafana view does.
-        css = ''
-          ha-sidebar, .header, ha-top-app-bar, ha-menu-button { display: none !important; }
-          #view { padding-top: 0 !important; margin-left: 0 !important; }
-        '';
-      }
-    ];
-    # Home Assistant is behind a trusted-proxy config, so the dashboard cannot
-    # borrow the Jarvis trusted-network bypass. Instead seed the browser's own
-    # session from a long-lived access token, re-applied after each boot.
-    haDashboardTokenFile = config.sops.secrets.kiosk-ha-token.path;
-    haDashboardUrl = "http://10.0.40.13:8123";
     swayExtraConfig = ''
       # Keybinding: Mod4 (Super) + m toggles or launches moonlight-session
       bindsym Mod4+m exec ${pkgs.writeShellScript "toggle-moonlight" ''
