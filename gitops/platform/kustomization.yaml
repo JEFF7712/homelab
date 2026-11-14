@@ -14,6 +14,8 @@ resources:
   - coredns-custom.yaml
   - cnpg/repository.yaml
   - cnpg/release.yaml
+  - cnpg/barman-cloud-plugin.yaml
+  - cnpg/barman-cloud-plugin-network-policy.yaml
   - storage-class.yaml
   - nfs-client-isolation.yaml
 
