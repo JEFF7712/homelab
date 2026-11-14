@@ -106,6 +106,7 @@ class LifeRenderer(ModeRenderer):
         size: int = 64,
         palette_interval: float = 120.0,
         palettes: list[LifePalette] | tuple[LifePalette, ...] | None = None,
+        randomize: bool = True,
     ) -> None:
         self.size = size
         self.grid = np.zeros((size, size), dtype=bool)
@@ -115,13 +116,31 @@ class LifeRenderer(ModeRenderer):
         self.palette_timer = 0.0
         self.palette_interval = palette_interval
         self.palettes = list(palettes if palettes is not None else DEFAULT_PALETTES)
-        self.palette_idx = 0
+        self.randomize = randomize
+        self.palette_playlist: list[int] = list(range(len(self.palettes)))
+        self.playlist_pos = 0
+        if self.randomize:
+            random.shuffle(self.palette_playlist)
+        self.palette_idx = self.palette_playlist[0] if self.randomize else 0
         self.stagnant_history: deque[int] = deque(maxlen=24)
         self.reset()
 
     @property
     def current_palette(self) -> LifePalette:
         return self.palettes[self.palette_idx]
+
+    def reset_palettes(self) -> None:
+        """Reset palette rotation order (called when switching into Game of Life mode)."""
+        self.palette_timer = 0.0
+        if self.randomize:
+            random.shuffle(self.palette_playlist)
+            self.playlist_pos = 0
+            self.palette_idx = self.palette_playlist[0]
+        else:
+            self.playlist_pos = 0
+            self.palette_idx = 0
+
+    reset_rotation = reset_palettes
 
     def set_palette(self, index_or_name: int | str) -> None:
         """Manually select a palette by index or name and reset the timer."""
@@ -130,12 +149,18 @@ class LifeRenderer(ModeRenderer):
         if isinstance(index_or_name, int):
             self.palette_idx = index_or_name % len(self.palettes)
             self.palette_timer = 0.0
+            if self.randomize and self.palette_idx in self.palette_playlist:
+                self.playlist_pos = self.palette_playlist.index(self.palette_idx)
         else:
             name_lower = index_or_name.lower()
             for idx, pal in enumerate(self.palettes):
                 if pal.name.lower() == name_lower:
                     self.palette_idx = idx
                     self.palette_timer = 0.0
+                    if self.randomize and self.palette_idx in self.palette_playlist:
+                        self.playlist_pos = self.palette_playlist.index(
+                            self.palette_idx
+                        )
                     return
             raise ValueError(f"Unknown palette name: {index_or_name}")
 
@@ -153,13 +178,35 @@ class LifeRenderer(ModeRenderer):
         c = c % (self.size - 4)
         self.grid[r : r + 3, c : c + 3] ^= glider
 
+    def _next_palette(self) -> None:
+        if self.randomize:
+            self.playlist_pos += 1
+            if self.playlist_pos >= len(self.palette_playlist):
+                last_idx = self.palette_playlist[-1]
+                self.palette_playlist = list(range(len(self.palettes)))
+                random.shuffle(self.palette_playlist)
+                # Avoid playing the same palette consecutively across playlist loops
+                if (
+                    len(self.palette_playlist) > 1
+                    and self.palette_playlist[0] == last_idx
+                ):
+                    self.palette_playlist[0], self.palette_playlist[1] = (
+                        self.palette_playlist[1],
+                        self.palette_playlist[0],
+                    )
+                self.playlist_pos = 0
+            self.palette_idx = self.palette_playlist[self.playlist_pos]
+        else:
+            self.palette_idx = (self.palette_idx + 1) % len(self.palettes)
+
     def update(self, dt: float, should_cycle: bool = True) -> None:
         if should_cycle and self.palette_interval > 0 and len(self.palettes) > 1:
             self.palette_timer += dt
             if self.palette_timer >= self.palette_interval:
                 steps = int(self.palette_timer // self.palette_interval)
                 self.palette_timer %= self.palette_interval
-                self.palette_idx = (self.palette_idx + steps) % len(self.palettes)
+                for _ in range(steps):
+                    self._next_palette()
         elif not should_cycle:
             self.palette_timer = 0.0
 
