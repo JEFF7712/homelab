@@ -7,7 +7,11 @@
 }:
 let
   cfg = config.homelab.workshopDisplay;
-  python = pkgs.python3.withPackages (ps: [ ps.qrcode ]);
+  python = pkgs.python3.withPackages (ps: [
+    ps.pillow
+    ps.pillow-heif
+    ps.qrcode
+  ]);
   airplay = pkgs.writeShellScript "workshop-airplay" ''
     # PAM places desktop children in a logind scope; clear the previous receiver
     # when Sway restarts so it cannot keep the fixed AirPlay ports occupied.
@@ -91,6 +95,9 @@ in
       serviceConfig = {
         ExecStartPost = "${pkgs.curl}/bin/curl --fail --retry 30 --retry-connrefused --retry-delay 1 http://127.0.0.1:8094/health";
         DynamicUser = true;
+        # Holds only the phone pairing key, so bookmarks survive restarts.
+        StateDirectory = "workshop-display";
+        StateDirectoryMode = "0700";
         LoadCredential = [ "ha-token:${config.sops.secrets.kiosk-ha-token.path}" ];
         Restart = "always";
         RestartSec = "3s";
@@ -109,8 +116,14 @@ in
           --token-file "$CREDENTIALS_DIRECTORY/ha-token" \
           --assets ${./workshop-display} --control-url http://${
             fleetInventory.hosts.${config.networking.hostName}.address
-          }:8094
+          }:8094 \
+          --key-file "$STATE_DIRECTORY/pairing-key"
       '';
     };
+    systemd.tmpfiles.rules = [
+      "d /persist/var/lib/private 0700 root root -"
+      "d /persist/var/lib/private/workshop-display 0700 nobody nogroup -"
+    ];
+    environment.persistence."/persist".directories = [ "/var/lib/private/workshop-display" ];
   };
 }
