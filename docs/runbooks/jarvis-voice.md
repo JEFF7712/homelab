@@ -305,6 +305,24 @@ automation referencing them.
    - Platform parameter supports `spotify` (default) and `youtube_music` (`ytmusic`).
    - Music Assistant runs on `homelab-05` host network
      (`gitops/music-assistant/server.yaml`) and routes audio to the satellite speaker.
+   - Imported-player reconnect recovery is owned by
+     `gitops/music-assistant/runtime/recovery.py`, mounted through a generated
+     ConfigMap and installed by the server startup command. Every 30 seconds it
+     fetches fresh HA state only for enabled, unavailable imports. Healthy source
+     snapshots repair stale availability; missing, unknown, or unavailable sources
+     stay unavailable. Reads time out after 15 seconds and retry without restarting
+     providers. Provider unload cancels its recovery task. This guards the observed
+     2026-11-14 failure where HA restarted, its native satellite recovered, but the
+     MA import stayed unavailable until `hass_players` was reloaded.
+   - Verify both HA entities and MA availability with
+     `python -m scripts.music_assistant_health --wait 60`. For reconnect acceptance,
+     restart HA during a maintenance window, wait for its rollout, then run that
+     check. Check MA logs for `Home Assistant player recovery enabled` on startup
+     and `Recovered stale Home Assistant player` when reconciliation intervenes.
+     The startup hook uses the pinned image's Python provider interface; verify
+     these checks when upgrading MA, and remove it once upstream guarantees
+     reconciliation. Roll back the recovery change through Git/Flux if startup
+     fails; the hook never modifies `/data` or stored provider settings.
    - YouTube Music streaming requires a Proof-of-Origin (PO) token server; the
      `pot-provider` companion container (`brainicism/bgutil-ytdlp-pot-provider:1.2.1`)
      runs on `homelab-05` at `http://127.0.0.1:4416`.

@@ -25,6 +25,13 @@ spec:
       containers:
         - name: server
           image: registry.rupan.dev/upstream/ghcr.io/music-assistant/server@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de  # yamllint disable-line rule:line-length
+          command:
+            - /app/venv/bin/python
+            - /opt/homelab/recovery.py
+            - --data-dir
+            - /data
+            - --cache-dir
+            - /data/.cache
           env:
             - name: TZ
               value: America/Chicago
@@ -69,6 +76,9 @@ spec:
               cpu: "2"
               memory: 2Gi
           volumeMounts:
+            - name: player-recovery
+              mountPath: /opt/homelab
+              readOnly: true
             - name: data
               mountPath: /data
             - name: media
@@ -108,6 +118,9 @@ spec:
               cpu: 500m
               memory: 512Mi
       volumes:
+        - name: player-recovery
+          configMap:
+            name: music-assistant-player-recovery
         - name: data
           persistentVolumeClaim:
             claimName: music-assistant-data
