@@ -30,15 +30,16 @@ class CacheTargetsTest(unittest.TestCase):
                 "assert sys.argv[1:4] == ['build', '--no-link', '--print-out-paths']\n"
                 "pathlib.Path(os.environ['TARGETS']).write_text(json.dumps(sys.argv[4:]))\n"
             )
-            attic = binaries / "attic"
-            attic.write_text(f"#!{sys.executable}\nimport sys\nsys.stdin.read()\n")
+            niks3 = binaries / "niks3"
+            niks3.write_text(f"#!{sys.executable}\nimport sys\nsys.stdin.read()\n")
             nix.chmod(0o755)
-            attic.chmod(0o755)
+            niks3.chmod(0o755)
             receipt = directory / "targets.json"
             env = dict(
                 os.environ,
                 PATH=f"{binaries}:{os.environ['PATH']}",
-                ATTIC_TOKEN="",
+                NIKS3_TOKEN="",
+                NIKS3_TOKEN_FILE=str(directory / "token"),
                 HOMELAB_CACHE_BUILDER="native",
                 HOMELAB_DEV_SHELL="1",
                 TARGETS=str(receipt),
@@ -183,16 +184,19 @@ class CacheSourcesTest(unittest.TestCase):
                     "print('/nix/store/build-input')\n"
                     "sys.exit(int(os.environ['BUILD_INPUT_EXIT']))\n"
                 )
-                attic = directory / "attic"
-                attic.write_text(
+                niks3 = directory / "niks3"
+                niks3.write_text(
                     f"#!{sys.executable}\n"
-                    "import os, pathlib, sys\n"
+                    "import json, os, pathlib, sys\n"
                     "if sys.argv[1] == 'push':\n"
-                    " pathlib.Path(os.environ['PUSH_RECEIPT']).write_text(sys.stdin.read())\n"
+                    " paths = sys.stdin.read()\n"
+                    " pathlib.Path(os.environ['PUSH_RECEIPT']).write_text(paths)\n"
+                    " for path in paths.split():\n"
+                    "  print(json.dumps({'path': path, 'status': 'ok'}))\n"
                 )
                 nix.chmod(0o755)
                 nix_store.chmod(0o755)
-                attic.chmod(0o755)
+                niks3.chmod(0o755)
                 receipt = directory / "pushed"
                 result = subprocess.run(
                     ["bash", str(ROOT / "scripts/ci/cache.sh")],
@@ -200,7 +204,7 @@ class CacheSourcesTest(unittest.TestCase):
                     env={
                         **os.environ,
                         "PATH": str(directory) + os.pathsep + os.environ["PATH"],
-                        "ATTIC_TOKEN": "test-only",
+                        "NIKS3_TOKEN": "test-only",
                         "HOMELAB_CACHE_BUILDER": "native",
                         "PUSH_RECEIPT": str(receipt),
                         "BUILD_TARGETS_RECEIPT": str(directory / "build-targets"),

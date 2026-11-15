@@ -43,7 +43,6 @@ class Pong2P(MultiplayerGame):
         draw.rectangle([cx + 6, cy - 3, cx + 7, cy + 5], fill=(255, 145, 0))
         draw.rectangle([cx - 1, cy - 2, cx, cy - 1], fill=(255, 255, 255))
 
-
     def __init__(self, solo_vs_ai: bool = False, winning_score: int = 5) -> None:
         super().__init__(solo_vs_ai=solo_vs_ai)
         self.winning_score = winning_score
@@ -62,7 +61,9 @@ class Pong2P(MultiplayerGame):
         self.ball_vy = 18.0
 
         self.serve_delay = 0.8
-        self.particles: list[tuple[float, float, float, float, tuple[int, int, int], float]] = []
+        self.particles: list[
+            tuple[float, float, float, float, tuple[int, int, int], float]
+        ] = []
         self.trail: list[tuple[float, float]] = []
 
         self.reset()
@@ -99,7 +100,9 @@ class Pong2P(MultiplayerGame):
         for px, py, pvx, pvy, color, life in self.particles:
             life -= dt
             if life > 0:
-                new_particles.append((px + pvx * dt, py + pvy * dt, pvx, pvy, color, life))
+                new_particles.append(
+                    (px + pvx * dt, py + pvy * dt, pvx, pvy, color, life)
+                )
         self.particles = new_particles
 
         if self.is_game_over():
@@ -161,7 +164,9 @@ class Pong2P(MultiplayerGame):
             if self.p1_y - 2.0 <= self.ball_y <= self.p1_y + self.paddle_h + 1.0:
                 self.ball_x = 4.0
                 speed = min(80.0, (self.ball_vx**2 + self.ball_vy**2) ** 0.5 * 1.06)
-                offset = (self.ball_y - (self.p1_y + self.paddle_h / 2.0)) / (self.paddle_h / 2.0)
+                offset = (self.ball_y - (self.p1_y + self.paddle_h / 2.0)) / (
+                    self.paddle_h / 2.0
+                )
                 offset = max(-1.0, min(1.0, offset))
                 self.ball_vx = speed * (1.0 - 0.3 * abs(offset))
                 self.ball_vy = speed * offset * 0.8
@@ -173,7 +178,9 @@ class Pong2P(MultiplayerGame):
             if self.p2_y - 2.0 <= self.ball_y <= self.p2_y + self.paddle_h + 1.0:
                 self.ball_x = 58.0
                 speed = min(80.0, (self.ball_vx**2 + self.ball_vy**2) ** 0.5 * 1.06)
-                offset = (self.ball_y - (self.p2_y + self.paddle_h / 2.0)) / (self.paddle_h / 2.0)
+                offset = (self.ball_y - (self.p2_y + self.paddle_h / 2.0)) / (
+                    self.paddle_h / 2.0
+                )
                 offset = max(-1.0, min(1.0, offset))
                 self.ball_vx = -speed * (1.0 - 0.3 * abs(offset))
                 self.ball_vy = speed * offset * 0.8
@@ -205,8 +212,9 @@ class Pong2P(MultiplayerGame):
     def get_final_score(self) -> int:
         return self.p1_score
 
-
-    def _spawn_sparks(self, x: float, y: float, color: tuple[int, int, int], count: int) -> None:
+    def _spawn_sparks(
+        self, x: float, y: float, color: tuple[int, int, int], count: int
+    ) -> None:
         for _ in range(count):
             speed = random.uniform(15.0, 50.0)
             pvx = speed * random.uniform(-1.0, 1.0)
@@ -233,7 +241,11 @@ class Pong2P(MultiplayerGame):
         # 4. Ball motion trail
         for i, (tx, ty) in enumerate(self.trail):
             alpha_frac = (i + 1) / (len(self.trail) + 1)
-            trail_col = (int(80 * alpha_frac), int(120 * alpha_frac), int(200 * alpha_frac))
+            trail_col = (
+                int(80 * alpha_frac),
+                int(120 * alpha_frac),
+                int(200 * alpha_frac),
+            )
             draw.point((int(tx), int(ty)), fill=trail_col)
 
         # 5. Ball
@@ -246,7 +258,14 @@ class Pong2P(MultiplayerGame):
             if 0 <= px < 64 and 0 <= py < 64:
                 draw.point((int(px), int(py)), fill=color)
 
-    def _draw_digit(self, draw: ImageDraw.ImageDraw, val: int, x: int, y: int, color: tuple[int, int, int]) -> None:
+    def _draw_digit(
+        self,
+        draw: ImageDraw.ImageDraw,
+        val: int,
+        x: int,
+        y: int,
+        color: tuple[int, int, int],
+    ) -> None:
         grid = NUMS.get(val, NUMS[0])
         for r, row in enumerate(grid):
             for c, char in enumerate(row):

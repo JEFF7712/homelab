@@ -201,7 +201,7 @@ class TCPMatrixStreamer:
 # --- Album Art Rendering (Spinning Record) ---
 # Keep in sync with modes/spotify_vinyl.py: the panel's four-bit color depth
 # mutes album art, so both vinyl paths apply the same fixed lift.
-VINYL_SATURATION = 1.35
+VINYL_SATURATION = 1.25
 VINYL_CONTRAST = 1.12
 
 

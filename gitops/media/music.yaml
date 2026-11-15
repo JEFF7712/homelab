@@ -25,7 +25,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: navidrome
-          image: registry.rupan.dev/upstream/docker.io/deluan/navidrome@sha256:9012939114fbb1bb641b81cf96dec5ded15f0aafefe8d47a511d7cb919658e40  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/deluan/navidrome@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -70,10 +70,51 @@ spec:
               memory: 256Mi
             limits:
               memory: 1Gi
+        # Read-only metadata lookup for Home Assistant music lighting. It
+        # shares the data volume so SQLite can coordinate with Navidrome's
+        # WAL, but opens the database with mode=ro.
+        - name: lookup
+          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+          command: ["python3", "/app/lookup.py"]
+          args: ["--database", "/data/navidrome.db", "--port", "4534"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          env:
+            - name: PYTHONDONTWRITEBYTECODE
+              value: "1"
+          ports:
+            - containerPort: 4534
+              name: lookup
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 4534
+            periodSeconds: 30
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: lookup-script
+              mountPath: /app
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: navidrome-data
+        - name: lookup-script
+          configMap:
+            name: navidrome-lookup
         - name: media
           persistentVolumeClaim:
             claimName: media-library
@@ -92,20 +133,36 @@ spec:
     - port: 80
       targetPort: 4533
 ---
+# Cluster-internal only; the tunnel routes to the navidrome Service.
+apiVersion: v1
+kind: Service
+metadata:
+  name: navidrome-lookup
+  namespace: media
+spec:
+  selector:
+    app: navidrome
+  ports:
+    - port: 4534
+      targetPort: 4534
+---
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: beets-nightly
   namespace: media
 spec:
+  concurrencyPolicy: Forbid
   schedule: 0 3 * * *
   timeZone: America/Chicago
   jobTemplate:
     spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 72000
       template:
         spec:
           automountServiceAccountToken: false
-          restartPolicy: OnFailure
+          restartPolicy: Never
           securityContext:
             fsGroup: 1000
             seccompProfile:
@@ -113,11 +170,15 @@ spec:
           containers:
             - name: beets
               image: registry.rupan.dev/upstream/lscr.io/linuxserver/beets@sha256:90b1404e962dfc09c1926f4d8dca8920fc90d71369df5398340a12eb8ce7328c  # yamllint disable-line rule:line-length
-              command: ["beet", "-c", "/config/config.yaml", "import", "-p", "-q", "/data/music"]
+              command: ["python3", "/config/nightly.py"]
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
               env:
+                - name: HOME
+                  value: /tmp
+                - name: XDG_CACHE_HOME
+                  value: /tmp/.cache
                 - name: PUID
                   value: "1000"
                 - name: PGID

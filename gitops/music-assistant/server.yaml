@@ -62,7 +62,7 @@ spec:
                             except OSError:
                                 continue
                     ")
-                    exec /usr/local/bin/go-librespot.orig \
+                    exec python3 /opt/spotify-connect/relay.py /usr/local/bin/go-librespot.orig \
                       -c "zeroconf_port=${PORT:-38901}" \
                       -c "zeroconf_interfaces_to_advertise=enp0s31f6" \
                       "$@"
@@ -78,6 +78,9 @@ spec:
           volumeMounts:
             - name: player-recovery
               mountPath: /opt/homelab
+              readOnly: true
+            - name: spotify-connect-relay
+              mountPath: /opt/spotify-connect
               readOnly: true
             - name: data
               mountPath: /data
@@ -97,7 +100,7 @@ spec:
             initialDelaySeconds: 180
             periodSeconds: 30
         - name: pot-provider
-          image: docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.1@sha256:96d95372bbf04db68e29329ba05a20bd406844fa3c5ac43315fe476870c6084d  # yamllint disable-line rule:line-length
+          image: docker.io/brainicism/bgutil-ytdlp-pot-provider:2.0.2@sha256:d7d34108b76e52c7d3b575fe9e797e4bf41c1b2a08f80c5292eff6f851ce8472  # yamllint disable-line rule:line-length
           ports:
             - containerPort: 4416
           readinessProbe:
@@ -121,6 +124,9 @@ spec:
         - name: player-recovery
           configMap:
             name: music-assistant-player-recovery
+        - name: spotify-connect-relay
+          configMap:
+            name: spotify-connect-relay
         - name: data
           persistentVolumeClaim:
             claimName: music-assistant-data

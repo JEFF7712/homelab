@@ -1,6 +1,6 @@
 """The OpenTofu stack must send the tunnel exactly the rules the ConfigMap mirror holds.
 
-`tofu/cloudflare/main.tf` decodes `gitops/cloudflare/ingress-config.yaml` with
+`tofu/cloudflare/main.tf.json` decodes `gitops/cloudflare/ingress-config.yaml` with
 `yamldecode` instead of restating the rules, which is what keeps the mirror and
 the edge from drifting. That only holds if the decode is still wired to that file
 and still produces the same ordered list, so this compares the evaluated
@@ -30,11 +30,15 @@ MIRROR = ROOT / "gitops" / "cloudflare" / "ingress-config.yaml"
 
 def evaluated_configuration(expression: str) -> Any:
     with tempfile.TemporaryDirectory() as directory:
-        # main.tf reads the mirror relative to path.module, so the copy keeps
+        # The generated stack reads the mirror relative to path.module, so the copy keeps
         # the repository layout. backend.tf is left out.
         stack = Path(directory) / STACK.relative_to(ROOT)
         stack.mkdir(parents=True)
-        for source in [*STACK.glob("*.tf"), STACK / ".terraform.lock.hcl"]:
+        for source in [
+            *STACK.glob("*.tf"),
+            *STACK.glob("*.tf.json"),
+            STACK / ".terraform.lock.hcl",
+        ]:
             if source.name != "backend.tf":
                 shutil.copy(source, stack / source.name)
         mirror = Path(directory) / MIRROR.relative_to(ROOT)
@@ -119,13 +123,13 @@ class TestTunnelIngressIsMirrored(unittest.TestCase):
         self.assertTrue(rule["enabled"])
         self.assertEqual(rule["ref"], "personal_apps_us_only")
         # Compare the evaluated expression with a reviewed complete policy:
-        # non-US (including unknown geography) blocks only the explicit set;
+        # Countries outside US/India (including unknown geography) blocks only the explicit set;
         # the webhook exception is bound to HA, never other hosts or paths.
         host_set = " ".join(json.dumps(host) for host in sorted(hosts))
         self.assertEqual(
             rule["expression"],
             f"(http.host in {{{host_set}}}) "
-            'and (ip.src.country ne "US") '
+            'and not (ip.src.country in {"US" "IN"}) '
             'and not (http.host eq "ha.rupan.dev" '
             'and starts_with(http.request.uri.path, "/api/webhook/"))',
         )

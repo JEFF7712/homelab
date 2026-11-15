@@ -84,6 +84,7 @@ pkgs.testers.nixosTest {
         sops-nix.nixosModules.sops
         ../modules/zot-registry.nix
       ];
+      _module.args.fleetInventory = import ../../inventory { inherit lib; };
       services.homelab-zot-registry = {
         enable = true;
         hostName = "registry.test";

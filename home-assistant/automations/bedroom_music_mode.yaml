@@ -1,9 +1,9 @@
 id: bedroom_music_mode
 alias: "Lighting: Bedroom Music Mode"
 description: >-
-  Activates real-time LedFx audio-reactive lighting across the bedroom Roku
-  bulbs when Bedroom Music Mode is turned on, locking Adaptive Lighting. When
-  turned off, restores Adaptive Lighting control and circadian state without API spam.
+  Activates real-time LedFx audio-reactive music mode on the bedroom LED matrix
+  display when Bedroom Music Mode is turned on. Turn off deactivates the matrix
+  music scene. Leaves bedroom room lighting untouched.
 mode: restart
 triggers:
   - trigger: state
@@ -21,20 +21,12 @@ actions:
           - condition: trigger
             id: "mode_on"
         sequence:
-          - action: adaptive_lighting.set_manual_control
-            data:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights
-              lights:
-                - light.desk_lamp_desk_lamp
-                - light.floor_lamp_floor_lamp
-                - light.light_strip_light_strip
-              manual_control: true
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.bedroom_matrix_power
           - action: rest_command.ledfx_bedroom_activate_scene
             data:
               scene_id: "bedroom-music-mode"
-          - action: rest_command.ledfx_bedroom_set_matrix_effect
-            data:
-              effect_type: "{{ states('input_select.bedroom_ledfx_effect') }}"
       - conditions:
           - condition: trigger
             id: "mode_off"
@@ -42,19 +34,3 @@ actions:
           - action: rest_command.ledfx_bedroom_deactivate_scene
             data:
               scene_id: "bedroom-music-mode"
-          - action: adaptive_lighting.set_manual_control
-            data:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights
-              lights:
-                - light.desk_lamp_desk_lamp
-                - light.floor_lamp_floor_lamp
-                - light.light_strip_light_strip
-              manual_control: false
-          - action: adaptive_lighting.apply
-            data:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights
-              lights:
-                - light.desk_lamp_desk_lamp
-                - light.floor_lamp_floor_lamp
-                - light.light_strip_light_strip
-              turn_on_lights: false

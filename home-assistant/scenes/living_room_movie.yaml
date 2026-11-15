@@ -8,6 +8,10 @@ entities:
     state: "on"
     brightness: 40
     color_temp_kelvin: 2700
+  light.living_room_led_strip:
+    state: "on"
+    brightness: 40
+    color_temp_kelvin: 2700
   light.kitchen_lights:
     state: "off"
   switch.kitchen_mushroom_lamp:

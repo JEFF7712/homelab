@@ -133,50 +133,178 @@ views:
                 navigation_path: /map
     sections:
       - cards:
-          - type: markdown
-            content: |
-              ## Shared Spaces
-              {{ states.light | selectattr('state', 'eq', 'on') | list | count }} lights are on right now
-          - type: custom:mushroom-chips-card
-            chips:
-              - type: weather
-                entity: weather.forecast_home
-                show_temperature: true
-                show_conditions: true
-              - type: entity
-                entity: sun.sun
-              - type: entity
-                entity: sensor.sun_next_rising
-                name: Sunrise
-                icon: mdi:weather-sunset-up
-              - type: entity
-                entity: sensor.sun_next_setting
-                name: Sunset
-                icon: mdi:weather-sunset-down
-          - type: custom:mediocre-massive-media-player-card
-            entity_id: media_player.homelab_05_satellite_media_player_2
-            ma_entity_id: media_player.homelab_05_satellite_media_player_2
-            ma_favorite_button_entity_id: button.homelab_05_satellite_media_player_favorite_current_song
-            use_art_colors: true
-            mode: card
-            speaker_group:
-              entities:
-                - media_player.bedroom_speaker
-            media_browser:
-              - entity_id: media_player.homelab_05_satellite_media_player_2
-                name: Soundbar
-      - cards:
-          - heading: Family
+          - heading: All Lights
             type: heading
-          - type: custom:mushroom-person-card
-            entity: person.rupan_sunderapandyan
+          - type: horizontal-stack
+            cards:
+              - type: button
+                name: All On
+                icon: mdi:power
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  target:
+                    entity_id: script.shared_lights_on
+              - type: button
+                name: All Off
+                icon: mdi:power-off
+                tap_action:
+                  action: perform-action
+                  perform_action: script.turn_on
+                  target:
+                    entity_id: script.shared_lights_off
+          - entity: light.shared_zigbee_lights
+            name: Shared Bulbs
+            icon: mdi:lightbulb-group
             fill_container: true
-          - type: custom:mushroom-person-card
-            entity: person.sam
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.kitchen_ceiling_light_1
+            name: Kitchen Ceiling Light 1
+            icon: mdi:ceiling-light
             fill_container: true
-          - type: custom:mushroom-person-card
-            entity: person.jayanth
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.kitchen_ceiling_light_2
+            name: Kitchen Ceiling Light 2
+            icon: mdi:ceiling-light
             fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.living_room_floor_lamp
+            name: Floor Lamp
+            icon: mdi:floor-lamp
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.living_room_tulip_lamp
+            name: Tulip Lamp
+            icon: mdi:flower-tulip
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.living_room_led_strip
+            name: Living Room LED Strip
+            icon: mdi:led-strip-variant
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.kitchen_dining_table_ceiling_light_1
+            name: Dining Table Light 1
+            icon: mdi:chandelier
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.kitchen_dining_table_ceiling_light_2
+            name: Dining Table Light 2
+            icon: mdi:chandelier
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.apollo_led_strip_apollo_led_strip
+            name: Light Strip
+            icon: mdi:led-strip
+            fill_container: true
+            type: custom:mushroom-light-card
+            show_brightness_control: true
+            show_color_control: true
+            collapsible_controls: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.kitchen_mushroom_lamp
+            name: Mushroom Lamp
+            icon: mdi:mushroom
+            fill_container: true
+            type: custom:mushroom-light-card
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.kitchen_fuck_off_sign
+            name: Fuck Off Sign
+            icon: mdi:sign-text
+            fill_container: true
+            type: custom:mushroom-light-card
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.living_room_good_vibes_sign
+            name: Good Vibes Sign
+            icon: mdi:hand-peace
+            fill_container: true
+            type: custom:mushroom-light-card
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - entity: light.exit_sign
+            name: Exit Sign
+            icon: mdi:exit-run
+            fill_container: true
+            type: custom:mushroom-light-card
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - cards:
           - heading: Scenes
             type: heading
           - type: custom:mushroom-chips-card
@@ -238,253 +366,450 @@ views:
                   target:
                     entity_id: script.effects_night_light
       - cards:
-          - heading: All Lights
+          - type: custom:mediocre-massive-media-player-card
+            entity_id: media_player.homelab_05_satellite_media_player_2
+            ma_entity_id: media_player.homelab_05_satellite_media_player_2
+            ma_favorite_button_entity_id: button.homelab_05_satellite_media_player_favorite_current_song
+            use_art_colors: true
+            mode: card
+            speaker_group:
+              entities:
+                - media_player.bedroom_speaker
+            media_browser:
+              - entity_id: media_player.homelab_05_satellite_media_player_2
+                name: Soundbar
+          - type: custom:mushroom-template-card
+            entity: input_boolean.spotify_connect
+            primary: Spotify Connect
+            secondary: >-
+              {% if is_state('input_boolean.spotify_connect', 'on') %}
+                Available in Spotify app
+              {% else %}
+                Disabled
+              {% endif %}
+            icon: mdi:spotify
+            icon_color: >-
+              {% if is_state('input_boolean.spotify_connect', 'on') %}
+                green
+              {% else %}
+                grey
+              {% endif %}
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+      - cards:
+          - heading: Music Mode
+            icon: mdi:music
             type: heading
-          - entity: light.shared_zigbee_lights
-            name: Shared Bulbs
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
+          - type: custom:mushroom-template-card
+            entity: input_boolean.shared_music_mode
+            primary: Music Mode
+            secondary: >-
+              {% set d = 'sensor.music_director' %}
+              {% if not is_state('input_boolean.shared_music_mode', 'on') %}
+                Off · tap to light the room to the music
+              {% elif state_attr(d, 'title') %}
+                {{ state_attr(d, 'title') }} · {{ states(d) | replace('_', ' ') }}
+                {%- set g = state_attr(d, 'genres') or [] %}
+                {%- if g %} · {{ g[0] }}{% endif %}
+              {% else %}
+                On · waiting for music
+              {% endif %}
+            icon: mdi:music
+            icon_color: >-
+              {% if is_state('input_boolean.shared_music_mode', 'on') %}
+                purple
+              {% else %}
+                grey
+              {% endif %}
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - type: markdown
+            visibility:
+              - condition: state
+                entity: input_boolean.shared_music_mode
+                state: "on"
+            content: |
+              {% set d = 'sensor.music_director' %}
+              {% set names = {'kitchen_ceiling': 'Kitchen ceiling',
+                              'dining_table': 'Dining table',
+                              'floor_lamp': 'Floor lamp',
+                              'tulip_lamp': 'Tulip lamp',
+                              'ceiling_strip': 'Ceiling strip'} %}
+              {% set sources = {'cover': 'the album cover',
+                                'vibe': 'the genre and mood (no usable cover colour)',
+                                'default': 'the default (nothing known yet)',
+                                'override': "this album's pinned colour",
+                                'manual': 'your colour'} %}
+              {% set areas = state_attr(d, 'area_colors') or {} %}
+              {% if areas %}
+              {% set strip = (state_attr(d, 'gradient') or '')
+                 | regex_findall('rgb\((\d+), (\d+), (\d+)\)') %}
+              {% set i = state_attr(d, 'intensity') | float(0) %}
+              {% set n = (i * 10) | round(0, 'floor') | int %}
+              {%- for c in strip -%}
+              {% set hex = '#%02x%02x%02x' | format(c[0] | int, c[1] | int, c[2] | int) -%}
+              <font color="{{ hex }}">▇▇▇</font>
+              {%- endfor %} LED strip · {{ states(d) | replace('_', ' ') }}<br>
+              {%- for area, c in areas.items() %}
+              {% set hex = '#%02x%02x%02x' | format(c[0], c[1], c[2]) -%}
+              <font color="{{ hex }}">▇▇▇▇▇▇▇▇▇▇▇▇</font> {{ names.get(area, area) }}<br>
+              {%- endfor %}
+
+              **Colour from** {{ sources.get(state_attr(d, 'palette_source'), 'unknown') }}:
+              {{ state_attr(d, 'palette_spread') or '' }}<br>
+              **Intensity** {{ '▰' * n }}{{ '▱' * (10 - n) }}
+              {{ 'calm' if i < 0.35 else 'medium' if i < 0.65 else 'intense' }}
+              ({{ (i * 100) | round | int }}%)
+              {%- set sec = state_attr(d, 'section') %}
+              {%- if sec and sec != 'normal' %} · {{ sec }} part{% endif %}
+              {% if state_attr(d, 'spotify_status') == 'unavailable' %}
+              <br>⚠️ Spotify isn't answering (rate limited?): energy and tempo are estimated
+              {% endif %}
+              {% else %}
+              Waiting for music…
+              {% endif %}
+          - entity: input_select.music_mode_effect
+            name: LED Strip Effect
+            icon: mdi:auto-fix
+            features:
+              - type: select-options
+            type: tile
+          - entity: select.music_mode_strip_colours
+            name: LED Strip Colours
+            icon: mdi:gradient-horizontal
+            features:
+              - type: select-options
+            type: tile
+          - type: custom:mushroom-light-card
+            entity: light.music_mode_colour
+            name: Colour
+            secondary_info: none
+            icon: mdi:palette
+            use_light_color: true
             show_color_control: true
             collapsible_controls: true
+          - type: custom:mushroom-template-card
+            entity: light.music_mode_colour
+            primary: >-
+              {% if is_state('light.music_mode_colour', 'on') %}
+                Your colour
+              {% elif is_state('light.music_mode_pin', 'on') %}
+                Pinned colour
+              {% else %}
+                Auto colour
+              {% endif %}
+            secondary: >-
+              {% set album = state_attr('light.music_mode_pin', 'album') %}
+              {% if is_state('light.music_mode_colour', 'on') %}
+                Every light holds this colour · tap to go back to Auto
+              {% elif is_state('light.music_mode_pin', 'on') %}
+                {{ album or 'This song' }} always shows its pinned colour
+              {% else %}
+                From the album cover · tap the palette to pick your own
+              {% endif %}
+            icon: >-
+              {{ 'mdi:pin' if is_state('light.music_mode_pin', 'on')
+                 and is_state('light.music_mode_colour', 'off') else 'mdi:auto-fix' }}
+            icon_color: >-
+              {{ 'purple' if is_state('light.music_mode_colour', 'off') else 'grey' }}
             tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.kitchen_ceiling_light_1
-            name: Kitchen Ceiling Light 1
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
+              action: perform-action
+              perform_action: light.turn_off
+              target:
+                entity_id: light.music_mode_colour
+          - type: custom:mushroom-light-card
+            entity: light.music_mode_pin
+            name: Pin colour to this album
+            secondary_info: none
+            icon: mdi:pin
+            use_light_color: true
             show_color_control: true
             collapsible_controls: true
+          - type: custom:mushroom-template-card
+            entity: light.music_mode_pin
+            primary: >-
+              {% if is_state('light.music_mode_pin', 'unavailable') %}
+                Nothing playing
+              {% elif is_state('light.music_mode_pin', 'on') %}
+                Pinned · {{ state_attr('light.music_mode_pin', 'pinned_colour') }}
+              {% else %}
+                Not pinned
+              {% endif %}
+            secondary: >-
+              {% if is_state('light.music_mode_pin', 'on') %}
+                Slide to change it · tap the pin to remove it
+              {% elif is_state('light.music_mode_pin', 'off') %}
+                Tap the pin to keep this album's current colour
+              {% else %}
+                Play a song to pin its album's colour
+              {% endif %}
+            icon: >-
+              {{ 'mdi:pin' if is_state('light.music_mode_pin', 'on') else 'mdi:pin-off' }}
+            icon_color: >-
+              {{ 'purple' if is_state('light.music_mode_pin', 'on') else 'grey' }}
+            tap_action:
+              action: toggle
+          - type: custom:mushroom-number-card
+            entity: number.music_mode_brightness
+            name: Brightness
+            icon: mdi:brightness-6
+            display_mode: slider
+          - heading: Lights that join Music Mode
+            heading_style: subtitle
+            type: heading
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_led_strip
+            primary: LED Strip
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_led_strip', 'on') %}
+                Joins: LedFx effect
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:led-strip-variant
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_led_strip', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_led_strip', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
             tap_action:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_ceiling_light_2
-            name: Kitchen Ceiling Light 2
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_kitchen_ceiling
+            primary: Kitchen Ceiling
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_kitchen_ceiling', 'on') %}
+                Joins: album colour
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:ceiling-light
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_kitchen_ceiling', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_kitchen_ceiling', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
             tap_action:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.living_room_floor_lamp
-            name: Floor Lamp
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_dining_table
+            primary: Dining Table
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_dining_table', 'on') %}
+                Joins: album colour
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:ceiling-light-multiple
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_dining_table', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_dining_table', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
             tap_action:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.living_room_tulip_lamp
-            name: Tulip Lamp
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_floor_lamp
+            primary: Floor Lamp
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_floor_lamp', 'on') %}
+                Joins: album colour
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:floor-lamp
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_floor_lamp', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_floor_lamp', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
             tap_action:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_dining_table_ceiling_light_1
-            name: Dining Table Light 1
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_tulip_lamp
+            primary: Tulip Lamp
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_tulip_lamp', 'on') %}
+                Joins: album colour
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:lamp
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_tulip_lamp', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_tulip_lamp', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
             tap_action:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.kitchen_dining_table_ceiling_light_2
-            name: Dining Table Light 2
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_temp_control: true
-            show_color_control: true
-            collapsible_controls: true
+            grid_options:
+              columns: 6
+          - type: custom:mushroom-template-card
+            entity: input_boolean.music_mode_ceiling_strip
+            primary: Ceiling Strip
+            secondary: >-
+              {% if is_state('input_boolean.music_mode_ceiling_strip', 'on') %}
+                Joins: album colour
+              {% else %}
+                Not in music mode
+              {% endif %}
+            icon: mdi:led-strip
+            icon_color: >-
+              {% if is_state('input_boolean.music_mode_ceiling_strip', 'on') %}
+                purple
+              {% else %}
+                disabled
+              {% endif %}
+            badge_icon: >-
+              {% if is_state('input_boolean.music_mode_ceiling_strip', 'on') %}
+                mdi:music-note
+              {% endif %}
+            badge_color: purple
             tap_action:
               action: toggle
             hold_action:
               action: more-info
-          - entity: light.apollo_led_strip_apollo_led_strip
-            name: Light Strip
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_control: true
-            collapsible_controls: true
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.kitchen_mushroom_lamp
-            name: Mushroom Lamp
-            fill_container: true
-            type: custom:mushroom-light-card
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.kitchen_fuck_off_sign
-            name: Fuck Off Sign
-            fill_container: true
-            type: custom:mushroom-light-card
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.kitchen_kitchen_led_strip
-            name: 8-Light LED Strip
-            fill_container: true
-            type: custom:mushroom-light-card
-            show_brightness_control: true
-            show_color_control: true
-            collapsible_controls: true
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
+            grid_options:
+              columns: 6
+      - cards:
+          - type: markdown
+            content: |
+              ## Shared Spaces
+              {{ states.light | selectattr('state', 'eq', 'on') | list | count }} lights are on right now
           - type: custom:mushroom-chips-card
-            alignment: center
             chips:
-              - type: action
-                name: Rainbow
-                icon: mdi:looks
-                icon_color: purple
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: rainbow
-              - type: action
-                name: Pulse
-                icon: mdi:heart-pulse
-                icon_color: red
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: pulse
-              - type: action
-                name: Chase
-                icon: mdi:transit-connection-horizontal
-                icon_color: blue
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: chase
-              - type: action
-                name: Fire
-                icon: mdi:fire
-                icon_color: orange
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: fire
-              - type: action
-                name: Sparkle
-                icon: mdi:creation
-                icon_color: amber
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: sparkle
-              - type: action
-                name: Solid
-                icon: mdi:circle
-                icon_color: red
-                tap_action:
-                  action: perform-action
-                  perform_action: light.turn_on
-                  target:
-                    entity_id: light.kitchen_kitchen_led_strip
-                  data:
-                    effect: solid
-          - entity: light.living_room_good_vibes_sign
-            name: Good Vibes Sign
+              - type: weather
+                entity: weather.forecast_home
+                show_temperature: true
+                show_conditions: true
+              - type: entity
+                entity: sun.sun
+              - type: entity
+                entity: sensor.sun_next_rising
+                name: Sunrise
+                icon: mdi:weather-sunset-up
+              - type: entity
+                entity: sensor.sun_next_setting
+                name: Sunset
+                icon: mdi:weather-sunset-down
+          - heading: Family
+            type: heading
+          - type: custom:mushroom-person-card
+            entity: person.rupan_sunderapandyan
             fill_container: true
-            type: custom:mushroom-light-card
-            tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - entity: light.exit_sign
-            name: Exit Sign
+          - type: custom:mushroom-person-card
+            entity: person.sam
             fill_container: true
-            type: custom:mushroom-light-card
+          - type: custom:mushroom-person-card
+            entity: person.jayanth
+            fill_container: true
+          - heading: Gaming
+            type: heading
+          - type: custom:mushroom-template-card
+            primary: Pair Controller
+            secondary: >-
+              {% set s = states('sensor.shared_spaces_gaming_controller_pairing_status') %}
+              {% if s in ['unknown', 'unavailable', ''] %}
+                Ready
+              {% else %}
+                {{ s }}
+              {% endif %}
+            icon: mdi:controller
+            icon_color: >-
+              {% set s = states('sensor.shared_spaces_gaming_controller_pairing_status') %}
+              {% if 'Scanning' in s or 'Pairing' in s %}
+                blue
+              {% elif 'Connected' in s %}
+                green
+              {% else %}
+                amber
+              {% endif %}
+            badge_icon: >-
+              {% set s = 'sensor.shared_spaces_gaming_controller_pairing_status' %}
+              {% set count = state_attr(s, 'connected_count') | int(0) %}
+              {% if count == 1 %}
+                mdi:numeric-1
+              {% elif count == 2 %}
+                mdi:numeric-2
+              {% elif count == 3 %}
+                mdi:numeric-3
+              {% elif count == 4 %}
+                mdi:numeric-4
+              {% elif count > 4 %}
+                mdi:numeric-9-plus
+              {% endif %}
+            badge_color: green
             tap_action:
-              action: toggle
-            hold_action:
-              action: more-info
-          - type: horizontal-stack
-            cards:
-              - type: button
-                name: All On
-                icon: mdi:power
-                tap_action:
-                  action: perform-action
-                  perform_action: script.turn_on
-                  target:
-                    entity_id: script.shared_lights_on
-              - type: button
-                name: All Off
-                icon: mdi:power-off
-                tap_action:
-                  action: perform-action
-                  perform_action: script.turn_on
-                  target:
-                    entity_id: script.shared_lights_off
+              action: perform-action
+              perform_action: button.press
+              target:
+                entity_id: button.shared_spaces_gaming_pair_game_controller
       - cards:
           - heading: Adaptive Lighting
             type: heading
-          - entity: input_boolean.shared_music_mode
-            name: Music Mode
-            icon: mdi:music
-            features:
-              - type: toggle
-            type: tile
-          - entity: switch.adaptive_lighting_all_dimmable_lights_sleep_mode
+          - entity: switch.shared_spaces_sleep_mode
             name: Sleep Mode
             features:
               - type: toggle
             type: tile
-          - entity: switch.adaptive_lighting_all_dimmable_lights_adapt_brightness
+          - entity: switch.shared_spaces_adapt_brightness
             name: Adapt Brightness
             features:
               - type: toggle
             type: tile
-          - entity: switch.adaptive_lighting_all_dimmable_lights_adapt_color
+          - entity: switch.shared_spaces_adapt_color
             name: Adapt Color
             features:
               - type: toggle

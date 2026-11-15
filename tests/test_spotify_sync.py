@@ -1,19 +1,44 @@
+import importlib.util
+import sys
 import tempfile
 import unittest
 import urllib.error
 from argparse import Namespace
 from pathlib import Path
+from typing import Any
 from unittest.mock import Mock, patch
 
-from scripts.spotify_sync import (
-    HTTPClient,
-    LidarrClient,
-    LocalLibrary,
-    SpotifyRateLimitError,
-    SyncEngine,
-    normalize,
-    safe_filename,
-)
+from tests.gitops_render import config_map
+
+# The CronJob runs this file from the spotify-sync ConfigMap; it is the only
+# copy, so these tests exercise the deployed code.
+SOURCE = Path(__file__).resolve().parents[1] / "gitops/media/spotify-sync/sync.py"
+_SPEC = importlib.util.spec_from_file_location("spotify_sync", SOURCE)
+assert _SPEC is not None and _SPEC.loader is not None
+spotify_sync = importlib.util.module_from_spec(_SPEC)
+# Registered before execution so its dataclasses can resolve their module.
+sys.modules[_SPEC.name] = spotify_sync
+_SPEC.loader.exec_module(spotify_sync)
+
+HTTPClient = spotify_sync.HTTPClient
+LidarrClient = spotify_sync.LidarrClient
+LocalLibrary = spotify_sync.LocalLibrary
+SpotifyRateLimitError = spotify_sync.SpotifyRateLimitError
+SyncEngine = spotify_sync.SyncEngine
+normalize = spotify_sync.normalize
+safe_filename = spotify_sync.safe_filename
+
+
+def _engine(*, dry_run: bool = False) -> Any:
+    engine = object.__new__(SyncEngine)
+    engine.args = Namespace(dry_run=dry_run, artist_delay=0)
+    engine.artist_defaults = {
+        "rootFolderPath": "/data/music",
+        "qualityProfileId": 4,
+        "metadataProfileId": 1,
+    }
+    engine.lidarr = Mock()
+    return engine
 
 
 class TestSpotifySync(unittest.TestCase):
@@ -92,6 +117,102 @@ class TestSpotifySync(unittest.TestCase):
         self.assertEqual((added, monitored), (0, 1))
         engine.lidarr.put.assert_called_once()
         self.assertTrue(engine.lidarr.put.call_args.args[1]["monitored"])
+
+    def test_existing_artist_found_by_clean_name_or_mbid_is_not_re_added(
+        self,
+    ) -> None:
+        # Regression for 8b9ed281: a Spotify name that normalizes differently
+        # from Lidarr's artistName used to POST a duplicate artist.
+        records = [
+            {
+                "id": 7,
+                "artistName": "The Weeknd",
+                "cleanName": "theweeknd",
+                "foreignArtistId": "mbid-weeknd",
+                "monitored": True,
+                "qualityProfileId": 4,
+                "metadataProfileId": 1,
+            }
+        ]
+        args = Namespace(
+            music_dir="/nonexistent",
+            playlist_dir=tempfile.mkdtemp(),
+            http_timeout=1,
+            retries=1,
+            lidarr_url="http://lidarr",
+            dry_run=False,
+            artist_delay=0,
+        )
+        environment = {
+            "SPOTIFY_CLIENT_ID": "id",
+            "SPOTIFY_CLIENT_SECRET": "secret",
+            "SPOTIFY_REFRESH_TOKEN": "token",
+            "LIDARR_API_KEY": "key",
+        }
+        with (
+            patch.dict("os.environ", environment),
+            patch.object(LidarrClient, "artists", return_value=records),
+            patch.object(
+                LidarrClient,
+                "artist_defaults",
+                return_value={"rootFolderPath": "/data/music"},
+            ),
+        ):
+            engine = SyncEngine(args)
+        engine.lidarr = Mock()
+        engine.lidarr.lookup.side_effect = [
+            [{"artistName": "Weeknd", "cleanName": "theweeknd"}],
+            [{"artistName": "Abel", "foreignArtistId": "mbid-weeknd"}],
+        ]
+
+        added, monitored = engine.ensure_artists(
+            ["Weeknd", "Abel"], engine.existing_artists
+        )
+
+        self.assertEqual((added, monitored), (0, 0))
+        engine.lidarr.post.assert_not_called()
+
+    def test_new_artist_is_added_once_across_name_variants(self) -> None:
+        engine = _engine()
+        lookup = {"artistName": "JAY-Z", "foreignArtistId": "mbid-jay"}
+        engine.lidarr.lookup.return_value = [lookup]
+        engine.lidarr.post.return_value = {
+            "id": 9,
+            "artistName": "JAY-Z",
+            "cleanName": "jayz",
+            "foreignArtistId": "mbid-jay",
+            "monitored": True,
+        }
+        existing: dict[str, dict[str, Any]] = {}
+
+        added, monitored = engine.ensure_artists(["Jay-Z", "Shawn Carter"], existing)
+
+        self.assertEqual((added, monitored), (1, 0))
+        engine.lidarr.post.assert_called_once()
+        self.assertEqual(existing["mbid-jay"]["id"], 9)
+        self.assertEqual(existing["jayz"]["id"], 9)
+
+    def test_dry_run_reports_new_artist_once_without_writing(self) -> None:
+        engine = _engine(dry_run=True)
+        engine.lidarr.lookup.return_value = [
+            {
+                "artistName": "JAY-Z",
+                "cleanName": "jayz",
+                "foreignArtistId": "mbid-jay",
+                "monitored": False,
+            }
+        ]
+        existing: dict[str, dict[str, Any]] = {}
+
+        added, monitored = engine.ensure_artists(["Jay-Z", "Shawn Carter"], existing)
+
+        self.assertEqual((added, monitored), (1, 0))
+        engine.lidarr.post.assert_not_called()
+        engine.lidarr.put.assert_not_called()
+
+    def test_configmap_carries_the_tested_source(self) -> None:
+        rendered = config_map("media", "spotify-sync")
+        self.assertEqual(rendered["data"]["sync.py"], SOURCE.read_text())
 
     def test_rate_limit_is_reported_without_hour_long_sleep(self) -> None:
         client = HTTPClient(retries=2)

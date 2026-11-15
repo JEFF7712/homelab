@@ -4,9 +4,9 @@ import math
 import random
 
 from PIL import ImageDraw, ImageFont
-from web_controller.server import MultiplayerHub
 
 from modes.text_utils import draw_boxed_message, draw_fitted_text
+from web_controller.server import MultiplayerHub
 
 from .carousel import CarouselRenderer
 

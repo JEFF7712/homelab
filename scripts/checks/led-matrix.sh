@@ -12,6 +12,8 @@ import faulthandler, unittest
 faulthandler.dump_traceback_later(300, exit=True)
 unittest.main(module=None, argv=["unittest", "discover", "-v"])
 '
-ruff check --select E,F,I,UP --ignore E501 ha_source.py ha_matrix_streamer.py test_ha_source.py
-ruff format --check ha_source.py ha_matrix_streamer.py test_ha_source.py
+# The whole service, as scripts/checks/python.sh lints it from the repository
+# root; a matrix-only change runs this gate instead of that one.
+ruff check --select E,F,I,UP --ignore E501 .
+ruff format --check .
 env -u PYTHONPATH uv run --offline --frozen --no-dev pyright --pythonpath .venv/bin/python ha_source.py ha_matrix_streamer.py

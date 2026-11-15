@@ -41,7 +41,6 @@ class MultiplayerHub:
         self.solo_vs_ai: bool = False
         self.matrix_view: str = "auto"  # 'auto', 'carousel', 'qr'
 
-
         # Active input state per player (keys currently held down)
         self.p1_inputs: set[str] = set()
         self.p2_inputs: set[str] = set()
@@ -201,9 +200,13 @@ class MultiplayerHub:
 
     def navigate_menu(self, direction: str) -> None:
         if direction in ("left", "prev"):
-            self.selected_game_index = (self.selected_game_index - 1) % len(GAMES_CONFIG)
+            self.selected_game_index = (self.selected_game_index - 1) % len(
+                GAMES_CONFIG
+            )
         elif direction in ("right", "next"):
-            self.selected_game_index = (self.selected_game_index + 1) % len(GAMES_CONFIG)
+            self.selected_game_index = (self.selected_game_index + 1) % len(
+                GAMES_CONFIG
+            )
         self.selected_game = GAMES_CONFIG[self.selected_game_index]["id"]
         if not GAMES_CONFIG[self.selected_game_index]["supports_2p"]:
             self.solo_vs_ai = True
@@ -250,36 +253,47 @@ class MultiplayerHub:
 class WebControllerServer:
     """Embedded HTTP and WebSocket server running inside the LED matrix streamer."""
 
-    def __init__(self, hub: MultiplayerHub, host: str = "0.0.0.0", port: int = 8000) -> None:
+    def __init__(
+        self, hub: MultiplayerHub, host: str = "0.0.0.0", port: int = 8000
+    ) -> None:
         self.hub = hub
         self.host = host
         self.port = port
         self.server: Any = None
         self._server_task: asyncio.Task[None] | None = None
 
-    def process_request(self, connection: ServerConnection, request: Any) -> Response | None:
+    def process_request(
+        self, connection: ServerConnection, request: Any
+    ) -> Response | None:
         """Serve HTTP GET endpoints or return None for WebSocket upgrades."""
         path = getattr(request, "path", "/")
         if path in ("/", "/index.html"):
-            headers = Headers([
-                ("Content-Type", "text/html; charset=utf-8"),
-                ("Cache-Control", "no-cache, no-store, must-revalidate"),
-            ])
-            return Response(200, "OK", headers=headers, body=CONTROLLER_HTML.encode("utf-8"))
+            headers = Headers(
+                [
+                    ("Content-Type", "text/html; charset=utf-8"),
+                    ("Cache-Control", "no-cache, no-store, must-revalidate"),
+                ]
+            )
+            return Response(
+                200, "OK", headers=headers, body=CONTROLLER_HTML.encode("utf-8")
+            )
         elif path == "/health":
             headers = Headers([("Content-Type", "application/json")])
             return Response(200, "OK", headers=headers, body=b'{"status":"healthy"}')
         elif path == "/scores":
-            headers = Headers([
-                ("Content-Type", "application/json"),
-                ("Cache-Control", "no-cache"),
-            ])
-            body = json.dumps({"scores": self.hub.high_score_manager.get_all()}).encode("utf-8")
+            headers = Headers(
+                [
+                    ("Content-Type", "application/json"),
+                    ("Cache-Control", "no-cache"),
+                ]
+            )
+            body = json.dumps({"scores": self.hub.high_score_manager.get_all()}).encode(
+                "utf-8"
+            )
             return Response(200, "OK", headers=headers, body=body)
         elif path == "/ws":
             return None  # Upgrade to WebSocket
         return Response(404, "Not Found", headers=Headers(), body=b"404 Not Found")
-
 
     async def handle_connection(self, ws: ServerConnection) -> None:
         role = self.hub.register_client(ws)
@@ -291,11 +305,15 @@ class WebControllerServer:
 
             # If a game is already running, notify the newly connected player
             if self.hub.phase == "playing":
-                await ws.send(json.dumps({
-                    "type": "game_start",
-                    "game": self.hub.selected_game,
-                    "solo": self.hub.solo_vs_ai,
-                }))
+                await ws.send(
+                    json.dumps(
+                        {
+                            "type": "game_start",
+                            "game": self.hub.selected_game,
+                            "solo": self.hub.solo_vs_ai,
+                        }
+                    )
+                )
 
             # 3. Handle incoming client messages
             async for raw_msg in ws:
@@ -323,19 +341,23 @@ class WebControllerServer:
                     game = data.get("game", self.hub.selected_game)
                     solo = bool(data.get("solo", self.hub.solo_vs_ai))
                     self.hub.trigger_game_start(game, solo)
-                    await self.hub.broadcast({
-                        "type": "game_start",
-                        "game": game,
-                        "solo": solo,
-                    })
+                    await self.hub.broadcast(
+                        {
+                            "type": "game_start",
+                            "game": game,
+                            "solo": solo,
+                        }
+                    )
                 elif msg_type == "rematch":
                     if self.hub.on_rematch:
                         self.hub.on_rematch()
-                    await self.hub.broadcast({
-                        "type": "game_start",
-                        "game": self.hub.selected_game,
-                        "solo": self.hub.solo_vs_ai,
-                    })
+                    await self.hub.broadcast(
+                        {
+                            "type": "game_start",
+                            "game": self.hub.selected_game,
+                            "solo": self.hub.solo_vs_ai,
+                        }
+                    )
         finally:
             self.hub.unregister_client(ws)
             await self.hub.broadcast(self.hub.get_lobby_state())
@@ -348,7 +370,9 @@ class WebControllerServer:
             self.port,
             process_request=self.process_request,
         )
-        logger.info("Web Controller Server is listening on http://%s:%d", self.host, self.port)
+        logger.info(
+            "Web Controller Server is listening on http://%s:%d", self.host, self.port
+        )
 
     async def stop(self) -> None:
         if self.server:

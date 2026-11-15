@@ -44,9 +44,9 @@ For subsequent fixes, use the protected `matrix-publish` operation described in
 explicit publisher credential, verifies the image digest, and emits a focused
 Flux promotion patch. It does not use the laptop's default Docker login.
 
-Repository `AGENTS.md` requires authorization before publishing or changing
-shared infrastructure. The local build and qualification do not constitute a
-deployment. Deployment was authorized on 2026-10-16:
+Requested changes use the standing delivery authorization in repository
+`AGENTS.md` and the `just ship` workflow. Local build qualification alone does
+not prove deployment. The following records the initial 2026-10-16 rollout:
 
 1. Review the OPNsense CI plan and apply the prepared DHCP reservation for
    `28:cd:c1:0d:31:05` at `10.0.20.136`. Confirm the reservation and renewal.

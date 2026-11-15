@@ -16,7 +16,7 @@ CoreDNS ordering is independent of the other resolver views. Enabled AdGuard
 and CoreDNS records must also appear in Unbound. Disabled records are omitted
 from CoreDNS. The two
 Unbound-only homelab VIP records remain outside the AdGuard rewrite view.
-`just opnsense-render` generates `inventory/adguard-rewrites.json` and
+`just tofu-render` generates `inventory/adguard-rewrites.json` and
 `opnsense_reconciler/unbound-host-overrides.json`, plus the exact CoreDNS
 manifest at `gitops/platform/coredns-custom.yaml`; never edit these outputs.
 The narrow renderer in `inventory/coredns.nix` preserves cache, fallthrough and
@@ -30,14 +30,14 @@ address; service ports remain in their owning modules.
 
 `inventory/service-manifests.nix` maps Forgejo to `nas-01` and Woodpecker
 and Approvals to `homelab-04`. It generates their existing Service/Endpoints
-manifest pairs under `gitops/cloudflare/` with `just opnsense-render`. Only
+manifest pairs under `gitops/cloudflare/` with `just tofu-render`. Only
 host addresses are derived; the renderer preserves service names, namespace,
 HTTP port names and existing ports (3000, 8000 and 8020). Listener configuration
 remains in the owning NixOS modules. CI checks these manifests for exact
 freshness alongside CoreDNS. Deliver manifest changes through Flux and verify
 all three services from a pod after the `cloudflare` Kustomization reconciles.
 
-The flake reads the inventory to select canonical hosts and registry variants.
+The flake reads the inventory to define one configuration per host.
 Host profiles derive k3s node addresses and join endpoints from it. Network
 modules derive their primary addresses, gateways, DNS resolver addresses,
 registry host mapping, and the Cilium BGP peer address. Tofunix uses the same
@@ -59,7 +59,7 @@ ahead of the agent profiles to avoid kubelet/API-server version skew.
 1. Edit the host declaration in `inventory/hosts.nix`. Network changes belong
    in `inventory/networks.nix`. Hardware interface names and service-specific
    configuration stay in the owning NixOS profiles and modules.
-2. Run `just opnsense-render` and review any generated firewall changes.
+2. Run `just tofu-render` and review any generated firewall changes.
 3. Run `just check-changed` and `just fmt-check`. Shared inventory changes
    select the full validation gate. The flake's `fleet-inventory` check verifies
    host wiring, address membership, uniqueness, bootstrap membership, alias
@@ -71,7 +71,11 @@ ahead of the agent profiles to avoid kubelet/API-server version skew.
    changes to connectivity. See [host deployment](nixos-host-deployment.md)
    and [OPNsense recovery](opnsense-recovery.md).
 
-Primary addresses are centralized. Secondary overlay addresses, hardware
+Primary addresses are centralized. NixOS modules reference fleet hosts and
+network CIDRs through `fleetInventory` (firewall sources, the MQTT broker,
+backup sources, the binary-cache substituter); only values the inventory does
+not model stay literal, such as the pod CIDR, the `10.0.0.0/16` supernet,
+LoadBalancer VIPs and single client devices. Secondary overlay addresses, hardware
 interfaces, other application URLs, GitOps manifests, and reconciler inputs such
 BGP neighbor definitions retain their existing owners. Adding a physical host
 also requires its hardware/profile files; inventory membership alone cannot

@@ -7,12 +7,12 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: homelab-secrets
+    name: homelab-external-secrets
   target:
     name: eso-canary
     creationPolicy: Owner
   data:
     - secretKey: canary
       remoteRef:
-        key: homelab-values
+        key: homelab-external-secrets-values
         property: FLUX_ESO_CANARY

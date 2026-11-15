@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from PIL import ImageDraw
+
     from .base import MultiplayerGame
 
 logger = logging.getLogger("arcade_registry")
@@ -73,14 +75,18 @@ class GameRegistry:
         self._discovered = True
         import importlib
         import pkgutil
+
         try:
             import modes.multiplayer as mp_pkg
+
             for _, module_name, is_pkg in pkgutil.iter_modules(mp_pkg.__path__):
                 if not is_pkg and module_name not in NON_GAME_MODULES:
                     try:
                         importlib.import_module(f"modes.multiplayer.{module_name}")
                     except Exception as e:
-                        logger.warning("Failed to auto-discover game module %s: %s", module_name, e)
+                        logger.warning(
+                            "Failed to auto-discover game module %s: %s", module_name, e
+                        )
         except Exception as e:
             logger.warning("Error auto-discovering games: %s", e)
 

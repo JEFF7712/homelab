@@ -7,8 +7,10 @@ resources:
   - server.yaml
   - service.yaml
   - ledfx.yaml
-
 configMapGenerator:
+  - name: spotify-connect-relay
+    files:
+      - relay.py=spotify-connect-relay.py
   - name: music-assistant-player-recovery
     files:
       - runtime/recovery.py

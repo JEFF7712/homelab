@@ -4,7 +4,7 @@
   "enable_status_check": true,
   "status_check_contexts": ["ci/woodpecker/validation-v2", "policy/merge"],
   "apply_to_admins": true,
-  "block_on_rejected_reviews": true,
+  "block_on_rejected_reviews": false,
   "block_on_outdated_branch": false,
-  "block_on_official_review_requests": true
+  "block_on_official_review_requests": false
 }

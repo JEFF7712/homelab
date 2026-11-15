@@ -2,3 +2,4 @@ resources:
   - secretstore.yaml
   - local-reader.yaml
   - canary.yaml
+  - domain-stores.yaml

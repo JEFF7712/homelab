@@ -1,0 +1,18 @@
+{
+  "currency": "USD",
+  "monthly_cap": 10,
+  "consumers": {
+    "renovate-agent": {
+      "manifest": "gitops/automation/renovate-agent.yaml",
+      "provider": "openai",
+      "monthly_cap": 0,
+      "note": "Predates the spend gate; the controller absorbs it and enforces the cap."
+    },
+    "orchestrator-supervisor": {
+      "manifest": "scripts/orchestrator/manifests.py",
+      "provider": "openai",
+      "monthly_cap": 10,
+      "note": "Phase 2 supervisor inference (Letta) on a budget-capped API key; rendered manifests, not deployed. The provider-side usage limit must match this cap."
+    }
+  }
+}

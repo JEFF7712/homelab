@@ -216,6 +216,7 @@ def load_production_protocol():
     namespace = {
         "APIServer": Base,
         "asyncio": asyncio,
+        "os": os,
         "threading": threading,
         "VoiceAssistantFeature": SimpleNamespace(
             API_AUDIO=1,

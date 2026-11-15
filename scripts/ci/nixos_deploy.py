@@ -1,7 +1,7 @@
 """Advance the laptop deployment branch of JEFF7712/nixos-config.
 
 The laptop runs comin against `deploy/laptop` with local builds disabled, so
-that branch may only name a commit whose closure is already in Attic.
+that branch may only name a commit whose closure is already in the niks3 cache.
 
 The weekly run proposes one flake.lock update PR, never replacing an open one.
 Both runs then finish that PR (wait for the required nixos-config status,

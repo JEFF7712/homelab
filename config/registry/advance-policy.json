@@ -1,0 +1,14 @@
+{
+  "note": "Scheduled registry-advance (scripts/ci/registry_advance.py) never takes these; they move by hand or through the controller.",
+  "deny_namespaces": [
+    "cloudflare",
+    "home-assistant",
+    "music-assistant",
+    "voice",
+    "flux-system",
+    "kube-system"
+  ],
+  "deny_repositories": [
+    "upstream/docker.io/library/postgres"
+  ]
+}

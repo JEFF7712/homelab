@@ -43,12 +43,3 @@ subjects:
   - kind: ServiceAccount
     name: ha-deployer
     namespace: home-assistant
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ha-deployer-token
-  namespace: home-assistant
-  annotations:
-    kubernetes.io/service-account.name: ha-deployer
-type: kubernetes.io/service-account-token

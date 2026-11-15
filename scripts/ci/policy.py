@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import threading
 import time
@@ -19,6 +20,7 @@ import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
+from scripts.ci import build_users
 from scripts.ci.applications import Application, load_catalog
 from scripts.ci.applications import configuration as application_configuration
 from scripts.ci.deployment_risk import (
@@ -38,21 +40,21 @@ from scripts.ci.development_projects import configuration as development_configu
 
 IMAGE = "registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c"
 VALIDATION = "validation-v2"
-# The image's nixbld users share host UIDs 30001+ (no userns remap), and a
-# host nix-daemon SIGKILLs every process of a build UID around each build,
-# so a fleet dry-run on a CI host killed job builders ("signal 9"). Without
-# a sandbox, build users isolate nothing; build as the container's root.
+# Job steps build as the unprivileged users that BUILD_USERS adds first;
+# see scripts/ci/build_users.py for why neither the image's nixbld users nor
+# root work.
+BUILD_USERS = build_users.setup_command()
 NIX_CONFIG = (
     "experimental-features = nix-command flakes\n"
     "accept-flake-config = true\n"
     "sandbox = false\n"
-    "build-users-group =\n"
+    f"{build_users.NIX_SETTING}\n"
     "max-jobs = 2\n"
-    "cores = 2\n"
+    "cores = 4\n"
     "connect-timeout = 5\n"
     "download-attempts = 3\n"
-    "extra-substituters = http://10.0.30.20:8080/homelab?priority=30\n"
-    "extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=\n"
+    "extra-substituters = http://10.0.30.20:8090?priority=30\n"
+    "extra-trusted-public-keys = homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec=\n"
 )
 # One dev-shell resolution for the whole gate. Dependency provisioning
 # is managed inside validate repository. Formatting and the Jev fixture
@@ -227,6 +229,10 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
         "registry-retention-reconcile",
         "registry-resolve",
         "registry-auth-consistency",
+        # FRR can hold the VIP routes without installing them, which went
+        # unnoticed for six hours on 2026-11-02; this probes them through
+        # OPNsense and posts to ntfy when they stop answering.
+        "vip-dataplane-watch",
         # Post-merge housekeeping lives here rather than on every main push,
         # so a merge's pipeline (the parent deployments need) ends quickly.
         "sync-to-github",
@@ -236,19 +242,33 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
     "promote": (
         "registry-promote-first-party",
         "registry-promote-nix-agent",
+        # One upstream image step per run (scripts/ci/registry_advance.py).
+        "registry-advance",
     ),
     "nightly": (
         "registry-gc-fixture",
+        "cloudflare-access-drift",
+        "switches-drift-nightly",
         "opnsense-plan",
         "opnsense-dataplane",
         "opnsense-inventory",
         "nas-proof",
         "deploy-fleet-dry-run",
+        # Delivers main to the fleet after its dry run, including the night's
+        # nixpkgs update. It runs only when the deployed authorization
+        # baseline admits main (held_schedule_targets).
+        "deploy-fleet",
         "deploy-agent-workspace-host-dry-run",
         "deploy-home-assistant-dry-run",
         # Retries the open laptop lock update and delivers new main commits.
         "nixos-deploy",
     ),
+    # Proposes the fleet's nixpkgs update early enough for its PR to merge
+    # before the nightly delivery.
+    "fleet-lock": ("fleet-lock-update",),
+    # Reboots hosts onto the installed kernel; the operation only acts inside
+    # 03:00-05:00 America/Chicago, so two UTC runs cover daylight saving.
+    "fleet-reboot": ("fleet-reboot",),
     "weekly": ("nixos-lock-update", "registry-cve-audit"),
 }
 
@@ -515,6 +535,7 @@ def configuration(
     authority_changes: list[str] | None = None,
     authority_grant: str = "",
     source_compatible: bool = False,
+    held_targets: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -590,7 +611,9 @@ def configuration(
         # Operations serialize on the resource they act on (the catalog
         # group), so unrelated work runs in parallel. Scheduled read-only
         # work shares one group, so maintenance never holds more than one
-        # trusted slot or queues an operator's plan behind it.
+        # trusted slot or queues an operator's plan behind it. Woodpecker
+        # ignores this concurrency setting; mutations are serialized by the
+        # group lock operation.py takes from scripts/ci/oplock.py.
         if event == "cron" and not operation["mutation"]:
             group = "scheduled-read-only"
         else:
@@ -608,7 +631,8 @@ def configuration(
                     "image": IMAGE,
                     "environment": environment,
                     "commands": [
-                        f"nix develop ./flake#ops -c python -m scripts.ci.operation {target}"
+                        BUILD_USERS,
+                        f"nix develop ./flake#ops -c python -m scripts.ci.operation {target}",
                     ],
                 }
             ],
@@ -693,7 +717,7 @@ def configuration(
                             "name": VALIDATION,
                             "image": IMAGE,
                             "environment": validation_env,
-                            "commands": [VALIDATION_COMMAND],
+                            "commands": [BUILD_USERS, VALIDATION_COMMAND],
                         }
                     ],
                 },
@@ -701,7 +725,11 @@ def configuration(
         if main and current == pipeline.get("commit"):
             if event == "push":
                 # Only the plans that apply operations consume run here.
-                for target in ["opnsense-plan", "cloudflare-plan"]:
+                for target in [
+                    "opnsense-plan",
+                    "cloudflare-plan",
+                    "cloudflare-access-plan",
+                ]:
                     operation_workflow(target, "${CI_PIPELINE_NUMBER}", [VALIDATION])
                 # A committed lock asserts its content is in the registry;
                 # nothing else fetches it, so the push that changes the lock
@@ -744,9 +772,49 @@ def configuration(
                             },
                         )
                     return {"configs": configs}
+                # An operation unpacks its needs' artifacts from this
+                # pipeline, so it must start after they finish, and after its
+                # prerequisite when the schedule runs that too.
+                held = held_targets or {}
                 for target in schedule:
-                    if target != "webhook-watchdog":
-                        operation_workflow(target, "${CI_PIPELINE_NUMBER}", gate)
+                    if target == "webhook-watchdog":
+                        continue
+                    if target in held:
+                        # A host deployment that would activate unapproved
+                        # authorization or storage changes waits for the
+                        # operator, as an agent deployment would; the rest of
+                        # the schedule still runs.
+                        reason = "awaiting operator approval: " + ", ".join(
+                            held[target][:12]
+                        )
+                        add(
+                            f"{target}-held",
+                            {
+                                "when": [{"event": "cron"}],
+                                "labels": {"tier": "sandbox", "type": "docker"},
+                                "steps": [
+                                    {
+                                        "name": f"{target}-held",
+                                        "image": IMAGE,
+                                        "commands": [
+                                            "echo " + shlex.quote(f"{target} {reason}")
+                                        ],
+                                    }
+                                ],
+                            },
+                        )
+                        continue
+                    prerequisite = operations[target]["prerequisite"]
+                    ordered = (
+                        [prerequisite]
+                        if prerequisite in schedule and prerequisite not in held
+                        else []
+                    )
+                    operation_workflow(
+                        target,
+                        "${CI_PIPELINE_NUMBER}",
+                        gate + list(operations[target]["needs"]) + ordered,
+                    )
         return {"configs": configs}
 
     if not main or pipeline.get("author") not in DEPLOY_AUTHORS:
@@ -795,6 +863,42 @@ def configuration(
         )
     operation_workflow(target, str(parent["number"]))
     return {"configs": configs}
+
+
+def held_schedule_targets(
+    request: dict[str, Any],
+    operations: dict[str, Any],
+    mirror: Any,
+    authority_baseline: dict[str, str] | None,
+    grant_lookup: Callable[[str], bool],
+) -> dict[str, list[str]]:
+    """Scheduled host deployments that must wait, with the changes holding them.
+
+    A cron run skips the agent deployment check, so a scheduled deploy-fleet
+    gets the same one: the commit's authorization and storage sources against
+    the deployed baseline, unless the operator granted their exact content.
+    """
+    pipeline = request["pipeline"]
+    if pipeline.get("event") != "cron" or pipeline.get("cron") not in SCHEDULES:
+        return {}
+    held: dict[str, list[str]] = {}
+    for target in SCHEDULES[pipeline["cron"]]:
+        operation = operations.get(target, {})
+        if not (operation.get("mutation") and host_operation(operation)):
+            continue
+        if mirror is None or authority_baseline is None:
+            held[target] = ["cannot verify the deployed authorization baseline"]
+            continue
+        changes, grant = mirror.authority_changes(
+            pipeline.get("commit", ""),
+            request.get("netrc", {}),
+            authority_baseline,
+            protected_paths(target, True),
+            True,
+        )
+        if changes and not grant_lookup(grant):
+            held[target] = changes
+    return held
 
 
 def resolve_configuration(
@@ -881,6 +985,9 @@ def resolve_configuration(
             host,
         )
         authority_changes = [] if changes and grant_lookup(authority_grant) else changes
+    held_targets = held_schedule_targets(
+        request, operations, mirror, authority_baseline, grant_lookup
+    )
     if request["pipeline"].get("ref") == "refs/heads/main":
         credentials = request["netrc"]
         tip = api(
@@ -942,6 +1049,7 @@ def resolve_configuration(
         authority_changes=authority_changes,
         authority_grant=authority_grant,
         source_compatible=source_compatible,
+        held_targets=held_targets,
     )
 
 

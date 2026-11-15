@@ -15,7 +15,7 @@ import subprocess
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Optional
+from typing import Any
 
 _LOGGER = logging.getLogger("jarvis-spectrum")
 
@@ -66,7 +66,9 @@ def resolve_source(pw_dump_bin: str, match: str, timeout: float = 5.0) -> str:
         _LOGGER.warning("pw-dump failed (%s); using cava auto source", exc)
         return "auto"
     if completed.returncode != 0:
-        _LOGGER.warning("pw-dump exited %s; using cava auto source", completed.returncode)
+        _LOGGER.warning(
+            "pw-dump exited %s; using cava auto source", completed.returncode
+        )
         return "auto"
     try:
         dump = json.loads(completed.stdout)
@@ -94,7 +96,7 @@ def build_cava_config(source: str, bars: int, framerate: int, max_range: int) ->
     )
 
 
-def parse_cava_frame(line: str, bars: int, max_range: int) -> Optional[list[int]]:
+def parse_cava_frame(line: str, bars: int, max_range: int) -> list[int] | None:
     """Parse one cava ascii frame ("12;45;...;\\n") into clamped bar values."""
     parts = [part for part in line.strip().split(";") if part != ""]
     if not parts:
@@ -197,13 +199,11 @@ def run_cava_forever(
             backoff = min(30.0, backoff * 2.0)
 
 
-def make_handler(
-    state: SpectrumState, max_range: int
-) -> type[BaseHTTPRequestHandler]:
+def make_handler(state: SpectrumState, max_range: int) -> type[BaseHTTPRequestHandler]:
     class Handler(BaseHTTPRequestHandler):
         server_version = "JarvisSpectrum/1"
 
-        def log_message(self, *args: object) -> None:
+        def log_message(self, format: str, *args: Any) -> None:
             pass
 
         def _cors(self) -> None:
@@ -220,7 +220,9 @@ def make_handler(
                         "cava_alive": state.cava_alive,
                         "frames": state.frames,
                         "fps": round(state.fps(), 2),
-                        "last_frame_age_s": round(age, 3) if age != float("inf") else None,
+                        "last_frame_age_s": round(age, 3)
+                        if age != float("inf")
+                        else None,
                         "bars": state.bars,
                     }
                 ).encode()
@@ -259,7 +261,7 @@ def make_handler(
     return Handler
 
 
-def main(argv: Optional[list[str]] = None) -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--bars", type=int, default=DEFAULT_BARS)
@@ -303,7 +305,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
     worker.start()
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(state, args.max_range))
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", args.port), make_handler(state, args.max_range)
+    )
     _LOGGER.info("serving spectrum on 127.0.0.1:%s", args.port)
     try:
         server.serve_forever()

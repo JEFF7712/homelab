@@ -1,0 +1,917 @@
+"""Tests for the music_director palette, effect rules and metadata merging.
+
+The package __init__ and director need Home Assistant, so a stub package
+exposes only the pure modules.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import importlib
+import itertools
+import re
+import sys
+import types
+import unittest
+from pathlib import Path
+
+import yaml
+
+from scripts.home_assistant.canonical import DuplicateKeySafeLoader
+
+ROOT = Path(__file__).resolve().parents[1]
+PACKAGE_DIR = ROOT / "home-assistant" / "custom_components" / "music_director"
+
+
+def load(name: str) -> types.ModuleType:
+    if "music_director" not in sys.modules:
+        package = types.ModuleType("music_director")
+        package.__path__ = [str(PACKAGE_DIR)]
+        sys.modules["music_director"] = package
+    return importlib.import_module(f"music_director.{name}")
+
+
+palette = load("palette")
+rules = load("rules")
+metadata = load("metadata")
+pins = load("pins")
+sections = load("sections")
+
+CSS_GRADIENT = re.compile(
+    r"^linear-gradient\(90deg(, rgb\(\d{1,3}, \d{1,3}, \d{1,3}\) \d{1,3}%)+\)$"
+)
+
+
+def cover(*parts: tuple[tuple[int, int, int], int]) -> list[tuple[int, int, int]]:
+    pixels: list[tuple[int, int, int]] = []
+    for colour, count in parts:
+        pixels.extend([colour] * count)
+    return pixels
+
+
+def hue_of(rgb: tuple[int, int, int]) -> float:
+    lab = palette.rgb_to_oklab(rgb)
+    return palette._hue(lab)
+
+
+class TestPalette(unittest.TestCase):
+    def test_vivid_minority_beats_dominant_neutral_background(self) -> None:
+        # Mostly beige background with a red subject: the red must win.
+        result = palette.extract_palette(
+            cover(((222, 210, 190), 1800), ((200, 30, 40), 500))
+        )
+        assert result is not None
+        self.assertEqual(result.source, "cover")
+        self.assertLess(palette.hue_distance(result.hue, hue_of((200, 30, 40))), 10)
+
+    def test_grey_and_black_covers_have_no_palette(self) -> None:
+        self.assertIsNone(
+            palette.extract_palette(cover(((10, 10, 10), 1500), ((128, 128, 128), 800)))
+        )
+        self.assertIsNone(palette.extract_palette([]))
+
+    def test_spread_follows_the_cover(self) -> None:
+        # Shades of one blue: no spread.
+        single = palette.extract_palette(
+            cover(((20, 60, 200), 1200), ((40, 80, 220), 900), ((0, 0, 0), 600))
+        )
+        assert single is not None
+        self.assertEqual((single.related, single.spread), ((), 0.0))
+        # A dominant colour with a small patch of another is still one colour.
+        mostly = palette.extract_palette(
+            cover(((220, 30, 40), 1600), ((20, 60, 200), 150), ((0, 0, 0), 600))
+        )
+        assert mostly is not None
+        self.assertEqual((mostly.related, mostly.spread), ((), 0.0))
+        # Blue and purple: the lights take both.
+        related = palette.extract_palette(
+            cover(((20, 60, 200), 1200), ((140, 40, 200), 900))
+        )
+        assert related is not None
+        self.assertEqual(len(related.related), 1)
+        self.assertLessEqual(
+            palette.hue_distance(related.hue, related.related[0]),
+            palette.RELATED_HUE_WIDTH,
+        )
+        # Blue and orange: unrelated, so the default spread.
+        mixed = palette.extract_palette(
+            cover(((20, 60, 200), 1200), ((240, 160, 20), 900))
+        )
+        assert mixed is not None
+        self.assertEqual(mixed.related, ())
+        self.assertEqual(mixed.spread, palette.DEFAULT_SPREAD)
+        self.assertEqual(palette.vibe_palette(("Rap",)).spread, palette.DEFAULT_SPREAD)
+
+    def test_red_lettering_with_dark_drips_is_a_red_cover(self) -> None:
+        # Like Whole Lotta Red: black and white with bright red lettering and
+        # dark red drips; the drips must not drag the red into brown.
+        drips = cover(
+            ((255, 255, 255), 1080),
+            ((0, 0, 0), 760),
+            ((200, 25, 30), 75),
+            ((70, 30, 28), 120),
+            ((60, 60, 60), 270),
+        )
+        result = palette.extract_palette(drips)
+        assert result is not None
+        self.assertLess(palette.hue_distance(result.hue, hue_of((200, 25, 30))), 10)
+        self.assertEqual((result.related, result.spread), ((), 0.0))
+        for rgb in palette.area_colors(palette.with_intensity(result, 0.9), 5):
+            r, g, b = rgb
+            self.assertGreater(r, 230, rgb)
+            self.assertLess(max(g, b), 80, rgb)
+
+    def test_intense_tracks_show_one_colour(self) -> None:
+        for base in (
+            palette.Palette(hue=250.0, chroma=0.15, source="cover", related=(300.0,)),
+            palette.Palette(hue=250.0, chroma=0.15, source="cover", spread=10.0),
+            palette.vibe_palette(("Rap",), energy=0.9, valence=0.9),
+        ):
+            intense = palette.with_intensity(base, 1.0)
+            hues = {round(hue_of(c)) for c in palette.area_colors(intense, 5)}
+            self.assertLessEqual(max(hues) - min(hues), 3, base)
+            calm = palette.with_intensity(base, 0.1)
+            hues = [hue_of(c) for c in palette.area_colors(calm, 5)]
+            self.assertGreater(max(hues) - min(hues), 8, base)
+
+    def test_extraction_is_deterministic(self) -> None:
+        pixels = cover(((30, 140, 90), 900), ((240, 120, 40), 700), ((15, 15, 30), 700))
+        self.assertEqual(
+            palette.extract_palette(pixels), palette.extract_palette(pixels)
+        )
+
+    def test_vibe_fallback_uses_the_primary_genre(self) -> None:
+        self.assertEqual(palette.vibe_palette(("Rap", "Hip Hop")).source, "vibe")
+        rnb = palette.vibe_palette(("R&B",))
+        rock = palette.vibe_palette(("Rock",))
+        self.assertNotEqual(rnb.hue, rock.hue)
+        self.assertEqual(palette.vibe_palette().source, "default")
+        self.assertEqual(palette.vibe_palette(("polka",)).hue, palette.DEFAULT_HUE)
+        # Audio features alone are enough to call it a vibe.
+        self.assertEqual(palette.vibe_palette(energy=0.8).source, "vibe")
+
+    def test_intense_vibe_follows_mood_and_energy(self) -> None:
+        happy = palette.vibe_palette(("Rap",), energy=0.9, valence=0.9, intensity=1.0)
+        sad = palette.vibe_palette(("Rap",), energy=0.2, valence=0.1, intensity=1.0)
+        # Happy sits toward deep red, sad toward deep blue (Palmer et al. 2013).
+        self.assertLess(
+            palette.hue_distance(happy.hue, palette.RED_HUE),
+            palette.hue_distance(sad.hue, palette.RED_HUE),
+        )
+        self.assertLess(
+            palette.hue_distance(sad.hue, palette.BLUE_HUE),
+            palette.hue_distance(happy.hue, palette.BLUE_HUE),
+        )
+        # Synthpop is synth (deep blue), not pop.
+        self.assertEqual(
+            palette.genre_hue(("Synthpop",)), palette.genre_hue(("New Wave",))
+        )
+        self.assertGreater(happy.chroma, sad.chroma)
+        self.assertGreater(happy.lift, sad.lift)
+        # Tempo stands in for energy when ReccoBeats has no features.
+        self.assertGreater(
+            palette.vibe_palette(("R&B",), tempo=1.0).chroma,
+            palette.vibe_palette(("R&B",), tempo=0.0).chroma,
+        )
+
+    def test_intense_vibe_is_red_or_blue_not_magenta(self) -> None:
+        # Intense rap in the vibe fallback used to land on the magenta
+        # between deep blue and red.
+        for valence in (0.2, 0.4, 0.5, 0.6, 0.8):
+            intense = palette.vibe_palette(
+                ("Rap",), energy=0.85, valence=valence, intensity=1.0
+            )
+            nearest = min(
+                palette.hue_distance(intense.hue, palette.RED_HUE),
+                palette.hue_distance(intense.hue, palette.BLUE_HUE),
+            )
+            self.assertLess(nearest, 1, (valence, intense.hue))
+        # Medium tracks move part way; calm ones keep their hue.
+        calm = palette.vibe_palette(("Rap",), valence=0.6, intensity=0.2)
+        self.assertEqual(calm.hue, palette.polarize(calm.hue, 0.2))
+
+    def test_calm_vibe_keeps_the_genre_colour(self) -> None:
+        # Calm R&B stays warm orange whatever the mood; rap's genre hue is red.
+        orange = palette.NAMED_HUES["orange"]
+        for valence in (0.1, 0.5, 0.9):
+            calm = palette.vibe_palette(("R&B",), valence=valence, intensity=0.1)
+            self.assertLess(palette.hue_distance(calm.hue, orange), 25, valence)
+        self.assertLess(
+            palette.hue_distance(
+                palette.genre_hue(("Rap",)) or 0.0, palette.NAMED_HUES["red"]
+            ),
+            15,
+        )
+
+    def test_skin_tones_lose_to_a_smaller_clean_colour(self) -> None:
+        # A portrait: mostly skin and a dark brown background, with a teal shirt.
+        portrait = cover(
+            ((224, 172, 125), 1100), ((70, 45, 30), 800), ((0, 150, 160), 400)
+        )
+        result = palette.extract_palette(portrait)
+        assert result is not None
+        self.assertLess(palette.hue_distance(result.hue, hue_of((0, 150, 160))), 15)
+
+    def test_only_muddy_colours_means_no_cover_palette(self) -> None:
+        skin_and_olive = cover(
+            ((224, 172, 125), 1200), ((95, 90, 30), 700), ((60, 40, 25), 400)
+        )
+        self.assertIsNone(palette.extract_palette(skin_and_olive))
+        # A genuinely vivid orange is not mistaken for skin.
+        orange = palette.extract_palette(cover(((255, 120, 0), 1500), ((0, 0, 0), 800)))
+        assert orange is not None
+        self.assertEqual(orange.source, "cover")
+
+    def test_yellows_and_oranges_never_render_mustard_olive_or_brown(self) -> None:
+        for hue in range(45, 151, 5):
+            base = palette.Palette(hue=float(hue), chroma=0.15, source="cover")
+            colours = [*palette.area_colors(base, 5), *palette.triad(base)]
+            for rgb in colours:
+                lightness, _, _ = palette.rgb_to_oklab(rgb)
+                out_hue = hue_of(rgb)
+                brown = 30 <= out_hue <= 90 and lightness < 0.55
+                olive = 90 < out_hue <= 125 and lightness < 0.72
+                self.assertFalse(brown or olive, (hue, rgb))
+
+    def test_area_shades_are_distinct_valid_and_near_the_primary(self) -> None:
+        base = palette.Palette(hue=160.0, chroma=0.15, source="cover", spread=10.0)
+        colours = palette.area_colors(base, 6)
+        self.assertEqual(len(colours), 6)
+        self.assertEqual(len(set(colours)), 6)
+        for colour in colours:
+            self.assertTrue(all(0 <= channel <= 255 for channel in colour))
+            self.assertLess(palette.hue_distance(hue_of(colour), 160.0), 40)
+
+    def test_intense_output_avoids_orange_and_yellow(self) -> None:
+        for hue in range(0, 360, 5):
+            base = palette.Palette(
+                hue=float(hue),
+                chroma=0.15,
+                source="cover",
+                intensity=1.0,
+            )
+            for rgb in (*palette.area_colors(base, 5), *palette.triad(base)):
+                out = hue_of(rgb)
+                self.assertFalse(52 <= out <= 100, (hue, rgb, round(out)))
+
+    def test_calm_output_stays_true_to_the_cover(self) -> None:
+        # An orange cover on a calm track stays orange, and a muted one
+        # stays less saturated than the same cover on an intense track.
+        orange = palette.Palette(hue=55.0, chroma=0.15, source="cover", intensity=0.1)
+        for rgb in palette.area_colors(orange, 5):
+            self.assertLess(palette.hue_distance(hue_of(rgb), 55.0), 30, rgb)
+        muted = palette.Palette(hue=200.0, chroma=0.06, source="cover", intensity=0.1)
+        intense = palette.with_intensity(muted, 1.0)
+
+        def chroma(p: palette.Palette) -> float:
+            return palette._chroma(palette.rgb_to_oklab(palette.area_colors(p, 1)[0]))
+
+        self.assertLess(chroma(muted), chroma(intense))
+
+    def test_calm_yellow_leans_orange_but_chosen_amber_stays(self) -> None:
+        yellow = palette.Palette(hue=95.0, chroma=0.15, source="cover", intensity=0.1)
+        for rgb in palette.area_colors(yellow, 5):
+            self.assertFalse(85 <= hue_of(rgb) <= 110, rgb)
+        amber = palette.named_palette("amber")
+        assert amber is not None
+        self.assertLess(
+            palette.hue_distance(hue_of(palette.area_colors(amber, 1)[0]), 72.0), 15
+        )
+
+    def test_spread_label_explains_the_lights(self) -> None:
+        def label(**kwargs: object) -> str:
+            return palette.spread_label(
+                palette.Palette(hue=20.0, chroma=0.15, source="cover", **kwargs)
+            )
+
+        self.assertEqual(label(intensity=0.2), "one colour")
+        self.assertEqual(label(related=(60.0,), intensity=0.2), "the cover's colours")
+        self.assertEqual(label(spread=10.0, intensity=0.2), "±10° around one colour")
+        self.assertEqual(
+            label(spread=10.0, intensity=0.9), "one sharp colour (intense)"
+        )
+        self.assertEqual(
+            palette.spread_label(palette.chosen_palette((255, 0, 0))),
+            "one chosen colour",
+        )
+
+    def test_wheel_colours_keep_their_hue(self) -> None:
+        for rgb in (
+            (255, 0, 0),
+            (255, 140, 0),
+            (0, 80, 255),
+            (180, 0, 255),
+            (0, 200, 120),
+        ):
+            chosen = palette.chosen_palette(rgb)
+            self.assertEqual(chosen.source, "manual")
+            for out in palette.area_colors(chosen, 5):
+                self.assertLess(
+                    palette.hue_distance(hue_of(out), hue_of(rgb)), 8, (rgb, out)
+                )
+
+    def test_hex_override_colours_keep_their_hue(self) -> None:
+        light_blue = palette.named_palette("#00DDFF", "override")
+        assert light_blue is not None
+        self.assertEqual(light_blue.source, "override")
+        # A hex override is shown exactly, on bulbs and strip alike.
+        self.assertEqual(set(palette.area_colors(light_blue, 5)), {(0, 221, 255)})
+        self.assertEqual(palette.solid_colour(light_blue), (0, 221, 255))
+        self.assertEqual(
+            set(re.findall(r"rgb\([^)]*\)", palette.gradient(light_blue))),
+            {"rgb(0, 221, 255)"},
+        )
+        self.assertIsNone(palette.hex_rgb("#00DDF"))
+        self.assertIsNone(palette.named_palette("#zzzzzz"))
+
+    def test_named_colours_keep_their_hue(self) -> None:
+        for name, hue in palette.NAMED_HUES.items():
+            named = palette.named_palette(name.title())
+            assert named is not None
+            self.assertEqual(named.source, "manual")
+            for rgb in palette.area_colors(named, 5):
+                self.assertLess(palette.hue_distance(hue_of(rgb), hue), 25, (name, rgb))
+        self.assertIsNone(palette.named_palette("Auto"))
+        self.assertEqual(palette.named_palette("deep_blue").hue, 262.0)
+
+    def test_muted_tint_across_a_dark_cover_counts_as_its_colour(self) -> None:
+        # Like Dawn FM: black with several muted navy-to-slate blues.
+        tinted = cover(
+            ((0, 0, 0), 900),
+            ((22, 30, 44), 500),
+            ((38, 50, 70), 320),
+            ((60, 74, 96), 260),
+            ((88, 102, 124), 200),
+        )
+        result = palette.extract_palette(tinted)
+        assert result is not None
+        self.assertLess(palette.hue_distance(result.hue, palette.BLUE_HUE), 35)
+
+    def test_related_cover_hues_reach_some_areas(self) -> None:
+        base = palette.Palette(
+            hue=250.0, chroma=0.15, source="cover", related=(300.0,), intensity=0.1
+        )
+        hues = [hue_of(c) for c in palette.area_colors(base, 6)]
+        self.assertTrue(any(palette.hue_distance(h, 300.0) < 15 for h in hues))
+        self.assertTrue(any(palette.hue_distance(h, 250.0) < 15 for h in hues))
+
+    def test_out_of_gamut_requests_are_clamped(self) -> None:
+        for hue in range(0, 360, 15):
+            rgb = palette.oklch_to_rgb(0.7, 0.4, float(hue))
+            self.assertTrue(all(0 <= c <= 255 for c in rgb))
+
+    def test_gradient_matches_ledfx_format(self) -> None:
+        base = palette.Palette(hue=200.0, chroma=0.1, source="genre")
+        self.assertRegex(palette.gradient(base), CSS_GRADIENT)
+        self.assertEqual(palette.to_hex((255, 0, 16)), "#ff0010")
+
+
+class TestRules(unittest.TestCase):
+    def test_primary_genre_decides_the_family(self) -> None:
+        self.assertEqual(
+            rules.classify(rules.Features(genres=("Rap", "Hip Hop"))), "bass"
+        )
+        self.assertEqual(
+            rules.classify(rules.Features(genres=("Electro", "Rap"))), "drive"
+        )
+        self.assertEqual(rules.classify(rules.Features(genres=("R&B",))), "smooth")
+        self.assertEqual(rules.classify(rules.Features(genres=("indie rock",))), "rock")
+        self.assertEqual(rules.classify(rules.Features(genres=("ambient",))), "calm")
+        self.assertEqual(rules.classify(rules.Features()), "default")
+
+    def test_audio_features_refine_the_genre(self) -> None:
+        quiet = rules.Features(genres=("Rap",), energy=0.2)
+        self.assertEqual(rules.classify(quiet), "calm")
+        mellow_rap = rules.Features(genres=("Rap",), energy=0.45)
+        self.assertEqual(rules.classify(mellow_rap), "smooth")
+        club = rules.Features(genres=("Pop",), energy=0.85, bpm=124, danceability=0.8)
+        self.assertEqual(rules.classify(club), "drive")
+        unplugged = rules.Features(genres=("Rock",), energy=0.45, acousticness=0.9)
+        self.assertEqual(rules.classify(unplugged), "calm")
+        loud_unknown = rules.Features(energy=0.9)
+        self.assertEqual(rules.classify(loud_unknown), "drive")
+
+    def test_rnb_always_melts(self) -> None:
+        features = rules.Features(genres=("rnb", "soul"), energy=0.46)
+        family = rules.classify(features)
+        self.assertEqual(family, "smooth")
+        for key in ("a", "b", "Amaria\nLying To You\nAll For You"):
+            self.assertEqual(rules.choose_effect(family, key, "melt"), "melt")
+
+    def test_effect_choice_is_stable_and_avoids_repeats(self) -> None:
+        first = rules.choose_effect("bass", "artist\ntitle\nalbum", None)
+        self.assertEqual(
+            first, rules.choose_effect("bass", "artist\ntitle\nalbum", None)
+        )
+        self.assertIn(first, rules.FAMILIES["bass"])
+        self.assertNotEqual(
+            first, rules.choose_effect("bass", "artist\ntitle\nalbum", first)
+        )
+        self.assertEqual(rules.choose_effect("default", "x", "energy"), "energy")
+
+    def test_every_family_effect_has_a_colour_mapping(self) -> None:
+        base = palette.Palette(hue=120.0, chroma=0.12, source="cover")
+        for effects in rules.FAMILIES.values():
+            for effect in effects:
+                config = rules.effect_config(effect, base)
+                if effect in rules.GRADIENT_EFFECTS:
+                    self.assertRegex(config["gradient"], CSS_GRADIENT)
+                else:
+                    self.assertEqual(
+                        set(config), {"color_lows", "color_mids", "color_high"}
+                    )
+        self.assertIn("sparks_color", rules.effect_config("power", base))
+        with self.assertRaises(ValueError):
+            rules.effect_config("fire", base)
+
+
+class TestGraduation(unittest.TestCase):
+    def test_purple_and_pink_stay_separate_cover_colours(self) -> None:
+        # Like Graduation: a purple sky with pink, which used to merge into
+        # one magenta.
+        sky = cover(
+            ((150, 70, 170), 650), ((215, 85, 150), 650), ((250, 245, 230), 400)
+        )
+        result = palette.extract_palette(sky)
+        assert result is not None
+        hues = {round(result.hue), *(round(h) for h in result.related)}
+        self.assertTrue(any(300 <= h <= 330 for h in hues), hues)
+        self.assertTrue(any(335 <= h <= 360 for h in hues), hues)
+
+    def test_calm_bulbs_are_never_pastel(self) -> None:
+        for hue in range(0, 360, 15):
+            muted = palette.Palette(
+                hue=float(hue), chroma=0.08, source="cover", intensity=0.1
+            )
+            for rgb in palette.area_colors(muted, 5):
+                r, g, b = (c / 255 for c in rgb)
+                saturation = (max(r, g, b) - min(r, g, b)) / max(r, g, b)
+                self.assertGreater(saturation, 0.45, (hue, rgb))
+
+    def test_mellow_rap_still_rates_fairly_intense(self) -> None:
+        # I Wonder: rap at energy 0.47 plays a smooth effect but is not calm.
+        features = rules.Features(genres=("Rap", "Hip Hop"), energy=0.47)
+        family = rules.classify(features)
+        self.assertEqual(family, "smooth")
+        self.assertGreater(rules.intensity(features, family), 0.55)
+        rnb = rules.Features(genres=("R&B",), energy=0.47)
+        self.assertLess(rules.intensity(rnb, rules.classify(rnb)), 0.45)
+
+
+class TestLedNative(unittest.TestCase):
+    """Bulbs take hue and saturation and set brightness themselves, so what
+    is sent must already be full value and saturated, or bulbs show paler
+    than the dashboard."""
+
+    def saturation_value(self, rgb: tuple[int, int, int]) -> tuple[float, float]:
+        r, g, b = (c / 255 for c in rgb)
+        top = max(r, g, b)
+        return ((top - min(r, g, b)) / top if top else 0.0), top
+
+    def test_every_light_colour_is_full_value_and_saturated(self) -> None:
+        for hue in range(0, 360, 15):
+            for chroma, level in ((0.05, 0.1), (0.15, 0.5), (0.2, 1.0)):
+                base = palette.Palette(
+                    hue=float(hue), chroma=chroma, source="cover", intensity=level
+                )
+                floor = 0.995 if level >= 0.8 else palette.LED_MIN_SATURATION - 0.01
+                for rgb in (*palette.area_colors(base, 5), *palette.triad(base)):
+                    s, v = self.saturation_value(rgb)
+                    self.assertGreaterEqual(v, 0.99, (hue, level, rgb))
+                    self.assertGreaterEqual(s, floor, (hue, level, rgb))
+
+    def test_picked_colours_are_sent_exactly(self) -> None:
+        for rgb in ((0, 0, 255), (255, 128, 0), (120, 40, 200)):
+            chosen = palette.chosen_palette(rgb)
+            self.assertEqual(set(palette.area_colors(chosen, 5)), {rgb})
+            self.assertEqual(palette.solid_colour(chosen), rgb)
+
+
+class TestStripColours(unittest.TestCase):
+    def test_strip_gradient_is_saturated_and_slight(self) -> None:
+        # Whites and pastels look poor on the strip: every gradient stop and
+        # three-colour slot stays saturated, within a few degrees of the
+        # primary, even for muted calm covers with spread.
+        for hue in range(0, 360, 15):
+            for base in (
+                palette.Palette(
+                    hue=float(hue), chroma=0.05, source="cover", intensity=0.1
+                ),
+                palette.Palette(
+                    hue=float(hue),
+                    chroma=0.12,
+                    source="cover",
+                    related=((hue + 50) % 360.0,),
+                    intensity=0.1,
+                ),
+            ):
+                stops = [
+                    tuple(int(v) for v in m)
+                    for m in re.findall(
+                        r"rgb\((\d+), (\d+), (\d+)\)", palette.gradient(base)
+                    )
+                ]
+                colours = (*stops, *palette.triad(base))
+                for rgb in colours:
+                    r, g, b = (c / 255 for c in rgb)
+                    saturation = (max(r, g, b) - min(r, g, b)) / max(r, g, b)
+                    self.assertGreater(saturation, 0.45, (hue, rgb))
+                hues = [hue_of(rgb) for rgb in colours]
+                span = max(palette.hue_distance(a, b) for a in hues for b in hues)
+                self.assertLessEqual(
+                    span, 2 * palette.STRIP_HUE_SPREAD + 6, (hue, colours)
+                )
+
+    def test_pastel_coral_cover_reads_as_pink(self) -> None:
+        # Like Funk Wav Bounces: a pale coral sunset reads as pink.
+        sunset = cover(((248, 150, 130), 1400), ((20, 20, 30), 900))
+        result = palette.extract_palette(sunset)
+        assert result is not None
+        self.assertEqual(result.hue, palette.PINK_HUE)
+        # Saturated coral and orange covers keep their own hue.
+        orange = palette.extract_palette(cover(((255, 120, 0), 1500), ((0, 0, 0), 800)))
+        assert orange is not None
+        self.assertNotEqual(orange.hue, palette.PINK_HUE)
+        coral = palette.extract_palette(cover(((235, 80, 50), 1500), ((0, 0, 0), 800)))
+        assert coral is not None
+        self.assertNotEqual(coral.hue, palette.PINK_HUE)
+
+
+class TestSolidStrip(unittest.TestCase):
+    def test_solid_strip_uses_one_colour_in_every_slot(self) -> None:
+        base = palette.Palette(
+            hue=250.0, chroma=0.15, source="cover", related=(300.0,), intensity=0.1
+        )
+        one = palette.to_hex(palette.solid_colour(base))
+        for effects in rules.FAMILIES.values():
+            for effect in effects:
+                config = rules.effect_config(effect, base, solid=True)
+                if effect in rules.GRADIENT_EFFECTS:
+                    self.assertRegex(config["gradient"], CSS_GRADIENT)
+                    stops = set(re.findall(r"rgb\([^)]*\)", config["gradient"]))
+                    self.assertEqual(len(stops), 1, effect)
+                else:
+                    self.assertEqual(
+                        {config[k] for k in ("color_lows", "color_mids", "color_high")},
+                        {one},
+                    )
+        self.assertEqual(
+            rules.effect_config("power", base, solid=True)["sparks_color"], one
+        )
+        # The gradient default still spreads across the cover's colours.
+        stops = set(re.findall(r"rgb\([^)]*\)", palette.gradient(base)))
+        self.assertGreater(len(stops), 1)
+
+
+class TestDynamics(unittest.TestCase):
+    BASE = palette.Palette(hue=120.0, chroma=0.12, source="cover")
+    # LedFx schema ranges for the keys the director sets.
+    RANGES = {
+        ("melt", "speed"): (0.001, 1.0),
+        ("lava_lamp", "speed"): (0.1, 15.0),
+        ("scroll", "speed"): (1, 10),
+        ("melt", "reactivity"): (0.0001, 1.0),
+        ("lava_lamp", "reactivity"): (0.00001, 0.9),
+        ("energy", "sensitivity"): (0.3, 0.99),
+        ("power", "bass_decay_rate"): (0.0, 1.0),
+        ("scroll", "decay"): (0.8, 1.0),
+    }
+
+    def test_faster_songs_run_faster(self) -> None:
+        for effect in ("melt", "lava_lamp", "scroll"):
+            slow = rules.effect_config(effect, self.BASE, rules.Features(bpm=60))
+            fast = rules.effect_config(effect, self.BASE, rules.Features(bpm=175))
+            self.assertLess(slow["speed"], fast["speed"], effect)
+        self.assertIsInstance(
+            rules.effect_config("scroll", self.BASE, rules.Features(bpm=120))["speed"],
+            int,
+        )
+
+    def test_energy_raises_responsiveness(self) -> None:
+        for effect, key in (
+            ("melt", "reactivity"),
+            ("lava_lamp", "reactivity"),
+            ("energy", "sensitivity"),
+            ("power", "bass_decay_rate"),
+        ):
+            quiet = rules.effect_config(effect, self.BASE, rules.Features(energy=0.1))
+            loud = rules.effect_config(effect, self.BASE, rules.Features(energy=0.95))
+            self.assertLess(quiet[key], loud[key], effect)
+
+    def test_loud_sections_run_punchier_and_quiet_ones_calmer(self) -> None:
+        features = rules.Features(bpm=100, energy=0.5)
+        for effect, key in (
+            ("melt", "speed"),
+            ("melt", "reactivity"),
+            ("energy", "sensitivity"),
+        ):
+            configs = [
+                rules.effect_config(
+                    effect, self.BASE, features, drive=sections.SECTION_DRIVE[name]
+                )
+                for name in (sections.QUIET, sections.NORMAL, sections.LOUD)
+            ]
+            quiet, normal, loud = (config[key] for config in configs)
+            self.assertLess(quiet, normal, (effect, key))
+            self.assertLess(normal, loud, (effect, key))
+
+    def test_sections_move_dynamics_of_songs_without_features(self) -> None:
+        unknown = rules.Features()
+        self.assertNotIn("speed", rules.effect_config("melt", self.BASE, unknown))
+        loud = rules.effect_config("melt", self.BASE, unknown, drive=0.25)
+        quiet = rules.effect_config("melt", self.BASE, unknown, drive=-0.15)
+        self.assertLess(quiet["speed"], loud["speed"])
+
+    def test_values_stay_inside_ledfx_schema_ranges(self) -> None:
+        for bpm in (0, 40, 120, 300):
+            for energy, drive in itertools.product(
+                (-1.0, 0.0, 0.5, 1.0, 2.0), (-0.15, 0.0, 0.25)
+            ):
+                features = rules.Features(bpm=bpm, energy=energy)
+                for effect in rules.EFFECTS:
+                    config = rules.effect_config(
+                        effect, self.BASE, features, drive=drive
+                    )
+                    for (name, key), (low, high) in self.RANGES.items():
+                        if name == effect:
+                            self.assertGreaterEqual(config[key], low, (effect, key))
+                            self.assertLessEqual(config[key], high, (effect, key))
+
+    def test_unknown_inputs_keep_ledfx_defaults(self) -> None:
+        for effect in rules.EFFECTS:
+            plain = rules.effect_config(effect, self.BASE)
+            unknown = rules.effect_config(effect, self.BASE, rules.Features())
+            self.assertEqual(plain, unknown, effect)
+
+    def test_strobe_is_a_drive_effect_with_track_colours(self) -> None:
+        self.assertIn("strobe", rules.FAMILIES["drive"])
+        self.assertRegex(
+            rules.effect_config("strobe", self.BASE)["gradient"], CSS_GRADIENT
+        )
+
+    def test_override_dropdown_offers_exactly_the_director_effects(self) -> None:
+        core = yaml.load(
+            (ROOT / "home-assistant" / "core" / "configuration.yaml").read_text(),
+            Loader=DuplicateKeySafeLoader,
+        )
+        options = core["input_select"]["music_mode_effect"]["options"]
+        self.assertEqual(options[0], "Auto")
+        self.assertEqual(
+            {option.lower().replace(" ", "_") for option in options[1:]},
+            set(rules.EFFECTS),
+        )
+        self.assertEqual(
+            core["music_director"]["effect_select"], "input_select.music_mode_effect"
+        )
+
+
+class TestIntensity(unittest.TestCase):
+    def test_intense_families_and_energy_score_higher(self) -> None:
+        calm = rules.intensity(rules.Features(genres=("R&B",)), "smooth")
+        rap = rules.intensity(rules.Features(genres=("Rap",)), "bass")
+        house = rules.intensity(rules.Features(energy=0.9), "drive")
+        self.assertLess(calm, rap)
+        self.assertLess(rap, house)
+        quiet = rules.intensity(rules.Features(energy=0.1), "bass")
+        loud = rules.intensity(rules.Features(energy=0.95), "bass")
+        self.assertLess(quiet, loud)
+        fast = rules.intensity(rules.Features(bpm=170), "smooth")
+        slow = rules.intensity(rules.Features(bpm=60), "smooth")
+        self.assertLess(slow, fast)
+        for family in rules.FAMILIES:
+            self.assertIn(family, rules.FAMILY_INTENSITY)
+
+    def test_song_overrides_match_album_artist_and_title(self) -> None:
+        orange = metadata.SongOverride(album="channel ORANGE", color="orange")
+        self.assertTrue(
+            orange.matches("Pyramids", "Frank Ocean", "channel ORANGE (Deluxe)")
+        )
+        self.assertFalse(orange.matches("Pyramids", "Frank Ocean", "Blonde"))
+        exact = metadata.SongOverride(
+            artist="The Weeknd", title="Blinding Lights", effect="strobe"
+        )
+        self.assertTrue(
+            exact.matches("Blinding Lights", "The Weeknd, X", "After Hours")
+        )
+        self.assertFalse(exact.matches("Blinding Lights (Remix)", "The Weeknd", ""))
+        self.assertFalse(metadata.SongOverride(color="red").matches("a", "b", "c"))
+        self.assertIs(
+            metadata.find_override(
+                (exact, orange), "Sweet Life", "Frank Ocean", "channel ORANGE"
+            ),
+            orange,
+        )
+
+    def test_configured_overrides_are_valid(self) -> None:
+        core = yaml.load(
+            (ROOT / "home-assistant" / "core" / "configuration.yaml").read_text(),
+            Loader=DuplicateKeySafeLoader,
+        )
+        director = core["music_director"]
+        self.assertNotIn("color_select", director)
+        self.assertNotIn("music_mode_color", core["input_select"])
+        for item in director["overrides"]:
+            self.assertTrue({"artist", "album", "title"} & set(item), item)
+            if "color" in item:
+                self.assertIsNotNone(palette.named_palette(item["color"]), item)
+            if "effect" in item:
+                self.assertIn(item["effect"], rules.EFFECTS, item)
+
+
+class TestPins(unittest.TestCase):
+    SEEDS = (
+        metadata.SongOverride(artist="Drake", album="More Life", color="blue"),
+        metadata.SongOverride(artist="The Weeknd", album="Dawn FM", effect="melt"),
+    )
+
+    def test_configured_colours_seed_once_and_unpinning_sticks(self) -> None:
+        store = pins.Pins()
+        self.assertTrue(store.seed(self.SEEDS))
+        # Effect-only overrides are not pins.
+        self.assertEqual(len(store.pins), 1)
+        found = store.find("Passionfruit", "Drake", "More Life")
+        assert found is not None
+        self.assertEqual(found.color, "blue")
+        self.assertTrue(store.unpin("Passionfruit", "Drake", "More Life"))
+        self.assertFalse(store.seed(self.SEEDS))
+        self.assertIsNone(store.find("Passionfruit", "Drake", "More Life"))
+
+    def test_pin_covers_the_album_and_replaces_an_old_pin(self) -> None:
+        store = pins.Pins()
+        store.pin("HYFR", "Drake, Lil Wayne", "Take Care", "#ff0000")
+        store.pin("Marvins Room", "Drake", "Take Care (Deluxe)", "#00ddff")
+        self.assertEqual(len(store.pins), 1)
+        # Primary artist and album prefix: features and editions still match.
+        found = store.find("Crew Love", "Drake, The Weeknd", "Take Care (Deluxe)")
+        assert found is not None
+        self.assertEqual(found.color, "#00ddff")
+        self.assertIsNone(store.find("Hotline Bling", "Drake", "Views"))
+        # Without an album the pin is for that song only.
+        store.pin("Single", "Someone", "", "#123456")
+        self.assertIsNotNone(store.find("Single", "Someone", ""))
+        self.assertIsNone(store.find("Other", "Someone", ""))
+
+    def test_store_round_trip_and_persistence(self) -> None:
+        class Storage:
+            def __init__(self, data: object) -> None:
+                self.data = data
+                self.saved: object = None
+
+            async def async_load(self) -> object:
+                return self.data
+
+            def async_delay_save(self, data_func, delay: float = 0) -> None:
+                self.saved = data_func()
+
+        storage = Storage(None)
+        store = pins.PinStore(storage)
+        asyncio.run(store.async_load(self.SEEDS))
+        self.assertEqual(
+            storage.saved["pins"],
+            [{"artist": "Drake", "album": "More Life", "color": "blue"}],
+        )
+        again = pins.PinStore(Storage(storage.saved))
+        asyncio.run(again.async_load(self.SEEDS))
+        self.assertEqual(again.pins.pins, store.pins.pins)
+        self.assertEqual(again.pins.seeded, store.pins.seeded)
+
+    def test_pinned_colours_render(self) -> None:
+        for colour in ("blue", "#00ddff"):
+            self.assertIsNotNone(palette.named_palette(colour, "override"))
+
+
+class TestSections(unittest.TestCase):
+    RATE = 30  # samples per second
+
+    def play(self, tracker, parts):
+        """Feed (seconds, level) parts; return [(time, new section)]."""
+        changes, now = [], 0.0
+        for seconds, level in parts:
+            for _ in range(int(seconds * self.RATE)):
+                now += 1 / self.RATE
+                changed = tracker.add(level, now)
+                if changed:
+                    changes.append((round(now, 1), changed))
+        return changes
+
+    def test_chorus_gets_loud_and_bridge_gets_quiet(self) -> None:
+        tracker = sections.SectionTracker()
+        tracker.reset(0.0)
+        changes = self.play(
+            tracker, [(40, 1.0), (20, 1.7), (25, 1.0), (20, 0.5), (20, 1.0)]
+        )
+        names = [name for _, name in changes]
+        self.assertIn(sections.LOUD, names)
+        self.assertIn(sections.QUIET, names)
+        loud_at = next(at for at, name in changes if name == sections.LOUD)
+        # Caught within about 8 s of the chorus starting.
+        self.assertTrue(40 < loud_at < 48.5, changes)
+
+    def test_beats_and_fills_do_not_flip_sections(self) -> None:
+        tracker = sections.SectionTracker()
+        tracker.reset(0.0)
+        # A steady verse with one-second hits every four seconds.
+        parts = [(3, 1.0), (1, 1.8)] * 20
+        self.assertEqual(self.play(tracker, parts), [])
+
+    def test_warmup_silence_and_dwell(self) -> None:
+        tracker = sections.SectionTracker()
+        tracker.reset(0.0)
+        self.assertEqual(self.play(tracker, [(30, 0.0)]), [])
+        changes = self.play(tracker, [(40, 1.0), (30, 2.0), (3, 0.2), (30, 2.0)])
+        for (a, _), (b, _) in zip(changes, changes[1:]):
+            self.assertGreaterEqual(b - a, sections.MIN_DWELL_SECONDS)
+
+    def test_strip_stays_bright(self) -> None:
+        self.assertGreaterEqual(min(sections.SECTION_BRIGHTNESS.values()), 0.8)
+        self.assertEqual(sections.SECTION_BRIGHTNESS[sections.LOUD], 1.0)
+
+
+class TestMetadata(unittest.TestCase):
+    def test_same_track_tolerates_punctuation_and_features(self) -> None:
+        self.assertTrue(
+            metadata.same_track(
+                "Who Knows", "Daniel Caesar", "Who Knows?", "Daniel Caesar"
+            )
+        )
+        self.assertTrue(metadata.same_track("Song", "A", "Song (feat. B)", "A, B"))
+        self.assertFalse(metadata.same_track("Song", "A", "Other", "A"))
+        self.assertFalse(metadata.same_track("", "A", "", "A"))
+
+    def test_spotify_track_id(self) -> None:
+        self.assertEqual(
+            metadata.spotify_track_id("spotify:track:6DH13QYXK7lKkYHSU88N48"),
+            "6DH13QYXK7lKkYHSU88N48",
+        )
+        self.assertIsNone(
+            metadata.spotify_track_id("spotify:episode:6DH13QYXK7lKkYHSU88N48")
+        )
+        self.assertIsNone(metadata.spotify_track_id(None))
+
+    def test_sources_merge_in_precedence_order(self) -> None:
+        info = metadata.TrackInfo()
+        metadata.apply_reccobeats(
+            info,
+            {
+                "content": [
+                    {
+                        "tempo": 148.1,
+                        "energy": 0.918,
+                        "danceability": 0.355,
+                        "acousticness": 0.001,
+                        "isrc": "gbffp0300052",
+                    }
+                ]
+            },
+        )
+        metadata.apply_library(
+            info,
+            {"match": {"genres": ["Rock"], "bpm": 150}, "matched_by": "isrc"},
+        )
+        metadata.apply_lastfm(
+            info, {"toptags": {"tag": [{"name": "alternative", "count": 100}]}}, "X"
+        )
+        self.assertEqual(info.isrc, "GBFFP0300052")
+        self.assertEqual(info.bpm, 148.1)  # ReccoBeats tempo beats file tags.
+        self.assertEqual(info.genres, ("Rock",))  # Library genres beat Last.fm.
+        self.assertEqual(info.sources, ["reccobeats", "library:isrc"])
+        self.assertEqual(info.features().energy, 0.918)
+
+    def test_missing_sources_leave_info_empty(self) -> None:
+        info = metadata.TrackInfo()
+        metadata.apply_reccobeats(info, {"content": []})
+        metadata.apply_reccobeats(info, None)
+        metadata.apply_library(info, {"match": None, "matched_by": None})
+        metadata.apply_lastfm(info, {"error": 6, "message": "Track not found"}, "X")
+        self.assertEqual(info, metadata.TrackInfo())
+
+    def test_library_bpm_fills_in_without_reccobeats(self) -> None:
+        info = metadata.TrackInfo()
+        metadata.apply_library(
+            info, {"match": {"genres": [], "bpm": 92}, "matched_by": "title"}
+        )
+        self.assertEqual(info.bpm, 92)
+        self.assertEqual(info.genres, ())
+
+    def test_lastfm_filters_noise_and_rare_tags(self) -> None:
+        body = {
+            "toptags": {
+                "tag": [
+                    {"name": "Hip-Hop", "count": 100},
+                    {"name": "seen live", "count": 90},
+                    {"name": "2010s", "count": 80},
+                    {"name": "Kendrick Lamar", "count": 70},
+                    {"name": "conscious", "count": 40},
+                    {"name": "obscure", "count": 3},
+                ]
+            }
+        }
+        self.assertEqual(
+            metadata.lastfm_genres(body, "Kendrick Lamar"), ("hip-hop", "conscious")
+        )
+        single = {"toptags": {"tag": {"name": "jazz", "count": "55"}}}
+        self.assertEqual(metadata.lastfm_genres(single), ("jazz",))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -15,7 +15,7 @@ summary:
   entities: 618
   areas: 4
   automations: 36
-  dashboards: 8
+  dashboards: 7
   devices: 60
   integrations: 33
   scenes: 9
@@ -38,7 +38,7 @@ surfaces:
     surface: scenes
   - description: Lovelace storage dashboards
     category: ui-editable
-    count: 8
+    count: 7
     details: {}
     surface: dashboards
   - description: Area registry entries

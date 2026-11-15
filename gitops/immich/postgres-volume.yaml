@@ -3,47 +3,6 @@ kind: PersistentVolume
 metadata:
   annotations:
     kustomize.toolkit.fluxcd.io/prune: disabled
-  name: immich-postgres-nvme
-spec:
-  capacity:
-    storage: 20Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: nvme-homelab-01
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: kubernetes.io/hostname
-              operator: In
-              values:
-                - homelab-01
-  hostPath:
-    path: /persist/postgres/immich
-    type: DirectoryOrCreate
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  annotations:
-    kustomize.toolkit.fluxcd.io/prune: disabled
-  name: immich-postgres-data
-  namespace: immich
-spec:
-  volumeName: immich-postgres-nvme
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: nvme-homelab-01
-  resources:
-    requests:
-      storage: 20Gi
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  annotations:
-    kustomize.toolkit.fluxcd.io/prune: disabled
   name: immich-postgres-nvme-01
 spec:
   capacity:

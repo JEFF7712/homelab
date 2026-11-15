@@ -19,13 +19,21 @@ the generated `opnsense_reconciler/assignments.json`, whose source is
 `inventory/networks.nix`; primary host addresses are declared in
 `inventory/hosts.nix`. BGP intent comes from
 `opnsense_reconciler/bgp-neighbors.json`. A matching declared interface gateway
-assigns the corresponding network. Physical connections are never inferred.
+assigns the corresponding network. Documented switch links come from `tofu/switches/inventory.nix`; they are
+declared intent, not runtime observations. The same source generates
+`docs/network/switch-port-map.md`. Switch roles, VLAN/PVID settings and endpoints
+are included in `topology.json` under `switchPorts`. Managed switch ports do not
+use the library default that shares one network across every port.
 
 ## Coverage gaps
 
-- OPNsense is external; only its declared VLAN interfaces are shown.
-- Switch ports, cabling and the WAN handoff are unknown. The external switch
-  fabric is deliberately disconnected in the diagram.
+- OPNsense remains external. Its WAN/LAN switch port order is documented as
+  unverified, so those two physical links are omitted until confirmed.
+- Managed switches and documented device attachments are drawn. Host
+  `switch-uplink` endpoints identify the device attachment without claiming a
+  physical NIC name; downstream unmanaged cluster port links remain unknown.
+- VLAN membership and PVIDs are structured metadata and generated port tables.
+  The diagrams do not model VLAN forwarding across managed switch ports.
 - Cloudflare is an external marker; tunnel routes are not extracted.
 - Kubernetes workloads and service routes, NetBird overlay paths and custom VM
   guests are not modeled. Extracted virtual interfaces may be unassigned.
@@ -41,7 +49,7 @@ Run `just topology` from the repository root. The result is exposed at
 The command builds documentation only and requires no fleet credentials.
 
 Full CI validation builds `checks.x86_64-linux.topology`. Its immutable Nix
-output is also included in the existing protected Attic cache publication.
+output is also included in the existing protected niks3 cache publication.
 Scoped host and OPNsense source checks also rebuild `artifacts/topology/`.
 Retrieve that artifact by building `packages.x86_64-linux.topology` from the
 desired source revision with the repository's configured cache. Sandbox PR

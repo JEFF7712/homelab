@@ -7,7 +7,7 @@ metadata:
   namespace: home-assistant
 spec:
   instances: 2
-  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  imageName: registry.rupan.dev/upstream/ghcr.io/cloudnative-pg/postgresql:17@sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e  # yamllint disable-line rule:line-length
   primaryUpdateStrategy: unsupervised
   bootstrap:
     initdb:
@@ -42,3 +42,9 @@ spec:
       shared_buffers: 128MB
       work_mem: 16MB
       max_connections: "100"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 512Mi
+    limits:
+      memory: 1Gi

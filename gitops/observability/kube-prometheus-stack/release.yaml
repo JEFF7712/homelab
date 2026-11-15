@@ -5,10 +5,16 @@ metadata:
   namespace: observability
 spec:
   interval: 1h
+  # The operator and its CRDs move together: Helm's default leaves CRDs
+  # untouched on upgrade, which would run a new operator on old schemas.
+  install:
+    crds: CreateReplace
+  upgrade:
+    crds: CreateReplace
   chart:
     spec:
       chart: kube-prometheus-stack
-      version: 92.1.0
+      version: 93.1.1
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
@@ -18,19 +24,19 @@ spec:
         images:
           - name: docker.io/grafana/grafana
             newName: registry.rupan.dev/upstream/docker.io/grafana/grafana  # yamllint disable-line rule:line-length
-            digest: sha256:2d1f9ae67c1778d33e291d4c3c759cd8b650e67491f02533499eb950e075eeb5
+            digest: sha256:540b8afb775bf34aefce417e4329039daa5d44b6f2fbda6881397b1b247ca7df
           - name: ghcr.io/jkroepke/kube-webhook-certgen
             newName: registry.rupan.dev/upstream/ghcr.io/jkroepke/kube-webhook-certgen  # yamllint disable-line rule:line-length
-            digest: sha256:8ce13c365c8e9ced0aad5ef350a53c50b7ca5817f99d856b9eec895db1056728
+            digest: sha256:8009b04f9873f7279b5adee37fdd03b6a9aa7b6751d4f69fde2683010e41cd1f
           - name: quay.io/kiwigrid/k8s-sidecar
             newName: registry.rupan.dev/upstream/quay.io/kiwigrid/k8s-sidecar  # yamllint disable-line rule:line-length
-            digest: sha256:694950d736c8b532eba4006527ccbdac98fefc9f30b3346ba2de50b6cad91c94
+            digest: sha256:52d311dcedd587421a236c4d6c621f05614c40a51386e955e0699dca97ec0880
           - name: quay.io/prometheus-operator/prometheus-config-reloader
             newName: registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-config-reloader  # yamllint disable-line rule:line-length
             digest: sha256:142a1f11df8dd165f00375b0b1826aecb9c9adeb05c39855893138d7c7575ff7
           - name: quay.io/prometheus-operator/prometheus-operator
             newName: registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-operator  # yamllint disable-line rule:line-length
-            digest: sha256:cf153f64d6c38113fceb2cda7642365ea887f71edd7888f054e43e54cf177e55
+            digest: sha256:9c2490af910d58ec2abd77642d340e30bd5e2de5c80fd19ab4b49e28dc7bbb83
           - name: quay.io/prometheus/alertmanager
             newName: registry.rupan.dev/upstream/quay.io/prometheus/alertmanager  # yamllint disable-line rule:line-length
             digest: sha256:51a825c2a40acc3e338fdd00d622e01ec090f72be2b3ea46be0839cd47a4d286
@@ -135,12 +141,53 @@ spec:
             memory: 2Gi
         storageSpec:
           volumeClaimTemplate:
+            metadata:
+              name: prometheus-local-db
             spec:
-              storageClassName: nfs-cluster
+              storageClassName: local-nvme
               accessModes: [ReadWriteOnce]
+              selector:
+                matchLabels:
+                  homelab.rupan.dev/storage: prometheus-local
               resources:
                 requests:
                   storage: 20Gi
+        # A new claim name retains the NFS claim for rollback. Refuse to start
+        # an empty TSDB before the cold-copy migration has passed its checks.
+        initContainers:
+          - name: require-tsdb-migration
+            image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47  # yamllint disable-line rule:line-length
+            command: [/bin/sh, -ec, 'test -f /prometheus/.migration-complete']
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop: [ALL]
+            resources:
+              requests:
+                cpu: 10m
+                memory: 16Mi
+              limits:
+                memory: 64Mi
+            volumeMounts:
+              - name: prometheus-local-db
+                mountPath: /prometheus
+                subPath: prometheus-db
+                readOnly: true
+    kubelet:
+      serviceMonitor:
+        metricRelabelings:
+          # Preserve the chart's default storage histogram bucket filter:
+          # Helm replaces lists rather than appending to them.
+          - action: drop
+            sourceLabels: [__name__, le]
+            regex: '(csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?'
+          # k3s also exports control-plane metrics on kubelet /metrics.
+          # The apiserver job already collects these; keep kubelet and
+          # cAdvisor/probe metrics while avoiding duplicate series.
+          - action: drop
+            sourceLabels: [__name__]
+            regex: '(apiserver|etcd|scheduler)_.*'
     kubeControllerManager:
       enabled: false
     kubeScheduler:
@@ -161,6 +208,7 @@ spec:
         configSecret: alertmanager-kube-prometheus-stack-alertmanager
         secrets:
           - alertmanager-ntfy-token
+          - alertmanager-resend-smtp
         resources:
           requests:
             cpu: 100m
@@ -191,7 +239,7 @@ spec:
               receiver: "null"
             - matchers:
                 - severity = "critical"
-              receiver: ntfy-critical
+              receiver: critical
               group_wait: 10s
               group_interval: 2m
               repeat_interval: 1h
@@ -248,6 +296,15 @@ spec:
             equal:
               - node
         receivers:
+          - name: critical
+            email_configs:
+              - to: rupanpandyan@gmail.com
+                from: Homelab Alerts <alerts@rupan.dev>
+                smarthost: smtp.resend.com:587
+                auth_username: resend
+                auth_password_file: /etc/alertmanager/secrets/alertmanager-resend-smtp/password
+                send_resolved: true
+                require_tls: true
           - name: ntfy-critical
             webhook_configs:
               # yamllint disable-line rule:line-length

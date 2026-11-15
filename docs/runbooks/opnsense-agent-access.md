@@ -114,8 +114,6 @@ credential and public-key registration, deploy the updated immutable
 Woodpecker policy bundle on `homelab-04`, then request the protected
 OPNsense deployment against fresh validation. Do not run `opnsense-apply`
 between publishing the catalog and provisioning its required secret.
-GitLab disaster-recovery operators must provision the corresponding
-`OPNSENSE_ACL_SSH_KEY` file variable before using the same catalog there.
 The preparation helper requires this secret explicitly and fails if absent.
 
 This does not remove existing operator root SSH or administrator API
