@@ -29,6 +29,57 @@ let
     cp ${../../scripts/ci/oplock.py} $out/scripts/ci/oplock.py
     touch $out/scripts/__init__.py $out/scripts/ci/__init__.py
   '';
+  # The authority baseline records every protected path and .nix file
+  # (snapshot() in scripts/ci/deployment_risk.py). Its input holds only those
+  # files, so a commit that touches neither leaves this host's system
+  # unchanged. The prefixes are read from the tuples snapshot() itself uses,
+  # and snapshot() selects within this set, so the baseline is the same.
+  pythonTuple =
+    file: name:
+    let
+      lines = lib.splitString "\n" (builtins.readFile file);
+      start = lib.lists.findFirstIndex (line: line == "${name} = (") null lines;
+      rest = lib.drop (start + 1) lines;
+      end = lib.lists.findFirstIndex (line: line == ")") null rest;
+      entry =
+        line:
+        let
+          literal = builtins.match " *\"([^\"]+)\", *" line;
+        in
+        if literal != null then
+          literal
+        else if builtins.match " *(#.*)?" line != null then
+          [ ]
+        else
+          throw "woodpecker.nix: cannot read ${name} line '${line}' in ${baseNameOf file}";
+    in
+    if start == null || end == null then
+      throw "woodpecker.nix: ${name} tuple not found in ${baseNameOf file}"
+    else
+      lib.concatMap entry (lib.take end rest);
+  authorityPrefixes =
+    pythonTuple ../../scripts/ci/deployment_risk.py "RUNTIME_PATHS"
+    ++ pythonTuple ../../scripts/verifier/enforcement.py "ENFORCEMENT_PATHS"
+    ++ pythonTuple ../../scripts/verifier/enforcement.py "DATA_PATHS";
+  authoritySource =
+    let
+      root = ../..;
+      relative = path: lib.removePrefix (toString root + "/") (toString path);
+    in
+    lib.fileset.toSource {
+      inherit root;
+      fileset = lib.fileset.fromSource (
+        lib.cleanSourceWith {
+          src = root;
+          name = "authority-source";
+          filter =
+            path: type:
+            type == "directory"
+            || lib.hasSuffix ".nix" (relative path)
+            || lib.any (prefix: lib.hasPrefix prefix (relative path)) authorityPrefixes;
+        }
+      );
+    };
   deployNetwork = "ci-deploy";
   deployBridge = "br-cideploy";
   oplockPort = 8031;
@@ -40,7 +91,7 @@ let
     cp ${../../scripts/ci/deployment_source.py} $out/scripts/ci/deployment_source.py
     cp ${../../config/ci/ship-routes.json} $out/config/ci/ship-routes.json
     cp ${../../scripts/ci/deployment_risk.py} $out/scripts/ci/deployment_risk.py
-    PYTHONPATH=$out ${python}/bin/python -m scripts.ci.deployment_risk ${../..} > $out/authority-baseline.json
+    PYTHONPATH=$out ${python}/bin/python -m scripts.ci.deployment_risk ${authoritySource} > $out/authority-baseline.json
     cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py
     cp ${../../scripts/ci/build_users.py} $out/scripts/ci/build_users.py
     cp ${../../scripts/ci/development_projects.py} $out/scripts/ci/development_projects.py
@@ -115,6 +166,16 @@ in
     forgejoClientId = lib.mkOption {
       type = lib.types.str;
       default = "0b07d9b0-bd0a-4634-a0d3-a47f8c2229fb";
+    };
+    authority = lib.mkOption {
+      type = lib.types.raw;
+      readOnly = true;
+      internal = true;
+      default = {
+        prefixes = authorityPrefixes;
+        source = authoritySource;
+      };
+      description = "Protected prefixes and the narrowed source the authority baseline is computed from.";
     };
   };
 
