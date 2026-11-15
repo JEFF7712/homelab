@@ -104,6 +104,8 @@ _PYTHON_GITOPS_PREFIXES = (
     "gitops/media/jellyfin-backup/",
     "gitops/media/navidrome-lookup/",
     "gitops/media/soularr/",
+    "gitops/voice/exporter/",
+    "gitops/voice/satellite/",
     # An extensionless Python script, routed by its exact path.
     "gitops/media/lidarr-extended/10-render-extended-conf",
 )

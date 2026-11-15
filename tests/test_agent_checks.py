@@ -174,6 +174,7 @@ class AgentCheckSelectionTest(unittest.TestCase):
                 "python",
             ),
             "gitops/media/lidarr-extended/tidal-dl-shim": ("gitops",),
+            "gitops/voice/exporter/exporter.py": ("gitops", "python"),
             "tofu/cloudflare/.terraform.lock.hcl": ("tofu",),
         }
         for path, checks in expected.items():
