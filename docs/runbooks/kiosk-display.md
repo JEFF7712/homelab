@@ -78,7 +78,8 @@ seconds using a systemd credential. The browser never receives the HA token.
 An idle display shows the clock and the pairing QR code; between 22:00 and
 07:00 it dims. Running, preparing, paused, and failed prints select the custom
 print screen: a live camera (HA's MJPEG `camera_proxy_stream`, proxied at
-`/camera.mjpeg` and reconnected every minute or after an error), progress,
+`/camera.mjpeg` and reconnected every minute or after an error), a spinning
+toolpath preview of the job, progress,
 finish time and time left, stage, layer, and nozzle/bed temperatures against
 their targets. A failed print turns red and lists the error text from the
 `print_error` and `hms_errors` binary sensors. When the service observes a
@@ -87,6 +88,23 @@ print go from running/preparing/paused to `finish`, it shows a finished screen
 **Return to dashboard** is pressed. A service restart drops that record. Missing/stale HA observations
 are visibly identified. Nighttime does not dim an active print, a finished
 print, or shared content.
+
+The toolpath preview needs the Bambu integration's FTP switch on, so
+ha-bambulab downloads each job and extracts its plate G-code into
+`/config/www/media/ha-bambulab/<serial>/prints/` (the sliced `.gcode.3mf`
+carries no mesh). `sensor.<printer>_gcode_file_downloaded` names the file; the
+service ignores it until it mentions the current task name, because during
+preparation it still names the previous job. The service fetches it once
+through HA's `/local` path, keeps extrusion moves between `; CHANGE_LAYER`
+markers (arcs interpolated, purge lines before layer 1 dropped), and merges
+points until the result fits 250k segments (a 60 MB G-code takes about 10 s
+and 60 MiB). The kiosk reads `/model` and `/model.bin` (local only) and draws
+the lines with WebGL: printed layers in the slicer's filament colour (dark
+colours lifted), the current layer in amber, and remaining layers ghosted. A
+finished print shows the whole part. Until the model is ready, or if loading
+fails (retried every minute; `journalctl -u workshop-display` logs
+`toolpath ... unavailable`), the panel shows the cover image proxied from
+`image.<printer>_cover_image` at `/cover`.
 
 Scan the QR code on the physical monitor and bookmark the resulting paired
 phone page. Paste a YouTube link or upload a PNG/JPEG/WebP/HEIC image under
