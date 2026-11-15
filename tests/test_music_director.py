@@ -854,6 +854,39 @@ class TestSections(unittest.TestCase):
         self.assertEqual(sections.SECTION_BRIGHTNESS[sections.LOUD], 1.0)
 
 
+class TestDrops(unittest.TestCase):
+    RATE = 30  # samples per second
+
+    def play(self, parts):
+        """Feed (seconds, level) parts; return the drop times."""
+        detector = sections.DropDetector()
+        detector.reset(0.0)
+        drops, now = [], 0.0
+        for seconds, level in parts:
+            for _ in range(int(seconds * self.RATE)):
+                now += 1 / self.RATE
+                if detector.add(level, now):
+                    drops.append(round(now, 1))
+        return drops
+
+    def test_a_drop_after_a_build_flashes_once_quickly(self) -> None:
+        drops = self.play([(40, 1.0), (10, 0.5), (20, 2.5)])
+        self.assertEqual(len(drops), 1, drops)
+        self.assertTrue(50 < drops[0] < 52, drops)
+
+    def test_kicks_and_gaps_between_phrases_do_not_flash(self) -> None:
+        verse = [(0.3, 2.5), (0.7, 0.8)] * 30 + [(0.5, 0.0), (1.5, 1.0)] * 10
+        self.assertEqual(self.play([(30, 1.0), *verse, *verse]), [])
+
+    def test_music_coming_back_after_a_pause_is_not_a_drop(self) -> None:
+        self.assertEqual(self.play([(40, 1.0), (20, 0.0), (20, 1.5)]), [])
+
+    def test_nothing_during_warmup_and_one_flash_per_cooldown(self) -> None:
+        self.assertEqual(self.play([(5, 0.5), (10, 2.0)]), [])
+        drops = self.play([(30, 1.0), (8, 0.5), (10, 2.5), (8, 0.5), (10, 2.5)])
+        self.assertEqual(len(drops), 1, drops)
+
+
 class TestMetadata(unittest.TestCase):
     def test_same_track_tolerates_punctuation_and_features(self) -> None:
         self.assertTrue(

@@ -2622,8 +2622,13 @@ data:
             ),
         )
         # Music Mode Colour and Pin (lights), Brightness (number), Strip Colours
-        # (select).
-        for platform in (Platform.LIGHT, Platform.NUMBER, Platform.SELECT):
+        # and Effect Pin (selects), Drop Flash (switch).
+        for platform in (
+            Platform.LIGHT,
+            Platform.NUMBER,
+            Platform.SELECT,
+            Platform.SWITCH,
+        ):
             hass.async_create_task(async_load_platform(hass, platform, DOMAIN, {}, config))
 
         if hass.is_running:
@@ -2716,6 +2721,7 @@ data:
     )
     from .sections import (
         NORMAL,
+        DropDetector,
         SECTION_BRIGHTNESS,
         SECTION_DRIVE,
         SECTION_INTENSITY,
@@ -2763,6 +2769,11 @@ data:
     # How far into a song the next one is looked up: late enough to skip songs
     # that are skipped straight away, early enough to finish before it ends.
     PREPARE_DELAY_SECONDS = 15.0
+    # The drop flash: the strip's background lights up in the song's colour
+    # under the running effect, then fades out, as (background brightness,
+    # seconds) steps. The effect keeps running, so nothing restarts.
+    FLASH_STEPS = ((1.0, 0.3), (0.6, 0.2), (0.35, 0.2), (0.15, 0.2))
+    NO_BACKGROUND = "#000000"
     # Playlist preparation: ReccoBeats takes up to 40 IDs a call, and a short
     # pause per song keeps Last.fm and the library well under their limits.
     PREPARE_BATCH = 40
@@ -2898,12 +2909,19 @@ data:
             self._spotify_refreshed = 0.0
             # Why the last track had no Spotify ID, for the dashboard.
             self.spotify_status = "ok"
+            # ok, unreachable or error: LedFx's API and audio feed, for the
+            # Music Mode device alert.
+            self.ledfx_status = "ok"
             # Chosen colour (Music Mode Colour light on), or None for Auto.
             self.manual_rgb: tuple[int, int, int] | None = None
             self.brightness_pct = DEFAULT_BRIGHTNESS
             self.pins = PinStore(Store(hass, STORAGE_VERSION, STORAGE_KEY))
             # Live song sections from LedFx's audio (sections.py).
             self.sections = SectionTracker()
+            # Drops in the live audio flash the strip (Music Mode Drop Flash).
+            self.drops = DropDetector()
+            self.drop_flash = True
+            self._flash_task: asyncio.Task[None] | None = None
             self.section = NORMAL
             self._audio_task: asyncio.Task[None] | None = None
             # Music Mode Strip Colours: one solid colour instead of a gradient.
@@ -2943,6 +2961,7 @@ data:
             while True:
                 try:
                     async with self._session.ws_connect(url, heartbeat=30) as ws:
+                        self._set_ledfx_status("ok")
                         await ws.send_json(
                             {
                                 "id": 1,
@@ -2961,14 +2980,95 @@ data:
                             if data.get("graph_id") != graph:
                                 continue
                             level = sum(float(v) for v in data.get("melbank") or ())
-                            changed = self.sections.add(level, time.monotonic())
+                            now = time.monotonic()
+                            changed = self.sections.add(level, now)
                             if changed is not None:
                                 self._set_section(changed)
+                            if self.drops.add(level, now):
+                                self._flash()
                 except asyncio.CancelledError:
                     raise
                 except Exception as error:  # noqa: BLE001 - keep listening
                     _LOGGER.debug("LedFx audio feed: %s", type(error).__name__)
+                    self._set_ledfx_status("unreachable")
                 await asyncio.sleep(10)
+
+        @callback
+        def set_drop_flash(self, enabled: bool) -> None:
+            self.drop_flash = enabled
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+
+        @callback
+        def _flash(self) -> None:
+            decision = self._decision
+            if (
+                not self.drop_flash
+                or decision is None
+                or not decision.title
+                or not self._is_on(self.config.enabled)
+                or not self._is_on(self.config.strip)
+                or (self._flash_task is not None and not self._flash_task.done())
+            ):
+                return
+            _LOGGER.debug("Drop: flashing the strip")
+            self._flash_task = self.hass.async_create_task(self._run_flash(decision))
+
+        async def _run_flash(self, start: Decision) -> None:
+            """Light the strip's background in the song's colour and fade it
+            out. Strip updates wait meanwhile; the latest decision is sent at the
+            end."""
+            colour = to_hex(solid_colour(start.palette))
+            try:
+                for share, seconds in FLASH_STEPS:
+                    decision = self._decision
+                    if decision is None or decision.title != start.title:
+                        break
+                    await self._ledfx(
+                        "PUT",
+                        {
+                            "type": decision.effect,
+                            "config": {
+                                **decision.config,
+                                "brightness": 1.0,
+                                "background_color": colour,
+                                "background_brightness": share,
+                            },
+                        },
+                    )
+                    await asyncio.sleep(seconds)
+            finally:
+                self._flash_task = None
+                decision = self._decision
+                if (
+                    decision is not None
+                    and self._is_on(self.config.enabled)
+                    and self._is_on(self.config.strip)
+                ):
+                    if decision.title == start.title and decision.effect == start.effect:
+                        await self._ledfx(
+                            "PUT",
+                            {
+                                "type": decision.effect,
+                                "config": {
+                                    **decision.config,
+                                    "background_color": NO_BACKGROUND,
+                                },
+                            },
+                        )
+                    else:
+                        await self._push_strip(decision)
+
+        @callback
+        def _set_ledfx_status(self, status: str) -> None:
+            if status == self.ledfx_status:
+                return
+            self.ledfx_status = status
+            if status == "ok":
+                _LOGGER.info("LedFx is back")
+            else:
+                _LOGGER.warning("LedFx is %s", status)
+            if self._decision is not None and self._is_on(self.config.enabled):
+                self._publish(self._decision)
 
         @callback
         def _set_section(self, section: str) -> None:
@@ -2992,6 +3092,8 @@ data:
                     self._stop_audio()
                     self._cancel()
                     self._cancel_prepare()
+                    if self._flash_task is not None:
+                        self._flash_task.cancel()
                     self.hass.async_create_task(self._stop())
                 return
             if not self._is_on(self.config.enabled):
@@ -3181,6 +3283,9 @@ data:
             self._publish(decision)
             # The pin light follows the playing track.
             async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            if self._flash_task is not None:
+                # The flash sends the latest decision when it ends.
+                return
             if self._is_on(self.config.strip):
                 if (
                     previous is not None
@@ -3212,6 +3317,7 @@ data:
                 if new_track:
                     # A new song: a new loudness baseline.
                     self.sections.reset(time.monotonic())
+                    self.drops.reset(time.monotonic())
                     self.section = NORMAL
                     self.next_ready = None
                 self._track_key = key
@@ -3805,6 +3911,7 @@ data:
                     "pinned_effect": self.current_pinned_effect(),
                     "natural_palette_source": decision.natural.source,
                     "spotify_status": self.spotify_status,
+                    "ledfx_status": self.ledfx_status,
                     "section": self.section,
                     "brightness_pct": self.brightness_pct,
                     "auto_palette_source": decision.auto_palette.source,
@@ -3839,8 +3946,12 @@ data:
                             response.status,
                             (await response.text())[:200],
                         )
+                        self._set_ledfx_status("error")
+                    else:
+                        self._set_ledfx_status("ok")
             except (aiohttp.ClientError, TimeoutError) as error:
                 _LOGGER.warning("LedFx %s failed: %s", method, error)
+                self._set_ledfx_status("unreachable")
 
         async def _ensure_transition(self) -> bool:
             """Set the strip's crossfade between effects. LedFx keeps virtual
@@ -6089,6 +6200,92 @@ data:
             if ratio <= ENTER_QUIET:
                 return QUIET
             return NORMAL
+
+
+    # Drops: a sudden, sustained jump in loudness (a drop or a chorus slamming
+    # in), as opposed to the gradual changes sections follow. The strip answers
+    # with a short flash. A one second average must rise well above the last few
+    # seconds and above the song's baseline, and stay there briefly, so single
+    # kicks and the return after a gap between phrases do not count.
+    PUNCH_SECONDS = 1.0
+    DROP_JUMP = 1.5
+    DROP_ABOVE_BASELINE = 1.25
+    DROP_HOLD_SECONDS = 0.6
+    DROP_COOLDOWN_SECONDS = 45.0
+    # Music coming back after near-silence (a pause, a gap between songs) is not
+    # a drop: none for this long after the one second average falls below a
+    # tenth of the baseline (the few-second average needs that long to catch up).
+    # Tuned on a live hip-hop recording on 2026-11-14: no drops in 90 s of verses,
+    # none when music resumed after a pause, one when a beat came in after a
+    # quiet intro.
+    SILENT_SHARE = 0.1
+    AFTER_SILENCE_SECONDS = 12.0
+
+
+    @dataclass
+    class DropDetector:
+        punch: float = 0.0
+        recent: float = 0.0
+        baseline: float = 0.0
+        started: float | None = None
+        last_sample: float | None = None
+        rising_since: float | None = None
+        last_drop: float | None = None
+        last_silent: float | None = None
+
+        def reset(self, now: float) -> None:
+            """Start a new track."""
+            self.punch = self.recent = self.baseline = 0.0
+            self.started = now
+            self.last_sample = None
+            self.rising_since = None
+            self.last_drop = None
+            self.last_silent = None
+
+        def add(self, level: float, now: float) -> bool:
+            """Feed one loudness sample. Returns True on a drop."""
+            if self.started is None:
+                self.reset(now)
+            level = max(0.0, level)
+            if self.last_sample is None:
+                self.punch = self.recent = self.baseline = level
+            else:
+                dt = max(0.0, now - self.last_sample)
+                self.punch += (level - self.punch) * (1 - math.exp(-dt / PUNCH_SECONDS))
+                self.recent += (level - self.recent) * (1 - math.exp(-dt / FAST_SECONDS))
+                self.baseline += (level - self.baseline) * (
+                    1 - math.exp(-dt / SLOW_SECONDS)
+                )
+            self.last_sample = now
+            assert self.started is not None
+            if self.punch <= SILENT_SHARE * self.baseline or self.baseline <= SILENCE:
+                self.last_silent = now
+            jumping = (
+                self.baseline > SILENCE
+                and self.punch >= DROP_JUMP * self.recent
+                and self.punch >= DROP_ABOVE_BASELINE * self.baseline
+            )
+            if not jumping:
+                self.rising_since = None
+                return False
+            if self.rising_since is None:
+                self.rising_since = now
+            if (
+                now - self.started < WARMUP_SECONDS
+                or now - self.rising_since < DROP_HOLD_SECONDS
+                or (
+                    self.last_silent is not None
+                    and now - self.last_silent < AFTER_SILENCE_SECONDS
+                )
+                or (
+                    self.last_drop is not None
+                    and now - self.last_drop < DROP_COOLDOWN_SECONDS
+                )
+            ):
+                return False
+            self.last_drop = now
+            self.rising_since = None
+            return True
   component.music_director.select.py: |
     """Music Mode selects: Strip Colours (a gradient or one solid colour) and
     Effect Pin (an effect pinned to the playing album, or Auto)."""
@@ -6215,6 +6412,65 @@ data:
           default: true
           selector:
             boolean:
+  component.music_director.switch.py: |
+    """Music Mode Drop Flash: flash the strip when a song drops."""
+
+    from __future__ import annotations
+
+    from typing import Any
+
+    from homeassistant.components.switch import SwitchEntity
+    from homeassistant.const import STATE_OFF
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.restore_state import RestoreEntity
+    from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+
+    from .director import CONTROLS_UPDATED, DOMAIN, Director
+
+
+    async def async_setup_platform(
+        hass: HomeAssistant,
+        config: ConfigType,
+        async_add_entities: AddEntitiesCallback,
+        discovery_info: DiscoveryInfoType | None = None,
+    ) -> None:
+        if discovery_info is None:
+            return
+        async_add_entities([DropFlash(hass.data[DOMAIN])])
+
+
+    class DropFlash(SwitchEntity, RestoreEntity):
+        _attr_name = "Music Mode Drop Flash"
+        _attr_unique_id = "music_director_drop_flash"
+        _attr_icon = "mdi:flash"
+        _attr_should_poll = False
+
+        def __init__(self, director: Director) -> None:
+            self._director = director
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            last = await self.async_get_last_state()
+            # On by default; a switched-off flash stays off across restarts.
+            if last is not None and last.state == STATE_OFF:
+                self._director.set_drop_flash(False)
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        @property
+        def is_on(self) -> bool:
+            return self._director.drop_flash
+
+        async def async_turn_on(self, **kwargs: Any) -> None:
+            self._director.set_drop_flash(True)
+
+        async def async_turn_off(self, **kwargs: Any) -> None:
+            self._director.set_drop_flash(False)
   component.music_director.trackcache.py: |
     """What the director learned about each track, kept across restarts.
 

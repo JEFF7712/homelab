@@ -487,6 +487,10 @@ views:
             features:
               - type: select-options
             type: tile
+          - entity: switch.music_mode_drop_flash
+            name: Flash on drops
+            icon: mdi:flash
+            type: tile
           - type: custom:mushroom-light-card
             entity: light.music_mode_colour
             name: Colour

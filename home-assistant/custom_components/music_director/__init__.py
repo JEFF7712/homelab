@@ -126,8 +126,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         ),
     )
     # Music Mode Colour and Pin (lights), Brightness (number), Strip Colours
-    # (select).
-    for platform in (Platform.LIGHT, Platform.NUMBER, Platform.SELECT):
+    # and Effect Pin (selects), Drop Flash (switch).
+    for platform in (
+        Platform.LIGHT,
+        Platform.NUMBER,
+        Platform.SELECT,
+        Platform.SWITCH,
+    ):
         hass.async_create_task(async_load_platform(hass, platform, DOMAIN, {}, config))
 
     if hass.is_running:

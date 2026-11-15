@@ -212,6 +212,37 @@ class TestSharedMusicMode(unittest.TestCase):
             self.assertIn(needle, raw)
         self.assertNotIn("delay:", raw)
 
+    def test_device_alert_covers_every_music_mode_light(self) -> None:
+        script = self._area_script()
+        areas = script["sequence"][0]["variables"]["areas"]
+        expected = {"light.living_room_led_strip": "input_boolean.music_mode_led_strip"}
+        for area, config in areas.items():
+            for light in config["lights"]:
+                expected[light] = f"input_boolean.music_mode_{area}"
+        alert = yaml.load(
+            (
+                REPO_ROOT
+                / "home-assistant"
+                / "automations"
+                / "music_mode_device_alert.yaml"
+            ).read_text(encoding="utf-8"),
+            Loader=HaLoader,
+        )
+        owners = alert["actions"][0]["variables"]["owners"]
+        self.assertEqual(owners, expected)
+        light_trigger = next(t for t in alert["triggers"] if t["id"] == "light")
+        self.assertEqual(set(light_trigger["entity_id"]), set(expected))
+        self.assertEqual(
+            alert["conditions"],
+            [
+                {
+                    "condition": "state",
+                    "entity_id": "input_boolean.shared_music_mode",
+                    "state": "on",
+                }
+            ],
+        )
+
     def test_automation_joins_leaves_and_repaints_taking_part_areas(self) -> None:
         automation = self._automation()
         self.assertEqual(automation["id"], "shared_music_mode")
