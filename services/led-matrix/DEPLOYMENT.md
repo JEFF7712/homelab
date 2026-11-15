@@ -1,9 +1,13 @@
 # Homelab deployment
 
-The hybrid pipeline uses Spotify Web API polling as the primary low-latency source
-(~1.5s interval while playing) for sub-second responsiveness when pausing/skipping,
-with Home Assistant WebSocket events as a seamless fallback if Spotify encounters
-rate limits (HTTP 429) or quota errors. Frames render via local Pillow and stream
+The hybrid pipeline uses Spotify Web API polling as the primary source (every
+5 s while playing, 30 s while paused), with Home Assistant WebSocket events as a
+seamless fallback if Spotify encounters rate limits (HTTP 429) or quota errors.
+The Spotify app's quota is shared with Home Assistant's Spotify integration and
+music_director, so the matrix polls only in the Spotify and Auto modes, only
+while Home Assistant shows playback or within three minutes of it stopping, and
+polls early only when Home Assistant reports a new track or play state, not on
+every Home Assistant update. Frames render via local Pillow and stream
 acknowledged TCP frames to Pico W `10.0.20.136:9999`.
 
 ## Resources

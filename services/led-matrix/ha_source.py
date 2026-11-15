@@ -724,6 +724,11 @@ class HybridPlaybackSource:
         return self.ha_source.fetch_artwork(picture)
 
     def _should_poll_spotify(self) -> bool:
+        """Poll Spotify only for a music mode, and only while Home Assistant
+        shows something playing or playback stopped within active_window.
+        The Spotify app's Web API quota is shared with Home Assistant's
+        Spotify integration and music_director; idle polling exhausted it.
+        Home Assistant still wakes the poller when playback starts."""
         hub = self.hub_state()
         if (
             hub is None
@@ -731,17 +736,23 @@ class HybridPlaybackSource:
             or getattr(hub, "mode", "Auto") == "Off"
         ):
             return False
-        mode = getattr(hub, "mode", "Auto")
-        if mode == "Spotify":
+        if getattr(hub, "mode", "Auto") not in ("Spotify", "Auto"):
+            return False
+        ha_snap = self.ha_source.snapshot()
+        if ha_snap and getattr(ha_snap, "playing", False):
             return True
-        if mode == "Auto":
-            ha_snap = self.ha_source.snapshot()
-            if ha_snap and getattr(ha_snap, "playing", False):
-                return True
-            if time.monotonic() - self._last_active_at < self.active_window:
-                return True
-            return True
-        return False
+        return time.monotonic() - self._last_active_at < self.active_window
+
+    def _ha_signature(self) -> tuple[str, str, bool]:
+        """What an early poll reacts to: the track and play state in HA."""
+        snap = self.ha_source.snapshot()
+        if snap is None:
+            return ("", "", False)
+        return (
+            str(getattr(snap, "title", "") or ""),
+            str(getattr(snap, "artist", "") or ""),
+            bool(getattr(snap, "playing", False)),
+        )
 
     def _poll_once(self) -> float:
         """Poll Spotify once and return the delay until the next poll."""
@@ -801,6 +812,8 @@ class HybridPlaybackSource:
             return self.error_cooldown
 
     def _poll_loop(self) -> None:
+        next_poll = 0.0
+        polled_signature: tuple[str, str, bool] | None = None
         while not self._stop.is_set():
             now = time.monotonic()
             with self._lock:
@@ -811,10 +824,16 @@ class HybridPlaybackSource:
                 continue
 
             if not self._should_poll_spotify():
+                next_poll = 0.0
                 self._wake_event.wait(timeout=30.0)
                 self._wake_event.clear()
                 continue
 
-            delay = self._poll_once()
-            self._wake_event.wait(timeout=delay)
+            # Wakes come with every HA update (positions, weather, hub
+            # entities): poll early only when the track or play state moved.
+            signature = self._ha_signature()
+            if now >= next_poll or signature != polled_signature:
+                polled_signature = signature
+                next_poll = now + self._poll_once()
+            self._wake_event.wait(timeout=max(0.0, next_poll - time.monotonic()))
             self._wake_event.clear()

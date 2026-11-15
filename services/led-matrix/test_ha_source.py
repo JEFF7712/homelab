@@ -568,13 +568,62 @@ class HybridPlaybackSourceTests(unittest.TestCase):
                 hybrid._should_poll_spotify(), f"Expected False for mode {mode}"
             )
 
-        # Mode Spotify: should poll
-        ha_mock.hub_state.return_value = HAState(power=True, mode="Spotify")
+        # Music modes poll while HA shows playback or it stopped recently.
+        ha_mock.snapshot.return_value = PlaybackState(available=True, playing=True)
+        for mode in ("Spotify", "Auto"):
+            ha_mock.hub_state.return_value = HAState(power=True, mode=mode)
+            self.assertTrue(hybrid._should_poll_spotify(), mode)
+
+        # Nothing playing for longer than the active window: no polling, so an
+        # idle matrix does not spend the shared Spotify quota.
+        ha_mock.snapshot.return_value = PlaybackState(available=True, playing=False)
+        hybrid._last_active_at = time.monotonic() - hybrid.active_window - 1
+        for mode in ("Spotify", "Auto"):
+            ha_mock.hub_state.return_value = HAState(power=True, mode=mode)
+            self.assertFalse(hybrid._should_poll_spotify(), mode)
+        hybrid._last_active_at = time.monotonic()
         self.assertTrue(hybrid._should_poll_spotify())
 
-        # Mode Auto: should poll
+    def test_poll_loop_polls_early_only_when_the_ha_track_changes(self) -> None:
+        from modes.base import HAState
+
+        ha_mock = Mock(spec=HomeAssistantSource)
+        ha_mock.connected = True
         ha_mock.hub_state.return_value = HAState(power=True, mode="Auto")
-        self.assertTrue(hybrid._should_poll_spotify())
+        snapshot = PlaybackState(available=True, playing=True, title="A", artist="X")
+        ha_mock.snapshot.side_effect = lambda: snapshot
+        hybrid = HybridPlaybackSource(ha_mock, Mock())
+        polls: list[float] = []
+
+        def poll_once() -> float:
+            polls.append(time.monotonic())
+            return 60.0
+
+        hybrid._poll_once = poll_once  # type: ignore[method-assign]
+        thread = threading.Thread(target=hybrid._poll_loop, daemon=True)
+        thread.start()
+        try:
+            deadline = time.monotonic() + 2
+            while not polls and time.monotonic() < deadline:
+                time.sleep(0.01)
+            # Position and weather updates wake the loop without a new poll.
+            for _ in range(5):
+                hybrid._on_ha_update(snapshot)
+                time.sleep(0.02)
+            self.assertEqual(len(polls), 1)
+            # A new track polls straight away.
+            snapshot = PlaybackState(
+                available=True, playing=True, title="B", artist="X"
+            )
+            hybrid._on_ha_update(snapshot)
+            deadline = time.monotonic() + 2
+            while len(polls) < 2 and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertEqual(len(polls), 2)
+        finally:
+            hybrid._stop.set()
+            hybrid._wake_event.set()
+            thread.join(timeout=2)
 
     def test_hub_update_wakes_hybrid_poller(self) -> None:
         ha_source = HomeAssistantSource(
