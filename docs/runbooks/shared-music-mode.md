@@ -127,8 +127,9 @@ playlists. Each run of `prepare_playlists` stores playlist membership in
 strip gradient, the room light colours, the source (cover, genre and mood,
 pinned, or not prepared yet), genres and intensity, with filters and
 search. The colour picker pins that colour to the song's album, the same pin
-the dashboard's Music Mode Pin sets; **Unpin** returns the album to
-automatic colours. The panel uses the websocket commands
+the dashboard's Music Mode Pin sets; **Unpin colour** returns the album to
+automatic colours. The effect menu shows the automatic effect as "Auto
+(Melt)" and pins another effect to the album; choosing Auto unpins it. The panel uses the websocket commands
 `music_director/playlists`, `music_director/playlist` and
 `music_director/pin`.
 
@@ -345,6 +346,15 @@ Pins live in Home Assistant storage (`.storage/music_director.pins`,
 `sensor.music_director` reports `album`, `pinned_colour` and
 `palette_source: override` for pinned tracks. The held manual colour still
 beats a pin.
+
+`select.music_mode_effect_pin` ("Pin effect to this album", `select.py`)
+pins an effect the same way: choose an effect to pin it to the playing
+album, or Auto to unpin it. A pin holds a colour, an effect or both, and
+each is set and cleared on its own (unpinning the colour keeps a pinned
+effect). A pinned effect replaces the automatic choice and a configured
+override's effect; the LED Strip Effect dropdown still beats it.
+`sensor.music_director` reports `pinned_effect`, and `effect_mode` is
+`pinned`, `manual` or `auto`.
 
 `music_director.overrides` in `home-assistant/core/configuration.yaml` seeds
 pins and sets effects. Each colour entry becomes a pin once (keys recorded

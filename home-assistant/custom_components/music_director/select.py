@@ -1,4 +1,5 @@
-"""Music Mode Strip Colours: the LED strip's colours as a gradient or one solid colour."""
+"""Music Mode selects: Strip Colours (a gradient or one solid colour) and
+Effect Pin (an effect pinned to the playing album, or Auto)."""
 
 from __future__ import annotations
 
@@ -10,9 +11,18 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
 from .director import CONTROLS_UPDATED, DOMAIN, Director
+from .rules import EFFECTS
 
 GRADIENT = "Gradient"
 SOLID = "Solid"
+AUTO = "Auto"
+
+
+def effect_label(effect: str) -> str:
+    return effect.replace("_", " ").title()
+
+
+EFFECT_BY_LABEL = {effect_label(effect): effect for effect in EFFECTS}
 
 
 async def async_setup_platform(
@@ -23,7 +33,8 @@ async def async_setup_platform(
 ) -> None:
     if discovery_info is None:
         return
-    async_add_entities([StripColours(hass.data[DOMAIN])])
+    director = hass.data[DOMAIN]
+    async_add_entities([StripColours(director), EffectPin(director)])
 
 
 class StripColours(SelectEntity, RestoreEntity):
@@ -53,3 +64,36 @@ class StripColours(SelectEntity, RestoreEntity):
 
     async def async_select_option(self, option: str) -> None:
         self._director.set_strip_solid(option == SOLID)
+
+
+class EffectPin(SelectEntity):
+    """The effect pinned to the playing track's album; Auto unpins it."""
+
+    _attr_name = "Music Mode Effect Pin"
+    _attr_unique_id = "music_director_effect_pin"
+    _attr_icon = "mdi:pin"
+    _attr_should_poll = False
+
+    def __init__(self, director: Director) -> None:
+        self._attr_options = [AUTO, *EFFECT_BY_LABEL]
+        self._director = director
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+            )
+        )
+
+    @property
+    def available(self) -> bool:
+        return self._director.current_track is not None
+
+    @property
+    def current_option(self) -> str:
+        effect = self._director.current_pinned_effect()
+        return effect_label(effect) if effect else AUTO
+
+    async def async_select_option(self, option: str) -> None:
+        self._director.set_effect_pin(EFFECT_BY_LABEL.get(option))

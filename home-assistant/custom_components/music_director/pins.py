@@ -1,9 +1,10 @@
-"""Album colour pins: song overrides set from the dashboard.
+"""Album colour and effect pins: song overrides set from the dashboard.
 
 Pins live in Home Assistant storage, so they survive restarts and can be
 changed or removed without a deploy. Colour overrides in
 music_director.overrides seed the pins once each: after that the pin is the
 source of truth, so removing a seeded pin from the dashboard sticks.
+A pin holds a colour, an effect or both; each is set and cleared on its own.
 """
 
 from __future__ import annotations
@@ -35,6 +36,13 @@ def primary_artist(artist: str) -> str:
     return artist.split(",")[0].strip()
 
 
+class Keep:
+    """Leave a pin field as it is."""
+
+
+KEEP = Keep()
+
+
 @dataclass
 class Pins:
     """Colour pins, plus the configured overrides already seeded."""
@@ -48,7 +56,7 @@ class Pins:
         pins = [
             SongOverride(**{k: v for k, v in item.items() if k in _FIELDS})
             for item in data.get("pins", [])
-            if isinstance(item, dict) and item.get("color")
+            if isinstance(item, dict) and (item.get("color") or item.get("effect"))
         ]
         return cls(pins, set(data.get("seeded", [])))
 
@@ -88,24 +96,45 @@ class Pins:
 
     def pin(self, title: str, artist: str, album: str, color: str) -> SongOverride:
         """Pin colour for the track's album (or the track, without an album),
-        replacing any pin that matches it."""
-        self.unpin(title, artist, album)
+        keeping any pinned effect."""
+        return self.update(title, artist, album, color=color)
+
+    def unpin(self, title: str, artist: str, album: str) -> bool:
+        """Clear the colour pin for the track, keeping any pinned effect."""
+        before = self.find(title, artist, album)
+        self.update(title, artist, album, color=None)
+        return before is not None and bool(before.color)
+
+    def update(
+        self,
+        title: str,
+        artist: str,
+        album: str,
+        *,
+        color: str | None | Keep = KEEP,
+        effect: str | None | Keep = KEEP,
+    ) -> SongOverride | None:
+        """Set or clear (None) the colour and/or effect pinned to the track's
+        album (or the track, without an album); KEEP leaves one as it is.
+        Matching pins are replaced by one; a pin with neither is removed."""
+        current = self.find(title, artist, album)
+        new_color = (current.color if current else None) if color is KEEP else color
+        new_effect = (current.effect if current else None) if effect is KEEP else effect
+        self.pins = [p for p in self.pins if not p.matches(title, artist, album)]
+        if not new_color and not new_effect:
+            return None
         pin = SongOverride(
             artist=primary_artist(artist) or None,
             album=album or None,
             title=None if album else title,
-            color=color,
+            color=new_color or None,
+            effect=new_effect or None,
         )
         self.pins.append(pin)
         return pin
 
-    def unpin(self, title: str, artist: str, album: str) -> bool:
-        before = len(self.pins)
-        self.pins = [p for p in self.pins if not p.matches(title, artist, album)]
-        return len(self.pins) != before
 
-
-_FIELDS = frozenset(("artist", "album", "title", "color"))
+_FIELDS = frozenset(("artist", "album", "title", "color", "effect"))
 
 
 class PinStore:

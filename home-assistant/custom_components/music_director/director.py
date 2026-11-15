@@ -67,7 +67,7 @@ from .palette import (
     vibe_palette,
     with_intensity,
 )
-from .pins import STORAGE_KEY, STORAGE_VERSION, PinStore
+from .pins import KEEP, STORAGE_KEY, STORAGE_VERSION, PinStore, Keep
 from .rules import (
     EFFECTS,
     choose_effect,
@@ -160,11 +160,15 @@ class Decision:
     # auto_palette, or the manual colour.
     palette: Palette
     family: str
+    # natural_effect, or the album's pinned effect.
     auto_effect: str
+    # auto_effect, or the dashboard's manual effect.
     effect: str
     config: dict[str, Any]
     # The track's intensity, 0 (calm) to 1 (intense), whatever the colour.
     level: float = 0.5
+    # The effect chosen from the genre family (or a configured override).
+    natural_effect: str = ""
 
     @property
     def manual(self) -> bool:
@@ -396,6 +400,23 @@ class Director:
         pin = self.pins.pins.find(track.title, track.artist, track.album)
         return pin.color if pin else None
 
+    def current_pinned_effect(self) -> str | None:
+        """The current track's pinned effect, or None."""
+        track = self.current_track
+        if track is None:
+            return None
+        pin = self.pins.pins.find(track.title, track.artist, track.album)
+        return pin.effect if pin and pin.effect in EFFECTS else None
+
+    @callback
+    def set_effect_pin(self, effect: str | None) -> None:
+        """Pin an effect to the current track's album, or None to unpin it so
+        the album goes back to the automatic effect."""
+        track = self.current_track
+        if track is None:
+            return
+        self.pin_song(track.title, track.artist, track.album, effect=effect)
+
     def showing_rgb(self) -> tuple[int, int, int] | None:
         """The colour the strip shows for the current track."""
         track = self.current_track
@@ -408,13 +429,12 @@ class Director:
         track = self.current_track
         if track is None:
             return
-        if rgb is None:
-            self.pins.pins.unpin(track.title, track.artist, track.album)
-        else:
-            self.pins.pins.pin(track.title, track.artist, track.album, to_hex(rgb))
-        self.pins.save()
-        async_dispatcher_send(self.hass, CONTROLS_UPDATED)
-        self._reapply()
+        self.pin_song(
+            track.title,
+            track.artist,
+            track.album,
+            colour=None if rgb is None else to_hex(rgb),
+        )
 
     @callback
     def set_strip_solid(self, solid: bool) -> None:
@@ -461,7 +481,7 @@ class Director:
         info: TrackInfo,
         natural: Palette,
         family: str,
-        auto_effect: str,
+        natural_effect: str,
         level: float,
     ) -> Decision:
         # Sections nudge the automatic colours' vividness; chosen colours
@@ -473,6 +493,9 @@ class Director:
         pinned = named_palette(pin.color, "override") if pin and pin.color else None
         auto_palette = pinned or natural
         palette = self._colour_override() or auto_palette
+        auto_effect = (
+            pin.effect if pin and pin.effect in EFFECTS else None
+        ) or natural_effect
         effect = self._override() or auto_effect
         config = {
             **effect_config(
@@ -499,6 +522,7 @@ class Director:
             effect,
             config,
             level,
+            natural_effect,
         )
 
     def _recompose(self, decision: Decision) -> Decision:
@@ -509,7 +533,7 @@ class Director:
             decision.info,
             decision.natural,
             decision.family,
-            decision.auto_effect,
+            decision.natural_effect,
             decision.level,
         )
 
@@ -556,7 +580,7 @@ class Director:
             assert player is not None
             decision = await self._decide(player, key)
         # Repeat avoidance follows the automatic choice, not the override.
-        self._last_effect = decision.auto_effect
+        self._last_effect = decision.natural_effect
         await self._apply(decision)
         if key is not None and decision.natural.source != "cover":
             self.hass.async_create_task(self._recheck_cover(key))
@@ -590,7 +614,7 @@ class Director:
                     decision.info,
                     with_intensity(cover, decision.level),
                     decision.family,
-                    decision.auto_effect,
+                    decision.natural_effect,
                     decision.level,
                 )
             )
@@ -733,7 +757,7 @@ class Director:
             }
             entry = self.tracks.cache.find(song.key)
             pin = self.pins.pins.find(title, artist, album)
-            if entry is None and not (pin and pin.color):
+            if entry is None and not (pin and (pin.color or pin.effect)):
                 row["source"] = "pending"
                 rows.append(row)
                 continue
@@ -742,6 +766,17 @@ class Director:
                 row["family"] = family
                 row["intensity"] = round(level, 2)
                 row["genres"] = list(entry.info.genres[:3])
+                configured = find_override(
+                    tuple(o for o in self.config.overrides if o.effect),
+                    title,
+                    artist,
+                    album,
+                )
+                row["auto_effect"] = (
+                    configured.effect
+                    if configured and configured.effect
+                    else choose_effect(family, song.key, None)
+                )
             else:
                 natural = vibe_palette()
             pinned = named_palette(pin.color, "override") if pin and pin.color else None
@@ -750,6 +785,7 @@ class Director:
                 "pinned" if pinned else "cover" if natural.source == "cover" else "vibe"
             )
             row["pin"] = pin.color if pinned and pin else None
+            row["effect_pin"] = pin.effect if pin and pin.effect in EFFECTS else None
             row["auto"] = to_hex(solid_colour(natural))
             row["colour"] = to_hex(solid_colour(palette))
             row["gradient"] = gradient(palette)
@@ -760,13 +796,18 @@ class Director:
         return rows
 
     @callback
-    def pin_song(self, title: str, artist: str, album: str, colour: str | None) -> None:
-        """Pin a colour to a song's album (or the song, without an album) from
-        the review panel, or None to unpin it."""
-        if colour is None:
-            self.pins.pins.unpin(title, artist, album)
-        else:
-            self.pins.pins.pin(title, artist, album, colour)
+    def pin_song(
+        self,
+        title: str,
+        artist: str,
+        album: str,
+        *,
+        colour: str | None | Keep = KEEP,
+        effect: str | None | Keep = KEEP,
+    ) -> None:
+        """Pin a colour and/or effect to a song's album (or the song, without
+        an album); None unpins that one, KEEP leaves it."""
+        self.pins.pins.update(title, artist, album, color=colour, effect=effect)
         self.pins.save()
         async_dispatcher_send(self.hass, CONTROLS_UPDATED)
         self._reapply()
@@ -1110,7 +1151,11 @@ class Director:
                 "family": decision.family,
                 "effect": decision.effect,
                 "auto_effect": decision.auto_effect,
-                "effect_mode": "manual" if decision.manual else "auto",
+                "effect_mode": "manual"
+                if decision.manual
+                else "pinned"
+                if decision.auto_effect != decision.natural_effect
+                else "auto",
                 "effect_config": {
                     k: v for k, v in decision.config.items() if k != "gradient"
                 },
@@ -1119,6 +1164,7 @@ class Director:
                 "colour_mode": "manual" if self.manual_rgb else "auto",
                 "album": decision.album,
                 "pinned_colour": self.current_pin(),
+                "pinned_effect": self.current_pinned_effect(),
                 "natural_palette_source": decision.natural.source,
                 "spotify_status": self.spotify_status,
                 "section": self.section,

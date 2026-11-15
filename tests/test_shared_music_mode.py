@@ -363,6 +363,9 @@ class TestSharedMusicMode(unittest.TestCase):
         pin = music[entities.index("light.music_mode_pin")]
         self.assertEqual(pin["type"], "custom:mushroom-light-card")
         self.assertTrue(pin["show_color_control"])
+        # Effect pins: Auto or an effect for the playing album.
+        effect_pin = music[entities.index("select.music_mode_effect_pin")]
+        self.assertEqual(effect_pin["features"], [{"type": "select-options"}])
         strip = music[entities.index("select.music_mode_strip_colours")]
         self.assertEqual(strip["features"], [{"type": "select-options"}])
         self.assertNotIn("input_select.music_mode_color", entities)

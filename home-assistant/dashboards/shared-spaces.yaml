@@ -556,6 +556,12 @@ views:
               {{ 'purple' if is_state('light.music_mode_pin', 'on') else 'grey' }}
             tap_action:
               action: toggle
+          - entity: select.music_mode_effect_pin
+            name: Pin effect to this album
+            icon: mdi:pin
+            features:
+              - type: select-options
+            type: tile
           - type: custom:mushroom-number-card
             entity: number.music_mode_brightness
             name: Brightness
