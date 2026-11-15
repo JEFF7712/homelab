@@ -86,7 +86,10 @@ from .sections import (
 from .trackcache import (
     CACHE_STORAGE_KEY,
     CACHE_STORAGE_VERSION,
+    PLAYLIST_STORAGE_KEY,
     Entry,
+    PlaylistSong,
+    PlaylistStore,
     TrackCacheStore,
     track_key,
 )
@@ -203,6 +206,21 @@ def _playlist_track(track: Any) -> QueuedTrack:
     )
 
 
+def _natural(entry: Entry) -> tuple[Palette, str, float]:
+    """A cached track's automatic palette (its cover's, else genre and
+    mood), effect family and intensity, before any pin."""
+    info = entry.info
+    features = info.features()
+    family = classify(features)
+    level = intensity(features, family)
+    if entry.cover:
+        return with_intensity(entry.cover, level), family, level
+    palette = vibe_palette(
+        info.genres, info.energy, info.valence, tempo_level(info.bpm), level
+    )
+    return palette, family, level
+
+
 def _decode_pixels(data: bytes) -> list[tuple[int, int, int]]:
     from PIL import Image  # Home Assistant ships Pillow; import off the event loop.
 
@@ -222,6 +240,9 @@ class Director:
         self._session = async_get_clientsession(hass)
         self.tracks = TrackCacheStore(
             Store(hass, CACHE_STORAGE_VERSION, CACHE_STORAGE_KEY)
+        )
+        self.playlists = PlaylistStore(
+            Store(hass, CACHE_STORAGE_VERSION, PLAYLIST_STORAGE_KEY)
         )
         self._prepare_task: asyncio.Task[None] | None = None
         self._prepare_run: asyncio.Task[None] | None = None
@@ -588,8 +609,8 @@ class Director:
         next_key = track_key(queued.artist, queued.title, queued.album)
         label = f"{queued.artist} - {queued.title}"
         entry = self.tracks.cache.find(next_key)
-        if entry is None or entry.cover is None:
-            info, cover = await asyncio.gather(
+        if entry is None or (entry.cover is None and not entry.checked):
+            info, (cover, checked) = await asyncio.gather(
                 self._gather_info(
                     queued.title, queued.artist, queued.duration, queued.spotify_id
                 ),
@@ -597,7 +618,7 @@ class Director:
             )
             if self._track_key != key:
                 return
-            self.tracks.put(next_key, Entry(info, cover))
+            self.tracks.put(next_key, Entry(info, cover, checked))
             _LOGGER.info("Prepared next track %s", label)
         self.next_ready = label
         if self._decision is not None:
@@ -624,8 +645,8 @@ class Director:
             )
             return
         wanted = {normalize(name) for name in names or ()}
-        tracks: dict[str, Any] = {}
-        chosen = []
+        tracks: dict[str, QueuedTrack] = {}
+        membership: dict[str, list[PlaylistSong]] = {}
         for playlist in await mass.music.get_library_playlists(limit=1000):
             if not any(
                 m.provider_domain == "spotify" for m in playlist.provider_mappings
@@ -633,17 +654,21 @@ class Director:
                 continue
             if wanted and normalize(playlist.name) not in wanted:
                 continue
-            chosen.append(playlist.name)
+            songs = membership.setdefault(playlist.name, [])
             for track in await mass.music.get_playlist_tracks(
                 playlist.item_id, playlist.provider
             ):
-                tracks.setdefault(track.uri, track)
+                queued = _playlist_track(track)
+                key = track_key(queued.artist, queued.title, queued.album)
+                songs.append(PlaylistSong(key, queued.art_url))
+                tracks.setdefault(key, queued)
+        # The colour review panel lists songs by playlist.
+        await self.playlists.async_replace(membership, partial=bool(wanted))
+        chosen = list(membership)
         todo = []
-        for track in tracks.values():
-            queued = _playlist_track(track)
-            key = track_key(queued.artist, queued.title, queued.album)
+        for key, queued in tracks.items():
             entry = self.tracks.cache.find(key)
-            if entry is None or entry.cover is None:
+            if entry is None or (entry.cover is None and not entry.checked):
                 todo.append((key, queued))
         self._notify(
             notify,
@@ -663,7 +688,7 @@ class Director:
                 else None
             )
             for key, queued in batch:
-                info, cover = await asyncio.gather(
+                info, (cover, checked) = await asyncio.gather(
                     self._gather_info(
                         queued.title,
                         queued.artist,
@@ -674,13 +699,77 @@ class Director:
                     ),
                     self._art_palette(queued.art_url),
                 )
-                self.tracks.put(key, Entry(info, cover))
+                self.tracks.put(key, Entry(info, cover, checked))
                 done += 1
                 await asyncio.sleep(PREPARE_PAUSE_SECONDS)
             _LOGGER.info("Prepared %d of %d playlist songs", done, len(todo))
             # Keep the progress if Home Assistant restarts mid-run.
             await self.tracks.async_save()
         self._notify(notify, f"Prepared {done} songs from {len(chosen)} playlists.")
+
+    def playlist_names(self) -> list[dict[str, Any]]:
+        return [
+            {"name": name, "songs": len(songs)}
+            for name, songs in sorted(
+                self.playlists.playlists.items(), key=lambda item: item[0].lower()
+            )
+        ]
+
+    def playlist_colours(self, name: str) -> list[dict[str, Any]] | None:
+        """What the lights would show for each song in a prepared playlist:
+        the strip gradient, the area colours and where the colour comes from."""
+        songs = self.playlists.playlists.get(name)
+        if songs is None:
+            return None
+        rows = []
+        for song in songs:
+            artist, title, album = song.key.split("\n", 2)
+            row: dict[str, Any] = {
+                "key": song.key,
+                "title": title,
+                "artist": artist,
+                "album": album,
+                "art": song.art,
+            }
+            entry = self.tracks.cache.find(song.key)
+            pin = self.pins.pins.find(title, artist, album)
+            if entry is None and not (pin and pin.color):
+                row["source"] = "pending"
+                rows.append(row)
+                continue
+            if entry is not None:
+                natural, family, level = _natural(entry)
+                row["family"] = family
+                row["intensity"] = round(level, 2)
+                row["genres"] = list(entry.info.genres[:3])
+            else:
+                natural = vibe_palette()
+            pinned = named_palette(pin.color, "override") if pin and pin.color else None
+            palette = pinned or natural
+            row["source"] = (
+                "pinned" if pinned else "cover" if natural.source == "cover" else "vibe"
+            )
+            row["pin"] = pin.color if pinned and pin else None
+            row["auto"] = to_hex(solid_colour(natural))
+            row["colour"] = to_hex(solid_colour(palette))
+            row["gradient"] = gradient(palette)
+            row["areas"] = [
+                to_hex(rgb) for rgb in area_colors(palette, len(self.config.areas))
+            ]
+            rows.append(row)
+        return rows
+
+    @callback
+    def pin_song(self, title: str, artist: str, album: str, colour: str | None) -> None:
+        """Pin a colour to a song's album (or the song, without an album) from
+        the review panel, or None to unpin it."""
+        if colour is None:
+            self.pins.pins.unpin(title, artist, album)
+        else:
+            self.pins.pins.pin(title, artist, album, colour)
+        self.pins.save()
+        async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+        self._reapply()
 
     def _music_assistant(self) -> Any:
         for entry in self.hass.config_entries.async_entries("music_assistant"):
@@ -705,20 +794,22 @@ class Director:
             )
         )
 
-    async def _queued_cover(self, queued: QueuedTrack) -> Palette | None:
+    async def _queued_cover(self, queued: QueuedTrack) -> tuple[Palette | None, bool]:
         return await self._art_palette(queued.art_url)
 
-    async def _art_palette(self, url: str | None) -> Palette | None:
+    async def _art_palette(self, url: str | None) -> tuple[Palette | None, bool]:
+        """The cover palette at url, and whether the art was decoded (so a
+        None palette means the cover has no usable colour)."""
         if not url:
-            return None
+            return None, False
         data = await self._download(url)
         if data is None:
-            return None
+            return None, False
         try:
-            return await self.hass.async_add_executor_job(_cover_palette, data)
+            return await self.hass.async_add_executor_job(_cover_palette, data), True
         except (OSError, ValueError) as error:
-            _LOGGER.debug("Next cover unreadable: %s", type(error).__name__)
-            return None
+            _LOGGER.debug("Cover unreadable: %s", type(error).__name__)
+            return None, False
 
     async def _spotify_queue(self) -> Any:
         """Spotify's queue for the account behind the Spotify player, with
@@ -776,7 +867,7 @@ class Director:
             )
             entry = Entry(info, cover)
             self.tracks.put(key, entry)
-        elif entry.cover is None:
+        elif entry.cover is None and not entry.checked:
             # A missed cover is not remembered: try again on replay.
             entry = Entry(entry.info, await self._cover_for(key))
             self.tracks.put(key, entry)
@@ -785,25 +876,12 @@ class Director:
             if key not in self.tracks.cache.entries:
                 # Found under another spelling: remember this one too.
                 self.tracks.put(key, entry)
-        info, cover = entry.info, entry.cover
-        features = info.features()
-        family = classify(features)
-        level = intensity(features, family)
+        info = entry.info
+        palette, family, level = _natural(entry)
         # Colours come from pins (seeded from configured overrides); the
         # configured overrides still set effects.
         song = find_override(
             tuple(o for o in self.config.overrides if o.effect), title, artist, album
-        )
-        palette = (
-            with_intensity(cover, level)
-            if cover
-            else vibe_palette(
-                info.genres,
-                info.energy,
-                info.valence,
-                tempo_level(info.bpm),
-                level,
-            )
         )
         if song and song.effect:
             effect = song.effect

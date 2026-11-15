@@ -2,7 +2,7 @@
   "domain": "music_director",
   "name": "Music Director",
   "codeowners": ["@JEFF7712"],
-  "dependencies": ["http"],
+  "dependencies": ["frontend", "http", "panel_custom", "websocket_api"],
   "after_dependencies": ["spotify"],
   "documentation": "https://gitlab.com/JEFF7712/homelab",
   "integration_type": "service",

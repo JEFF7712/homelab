@@ -1007,10 +1007,61 @@ class TestTrackCache(unittest.TestCase):
         )
         self.assertEqual(len(cache.to_data()["tracks"]), 2)
 
+    def test_decoded_covers_without_colour_are_remembered(self) -> None:
+        cache = trackcache.TrackCache(version="v1")
+        key = trackcache.track_key("Drake", "Too Good", "Views")
+        cache.put(key, trackcache.Entry(self.INFO, None, checked=True))
+        restored = trackcache.TrackCache(version="v1")
+        restored.load(json.loads(json.dumps(cache.to_data())))
+        entry = restored.get(key)
+        assert entry is not None
+        self.assertTrue(entry.checked)
+        self.assertIsNone(entry.cover)
+
     def test_code_version_follows_the_colour_code(self) -> None:
         version = trackcache.code_version()
         self.assertEqual(len(version), 16)
         self.assertEqual(version, trackcache.code_version())
+
+
+class FakeStorage:
+    def __init__(self, data=None) -> None:
+        self.data = data
+        self.saved = []
+
+    async def async_load(self):
+        return self.data
+
+    def async_delay_save(self, data_func, delay=0) -> None:
+        self.saved.append(data_func())
+
+    async def async_save(self, data) -> None:
+        self.saved.append(data)
+        self.data = data
+
+
+class TestPlaylistStore(unittest.TestCase):
+    def test_full_runs_replace_and_partial_runs_merge(self) -> None:
+        storage = FakeStorage()
+        store = trackcache.PlaylistStore(storage)
+        song = trackcache.PlaylistSong("A\nB\nC", "https://i.scdn.co/x")
+        asyncio.run(store.async_replace({"Pee": [song], "Old": []}, partial=False))
+        asyncio.run(store.async_replace({"Pee 2": [song]}, partial=True))
+        self.assertEqual(sorted(store.playlists), ["Old", "Pee", "Pee 2"])
+        asyncio.run(store.async_replace({"Pee": [song]}, partial=False))
+        self.assertEqual(list(store.playlists), ["Pee"])
+        restored = trackcache.PlaylistStore(FakeStorage(storage.data))
+        asyncio.run(restored.async_load())
+        self.assertEqual(restored.playlists, {"Pee": [song]})
+
+    def test_malformed_songs_are_dropped(self) -> None:
+        store = trackcache.PlaylistStore(
+            FakeStorage({"P": [["A\nB\nC", None], ["bad", None], "x"], 5: []})
+        )
+        asyncio.run(store.async_load())
+        self.assertEqual(
+            store.playlists, {"P": [trackcache.PlaylistSong("A\nB\nC", None)]}
+        )
 
 
 class TestReccoBeatsBatch(unittest.TestCase):

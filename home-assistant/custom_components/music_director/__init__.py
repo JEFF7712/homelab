@@ -14,6 +14,7 @@ from homeassistant.helpers.typing import ConfigType
 from .director import DOMAIN, Director, DirectorConfig
 from .metadata import SongOverride
 from .palette import NAMED_HUES, hex_rgb
+from .panel import async_setup_panel
 from .rules import EFFECTS
 from .trackcache import code_version
 
@@ -99,6 +100,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data[DOMAIN] = director
     await director.pins.async_load(director.config.overrides)
     await director.tracks.async_load(await hass.async_add_executor_job(code_version))
+    await director.playlists.async_load()
+    # Music Colours sidebar panel (panel.py, panel.js).
+    await async_setup_panel(hass)
 
     async def refresh(_call: ServiceCall) -> None:
         director.schedule(force=True)
