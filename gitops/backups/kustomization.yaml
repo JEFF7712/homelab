@@ -12,6 +12,8 @@ resources:
   - library-local.yaml
   - restore-drill.yaml
   - library-drill.yaml
+  - wal-drill.yaml
+  - wal-archive-alerts.yaml
 configMapGenerator:
   - name: restore-drill-script
     namespace: backups
@@ -20,5 +22,9 @@ configMapGenerator:
       - restore-drill/record.sh
   - name: restore-drill-script
     namespace: immich
+    files:
+      - restore-drill/record.sh
+  - name: restore-drill-script
+    namespace: analytics
     files:
       - restore-drill/record.sh
