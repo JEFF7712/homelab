@@ -1,0 +1,349 @@
+---
+# Weekly proof that the umami-cluster WAL archive on Garage restores: build a
+# one-instance scratch Cluster (umami-wal-drill, NFS scratch volume) from the
+# latest base backup plus archived WAL, compare it with production, then
+# delete it. Evidence goes to restore-drill-evidence in analytics as
+# dataset umami-wal. Runbook:
+# docs/runbooks/postgres-disaster-recovery.md#wal-archive-on-garage.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: wal-restore-drill
+  namespace: analytics
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: wal-restore-drill
+  namespace: analytics
+rules:
+  # Create cannot be limited by name; delete is, so the drill can only
+  # remove its own scratch cluster.
+  - apiGroups: [postgresql.cnpg.io]
+    resources: [clusters]
+    verbs: [create, get, list, watch]
+  - apiGroups: [postgresql.cnpg.io]
+    resources: [clusters]
+    resourceNames: [umami-wal-drill]
+    verbs: [delete]
+  - apiGroups: [""]
+    resources: [persistentvolumeclaims]
+    resourceNames: [umami-wal-drill-1]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [secrets]
+    resourceNames: [umami-wal-drill-app]
+    verbs: [get]
+  - apiGroups: [barmancloud.cnpg.io]
+    resources: [objectstores]
+    resourceNames: [umami-garage]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [restore-drill-evidence]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: wal-restore-drill
+  namespace: analytics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: wal-restore-drill
+subjects:
+  - kind: ServiceAccount
+    name: wal-restore-drill
+    namespace: analytics
+---
+# cluster-sentinel reads the evidence and alerts on a missing, failed or stale
+# drill.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: restore-drill-evidence-reader
+  namespace: analytics
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [restore-drill-evidence]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: restore-drill-evidence-reader
+  namespace: analytics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: restore-drill-evidence-reader
+subjects:
+  - kind: ServiceAccount
+    name: automation-runner
+    namespace: automation
+---
+# yamllint disable rule:line-length
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: umami-wal-drill-cluster
+  namespace: analytics
+data:
+  cluster.yaml: |
+    apiVersion: postgresql.cnpg.io/v1
+    kind: Cluster
+    metadata:
+      name: umami-wal-drill
+      namespace: analytics
+    spec:
+      instances: 1
+      imageName: registry.rupan.dev/upstream/ghcr.io/cloudnative-pg/postgresql:17@sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e
+      storage:
+        size: 2Gi
+        storageClass: nfs-cluster
+      bootstrap:
+        recovery:
+          source: origin
+          database: umami
+          owner: umami
+      # Restore only: no plugins entry, so the scratch cluster never
+      # archives into the production path.
+      externalClusters:
+        - name: origin
+          plugin:
+            name: barman-cloud.cloudnative-pg.io
+            parameters:
+              barmanObjectName: umami-garage
+              serverName: umami-cluster
+      postgresql:
+        parameters:
+          shared_buffers: 64MB
+          max_connections: "20"
+      resources:
+        requests:
+          cpu: 50m
+          memory: 256Mi
+        limits:
+          memory: 512Mi
+# yamllint enable rule:line-length
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: umami-wal-restore-drill
+  namespace: analytics
+spec:
+  # Monday, a day after the Sunday 04:00 UTC base backup, so the restore
+  # has to replay archived WAL, not just unpack the backup.
+  schedule: "0 5 * * 1"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          serviceAccountName: wal-restore-drill
+          restartPolicy: Never
+          securityContext:
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: restore
+              image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 26
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  # verify runs as uid 26; share files through group 26 and an
+                  # unsticky results directory (each step replaces the result).
+                  umask 027
+                  mkdir -p /work/results && chmod 0777 /work/results
+                  fail() { echo "fail: $*" > /work/results/umami-wal; echo "fail: $*"; exit 0; }
+                  # A previous run's scratch cluster and volume must be gone first.
+                  kubectl delete cluster umami-wal-drill --ignore-not-found --wait=true --timeout=300s \
+                    || fail "could not remove the previous scratch cluster"
+                  for _ in $(seq 60); do
+                    kubectl get pvc umami-wal-drill-1 >/dev/null 2>&1 || break
+                    sleep 5
+                  done
+                  kubectl get pvc umami-wal-drill-1 >/dev/null 2>&1 && fail "previous scratch volume still present"
+                  date +%s > /work/started
+                  kubectl get objectstore umami-garage \
+                    -o jsonpath='{.status.serverRecoveryWindow.umami-cluster.lastSuccessfulBackupTime}' \
+                    > /work/base-backup
+                  [ -s /work/base-backup ] || fail "object store reports no base backup"
+                  kubectl create -f /drill/cluster.yaml || fail "could not create the scratch cluster"
+                  kubectl wait cluster/umami-wal-drill --for=condition=Ready --timeout=1500s \
+                    || fail "scratch cluster did not become ready from the archive"
+                  # Hand the generated owner password to the verify step through
+                  # the private work volume; it is never printed.
+                  kubectl get secret umami-wal-drill-app -o jsonpath='{.data.password}' \
+                    | base64 -d > /work/restored-password
+                  [ -s /work/restored-password ] || fail "scratch cluster has no app credentials"
+                  echo restored
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                - name: drill
+                  mountPath: /drill
+                  readOnly: true
+            - name: verify
+              image: registry.rupan.dev/upstream/ghcr.io/cloudnative-pg/postgresql:17@sha256:70664ebcfa1100361b5bdc28bbf06fdbe08db2dc4ad7bd14de33c5e05fe8ea8e  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 26
+                runAsGroup: 26
+              env:
+                - name: PGDATABASE
+                  value: umami
+                - name: PGCONNECT_TIMEOUT
+                  value: "10"
+                - name: PROD_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: umami-cluster-app
+                      key: username
+                - name: PROD_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: umami-cluster-app
+                      key: password
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  umask 022
+                  fail() {
+                    rm -f /work/results/umami-wal
+                    echo "fail: $*" > /work/results/umami-wal
+                    echo "fail: $*"
+                    exit 0
+                  }
+                  [ -e /work/results/umami-wal ] && { cat /work/results/umami-wal; exit 0; }
+                  started="$(cat /work/started)"
+                  base="$(cat /work/base-backup)"
+                  # Events older than 15 minutes at the start were archived (5-minute
+                  # archive_timeout), so the restore must hold exactly as many.
+                  cutoff="to_timestamp(${started} - 900)"
+                  query="select count(*) from website_event where created_at <= ${cutoff}"
+                  prod="$(PGPASSWORD="${PROD_PASSWORD}" psql -h umami-cluster-ro -U "${PROD_USER}" -Atc "${query}")" \
+                    || fail "could not read production"
+                  since_base="select count(*) from website_event where created_at > '${base}'::timestamptz"
+                  restored_query="${query}; ${since_base}"
+                  out="$(PGPASSWORD="$(cat /work/restored-password)" psql -h umami-wal-drill-rw -U umami \
+                    -Atc "${restored_query}")" || fail "could not read the restored database"
+                  restored="$(echo "${out}" | sed -n 1p)"
+                  replayed="$(echo "${out}" | sed -n 2p)"
+                  [ "${prod}" -gt 0 ] || fail "production returned no events"
+                  [ "${restored}" = "${prod}" ] \
+                    || fail "restored ${restored} events up to cutoff, production has ${prod}"
+                  summary="${restored} events match production, ${replayed} replayed from WAL after it"
+                  echo "pass: base backup ${base}, ${summary}" \
+                    > /work/results/umami-wal
+                  cat /work/results/umami-wal
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+            - name: teardown
+              image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 26
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  rm -f /work/restored-password
+                  # The scratch volume is owned by the Cluster and goes with it.
+                  if ! kubectl delete cluster umami-wal-drill --ignore-not-found --wait=true --timeout=300s; then
+                    rm -f /work/results/umami-wal
+                    echo "fail: scratch cluster umami-wal-drill was not removed" > /work/results/umami-wal
+                  fi
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+          containers:
+            - name: record
+              image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042  # yamllint disable-line rule:line-length
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 65532
+                runAsGroup: 65532
+              command:
+                - /bin/sh
+                - /scripts/record.sh
+                - /work/results
+                - umami-wal
+              volumeMounts:
+                - name: work
+                  mountPath: /work
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: work
+              emptyDir:
+                sizeLimit: 64Mi
+            - name: drill
+              configMap:
+                name: umami-wal-drill-cluster
+            - name: scripts
+              configMap:
+                name: restore-drill-script

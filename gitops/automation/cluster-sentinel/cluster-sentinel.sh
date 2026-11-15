@@ -129,7 +129,7 @@ fi
 # Restore drills (gitops/backups/restore-drill.yaml): every dataset needs a
 # passing drill within eight days and a latest result that passed.
 drill_bad=""
-for item in backups/immich-db backups/home-assistant-db backups/umami-db immich/immich-library; do
+for item in backups/immich-db backups/home-assistant-db backups/umami-db immich/immich-library analytics/umami-wal; do
   drill_ns="${item%%/*}"
   dataset="${item#*/}"
   evidence="$(kubectl -n "${drill_ns}" get configmap restore-drill-evidence -o json 2>/dev/null || echo '{}')"

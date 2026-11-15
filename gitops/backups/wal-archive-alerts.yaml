@@ -1,0 +1,80 @@
+# Alerts for CNPG continuous WAL archiving to Garage (Barman Cloud plugin).
+# Pilot scope: analytics/umami-cluster. Restore path and the NAS-outage
+# budget: docs/runbooks/postgres-disaster-recovery.md#wal-archive-on-garage.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: wal-archive
+  namespace: backups
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: wal-archive.rules
+      rules:
+        # Segments marked .ready are waiting for the archiver. A healthy
+        # archiver drains them within seconds; the hourly platform backup
+        # stops Garage only briefly, so 30 minutes of backlog is a real
+        # failure to upload (NAS down, credentials, bucket).
+        - alert: WalArchivingFailing
+          expr: |
+            max by (namespace, pod) (
+              cnpg_collector_pg_wal_archive_status{namespace="analytics",value="ready"}
+              and on (namespace, pod) (cnpg_pg_replication_in_recovery == 0)
+            ) > 0
+          for: 30m
+          labels:
+            severity: critical
+          annotations:
+            summary: "WAL archiving from {{ $labels.namespace }}/{{ $labels.pod }} is failing"
+            description: >-
+              {{ $value }} WAL segments have waited over 30 minutes for upload to
+              s3://cnpg-wal on nas-01. Postgres keeps them on the local volume until
+              Garage accepts them. Check the plugin-barman-cloud sidecar log and the
+              Cluster's ContinuousArchiving condition.
+
+        # Local backlog against the pilot's 5 GiB budget (the PV is not
+        # quota-limited, but this is the share of /persist it was given).
+        - alert: WalArchiveBacklogHigh
+          expr: |
+            max by (namespace, pod) (
+              cnpg_collector_pg_wal{namespace="analytics",value="size"}
+              and on (namespace, pod) (cnpg_pg_replication_in_recovery == 0)
+            ) > 2.5 * 1024 * 1024 * 1024
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: "WAL backlog on {{ $labels.namespace }}/{{ $labels.pod }} passed half its budget"
+            description: >-
+              pg_wal holds {{ $value | humanize1024 }}B. If Garage stays unreachable,
+              follow the NAS-outage step in the PostgreSQL disaster-recovery runbook
+              before the backlog reaches the 5 GiB budget.
+
+        - alert: WalArchiveBaseBackupStale
+          expr: |
+            time() - max by (namespace) (
+              barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{namespace="analytics"}
+            ) > 8 * 86400
+          for: 1h
+          labels:
+            severity: critical
+          annotations:
+            summary: "No base backup of {{ $labels.namespace }} in the WAL archive for eight days"
+            description: >-
+              The newest base backup in s3://cnpg-wal is {{ $value | humanizeDuration }}
+              old. The weekly ScheduledBackup umami-cluster-weekly should have run;
+              check `kubectl -n analytics get backups.postgresql.cnpg.io`.
+
+        - alert: WalArchiveBackupMetricMissing
+          expr: |
+            absent(barman_cloud_cloudnative_pg_io_last_available_backup_timestamp{namespace="analytics"})
+          for: 2h
+          labels:
+            severity: warning
+          annotations:
+            summary: "The WAL archive backup metric for analytics is missing"
+            description: >-
+              umami-cluster no longer reports barman_cloud_cloudnative_pg_io_last_available_backup_timestamp,
+              so WalArchiveBaseBackupStale cannot fire. Check that the Barman Cloud
+              plugin is registered and the instance sidecar is running.
