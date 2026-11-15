@@ -30,6 +30,9 @@ SILENCE = 1e-6
 # Music Mode Brightness (kept high), and an intensity offset for colours.
 SECTION_BRIGHTNESS = {QUIET: 0.8, NORMAL: 0.9, LOUD: 1.0}
 SECTION_INTENSITY = {QUIET: -0.1, NORMAL: 0.0, LOUD: 0.15}
+# Push on the effect's speed and reactivity (0-1 scales): punchier
+# choruses and drops, calmer breakdowns.
+SECTION_DRIVE = {QUIET: -0.15, NORMAL: 0.0, LOUD: 0.25}
 
 
 @dataclass

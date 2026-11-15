@@ -177,11 +177,17 @@ def tempo_level(bpm: float | None) -> float | None:
     return _unit((bpm - SLOW_BPM) / (FAST_BPM - SLOW_BPM))
 
 
-def dynamics(effect: str, features: Features) -> dict[str, Any]:
+def dynamics(effect: str, features: Features, drive: float = 0.0) -> dict[str, Any]:
     """Speed from tempo and responsiveness from energy, inside each LedFx
-    schema range; unknown inputs leave the LedFx default in place."""
+    schema range; unknown inputs leave the LedFx default in place. Drive
+    (the song section) pushes both up or down from there; with a drive,
+    unknown inputs start from the middle so sections still show."""
     config: dict[str, Any] = {}
     tempo = tempo_level(features.bpm)
+    energy = None if features.energy is None else _unit(features.energy)
+    if drive:
+        tempo = _unit((0.5 if tempo is None else tempo) + drive)
+        energy = _unit((0.5 if energy is None else energy) + drive)
     if tempo is not None:
         if effect == "melt":
             config["speed"] = round(0.2 + 0.6 * tempo, 3)  # schema 0.001-1
@@ -189,8 +195,7 @@ def dynamics(effect: str, features: Features) -> dict[str, Any]:
             config["speed"] = round(3.0 + 9.0 * tempo, 2)  # schema 0.1-15
         elif effect == "scroll":
             config["speed"] = round(2 + 6 * tempo)  # integer, schema 1-10
-    if features.energy is not None:
-        energy = _unit(features.energy)
+    if energy is not None:
         if effect == "melt":
             config["reactivity"] = round(0.3 + 0.6 * energy, 3)  # 0.0001-1
         elif effect == "lava_lamp":
@@ -209,10 +214,11 @@ def effect_config(
     palette: Palette,
     features: Features | None = None,
     solid: bool = False,
+    drive: float = 0.0,
 ) -> dict[str, Any]:
     """Colours plus tempo and energy dynamics for the effect; LedFx fills
     every other key with its schema default. Solid gives every colour slot
-    the same one colour."""
+    the same one colour; drive is the song section's push on the dynamics."""
     colours = (solid_colour(palette),) * 3 if solid else triad(palette)
     if effect in GRADIENT_EFFECTS:
         config: dict[str, Any] = {
@@ -230,5 +236,5 @@ def effect_config(
     else:
         raise ValueError(f"no colour mapping for LedFx effect {effect!r}")
     if features is not None:
-        config.update(dynamics(effect, features))
+        config.update(dynamics(effect, features, drive))
     return config

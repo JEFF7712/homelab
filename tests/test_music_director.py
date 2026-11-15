@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import itertools
 import re
 import sys
 import types
@@ -597,12 +598,40 @@ class TestDynamics(unittest.TestCase):
             loud = rules.effect_config(effect, self.BASE, rules.Features(energy=0.95))
             self.assertLess(quiet[key], loud[key], effect)
 
+    def test_loud_sections_run_punchier_and_quiet_ones_calmer(self) -> None:
+        features = rules.Features(bpm=100, energy=0.5)
+        for effect, key in (
+            ("melt", "speed"),
+            ("melt", "reactivity"),
+            ("energy", "sensitivity"),
+        ):
+            configs = [
+                rules.effect_config(
+                    effect, self.BASE, features, drive=sections.SECTION_DRIVE[name]
+                )
+                for name in (sections.QUIET, sections.NORMAL, sections.LOUD)
+            ]
+            quiet, normal, loud = (config[key] for config in configs)
+            self.assertLess(quiet, normal, (effect, key))
+            self.assertLess(normal, loud, (effect, key))
+
+    def test_sections_move_dynamics_of_songs_without_features(self) -> None:
+        unknown = rules.Features()
+        self.assertNotIn("speed", rules.effect_config("melt", self.BASE, unknown))
+        loud = rules.effect_config("melt", self.BASE, unknown, drive=0.25)
+        quiet = rules.effect_config("melt", self.BASE, unknown, drive=-0.15)
+        self.assertLess(quiet["speed"], loud["speed"])
+
     def test_values_stay_inside_ledfx_schema_ranges(self) -> None:
         for bpm in (0, 40, 120, 300):
-            for energy in (-1.0, 0.0, 0.5, 1.0, 2.0):
+            for energy, drive in itertools.product(
+                (-1.0, 0.0, 0.5, 1.0, 2.0), (-0.15, 0.0, 0.25)
+            ):
                 features = rules.Features(bpm=bpm, energy=energy)
                 for effect in rules.EFFECTS:
-                    config = rules.effect_config(effect, self.BASE, features)
+                    config = rules.effect_config(
+                        effect, self.BASE, features, drive=drive
+                    )
                     for (name, key), (low, high) in self.RANGES.items():
                         if name == effect:
                             self.assertGreaterEqual(config[key], low, (effect, key))

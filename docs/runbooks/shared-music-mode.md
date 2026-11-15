@@ -152,11 +152,16 @@ compared with the song's 40 s baseline; 1.3× or more is `loud`, 0.65× or
 less is `quiet`, with hysteresis, a 20 s warm-up per track and at least 16 s
 per section, so beats, fills and gaps between phrases do not flip it.
 
-| Section | Strip brightness (× Music Mode Brightness) | Colour intensity |
-| --- | --- | --- |
-| quiet | 0.8 | −0.1 |
-| normal | 0.9 | ±0 |
-| loud | 1.0 | +0.15 |
+| Section | Strip brightness (× Music Mode Brightness) | Colour intensity | Effect drive |
+| --- | --- | --- | --- |
+| quiet | 0.8 | −0.1 | −0.15 |
+| normal | 0.9 | ±0 | ±0 |
+| loud | 1.0 | +0.15 | +0.25 |
+
+Effect drive shifts the 0–1 tempo and energy levels behind the effect's
+speed and reactivity (`rules.dynamics`), so choruses and drops move faster
+and react harder, and breakdowns calm down. A song with no known tempo or
+energy starts from the middle when the section is not normal.
 
 The strip's effect is updated in place (`PUT …/effects`), not restarted.
 Bulbs keep their brightness; they only take the slightly more or less vivid
