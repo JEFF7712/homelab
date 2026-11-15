@@ -10,6 +10,12 @@ from scripts.ci.scope import _PYTHON_GITOPS_PREFIXES
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON_SH = ROOT / "scripts/checks/python.sh"
+# Patched copies of upstream linux-voice-assistant modules: they import its
+# package, which this dev shell lacks (see the comment in python.sh).
+PYRIGHT_EXEMPT = {
+    "gitops/voice/satellite/__main__.py",
+    "gitops/voice/satellite/satellite.py",
+}
 
 
 def _bash_array(name: str) -> list[str]:
@@ -70,7 +76,10 @@ class PythonGatePathsTest(unittest.TestCase):
                 scripts = sorted((ROOT / prefix).glob("*.py"))
                 self.assertTrue(scripts)
                 for script in scripts:
-                    self.assertIn(str(script.relative_to(ROOT)), pyright)
+                    name = str(script.relative_to(ROOT))
+                    if name in PYRIGHT_EXEMPT:
+                        continue
+                    self.assertIn(name, pyright)
 
 
 if __name__ == "__main__":

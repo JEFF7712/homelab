@@ -13,6 +13,7 @@ ruff_paths=(
 ruff_lint_only_paths=(
   gitops/automation gitops/media
   gitops/media/lidarr-extended/10-render-extended-conf
+  gitops/voice/exporter gitops/voice/satellite
 )
 if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then
   ruff format --check "${ruff_paths[@]}"
@@ -23,7 +24,9 @@ ruff check --select E,F,I,UP --ignore E501 "${ruff_paths[@]}" "${ruff_lint_only_
 # host bridges in flake/modules (ledfx-roku-bridge, roku-bridge,
 # roku-cloud-bridge, apollo-ble-bridge, controller-pairer, bedroom-audio-fft,
 # nvidia_gpu_exporter), scripts/jarvis_wake_eval.py, scripts/voice_id, and
-# the services/* subprojects, which type-check in their own uv environments.
+# the services/* subprojects, which type-check in their own uv environments,
+# and gitops/voice/satellite's __main__.py and satellite.py, patched copies
+# of upstream linux-voice-assistant modules that import its package.
 pyright_paths=(
   scripts/agent scripts/ci scripts/registry scripts/cloudflare scripts/websites
   scripts/verifier scripts/home_assistant scripts/projectctl scripts/orchestrator
@@ -47,6 +50,8 @@ pyright_paths=(
   gitops/media/beets/nightly.py gitops/media/jellyfin-backup/backup.py
   gitops/media/soularr/run.py gitops/media/navidrome-lookup/lookup.py
   gitops/media/lidarr-extended/10-render-extended-conf
+  gitops/voice/exporter/exporter.py gitops/voice/satellite/__init__.py
+  gitops/voice/satellite/healthcheck.py
   opnsense_reconciler
 )
 pyright "${pyright_paths[@]}" &

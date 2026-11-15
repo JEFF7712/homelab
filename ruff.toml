@@ -6,3 +6,8 @@ extend-exclude = [
   # its hash, so it must stay byte-identical to the upstream revision.
   "flake/modules/adguard-netbird/roku-bridge.py",
 ]
+
+[lint.per-file-ignores]
+# Patched copies of upstream linux-voice-assistant modules, mounted over the
+# image's own: keep upstream's typing style so patches stay easy to rebase.
+"gitops/voice/satellite/*.py" = ["UP"]
