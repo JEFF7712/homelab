@@ -63,9 +63,9 @@ spec:
             - --fps
             - "20"
             - --spotify-poll-interval
-            - "3.0"
+            - "5.0"
             - --spotify-poll-interval-paused
-            - "15.0"
+            - "30.0"
             - --web-port
             - "8000"
             - --ledfx-port
