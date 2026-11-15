@@ -70,6 +70,7 @@ from .rules import (
 from .sections import (
     NORMAL,
     SECTION_BRIGHTNESS,
+    SECTION_DRIVE,
     SECTION_INTENSITY,
     SectionTracker,
 )
@@ -394,7 +395,13 @@ class Director:
         palette = self._colour_override() or auto_palette
         effect = self._override() or auto_effect
         config = {
-            **effect_config(effect, palette, info.features(), self.strip_solid),
+            **effect_config(
+                effect,
+                palette,
+                info.features(),
+                self.strip_solid,
+                SECTION_DRIVE[self.section],
+            ),
             "brightness": round(
                 self.brightness_pct / 100 * SECTION_BRIGHTNESS[self.section], 2
             ),
