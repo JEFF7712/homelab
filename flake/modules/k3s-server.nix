@@ -167,6 +167,14 @@ in
           ip saddr ${infrastructure.cidr} udp dport 5353 accept
           ip saddr ${clients.cidr} udp dport 4002 accept
           ip6 saddr { fd42:20::/64, fd42:30::/64 } udp dport { 5353, 5540 } accept
+        ''
+        # etcd metrics (plain HTTP, --etcd-expose-metrics) for Prometheus only.
+        # Its TSDB is a local PV pinned to homelab-05
+        # (gitops/observability/kube-prometheus-stack/local-storage.yaml), and
+        # Cilium masquerades pod traffic to another node's address as the
+        # sending node's address, so every scrape arrives from homelab-05.
+        + lib.optionalString (cfg.role == "server") ''
+          ip saddr ${fleetInventory.hosts.homelab-05.address} tcp dport 2381 accept
         '';
       };
     };
@@ -245,6 +253,8 @@ in
           "--etcd-snapshot-retention=14"
           # The unit joins flags unescaped, so quote the whole word for systemd.
           "\"--etcd-snapshot-schedule-cron=0 3 * * *\""
+          # Adds http://<node-ip>:2381 beside the loopback metrics listener.
+          "--etcd-expose-metrics"
         ]
         # Images come only from the local registry; registries.yaml rewrites
         # every upstream to it, so no default endpoint is a fallback.

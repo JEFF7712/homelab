@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 from scripts.deploy_fleet import (
     APPLIANCE_SETTLE_ATTEMPTS,
     CORDON_MARK,
+    ETCD_HEALTH,
     FLEET_HOSTS,
     POSTGRES_CLUSTERS,
     ClusterLease,
@@ -1116,6 +1117,106 @@ class FleetClosureTest(unittest.TestCase):
             with self.subTest(case):
                 self.run_deployment(unchanged=True, **case)
                 self.assertEqual(self.kubectl_mutations(), [])
+
+
+class EtcdQuorumGateTest(unittest.TestCase):
+    OLD = DeployFleetTest.OLD
+    NEW = DeployFleetTest.NEW
+    MEMBERS = "homelab-01 homelab-02 homelab-03"
+
+    def run_deployment(self, host_name, *, unhealthy=lambda ip, active: False):
+        """Deploy one host; unhealthy(ip, active_system) fails that member."""
+        self.commands = []
+        self.active = self.OLD
+        host = FLEET_HOSTS[host_name]
+
+        def runner(argv, **kwargs):
+            del kwargs
+            self.commands.append(argv)
+            output, code = "", 0
+            if argv[:3] == ["nix", "eval", "--raw"]:
+                output = self.NEW
+            elif argv[:3] == ["kubectl", "get", "nodes"]:
+                output = self.MEMBERS
+            elif argv[:3] == ["kubectl", "get", "node"]:
+                output = "True"
+            elif argv[0] == "ssh":
+                remote = argv[-1]
+                if remote == "readlink -e /run/current-system":
+                    output = self.active
+                elif remote == ETCD_HEALTH:
+                    if unhealthy(argv[-2].split("@")[-1], self.active):
+                        code = 22
+                    else:
+                        output = '{"health":"true","reason":""}'
+                elif "/bin/switch-to-configuration switch" in remote:
+                    self.active = self.OLD if self.OLD in remote else self.NEW
+            return subprocess.CompletedProcess(argv, code, output, "")
+
+        clock = [0.0]
+
+        def sleep(seconds: float) -> None:
+            clock[0] += seconds
+
+        deployer = FleetDeployer(
+            targets=[host],
+            runner=runner,
+            skip_preflight=True,
+            sleeper=sleep,
+            ready_timeout=30.0,
+            enable_notifications=False,
+        )
+        with patch("scripts.deploy_fleet.time.monotonic", lambda: clock[0]):
+            return deployer.execute()
+
+    def index(self, predicate) -> list[int]:
+        return [i for i, cmd in enumerate(self.commands) if predicate(cmd)]
+
+    def health_probes(self) -> list[int]:
+        return self.index(lambda cmd: cmd[0] == "ssh" and cmd[-1] == ETCD_HEALTH)
+
+    def test_server_waits_for_every_member_before_drain_and_after_switch(self):
+        self.run_deployment("homelab-02")
+        probes = self.health_probes()
+        drain = self.index(lambda cmd: cmd[:2] == ["kubectl", "drain"])[0]
+        switch = self.index(
+            lambda cmd: (
+                cmd[0] == "ssh"
+                and self.NEW + "/bin/switch-to-configuration switch" in cmd[-1]
+            )
+        )[0]
+        uncordon = self.index(lambda cmd: cmd[:2] == ["kubectl", "uncordon"])[0]
+        before = [i for i in probes if i < drain]
+        after = [i for i in probes if switch < i < uncordon]
+        probed = {self.commands[i][-2].split("@")[-1] for i in before}
+        self.assertEqual(probed, {"10.0.30.11", "10.0.30.12", "10.0.30.13"})
+        self.assertEqual(len(before), 3)
+        self.assertEqual(len(after), 3)
+
+    def test_unhealthy_peer_blocks_taking_a_second_member_down(self):
+        with self.assertRaisesRegex(FleetDeploymentError, "homelab-03"):
+            self.run_deployment(
+                "homelab-02", unhealthy=lambda ip, active: ip == "10.0.30.13"
+            )
+        self.assertEqual(self.active, self.OLD)
+        self.assertFalse(
+            self.index(
+                lambda cmd: cmd[:2] in (["kubectl", "cordon"], ["kubectl", "drain"])
+            )
+        )
+
+    def test_member_that_does_not_rejoin_is_rolled_back(self):
+        with self.assertRaisesRegex(FleetDeploymentError, "etcd members not healthy"):
+            self.run_deployment(
+                "homelab-02",
+                unhealthy=lambda ip, active: ip == "10.0.30.12" and active == self.NEW,
+            )
+        self.assertEqual(self.active, self.OLD)
+
+    def test_agent_nodes_are_not_gated_on_etcd(self):
+        self.run_deployment("homelab-04", unhealthy=lambda ip, active: True)
+        self.assertEqual(self.active, self.NEW)
+        self.assertFalse(self.health_probes())
 
 
 class LeaseApi:
