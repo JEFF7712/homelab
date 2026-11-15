@@ -85,7 +85,7 @@ late (log: `Late cover colour`).
 
 ### Track cache and next-song lookahead
 
-Looked-up info and cover palettes for the last 1000 tracks are kept in
+Looked-up info and cover palettes for the last 10,000 tracks are kept in
 `.storage/music_director.tracks` (`trackcache.py`), so replays skip every
 lookup, also after a restart. The stored cache carries a hash of
 `palette.py` and `metadata.py`; a deploy that changes either starts from an
@@ -101,6 +101,20 @@ unless it belongs to the playing song, and a skip or shuffle that plays a
 different song falls back to the normal lookup. `sensor.music_director`
 reports `next_ready` ("Artist - Title"), shown on the preview card; the log
 says `Prepared next track`.
+
+`music_director.prepare_playlists` fills the cache from every Spotify
+playlist in the Music Assistant library (about 7,400 songs in 2026-11), or
+only the playlists named in `playlists`. It reads the playlists through
+Music Assistant, whose Spotify sign-in is separate from the Spotify
+integration's rate-limited Web API quota, takes art straight from Spotify's
+image CDN, and batches ReccoBeats 40 songs a call. Songs already cached are
+skipped, so reruns only do new songs. It runs in the background, logs
+`Prepared N of M playlist songs` per batch and shows a notification at the
+start and end (`notify: false` turns that off). The automation
+`music_director_prepare_playlists` runs it quietly at 04:30 each night,
+which also refills the cache after a colour change emptied it. A full run
+takes roughly an hour, mostly Last.fm genre lookups for songs missing from
+the local library.
 
 The cover palette merges colour clusters within 20° of hue (so a cover-wide
 tint such as Dawn FM's muted blue counts as one colour), then takes the most

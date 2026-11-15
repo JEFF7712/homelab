@@ -48,6 +48,8 @@ from .metadata import (
     apply_reccobeats,
     find_override,
     next_in_queue,
+    normalize,
+    reccobeats_by_id,
     same_track,
     spotify_track_id,
 )
@@ -120,6 +122,10 @@ SPOTIFY_QUEUE_URL = "https://api.spotify.com/v1/me/player/queue"
 # How far into a song the next one is looked up: late enough to skip songs
 # that are skipped straight away, early enough to finish before it ends.
 PREPARE_DELAY_SECONDS = 15.0
+# Playlist preparation: ReccoBeats takes up to 40 IDs a call, and a short
+# pause per song keeps Last.fm and the library well under their limits.
+PREPARE_BATCH = 40
+PREPARE_PAUSE_SECONDS = 0.2
 
 
 @dataclass(frozen=True)
@@ -173,6 +179,30 @@ def _track_key(state: State | None) -> str | None:
     return track_key(artist, title, album)
 
 
+def _playlist_track(track: Any) -> QueuedTrack:
+    """A Music Assistant playlist track as the director looks it up."""
+    album = getattr(track, "album", None)
+    image = getattr(track, "image", None) or getattr(album, "image", None)
+    spotify_id = next(
+        (
+            m.item_id
+            for m in getattr(track, "provider_mappings", ())
+            if m.provider_domain == "spotify"
+        ),
+        None,
+    )
+    return QueuedTrack(
+        title=track.name,
+        artist=", ".join(a.name for a in getattr(track, "artists", ()) or ()),
+        album=getattr(album, "name", "") or "",
+        spotify_id=spotify_id,
+        duration=getattr(track, "duration", None) or None,
+        art_url=getattr(image, "path", None)
+        if image is not None and getattr(image, "remotely_accessible", False)
+        else None,
+    )
+
+
 def _decode_pixels(data: bytes) -> list[tuple[int, int, int]]:
     from PIL import Image  # Home Assistant ships Pillow; import off the event loop.
 
@@ -194,6 +224,7 @@ class Director:
             Store(hass, CACHE_STORAGE_VERSION, CACHE_STORAGE_KEY)
         )
         self._prepare_task: asyncio.Task[None] | None = None
+        self._prepare_run: asyncio.Task[None] | None = None
         # The next song, looked up ahead ("Artist - Title"), for the dashboard.
         self.next_ready: str | None = None
         self._task: asyncio.Task[None] | None = None
@@ -572,10 +603,113 @@ class Director:
         if self._decision is not None:
             self._publish(self._decision)
 
+    async def prepare_playlists(
+        self, names: list[str] | None, notify: bool = True
+    ) -> None:
+        """Look up every song in the library's Spotify playlists (or the
+        named ones) through Music Assistant, so they play from the cache.
+        Songs already cached are skipped. One run at a time."""
+        if self._prepare_run is not None and not self._prepare_run.done():
+            _LOGGER.info("Playlist preparation is already running")
+            return
+        self._prepare_run = self.hass.async_create_background_task(
+            self._prepare_playlists(names, notify), "music_director prepare playlists"
+        )
+
+    async def _prepare_playlists(self, names: list[str] | None, notify: bool) -> None:
+        mass = self._music_assistant()
+        if mass is None:
+            self._notify(
+                notify, "Music Assistant is not set up: no playlists to prepare."
+            )
+            return
+        wanted = {normalize(name) for name in names or ()}
+        tracks: dict[str, Any] = {}
+        chosen = []
+        for playlist in await mass.music.get_library_playlists(limit=1000):
+            if not any(
+                m.provider_domain == "spotify" for m in playlist.provider_mappings
+            ):
+                continue
+            if wanted and normalize(playlist.name) not in wanted:
+                continue
+            chosen.append(playlist.name)
+            for track in await mass.music.get_playlist_tracks(
+                playlist.item_id, playlist.provider
+            ):
+                tracks.setdefault(track.uri, track)
+        todo = []
+        for track in tracks.values():
+            queued = _playlist_track(track)
+            key = track_key(queued.artist, queued.title, queued.album)
+            entry = self.tracks.cache.find(key)
+            if entry is None or entry.cover is None:
+                todo.append((key, queued))
+        self._notify(
+            notify,
+            f"Preparing {len(todo)} of {len(tracks)} songs from "
+            f"{len(chosen)} playlists ({len(tracks) - len(todo)} already cached).",
+        )
+        artist_tags: dict[str, Any] = {}
+        done = 0
+        for start in range(0, len(todo), PREPARE_BATCH):
+            batch = todo[start : start + PREPARE_BATCH]
+            ids = [q.spotify_id for _, q in batch if q.spotify_id]
+            recco = reccobeats_by_id(
+                await self._get_json(
+                    RECCOBEATS_URL, {"ids": ",".join(ids)}, "ReccoBeats"
+                )
+                if ids
+                else None
+            )
+            for key, queued in batch:
+                info, cover = await asyncio.gather(
+                    self._gather_info(
+                        queued.title,
+                        queued.artist,
+                        queued.duration,
+                        queued.spotify_id,
+                        recco=recco.get(queued.spotify_id or "", {}),
+                        artist_tags=artist_tags,
+                    ),
+                    self._art_palette(queued.art_url),
+                )
+                self.tracks.put(key, Entry(info, cover))
+                done += 1
+                await asyncio.sleep(PREPARE_PAUSE_SECONDS)
+            _LOGGER.info("Prepared %d of %d playlist songs", done, len(todo))
+        self._notify(notify, f"Prepared {done} songs from {len(chosen)} playlists.")
+
+    def _music_assistant(self) -> Any:
+        for entry in self.hass.config_entries.async_entries("music_assistant"):
+            data = getattr(entry, "runtime_data", None)
+            if data is not None and getattr(data, "mass", None) is not None:
+                return data.mass
+        return None
+
+    def _notify(self, notify: bool, message: str) -> None:
+        _LOGGER.info(message)
+        if not notify:
+            return
+        self.hass.async_create_task(
+            self.hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "Music Director",
+                    "message": message,
+                    "notification_id": "music_director_prepare",
+                },
+            )
+        )
+
     async def _queued_cover(self, queued: QueuedTrack) -> Palette | None:
-        if not queued.art_url:
+        return await self._art_palette(queued.art_url)
+
+    async def _art_palette(self, url: str | None) -> Palette | None:
+        if not url:
             return None
-        data = await self._download(queued.art_url)
+        data = await self._download(url)
         if data is None:
             return None
         try:
@@ -646,7 +780,9 @@ class Director:
             self.tracks.put(key, entry)
         else:
             _LOGGER.debug("Cached: %s", key.replace("\n", " - "))
-            self.tracks.put(key, entry)
+            if key not in self.tracks.cache.entries:
+                # Found under another spelling: remember this one too.
+                self.tracks.put(key, entry)
         info, cover = entry.info, entry.cover
         features = info.features()
         family = classify(features)
@@ -752,10 +888,20 @@ class Director:
         )
 
     async def _gather_info(
-        self, title: str, artist: str, duration: Any, spotify_id: str | None
+        self,
+        title: str,
+        artist: str,
+        duration: Any,
+        spotify_id: str | None,
+        recco: Any = None,
+        artist_tags: dict[str, Any] | None = None,
     ) -> TrackInfo:
+        """Look the track up. recco is an already fetched ReccoBeats body,
+        and artist_tags remembers Last.fm artist tags, for batch runs."""
         info = TrackInfo()
-        if spotify_id:
+        if recco is not None:
+            apply_reccobeats(info, recco)
+        elif spotify_id:
             apply_reccobeats(
                 info,
                 await self._get_json(RECCOBEATS_URL, {"ids": spotify_id}, "ReccoBeats"),
@@ -774,22 +920,31 @@ class Director:
                 ("track.gettoptags", {"track": title}),
                 ("artist.gettoptags", {}),
             ):
-                body = await self._get_json(
-                    LASTFM_URL,
-                    {
-                        "method": method,
-                        "artist": artist,
-                        "autocorrect": "1",
-                        "api_key": self.config.lastfm_key,
-                        "format": "json",
-                        **extra,
-                    },
-                    "Last.fm",
-                )
+                if method == "artist.gettoptags" and artist_tags is not None:
+                    if artist not in artist_tags:
+                        artist_tags[artist] = await self._lastfm(method, artist, extra)
+                    body = artist_tags[artist]
+                else:
+                    body = await self._lastfm(method, artist, extra)
                 apply_lastfm(info, body, artist)
                 if info.genres:
                     break
         return info
+
+    async def _lastfm(self, method: str, artist: str, extra: dict[str, str]) -> Any:
+        assert self.config.lastfm_key
+        return await self._get_json(
+            LASTFM_URL,
+            {
+                "method": method,
+                "artist": artist,
+                "autocorrect": "1",
+                "api_key": self.config.lastfm_key,
+                "format": "json",
+                **extra,
+            },
+            "Last.fm",
+        )
 
     async def _cover_for(self, key: str) -> Palette | None:
         """The cover palette for the track in key. Spotify's art is used

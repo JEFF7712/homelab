@@ -1,0 +1,15 @@
+id: music_director_prepare_playlists
+alias: "Music: Prepare Playlist Songs Nightly"
+description: >-
+  Look up songs added to the Spotify playlists since the last run (and all of
+  them again after a colour change empties the cache), so Music Mode switches
+  instantly. Already prepared songs are skipped.
+triggers:
+  - trigger: time
+    at: "04:30:00"
+conditions: []
+actions:
+  - action: music_director.prepare_playlists
+    data:
+      notify: false
+mode: single

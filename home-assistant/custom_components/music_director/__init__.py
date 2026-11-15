@@ -104,6 +104,23 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         director.schedule(force=True)
 
     hass.services.async_register(DOMAIN, "refresh", refresh)
+
+    async def prepare_playlists(call: ServiceCall) -> None:
+        await director.prepare_playlists(
+            call.data.get("playlists"), call.data["notify"]
+        )
+
+    hass.services.async_register(
+        DOMAIN,
+        "prepare_playlists",
+        prepare_playlists,
+        schema=vol.Schema(
+            {
+                vol.Optional("playlists"): vol.All(cv.ensure_list, [cv.string]),
+                vol.Optional("notify", default=True): cv.boolean,
+            }
+        ),
+    )
     # Music Mode Colour and Pin (lights), Brightness (number), Strip Colours
     # (select).
     for platform in (Platform.LIGHT, Platform.NUMBER, Platform.SELECT):

@@ -20,7 +20,8 @@ from .palette import Palette
 
 CACHE_STORAGE_KEY = "music_director.tracks"
 CACHE_STORAGE_VERSION = 1
-CACHE_SIZE = 1000
+# Room for every song in the library's playlists (about 7,500 in 2026-11).
+CACHE_SIZE = 10000
 SAVE_DELAY_SECONDS = 30
 
 
@@ -35,6 +36,10 @@ def code_version() -> str:
 
 def track_key(artist: str, title: str, album: str) -> str:
     return f"{artist}\n{title}\n{album}"
+
+
+def _album(key: str) -> str:
+    return normalize(key.rsplit("\n", 1)[-1])
 
 
 @dataclass(frozen=True)
@@ -73,6 +78,10 @@ class TrackCache:
         self.size = size
         self.version = version
         self.entries: OrderedDict[str, Entry] = OrderedDict()
+        # Keys by normalised album, so find() checks one album, not them all.
+        self._albums: dict[str, set[str]] = {}
+        # Each entry serialised once, so saving thousands stays cheap.
+        self._stored: dict[str, dict[str, Any]] = {}
 
     def get(self, key: str) -> Entry | None:
         entry = self.entries.get(key)
@@ -80,11 +89,28 @@ class TrackCache:
             self.entries.move_to_end(key)
         return entry
 
-    def put(self, key: str, entry: Entry) -> None:
+    def put(self, key: str, entry: Entry, stored: dict[str, Any] | None = None) -> None:
+        """Add or refresh an entry; stored is its saved form, when known."""
         self.entries[key] = entry
         self.entries.move_to_end(key)
+        self._albums.setdefault(_album(key), set()).add(key)
+        self._stored[key] = stored or {
+            "info": asdict(entry.info),
+            "cover": None if entry.cover is None else asdict(entry.cover),
+        }
         while len(self.entries) > self.size:
-            self.entries.popitem(last=False)
+            old, _ = self.entries.popitem(last=False)
+            del self._stored[old]
+            keys = self._albums.get(_album(old))
+            if keys is not None:
+                keys.discard(old)
+                if not keys:
+                    del self._albums[_album(old)]
+
+    def clear(self) -> None:
+        self.entries.clear()
+        self._albums.clear()
+        self._stored.clear()
 
     def find(self, key: str) -> Entry | None:
         """The entry for key, else one for the same song on the same album
@@ -92,32 +118,23 @@ class TrackCache:
         entry = self.get(key)
         if entry is not None:
             return entry
-        artist, title, album = key.split("\n", 2)
-        for other, candidate in reversed(self.entries.items()):
-            other_artist, other_title, other_album = other.split("\n", 2)
-            if normalize(album) == normalize(other_album) and same_track(
-                title, artist, other_title, other_artist
-            ):
-                self.entries.move_to_end(other)
-                return candidate
+        artist, title, _ = key.split("\n", 2)
+        for other in sorted(self._albums.get(_album(key), ())):
+            other_artist, other_title, _ = other.split("\n", 2)
+            if same_track(title, artist, other_title, other_artist):
+                return self.get(other)
         return None
 
     def to_data(self) -> dict[str, Any]:
         return {
             "version": self.version,
-            "tracks": {
-                key: {
-                    "info": asdict(entry.info),
-                    "cover": None if entry.cover is None else asdict(entry.cover),
-                }
-                for key, entry in self.entries.items()
-            },
+            "tracks": {key: self._stored[key] for key in self.entries},
         }
 
     def load(self, data: Any) -> None:
         """Replace the entries with stored ones from the same code version;
         anything malformed is dropped."""
-        self.entries.clear()
+        self.clear()
         if not isinstance(data, dict) or data.get("version") != self.version:
             return
         tracks = data.get("tracks")
@@ -130,7 +147,7 @@ class TrackCache:
                 entry = Entry(_info_from(item["info"]), _palette_from(item["cover"]))
             except (KeyError, TypeError, ValueError):
                 continue
-            self.put(key, entry)
+            self.put(key, entry, item)
 
 
 class CacheStorage(Protocol):

@@ -230,3 +230,20 @@ def _artists(item: dict[str, Any]) -> str:
         for a in item.get("artists") or ()
         if isinstance(a, dict) and a.get("name")
     )
+
+
+RECCOBEATS_TRACK = re.compile(r"track/([A-Za-z0-9]{22})")
+
+
+def reccobeats_by_id(body: Any) -> dict[str, dict[str, Any]]:
+    """A batch ReccoBeats audio-features body split per Spotify ID, each in
+    the shape apply_reccobeats takes."""
+    content = body.get("content") if isinstance(body, dict) else None
+    found: dict[str, dict[str, Any]] = {}
+    for item in content or ():
+        if not isinstance(item, dict):
+            continue
+        match = RECCOBEATS_TRACK.search(str(item.get("href") or ""))
+        if match:
+            found[match.group(1)] = {"content": [item]}
+    return found
