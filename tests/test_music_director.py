@@ -738,6 +738,31 @@ class TestPins(unittest.TestCase):
         self.assertFalse(store.seed(self.SEEDS))
         self.assertIsNone(store.find("Passionfruit", "Drake", "More Life"))
 
+    def test_colour_and_effect_pins_are_set_and_cleared_independently(self) -> None:
+        store = pins.Pins()
+        store.update("HYFR", "Drake, Lil Wayne", "Take Care", effect="power")
+        store.pin("Crew Love", "Drake", "Take Care", "#ff0000")
+        found = store.find("Marvins Room", "Drake", "Take Care")
+        assert found is not None
+        self.assertEqual((found.color, found.effect), ("#ff0000", "power"))
+        self.assertEqual(len(store.pins), 1)
+        # Unpinning the colour keeps the effect.
+        self.assertTrue(store.unpin("HYFR", "Drake", "Take Care"))
+        found = store.find("HYFR", "Drake", "Take Care")
+        assert found is not None
+        self.assertEqual((found.color, found.effect), (None, "power"))
+        # Clearing the effect too removes the pin.
+        store.update("HYFR", "Drake", "Take Care", effect=None)
+        self.assertEqual(store.pins, [])
+
+    def test_effect_only_pins_survive_storage(self) -> None:
+        store = pins.Pins()
+        store.update("Slide", "Calvin Harris", "Funk Wav Bounces Vol. 1", effect="melt")
+        restored = pins.Pins.from_data(json.loads(json.dumps(store.to_data())))
+        found = restored.find("Slide", "Calvin Harris", "Funk Wav Bounces Vol. 1")
+        assert found is not None
+        self.assertEqual(found.effect, "melt")
+
     def test_pin_covers_the_album_and_replaces_an_old_pin(self) -> None:
         store = pins.Pins()
         store.pin("HYFR", "Drake, Lil Wayne", "Take Care", "#ff0000")

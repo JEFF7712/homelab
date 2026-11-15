@@ -2,7 +2,8 @@
 
 The panel (panel.js, served from this directory) talks to the director over
 three websocket commands: list the prepared playlists, list one playlist's
-songs with the colours the lights would show, and pin or unpin a colour.
+songs with the colours and effect the lights would show, and pin or unpin a
+colour or an effect.
 """
 
 from __future__ import annotations
@@ -18,6 +19,8 @@ from homeassistant.core import HomeAssistant, callback
 
 from .director import DOMAIN, Director
 from .palette import hex_rgb
+from .pins import KEEP
+from .rules import EFFECTS
 
 PANEL_FILE = Path(__file__).parent / "panel.js"
 STATIC_URL = "/music_director_static/panel.js"
@@ -40,7 +43,10 @@ def _hex(value: Any) -> str:
 def ws_playlists(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
 ) -> None:
-    connection.send_result(msg["id"], _director(hass).playlist_names())
+    connection.send_result(
+        msg["id"],
+        {"playlists": _director(hass).playlist_names(), "effects": list(EFFECTS)},
+    )
 
 
 @websocket_api.websocket_command(
@@ -66,15 +72,23 @@ def ws_playlist(
         vol.Required("title"): str,
         vol.Required("artist"): str,
         vol.Required("album"): str,
-        # A #RRGGBB colour, or null to unpin.
-        vol.Required("colour"): vol.Any(None, _hex),
+        # A #RRGGBB colour or an effect name; null unpins it, and a missing
+        # key leaves it as it is.
+        vol.Optional("colour"): vol.Any(None, _hex),
+        vol.Optional("effect"): vol.Any(None, vol.In(EFFECTS)),
     }
 )
 @callback
 def ws_pin(
     hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
 ) -> None:
-    _director(hass).pin_song(msg["title"], msg["artist"], msg["album"], msg["colour"])
+    _director(hass).pin_song(
+        msg["title"],
+        msg["artist"],
+        msg["album"],
+        colour=msg.get("colour", KEEP),
+        effect=msg.get("effect", KEEP),
+    )
     connection.send_result(msg["id"])
 
 

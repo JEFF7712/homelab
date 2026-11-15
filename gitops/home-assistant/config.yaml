@@ -2705,7 +2705,7 @@ data:
         vibe_palette,
         with_intensity,
     )
-    from .pins import STORAGE_KEY, STORAGE_VERSION, PinStore
+    from .pins import KEEP, STORAGE_KEY, STORAGE_VERSION, PinStore, Keep
     from .rules import (
         EFFECTS,
         choose_effect,
@@ -2798,11 +2798,15 @@ data:
         # auto_palette, or the manual colour.
         palette: Palette
         family: str
+        # natural_effect, or the album's pinned effect.
         auto_effect: str
+        # auto_effect, or the dashboard's manual effect.
         effect: str
         config: dict[str, Any]
         # The track's intensity, 0 (calm) to 1 (intense), whatever the colour.
         level: float = 0.5
+        # The effect chosen from the genre family (or a configured override).
+        natural_effect: str = ""
 
         @property
         def manual(self) -> bool:
@@ -3034,6 +3038,23 @@ data:
             pin = self.pins.pins.find(track.title, track.artist, track.album)
             return pin.color if pin else None
 
+        def current_pinned_effect(self) -> str | None:
+            """The current track's pinned effect, or None."""
+            track = self.current_track
+            if track is None:
+                return None
+            pin = self.pins.pins.find(track.title, track.artist, track.album)
+            return pin.effect if pin and pin.effect in EFFECTS else None
+
+        @callback
+        def set_effect_pin(self, effect: str | None) -> None:
+            """Pin an effect to the current track's album, or None to unpin it so
+            the album goes back to the automatic effect."""
+            track = self.current_track
+            if track is None:
+                return
+            self.pin_song(track.title, track.artist, track.album, effect=effect)
+
         def showing_rgb(self) -> tuple[int, int, int] | None:
             """The colour the strip shows for the current track."""
             track = self.current_track
@@ -3046,13 +3067,12 @@ data:
             track = self.current_track
             if track is None:
                 return
-            if rgb is None:
-                self.pins.pins.unpin(track.title, track.artist, track.album)
-            else:
-                self.pins.pins.pin(track.title, track.artist, track.album, to_hex(rgb))
-            self.pins.save()
-            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
-            self._reapply()
+            self.pin_song(
+                track.title,
+                track.artist,
+                track.album,
+                colour=None if rgb is None else to_hex(rgb),
+            )
 
         @callback
         def set_strip_solid(self, solid: bool) -> None:
@@ -3099,7 +3119,7 @@ data:
             info: TrackInfo,
             natural: Palette,
             family: str,
-            auto_effect: str,
+            natural_effect: str,
             level: float,
         ) -> Decision:
             # Sections nudge the automatic colours' vividness; chosen colours
@@ -3111,6 +3131,9 @@ data:
             pinned = named_palette(pin.color, "override") if pin and pin.color else None
             auto_palette = pinned or natural
             palette = self._colour_override() or auto_palette
+            auto_effect = (
+                pin.effect if pin and pin.effect in EFFECTS else None
+            ) or natural_effect
             effect = self._override() or auto_effect
             config = {
                 **effect_config(
@@ -3137,6 +3160,7 @@ data:
                 effect,
                 config,
                 level,
+                natural_effect,
             )
 
         def _recompose(self, decision: Decision) -> Decision:
@@ -3147,7 +3171,7 @@ data:
                 decision.info,
                 decision.natural,
                 decision.family,
-                decision.auto_effect,
+                decision.natural_effect,
                 decision.level,
             )
 
@@ -3194,7 +3218,7 @@ data:
                 assert player is not None
                 decision = await self._decide(player, key)
             # Repeat avoidance follows the automatic choice, not the override.
-            self._last_effect = decision.auto_effect
+            self._last_effect = decision.natural_effect
             await self._apply(decision)
             if key is not None and decision.natural.source != "cover":
                 self.hass.async_create_task(self._recheck_cover(key))
@@ -3228,7 +3252,7 @@ data:
                         decision.info,
                         with_intensity(cover, decision.level),
                         decision.family,
-                        decision.auto_effect,
+                        decision.natural_effect,
                         decision.level,
                     )
                 )
@@ -3371,7 +3395,7 @@ data:
                 }
                 entry = self.tracks.cache.find(song.key)
                 pin = self.pins.pins.find(title, artist, album)
-                if entry is None and not (pin and pin.color):
+                if entry is None and not (pin and (pin.color or pin.effect)):
                     row["source"] = "pending"
                     rows.append(row)
                     continue
@@ -3380,6 +3404,17 @@ data:
                     row["family"] = family
                     row["intensity"] = round(level, 2)
                     row["genres"] = list(entry.info.genres[:3])
+                    configured = find_override(
+                        tuple(o for o in self.config.overrides if o.effect),
+                        title,
+                        artist,
+                        album,
+                    )
+                    row["auto_effect"] = (
+                        configured.effect
+                        if configured and configured.effect
+                        else choose_effect(family, song.key, None)
+                    )
                 else:
                     natural = vibe_palette()
                 pinned = named_palette(pin.color, "override") if pin and pin.color else None
@@ -3388,6 +3423,7 @@ data:
                     "pinned" if pinned else "cover" if natural.source == "cover" else "vibe"
                 )
                 row["pin"] = pin.color if pinned and pin else None
+                row["effect_pin"] = pin.effect if pin and pin.effect in EFFECTS else None
                 row["auto"] = to_hex(solid_colour(natural))
                 row["colour"] = to_hex(solid_colour(palette))
                 row["gradient"] = gradient(palette)
@@ -3398,13 +3434,18 @@ data:
             return rows
 
         @callback
-        def pin_song(self, title: str, artist: str, album: str, colour: str | None) -> None:
-            """Pin a colour to a song's album (or the song, without an album) from
-            the review panel, or None to unpin it."""
-            if colour is None:
-                self.pins.pins.unpin(title, artist, album)
-            else:
-                self.pins.pins.pin(title, artist, album, colour)
+        def pin_song(
+            self,
+            title: str,
+            artist: str,
+            album: str,
+            *,
+            colour: str | None | Keep = KEEP,
+            effect: str | None | Keep = KEEP,
+        ) -> None:
+            """Pin a colour and/or effect to a song's album (or the song, without
+            an album); None unpins that one, KEEP leaves it."""
+            self.pins.pins.update(title, artist, album, color=colour, effect=effect)
             self.pins.save()
             async_dispatcher_send(self.hass, CONTROLS_UPDATED)
             self._reapply()
@@ -3748,7 +3789,11 @@ data:
                     "family": decision.family,
                     "effect": decision.effect,
                     "auto_effect": decision.auto_effect,
-                    "effect_mode": "manual" if decision.manual else "auto",
+                    "effect_mode": "manual"
+                    if decision.manual
+                    else "pinned"
+                    if decision.auto_effect != decision.natural_effect
+                    else "auto",
                     "effect_config": {
                         k: v for k, v in decision.config.items() if k != "gradient"
                     },
@@ -3757,6 +3802,7 @@ data:
                     "colour_mode": "manual" if self.manual_rgb else "auto",
                     "album": decision.album,
                     "pinned_colour": self.current_pin(),
+                    "pinned_effect": self.current_pinned_effect(),
                     "natural_palette_source": decision.natural.source,
                     "spotify_status": self.spotify_status,
                     "section": self.section,
@@ -4991,8 +5037,8 @@ data:
     def to_hex(rgb: RGB) -> str:
         return "#{:02x}{:02x}{:02x}".format(*rgb)
   component.music_director.panel.js: |
-    // Music Colours: review the colour each playlist song gets in Music Mode,
-    // and pin or unpin album colours. Served by music_director (panel.py).
+    // Music Colours: review the colour and effect each playlist song gets in Music
+    // Mode, and pin or unpin them per album. Served by music_director (panel.py).
 
     const SOURCES = {
       cover: "Cover",
@@ -5002,6 +5048,13 @@ data:
     };
     const FILTERS = ["all", "cover", "vibe", "pinned", "pending"];
     const STORAGE_KEY = "music-colours-playlist";
+
+    function effectLabel(effect) {
+      return effect
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    }
 
     function remembered() {
       try {
@@ -5065,7 +5118,7 @@ data:
         gap: 8px;
         margin-bottom: 8px;
       }
-      select, input[type="search"] {
+      .controls select, input[type="search"] {
         flex: 1 1 220px;
         min-width: 0;
         padding: 10px 12px;
@@ -5174,6 +5227,16 @@ data:
         background: none;
         cursor: pointer;
       }
+      select.effect {
+        max-width: 150px;
+        padding: 5px 6px;
+        border-radius: 8px;
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font-size: 13px;
+      }
+      select.effect.pinned { border-color: var(--primary-color); }
       button.unpin {
         font-size: 12px;
         padding: 4px 10px;
@@ -5201,6 +5264,7 @@ data:
         super();
         this.attachShadow({ mode: "open" });
         this._playlists = [];
+        this._effects = [];
         this._playlist = null;
         this._songs = [];
         this._filter = "all";
@@ -5260,7 +5324,9 @@ data:
 
       async _loadPlaylists() {
         try {
-          this._playlists = await this._hass.callWS({ type: "music_director/playlists" });
+          const result = await this._hass.callWS({ type: "music_director/playlists" });
+          this._playlists = result.playlists;
+          this._effects = result.effects;
         } catch (error) {
           this._status = `Could not load playlists: ${error.message || error}`;
           this._renderSongs();
@@ -5295,14 +5361,15 @@ data:
         this._renderSongs();
       }
 
-      async _pin(song, colour) {
+      // changes: { colour } and/or { effect }; null unpins that one.
+      async _pin(song, changes) {
         try {
           await this._hass.callWS({
             type: "music_director/pin",
             title: song.title,
             artist: song.artist,
             album: song.album,
-            colour,
+            ...changes,
           });
         } catch (error) {
           window.alert(`Could not change the pin: ${error.message || error}`);
@@ -5336,8 +5403,8 @@ data:
           ),
         );
         this._summary.textContent = this._songs.length
-          ? "The bar is the LED strip; the dots are the room lights. Pins apply to the whole " +
-            "album and override the automatic colour; unpin to go back to automatic."
+          ? "The bar is the LED strip; the dots are the room lights. Colour and effect pins " +
+            "apply to the whole album; unpin or choose Auto to go back to automatic."
           : "";
         if (this._status) {
           this._list.replaceChildren(el("div", { class: "empty", text: this._status }));
@@ -5368,9 +5435,12 @@ data:
           : el("div", { class: "art" });
         const meta = el("div", { class: "meta" }, [
           el("span", { class: `badge ${song.source}`, text: SOURCES[song.source] || song.source }),
+          song.effect_pin ? el("span", { class: "badge pinned", text: "Effect pinned" }) : null,
           ...(song.areas || []).map((hex) => el("span", { class: "dot", style: `background:${hex}`, title: hex })),
           song.genres && song.genres.length ? el("span", { text: song.genres.join(", ") }) : null,
-          song.intensity !== undefined ? el("span", { text: `intensity ${Math.round(song.intensity * 100)}%` }) : null,
+          song.intensity !== undefined
+            ? el("span", { text: `intensity ${Math.round(song.intensity * 100)}%` })
+            : null,
         ]);
         const text = el("div", { class: "text" }, [
           el("div", { class: "title", text: song.title }),
@@ -5382,17 +5452,32 @@ data:
           type: "color",
           value: song.colour || "#ff0000",
           "aria-label": `Pin a colour for ${song.album || song.title}`,
-          onchange: (event) => this._pin(song, event.target.value),
+          onchange: (event) => this._pin(song, { colour: event.target.value }),
         });
+        const auto = song.auto_effect ? `Auto (${effectLabel(song.auto_effect)})` : "Auto";
+        const effect = el(
+          "select",
+          {
+            class: `effect${song.effect_pin ? " pinned" : ""}`,
+            "aria-label": `Effect for ${song.album || song.title}`,
+            onchange: (event) => this._pin(song, { effect: event.target.value || null }),
+          },
+          [
+            el("option", { value: "", text: auto }),
+            ...this._effects.map((name) => el("option", { value: name, text: effectLabel(name) })),
+          ],
+        );
+        effect.value = song.effect_pin || "";
         const actions = el("div", { class: "actions" }, [
           el("label", { class: "pick" }, [el("span", { text: song.pin ? "Pinned" : "Pin" }), picker]),
           song.pin
             ? el("button", {
                 class: "unpin",
-                text: "Unpin",
-                onclick: () => this._pin(song, null),
+                text: "Unpin colour",
+                onclick: () => this._pin(song, { colour: null }),
               })
             : null,
+          effect,
         ]);
         return el("div", { class: "row" }, [art, text, actions]);
       }
@@ -5406,7 +5491,8 @@ data:
 
     The panel (panel.js, served from this directory) talks to the director over
     three websocket commands: list the prepared playlists, list one playlist's
-    songs with the colours the lights would show, and pin or unpin a colour.
+    songs with the colours and effect the lights would show, and pin or unpin a
+    colour or an effect.
     """
 
     from __future__ import annotations
@@ -5422,6 +5508,8 @@ data:
 
     from .director import DOMAIN, Director
     from .palette import hex_rgb
+    from .pins import KEEP
+    from .rules import EFFECTS
 
     PANEL_FILE = Path(__file__).parent / "panel.js"
     STATIC_URL = "/music_director_static/panel.js"
@@ -5444,7 +5532,10 @@ data:
     def ws_playlists(
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
     ) -> None:
-        connection.send_result(msg["id"], _director(hass).playlist_names())
+        connection.send_result(
+            msg["id"],
+            {"playlists": _director(hass).playlist_names(), "effects": list(EFFECTS)},
+        )
 
 
     @websocket_api.websocket_command(
@@ -5470,15 +5561,23 @@ data:
             vol.Required("title"): str,
             vol.Required("artist"): str,
             vol.Required("album"): str,
-            # A #RRGGBB colour, or null to unpin.
-            vol.Required("colour"): vol.Any(None, _hex),
+            # A #RRGGBB colour or an effect name; null unpins it, and a missing
+            # key leaves it as it is.
+            vol.Optional("colour"): vol.Any(None, _hex),
+            vol.Optional("effect"): vol.Any(None, vol.In(EFFECTS)),
         }
     )
     @callback
     def ws_pin(
         hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
     ) -> None:
-        _director(hass).pin_song(msg["title"], msg["artist"], msg["album"], msg["colour"])
+        _director(hass).pin_song(
+            msg["title"],
+            msg["artist"],
+            msg["album"],
+            colour=msg.get("colour", KEEP),
+            effect=msg.get("effect", KEEP),
+        )
         connection.send_result(msg["id"])
 
 
@@ -5502,12 +5601,13 @@ data:
             require_admin=False,
         )
   component.music_director.pins.py: |
-    """Album colour pins: song overrides set from the dashboard.
+    """Album colour and effect pins: song overrides set from the dashboard.
 
     Pins live in Home Assistant storage, so they survive restarts and can be
     changed or removed without a deploy. Colour overrides in
     music_director.overrides seed the pins once each: after that the pin is the
     source of truth, so removing a seeded pin from the dashboard sticks.
+    A pin holds a colour, an effect or both; each is set and cleared on its own.
     """
 
     from __future__ import annotations
@@ -5539,6 +5639,13 @@ data:
         return artist.split(",")[0].strip()
 
 
+    class Keep:
+        """Leave a pin field as it is."""
+
+
+    KEEP = Keep()
+
+
     @dataclass
     class Pins:
         """Colour pins, plus the configured overrides already seeded."""
@@ -5552,7 +5659,7 @@ data:
             pins = [
                 SongOverride(**{k: v for k, v in item.items() if k in _FIELDS})
                 for item in data.get("pins", [])
-                if isinstance(item, dict) and item.get("color")
+                if isinstance(item, dict) and (item.get("color") or item.get("effect"))
             ]
             return cls(pins, set(data.get("seeded", [])))
 
@@ -5592,24 +5699,45 @@ data:
 
         def pin(self, title: str, artist: str, album: str, color: str) -> SongOverride:
             """Pin colour for the track's album (or the track, without an album),
-            replacing any pin that matches it."""
-            self.unpin(title, artist, album)
+            keeping any pinned effect."""
+            return self.update(title, artist, album, color=color)
+
+        def unpin(self, title: str, artist: str, album: str) -> bool:
+            """Clear the colour pin for the track, keeping any pinned effect."""
+            before = self.find(title, artist, album)
+            self.update(title, artist, album, color=None)
+            return before is not None and bool(before.color)
+
+        def update(
+            self,
+            title: str,
+            artist: str,
+            album: str,
+            *,
+            color: str | None | Keep = KEEP,
+            effect: str | None | Keep = KEEP,
+        ) -> SongOverride | None:
+            """Set or clear (None) the colour and/or effect pinned to the track's
+            album (or the track, without an album); KEEP leaves one as it is.
+            Matching pins are replaced by one; a pin with neither is removed."""
+            current = self.find(title, artist, album)
+            new_color = (current.color if current else None) if color is KEEP else color
+            new_effect = (current.effect if current else None) if effect is KEEP else effect
+            self.pins = [p for p in self.pins if not p.matches(title, artist, album)]
+            if not new_color and not new_effect:
+                return None
             pin = SongOverride(
                 artist=primary_artist(artist) or None,
                 album=album or None,
                 title=None if album else title,
-                color=color,
+                color=new_color or None,
+                effect=new_effect or None,
             )
             self.pins.append(pin)
             return pin
 
-        def unpin(self, title: str, artist: str, album: str) -> bool:
-            before = len(self.pins)
-            self.pins = [p for p in self.pins if not p.matches(title, artist, album)]
-            return len(self.pins) != before
 
-
-    _FIELDS = frozenset(("artist", "album", "title", "color"))
+    _FIELDS = frozenset(("artist", "album", "title", "color", "effect"))
 
 
     class PinStore:
@@ -5962,7 +6090,8 @@ data:
                 return QUIET
             return NORMAL
   component.music_director.select.py: |
-    """Music Mode Strip Colours: the LED strip's colours as a gradient or one solid colour."""
+    """Music Mode selects: Strip Colours (a gradient or one solid colour) and
+    Effect Pin (an effect pinned to the playing album, or Auto)."""
 
     from __future__ import annotations
 
@@ -5974,9 +6103,18 @@ data:
     from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
     from .director import CONTROLS_UPDATED, DOMAIN, Director
+    from .rules import EFFECTS
 
     GRADIENT = "Gradient"
     SOLID = "Solid"
+    AUTO = "Auto"
+
+
+    def effect_label(effect: str) -> str:
+        return effect.replace("_", " ").title()
+
+
+    EFFECT_BY_LABEL = {effect_label(effect): effect for effect in EFFECTS}
 
 
     async def async_setup_platform(
@@ -5987,7 +6125,8 @@ data:
     ) -> None:
         if discovery_info is None:
             return
-        async_add_entities([StripColours(hass.data[DOMAIN])])
+        director = hass.data[DOMAIN]
+        async_add_entities([StripColours(director), EffectPin(director)])
 
 
     class StripColours(SelectEntity, RestoreEntity):
@@ -6017,6 +6156,39 @@ data:
 
         async def async_select_option(self, option: str) -> None:
             self._director.set_strip_solid(option == SOLID)
+
+
+    class EffectPin(SelectEntity):
+        """The effect pinned to the playing track's album; Auto unpins it."""
+
+        _attr_name = "Music Mode Effect Pin"
+        _attr_unique_id = "music_director_effect_pin"
+        _attr_icon = "mdi:pin"
+        _attr_should_poll = False
+
+        def __init__(self, director: Director) -> None:
+            self._attr_options = [AUTO, *EFFECT_BY_LABEL]
+            self._director = director
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        @property
+        def available(self) -> bool:
+            return self._director.current_track is not None
+
+        @property
+        def current_option(self) -> str:
+            effect = self._director.current_pinned_effect()
+            return effect_label(effect) if effect else AUTO
+
+        async def async_select_option(self, option: str) -> None:
+            self._director.set_effect_pin(EFFECT_BY_LABEL.get(option))
   component.music_director.services.yaml: |
     refresh:
       name: Refresh
