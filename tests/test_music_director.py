@@ -988,10 +988,55 @@ class TestTrackCache(unittest.TestCase):
             cache.find(trackcache.track_key("Drake", "Jimmy Cooks", "Other Album"))
         )
 
+    def test_find_still_works_after_old_entries_are_evicted(self) -> None:
+        cache = trackcache.TrackCache(size=2)
+        old = trackcache.track_key("Drake", "Marvins Room", "Take Care")
+        cache.put(old, trackcache.Entry(self.INFO, None))
+        for name in ("Crew Love", "HYFR"):
+            cache.put(
+                trackcache.track_key("Drake", name, "Take Care"),
+                trackcache.Entry(self.INFO, self.COVER),
+            )
+        self.assertIsNone(cache.find(old))
+        self.assertIsNotNone(
+            cache.find(
+                trackcache.track_key(
+                    "Drake, Lil Wayne", "HYFR (Hell Ya Fucking Right)", "Take Care"
+                )
+            )
+        )
+        self.assertEqual(len(cache.to_data()["tracks"]), 2)
+
     def test_code_version_follows_the_colour_code(self) -> None:
         version = trackcache.code_version()
         self.assertEqual(len(version), 16)
         self.assertEqual(version, trackcache.code_version())
+
+
+class TestReccoBeatsBatch(unittest.TestCase):
+    def test_batch_body_splits_per_spotify_id(self) -> None:
+        body = {
+            "content": [
+                {
+                    "href": "https://open.spotify.com/track/0RyA3o15NOLJYtm9NlDu5c",
+                    "tempo": 140,
+                    "energy": 0.8,
+                },
+                {
+                    "href": "https://open.spotify.com/track/0m1KYWlT6LhFRBDVq9UNx4",
+                    "tempo": 92,
+                },
+                {"href": "not a track", "tempo": 1},
+            ]
+        }
+        split = metadata.reccobeats_by_id(body)
+        self.assertEqual(
+            sorted(split), ["0RyA3o15NOLJYtm9NlDu5c", "0m1KYWlT6LhFRBDVq9UNx4"]
+        )
+        info = metadata.TrackInfo()
+        metadata.apply_reccobeats(info, split["0RyA3o15NOLJYtm9NlDu5c"])
+        self.assertEqual((info.bpm, info.energy), (140.0, 0.8))
+        self.assertEqual(metadata.reccobeats_by_id(None), {})
 
 
 class TestQueue(unittest.TestCase):
