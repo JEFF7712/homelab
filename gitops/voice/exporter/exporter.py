@@ -34,6 +34,7 @@ import threading
 import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 
 BUCKETS = (0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0)
 STALE_TURN_SECONDS = 180.0
@@ -48,7 +49,7 @@ class Counter:
         self._values: dict[tuple[str, ...], float] = {}
         self._lock = lock if lock is not None else threading.RLock()
 
-    def labels(self, *labelvalues: str) -> Counter:
+    def labels(self, *labelvalues: str) -> _BoundCounter:
         with self._lock:
             self._values.setdefault(tuple(labelvalues), 0.0)
         return _BoundCounter(self, tuple(labelvalues))
@@ -81,7 +82,7 @@ class Histogram:
         self._observations: dict[tuple[str, ...], list[float]] = {}
         self._lock = lock if lock is not None else threading.RLock()
 
-    def labels(self, *labelvalues: str) -> Histogram:
+    def labels(self, *labelvalues: str) -> _BoundHistogram:
         with self._lock:
             self._observations.setdefault(tuple(labelvalues), [])
         return _BoundHistogram(self, tuple(labelvalues))
@@ -367,7 +368,7 @@ class HomeAssistantSocket:
                     raise RuntimeError("websocket handshake has invalid Sec-WebSocket-Accept")
                 return
 
-    def call(self, cmd_type: str, timeout: float | None = None, **kwargs) -> object:
+    def call(self, cmd_type: str, timeout: float | None = None, **kwargs) -> Any:
         if self._sock is None:
             self.connect()
         msg_id = self._msg_id
@@ -400,7 +401,7 @@ class HomeAssistantSocket:
         self._sock.settimeout(timeout)
         try:
             return self._read_message()
-        except socket.timeout:
+        except TimeoutError:
             return None
 
     def close(self) -> None:
@@ -527,7 +528,7 @@ class MetricsHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def log_message(self, *args: object) -> None:
+    def log_message(self, format: str, *args: object) -> None:
         pass
 
 
