@@ -106,6 +106,14 @@ fails (retried every minute; `journalctl -u workshop-display` logs
 `toolpath ... unavailable`), the panel shows the cover image proxied from
 `image.<printer>_cover_image` at `/cover`.
 
+To check the print screen without printing, press **Demo print** on the paired
+phone page (keyed `POST /demo`). The kiosk replays the job named by
+`gcode_file_downloaded` as a simulated running print, labelled DEMO REPLAY,
+sweeping the layers over 90 seconds and holding at 100% for 15 more, then
+returns to the clock. Live camera and temperatures stay real; the printer is
+untouched. **Return to dashboard** ends it early. A demo replaces shared
+content and a finished-print screen.
+
 Scan the QR code on the physical monitor and bookmark the resulting paired
 phone page. Paste a YouTube link or upload a PNG/JPEG/WebP/HEIC image under
 6 MB. HEIC photos are converted server-side to JPEG (at most 3840 px) with

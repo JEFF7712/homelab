@@ -31,6 +31,9 @@ PRINTS = "/local/media/ha-bambulab/03900D642327265/prints/"
 # About 6 MiB of float32 vertices: smooth on the kiosk GPU, sharp at wall distance.
 SEGMENT_BUDGET = 250_000
 MODEL_RETRY = 60
+# A demo replays the last cached job: layers sweep for DEMO_SWEEP, then hold at 100%.
+DEMO_SWEEP = 90
+DEMO_HOLD = 15
 FIELDS = (
     "print_status",
     "print_progress",
@@ -236,14 +239,22 @@ def player_report(data: dict, now: float) -> dict:
     }
 
 
+def cached_file(printer: dict) -> str | None:
+    """The G-code file ha-bambulab last cached, if the sensor names one."""
+    name = printer.get("gcode_file_downloaded") or ""
+    if name in ("", "unknown", "unavailable", "none", "ERROR") or "/" in name:
+        return None
+    return name
+
+
 def model_file(printer: dict, finished: dict | None) -> str | None:
     """Name the cached G-code to render, or None while it is absent or stale.
 
     During preparation the sensor still names the previous job until the new
     download lands, so the file must mention the current task name.
     """
-    name = printer.get("gcode_file_downloaded") or ""
-    if name in ("unknown", "unavailable", "none", "ERROR") or "/" in name:
+    name = cached_file(printer)
+    if name is None:
         return None
     if printer.get("print_status") not in ACTIVE and finished is None:
         return None
@@ -251,6 +262,24 @@ def model_file(printer: dict, finished: dict | None) -> str | None:
     if task not in ("unknown", "unavailable") and task.lower() not in name.lower():
         return None
     return name
+
+
+def demo_printer(printer: dict, layers: int, started: float, now: float) -> dict:
+    """Simulated running print over the cached job, for checking the display."""
+    elapsed = max(0.0, now - started)
+    fraction = min(1.0, elapsed / DEMO_SWEEP)
+    left = max(0.0, DEMO_SWEEP - elapsed)
+    return {
+        **printer,
+        "print_status": "running",
+        "current_stage": "printing",
+        "print_progress": str(round(fraction * 100)),
+        "current_layer": str(max(1, math.ceil(fraction * layers))),
+        "total_layer_count": str(layers),
+        "remaining_time": str(left / 3600),
+        "end_time": datetime.fromtimestamp(started + DEMO_SWEEP).isoformat(),
+        "errors": [],
+    }
 
 
 def toolpath(lines, budget: int = SEGMENT_BUDGET) -> dict:
@@ -400,6 +429,24 @@ class Workshop:
         self.updated = 0.0
         self.model = {"file": None, "status": "none"}
         self.model_blob = b""
+        self.demo: dict | None = None  # {"file", "at"} while a demo replays
+
+    def demo_active(self, now: float) -> bool:
+        return bool(self.demo) and now - self.demo["at"] < DEMO_SWEEP + DEMO_HOLD
+
+    def view(self, now: float) -> tuple[dict, str]:
+        """Printer observation and display mode, with any demo applied."""
+        printer, status = self.printer, self.printer.get("print_status", "unavailable")
+        if self.demo_active(now):
+            layers = len(self.model.get("layers", ())) - 1
+            if self.model["file"] != self.demo["file"] or layers < 1:
+                layers = int(float(printer.get("total_layer_count") or 0)) or 1
+            printer = demo_printer(printer, layers, self.demo["at"], now)
+            status = "running"
+        mode = select_mode(
+            status, self.shared, time.localtime(now).tm_hour, self.finished, now
+        )
+        return printer, mode
 
     def open(self, path: str, timeout: float = 8):
         req = urllib.request.Request(
@@ -446,7 +493,10 @@ class Workshop:
     def models(self):
         while True:
             with self.lock:
-                name = model_file(self.printer, self.finished)
+                if self.demo_active(time.time()):
+                    name = self.demo["file"]
+                else:
+                    name = model_file(self.printer, self.finished)
                 current = dict(self.model)
             retry = current["status"] == "error" and (
                 time.time() - current["at"] > MODEL_RETRY
@@ -549,21 +599,17 @@ def handler(app: Workshop):
             if path == "/state":
                 now = time.time()
                 with app.lock:
+                    printer, mode = app.view(now)
                     return self.reply(
                         200,
                         {
-                            "printer": app.printer,
+                            "printer": printer,
                             "updated": app.updated,
                             "shared": app.shared,
                             "finished": app.finished,
                             "media": app.media,
-                            "mode": select_mode(
-                                app.printer.get("print_status", "unavailable"),
-                                app.shared,
-                                time.localtime(now).tm_hour,
-                                app.finished,
-                                now,
-                            ),
+                            "mode": mode,
+                            "demo": app.demo_active(now),
                             "control": app.control_url,
                             "model": {
                                 "file": app.model["file"],
@@ -635,13 +681,23 @@ def handler(app: Workshop):
                         raise ValueError("Choose a video or image")
                 elif path == "/dismiss":
                     shared = None
+                elif path == "/demo":
+                    with app.lock:
+                        name = cached_file(app.printer)
+                        if name is None:
+                            return self.reply(
+                                409, {"error": "No cached print to replay yet"}
+                            )
+                        app.demo = {"file": name, "at": time.time()}
+                        app.shared = app.player = app.finished = None
+                    return self.reply(200, {"ok": True})
                 else:
                     return self.reply(404, {})
                 with app.lock:
                     app.shared = shared
                     app.player = None
                     if path == "/dismiss":
-                        app.finished = None
+                        app.finished = app.demo = None
                 self.reply(200, {"ok": True})
             except (ValueError, KeyError, TypeError) as error:
                 if path in ("/media", "/player"):
