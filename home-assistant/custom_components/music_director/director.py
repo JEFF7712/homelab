@@ -678,6 +678,8 @@ class Director:
                 done += 1
                 await asyncio.sleep(PREPARE_PAUSE_SECONDS)
             _LOGGER.info("Prepared %d of %d playlist songs", done, len(todo))
+            # Keep the progress if Home Assistant restarts mid-run.
+            await self.tracks.async_save()
         self._notify(notify, f"Prepared {done} songs from {len(chosen)} playlists.")
 
     def _music_assistant(self) -> Any:
@@ -999,7 +1001,15 @@ class Director:
             async with self._session.get(picture, timeout=HTTP_TIMEOUT) as response:
                 if response.status != 200:
                     return None
-                return await response.content.read(MAX_ART_BYTES)
+                # content.read(n) returns only what has arrived so far, which
+                # truncated larger covers: read every chunk, up to the limit.
+                data = bytearray()
+                async for chunk in response.content.iter_chunked(64 * 1024):
+                    data += chunk
+                    if len(data) > MAX_ART_BYTES:
+                        _LOGGER.debug("Cover art over %d bytes", MAX_ART_BYTES)
+                        return None
+                return bytes(data)
         except (aiohttp.ClientError, TimeoutError) as error:
             _LOGGER.debug("Cover art unavailable: %s", type(error).__name__)
             return None
