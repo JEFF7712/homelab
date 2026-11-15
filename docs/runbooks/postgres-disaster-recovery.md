@@ -19,9 +19,12 @@ Home Assistant, Immich and Umami run on CloudNativePG clusters with two instance
 - **Services:** CNPG creates `<cluster>-rw`, `-ro` and `-r`. The legacy names
   `immich-postgres` and `home-assistant-postgres` select the current primary and
   are what the applications and dump jobs use.
-- **Replication:** streaming replication only. There is no WAL archive
-  (`spec.backup` is unset), so point-in-time recovery is unavailable and the
-  recovery point of a full loss is the last dump.
+- **Replication:** streaming replication between the two instances.
+- **WAL archive (Umami only):** `analytics/umami-cluster` archives WAL and
+  takes weekly base backups to Garage on nas-01; see
+  [WAL archive on Garage](#wal-archive-on-garage). Home Assistant and Immich
+  have no WAL archive, so point-in-time recovery is unavailable for them and
+  the recovery point of a full loss is the last dump.
 - **Local dumps:** `immich-db-dump` (02:00) and `home-assistant-db-dump`
   (02:30) and `umami-db-dump` (02:45) write `pg_dump --format=custom` files, gzipped, to the `db-dumps`
   NFS volume on nas-01 (`/tank/cluster/backups-db-dumps-pvc-*/`), 7-day retention.
@@ -184,9 +187,135 @@ working on one instance.
 3. Once the clusters exist again (Flux recreates them empty from
    `postgres-cluster.yaml`), restore the newest dump as in Scenario B.
 
+---
+
+## WAL archive on Garage
+
+`analytics/umami-cluster` is the pilot for continuous WAL archiving through
+the CNPG-I Barman Cloud plugin (`plugin-barman-cloud` v0.16.0 in
+`cnpg-system`, `gitops/platform/cnpg/barman-cloud-plugin.yaml`). Its
+`ObjectStore` `analytics/umami-garage` (`gitops/analytics/wal-archive.yaml`)
+writes to `s3://cnpg-wal/analytics/umami-cluster` on the Garage S3 service
+(`http://10.0.30.20:3900`, region `homelab`, path-style addressing).
+
+- **What it gives:** point-in-time recovery inside a 14-day window
+  (`retentionPolicy: 14d`) and a recovery point about 5 minutes old
+  (CNPG's `archive_timeout`), instead of the last nightly dump. Base backups
+  run Sunday 04:00 UTC (`ScheduledBackup` `umami-cluster-weekly`).
+- **What it does not give:** protection against losing nas-01. The archive
+  sits on the same `tank` pool as the dumps. The hourly platform backup copies
+  `tank/s3` (all of Garage) to R2, so an offsite copy lags by about an hour,
+  but using it means restoring Garage first. The logical dumps to R2
+  (Scenario D) remain the offsite copy of record.
+- **Transport:** Garage serves plain HTTP on the LAN. SigV4 never sends the
+  secret key, but WAL content crosses the server VLAN unencrypted, as the
+  NFS dumps already do.
+- **Credentials:** Garage key `cnpg-wal-umami` (read/write on bucket
+  `cnpg-wal` only) was created by the operator on nas-01; that needs root
+  there because Garage has no admin API configured. Its SOPS file
+  `gitops/secrets/cnpg-wal-archive.sops.yaml` becomes Secret
+  `secret-source/cnpg-wal-archive`, projected into `homelab-analytics-values`
+  and copied to `analytics/cnpg-wal-archive` by the `homelab-analytics` store
+  (`gitops/eso/domain-stores.yaml`). Rotate by creating a new key on nas-01,
+  replacing the SOPS file, and revoking the old key once `ContinuousArchiving`
+  is `True` with the new one.
+- **Switchover:** `switchoverDelay: 120` caps how long a switchover waits for
+  the old primary to archive its last segment; the CNPG default of an hour
+  would hold writes that long while the NAS is down.
+
+Check it:
+
+```sh
+kubectl -n analytics get cluster umami-cluster \
+  -o jsonpath='{range .status.conditions[*]}{.type}={.status} {.message}{"\n"}{end}'
+kubectl -n analytics get objectstore umami-garage -o jsonpath='{.status}'; echo
+kubectl -n analytics get backups.postgresql.cnpg.io
+```
+
+Alerts (`gitops/backups/wal-archive-alerts.yaml`): `WalArchivingFailing`
+(segments waiting on the primary for 30 minutes), `WalArchiveBacklogHigh`
+(local `pg_wal` above 2.5 GiB), `WalArchiveBaseBackupStale` (no base backup
+in eight days) and `WalArchiveBackupMetricMissing`.
+
+### When the NAS is unreachable
+
+Postgres keeps every segment it cannot archive in `pg_wal` and keeps serving.
+The Umami volume is a directory on the node's `/persist` disk without a quota,
+so the hard limit is that disk, shared with everything else on the node. The
+budget is the declared 5 GiB: at the measured average of 19 segments a day
+(16 MiB each, mostly `archive_timeout` padding) that is about 14 days, about
+7 at the busiest observed day. The hourly platform backup stops Garage for a
+few seconds; archiving retries and catches up without action.
+
+If `WalArchiveBacklogHigh` fires and the NAS will not be back before the
+backlog nears 5 GiB, stop archiving rather than let the node disk fill:
+
+1. Remove the `plugins` entry from `gitops/analytics/postgres-cluster.yaml`
+   and ship. The instances restart once without the sidecar and Postgres
+   recycles `pg_wal` normally. The archive keeps everything up to the outage;
+   point-in-time recovery has a gap from then on.
+2. When Garage is back, restore the `plugins` entry and ship, then take a base
+   backup at once so recovery does not depend on WAL across the gap:
+   ```sh
+   HOMELAB_AUTHORIZED=1 kubectl create -f - <<'YAML'
+   apiVersion: postgresql.cnpg.io/v1
+   kind: Backup
+   metadata:
+     generateName: umami-cluster-after-outage-
+     namespace: analytics
+   spec:
+     cluster:
+       name: umami-cluster
+     method: plugin
+     pluginConfiguration:
+       name: barman-cloud.cloudnative-pg.io
+   YAML
+   ```
+
+### Restore from the WAL archive
+
+Restore into a new Cluster; never point a recovery at the production
+cluster's name or volumes. The weekly drill does exactly this, so the
+`umami-wal-drill-cluster` ConfigMap in `gitops/backups/wal-drill.yaml` is a
+tested template. For point-in-time recovery, add a target:
+
+```yaml
+bootstrap:
+  recovery:
+    source: origin
+    database: umami
+    owner: umami
+    recoveryTarget:
+      targetTime: "2026-11-15 12:00:00+00"
+externalClusters:
+  - name: origin
+    plugin:
+      name: barman-cloud.cloudnative-pg.io
+      parameters:
+        barmanObjectName: umami-garage
+        serverName: umami-cluster
+```
+
+Give the restored cluster no `plugins` archiver entry, or a different
+`serverName`, so it cannot write into the production archive. Verify the
+restored data, then move the application to it or copy the needed rows back
+(Scenario B covers stopping writers). Replacing the production cluster's data
+is persistent-data destruction and keeps that approval boundary.
+
+### Rolling out to Home Assistant and Immich
+
+Each needs its own Garage key created on nas-01 by the operator and its SOPS
+file, a projection property and store for its namespace, an `ObjectStore`, the
+`plugins` entry and `switchoverDelay`, a `ScheduledBackup`, a drill dataset,
+and alert selectors widened to its namespace. Enabling the plugin restarts the
+instances once. Home Assistant forces about 289 segments a day (4.5 GiB of
+local `pg_wal` a day during an outage, about two days of its 10 GiB budget),
+so raise its `archive_timeout` first; Immich (about 64 a day, 20 GiB) has
+about 19 days.
+
 ## Restore drills
 
-Two CronJobs schedule weekly restore tests into scratch space. A schedule is
+Three CronJobs schedule weekly restore tests into scratch space. A schedule is
 not proof of recovery; inspect the most recent completed Job and per-dataset
 result and pass timestamps before relying on a backup:
 
@@ -198,6 +327,12 @@ result and pass timestamps before relying on a backup:
 - `immich/library-restore-drill` (Sunday 06:00, controller timezone): samples 2% of the local
   library repository's packs, requires a recent snapshot and restores a slice
   of it.
+- `analytics/umami-wal-restore-drill` (Monday 05:00, controller timezone):
+  restores the scratch Cluster `umami-wal-drill` (NFS volume) from the latest
+  base backup plus archived WAL, requires the same `website_event` count as
+  production up to 15 minutes before the run, deletes the scratch cluster and
+  records dataset `umami-wal` in `analytics/restore-drill-evidence`. Run it now
+  with `HOMELAB_AUTHORIZED=1 kubectl -n analytics create job --from=cronjob/umami-wal-restore-drill <name>`.
 
 Each writes per-dataset `<dataset>.result`, `.checked` and `.passed` (epoch
 seconds) to the `restore-drill-evidence` ConfigMap in its namespace and fails
