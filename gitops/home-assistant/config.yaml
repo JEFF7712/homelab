@@ -2511,6 +2511,7 @@ data:
     from .metadata import SongOverride
     from .palette import NAMED_HUES, hex_rgb
     from .rules import EFFECTS
+    from .trackcache import code_version
 
 
     def _colour_name(value: object) -> str:
@@ -2593,6 +2594,7 @@ data:
         )
         hass.data[DOMAIN] = director
         await director.pins.async_load(director.config.overrides)
+        await director.tracks.async_load(await hass.async_add_executor_job(code_version))
 
         async def refresh(_call: ServiceCall) -> None:
             director.schedule(force=True)
@@ -2623,6 +2625,10 @@ data:
     The manual colour, album colour pins and the music brightness live here
     and are set by the integration's lights (Music Mode Colour, Music Mode Pin)
     and number (Music Mode Brightness).
+
+    Looked-up tracks are cached across restarts (trackcache.py). While a song
+    plays, the next song in Spotify's queue is looked up ahead, so the switch to
+    it only has to update LedFx.
     """
 
     from __future__ import annotations
@@ -2631,7 +2637,6 @@ data:
     import io
     import logging
     import time
-    from collections import OrderedDict
     from dataclasses import dataclass, field
     from typing import Any
 
@@ -2644,18 +2649,22 @@ data:
         State,
         callback,
     )
+    from homeassistant.helpers import config_entry_oauth2_flow
+    from homeassistant.helpers import entity_registry as er
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
     from homeassistant.helpers.dispatcher import async_dispatcher_send
     from homeassistant.helpers.event import async_track_state_change_event
     from homeassistant.helpers.storage import Store
 
     from .metadata import (
+        QueuedTrack,
         SongOverride,
         TrackInfo,
         apply_lastfm,
         apply_library,
         apply_reccobeats,
         find_override,
+        next_in_queue,
         same_track,
         spotify_track_id,
     )
@@ -2689,6 +2698,13 @@ data:
         SECTION_INTENSITY,
         SectionTracker,
     )
+    from .trackcache import (
+        CACHE_STORAGE_KEY,
+        CACHE_STORAGE_VERSION,
+        Entry,
+        TrackCacheStore,
+        track_key,
+    )
 
     _LOGGER = logging.getLogger(__name__)
 
@@ -2717,7 +2733,10 @@ data:
     COVER_RECHECK_SECONDS = (8.0, 25.0)
     ART_SIZE = 48
     MAX_ART_BYTES = 5_000_000
-    CACHE_SIZE = 256
+    SPOTIFY_QUEUE_URL = "https://api.spotify.com/v1/me/player/queue"
+    # How far into a song the next one is looked up: late enough to skip songs
+    # that are skipped straight away, early enough to finish before it ends.
+    PREPARE_DELAY_SECONDS = 15.0
 
 
     @dataclass(frozen=True)
@@ -2768,7 +2787,7 @@ data:
             return None
         artist = state.attributes.get("media_artist") or ""
         album = state.attributes.get("media_album_name") or ""
-        return f"{artist}\n{title}\n{album}"
+        return track_key(artist, title, album)
 
 
     def _decode_pixels(data: bytes) -> list[tuple[int, int, int]]:
@@ -2788,7 +2807,12 @@ data:
             self.hass = hass
             self.config = config
             self._session = async_get_clientsession(hass)
-            self._cache: OrderedDict[str, tuple[TrackInfo, Palette | None]] = OrderedDict()
+            self.tracks = TrackCacheStore(
+                Store(hass, CACHE_STORAGE_VERSION, CACHE_STORAGE_KEY)
+            )
+            self._prepare_task: asyncio.Task[None] | None = None
+            # The next song, looked up ahead ("Artist - Title"), for the dashboard.
+            self.next_ready: str | None = None
             self._task: asyncio.Task[None] | None = None
             self._track_key: str | None = None
             self._last_effect: str | None = None
@@ -2890,6 +2914,7 @@ data:
                 else:
                     self._stop_audio()
                     self._cancel()
+                    self._cancel_prepare()
                     self.hass.async_create_task(self._stop())
                 return
             if not self._is_on(self.config.enabled):
@@ -2972,6 +2997,11 @@ data:
             if self._task is not None and not self._task.done():
                 self._task.cancel()
             self._task = None
+
+        def _cancel_prepare(self) -> None:
+            if self._prepare_task is not None and not self._prepare_task.done():
+                self._prepare_task.cancel()
+            self._prepare_task = None
 
         @callback
         def schedule(self, force: bool) -> None:
@@ -3081,10 +3111,12 @@ data:
             else:
                 if key == self._track_key and not force:
                     return
-                if key != self._track_key:
+                new_track = key != self._track_key
+                if new_track:
                     # A new song: a new loudness baseline.
                     self.sections.reset(time.monotonic())
                     self.section = NORMAL
+                    self.next_ready = None
                 self._track_key = key
                 assert player is not None
                 decision = await self._decide(player, key)
@@ -3093,6 +3125,11 @@ data:
             await self._apply(decision)
             if key is not None and decision.natural.source != "cover":
                 self.hass.async_create_task(self._recheck_cover(key))
+            if key is not None and new_track:
+                self._cancel_prepare()
+                self._prepare_task = self.hass.async_create_background_task(
+                    self._prepare_next(key), "music_director next track"
+                )
 
         async def _recheck_cover(self, key: str) -> None:
             """Use the cover after all if its art arrives while the track plays."""
@@ -3108,7 +3145,7 @@ data:
                 cover = await self._cover_for(key)
                 if cover is None:
                     continue
-                self._cache[key] = (decision.info, cover)
+                self.tracks.put(key, Entry(decision.info, cover))
                 _LOGGER.info("Late cover colour for %s", key.replace("\n", " - "))
                 await self._apply(
                     self._compose(
@@ -3124,6 +3161,85 @@ data:
                 )
                 return
 
+        async def _prepare_next(self, key: str) -> None:
+            """Look up the next song in Spotify's queue while this one plays,
+            so its info and cover colours are cached when it starts."""
+            await asyncio.sleep(PREPARE_DELAY_SECONDS)
+            if self._track_key != key or not self._is_on(self.config.enabled):
+                return
+            artist, title, _ = key.split("\n", 2)
+            queued = next_in_queue(await self._spotify_queue(), title, artist)
+            if queued is None:
+                return
+            next_key = track_key(queued.artist, queued.title, queued.album)
+            label = f"{queued.artist} - {queued.title}"
+            entry = self.tracks.cache.find(next_key)
+            if entry is None or entry.cover is None:
+                info, cover = await asyncio.gather(
+                    self._gather_info(
+                        queued.title, queued.artist, queued.duration, queued.spotify_id
+                    ),
+                    self._queued_cover(queued),
+                )
+                if self._track_key != key:
+                    return
+                self.tracks.put(next_key, Entry(info, cover))
+                _LOGGER.info("Prepared next track %s", label)
+            self.next_ready = label
+            if self._decision is not None:
+                self._publish(self._decision)
+
+        async def _queued_cover(self, queued: QueuedTrack) -> Palette | None:
+            if not queued.art_url:
+                return None
+            data = await self._download(queued.art_url)
+            if data is None:
+                return None
+            try:
+                return await self.hass.async_add_executor_job(_cover_palette, data)
+            except (OSError, ValueError) as error:
+                _LOGGER.debug("Next cover unreadable: %s", type(error).__name__)
+                return None
+
+        async def _spotify_queue(self) -> Any:
+            """Spotify's queue for the account behind the Spotify player, with
+            the Spotify integration's own sign-in. None when unavailable."""
+            entity = er.async_get(self.hass).async_get(self.config.spotify)
+            entry = (
+                self.hass.config_entries.async_get_entry(entity.config_entry_id)
+                if entity is not None and entity.config_entry_id
+                else None
+            )
+            if entry is None:
+                return None
+            try:
+                implementation = (
+                    await config_entry_oauth2_flow.async_get_config_entry_implementation(
+                        self.hass, entry
+                    )
+                )
+                session = config_entry_oauth2_flow.OAuth2Session(
+                    self.hass, entry, implementation
+                )
+                await session.async_ensure_token_valid()
+                token = session.token["access_token"]
+            except Exception as error:  # noqa: BLE001 - lookahead is best effort
+                _LOGGER.debug("Spotify sign-in unavailable: %s", type(error).__name__)
+                return None
+            try:
+                async with self._session.get(
+                    SPOTIFY_QUEUE_URL,
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=HTTP_TIMEOUT,
+                ) as response:
+                    if response.status != 200:
+                        _LOGGER.debug("Spotify queue returned HTTP %s", response.status)
+                        return None
+                    return await response.json(content_type=None)
+            except (aiohttp.ClientError, TimeoutError, ValueError) as error:
+                _LOGGER.debug("Spotify queue failed: %s", type(error).__name__)
+                return None
+
         def _idle_decision(self) -> Decision:
             idle = vibe_palette()
             return self._compose(
@@ -3131,28 +3247,27 @@ data:
             )
 
         async def _decide(self, player: State, key: str) -> Decision:
-            cached = self._cache.get(key)
-            if cached is None:
-                info, cover = await asyncio.gather(
-                    self._gather_info(player), self._cover_for(key)
-                )
-                cached = (info, cover)
-                self._cache[key] = cached
-                while len(self._cache) > CACHE_SIZE:
-                    self._cache.popitem(last=False)
-            else:
-                self._cache.move_to_end(key)
-                if cached[1] is None:
-                    # A missed cover is not remembered: try again on replay.
-                    cached = (cached[0], await self._cover_for(key))
-                    self._cache[key] = cached
-            info, cover = cached
-            features = info.features()
-            family = classify(features)
-            level = intensity(features, family)
             title = player.attributes.get("media_title") or ""
             artist = player.attributes.get("media_artist") or ""
             album = player.attributes.get("media_album_name") or ""
+            entry = self.tracks.cache.find(key)
+            if entry is None:
+                info, cover = await asyncio.gather(
+                    self._player_info(player), self._cover_for(key)
+                )
+                entry = Entry(info, cover)
+                self.tracks.put(key, entry)
+            elif entry.cover is None:
+                # A missed cover is not remembered: try again on replay.
+                entry = Entry(entry.info, await self._cover_for(key))
+                self.tracks.put(key, entry)
+            else:
+                _LOGGER.debug("Cached: %s", key.replace("\n", " - "))
+                self.tracks.put(key, entry)
+            info, cover = entry.info, entry.cover
+            features = info.features()
+            family = classify(features)
+            level = intensity(features, family)
             # Colours come from pins (seeded from configured overrides); the
             # configured overrides still set effects.
             song = find_override(
@@ -3243,12 +3358,20 @@ data:
             await asyncio.sleep(SPOTIFY_RETRY_SECONDS)
             return self._spotify_match(title, artist)
 
-        async def _gather_info(self, player: State) -> TrackInfo:
-            info = TrackInfo()
+        async def _player_info(self, player: State) -> TrackInfo:
             title = player.attributes.get("media_title") or ""
             artist = player.attributes.get("media_artist") or ""
-            duration = player.attributes.get("media_duration")
-            spotify_id = await self._spotify_id(title, artist)
+            return await self._gather_info(
+                title,
+                artist,
+                player.attributes.get("media_duration"),
+                await self._spotify_id(title, artist),
+            )
+
+        async def _gather_info(
+            self, title: str, artist: str, duration: Any, spotify_id: str | None
+        ) -> TrackInfo:
+            info = TrackInfo()
             if spotify_id:
                 apply_reccobeats(
                     info,
@@ -3331,6 +3454,9 @@ data:
                 return None
             if not picture.startswith("http"):
                 picture = f"http://127.0.0.1:{self.hass.http.server_port}{picture}"
+            return await self._download(picture)
+
+        async def _download(self, picture: str) -> bytes | None:
             try:
                 async with self._session.get(picture, timeout=HTTP_TIMEOUT) as response:
                     if response.status != 200:
@@ -3373,6 +3499,7 @@ data:
                     "brightness_pct": self.brightness_pct,
                     "auto_palette_source": decision.auto_palette.source,
                     "intensity": round(decision.level, 3),
+                    "next_ready": self.next_ready,
                     "metadata_sources": list(info.sources),
                     "area_colors": {
                         area: list(colour)
@@ -3647,6 +3774,7 @@ data:
       "name": "Music Director",
       "codeowners": ["@JEFF7712"],
       "dependencies": ["http"],
+      "after_dependencies": ["spotify"],
       "documentation": "https://gitlab.com/JEFF7712/homelab",
       "integration_type": "service",
       "iot_class": "local_push",
@@ -3823,6 +3951,69 @@ data:
         if genres and not info.genres:
             info.genres = genres
             info.sources.append("lastfm")
+
+
+    # Spotify art width closest to this is used for the next track's cover.
+    ART_WIDTH = 300
+
+
+    @dataclass(frozen=True)
+    class QueuedTrack:
+        """The song Spotify will play next."""
+
+        title: str
+        artist: str
+        album: str
+        spotify_id: str | None
+        duration: float | None
+        art_url: str | None
+
+
+    def next_in_queue(body: Any, title: str, artist: str) -> QueuedTrack | None:
+        """The next song from Spotify's queue endpoint, if the queue belongs to
+        the track playing now (title and artist) and its head is a song."""
+        if not isinstance(body, dict):
+            return None
+        playing = body.get("currently_playing")
+        if not isinstance(playing, dict) or not same_track(
+            title, artist, playing.get("name") or "", _artists(playing)
+        ):
+            return None
+        queue = body.get("queue")
+        if not isinstance(queue, list) or not queue or not isinstance(queue[0], dict):
+            return None
+        item = queue[0]
+        if item.get("type") != "track" or not item.get("name"):
+            return None
+        album = item.get("album") if isinstance(item.get("album"), dict) else {}
+        images = [
+            image
+            for image in album.get("images") or ()
+            if isinstance(image, dict) and image.get("url")
+        ]
+        art = min(
+            images,
+            key=lambda image: abs((image.get("width") or ART_WIDTH) - ART_WIDTH),
+            default=None,
+        )
+        duration = item.get("duration_ms")
+        return QueuedTrack(
+            title=item["name"],
+            artist=_artists(item),
+            album=album.get("name") or "",
+            spotify_id=item.get("id") if isinstance(item.get("id"), str) else None,
+            duration=duration / 1000 if isinstance(duration, (int, float)) else None,
+            art_url=art["url"] if art else None,
+        )
+
+
+    def _artists(item: dict[str, Any]) -> str:
+        """Artist names joined the way Home Assistant's Spotify player shows them."""
+        return ", ".join(
+            a["name"]
+            for a in item.get("artists") or ()
+            if isinstance(a, dict) and a.get("name")
+        )
   component.music_director.number.py: |
     """Music Mode Brightness: brightness of the strip and painted areas, in %."""
 
@@ -5040,3 +5231,159 @@ data:
       description: >-
         Re-decide the palette and LedFx effect for the playing track and apply
         them again.
+  component.music_director.trackcache.py: |
+    """What the director learned about each track, kept across restarts.
+
+    Each entry is the track's looked-up info (genres, tempo, mood) and its
+    cover palette. Entries are stored in Home Assistant storage, tagged with a
+    hash of the code that produced them (palette and metadata parsing), so a
+    deploy that changes colour extraction starts from an empty cache instead of
+    replaying stale colours.
+    """
+
+    from __future__ import annotations
+
+    import hashlib
+    from collections import OrderedDict
+    from dataclasses import asdict, dataclass
+    from pathlib import Path
+    from typing import Any, Protocol
+
+    from .metadata import TrackInfo, normalize, same_track
+    from .palette import Palette
+
+    CACHE_STORAGE_KEY = "music_director.tracks"
+    CACHE_STORAGE_VERSION = 1
+    CACHE_SIZE = 1000
+    SAVE_DELAY_SECONDS = 30
+
+
+    def code_version() -> str:
+        """A hash of the modules whose output the cache holds."""
+        here = Path(__file__).parent
+        digest = hashlib.sha256()
+        for name in ("palette.py", "metadata.py"):
+            digest.update((here / name).read_bytes())
+        return digest.hexdigest()[:16]
+
+
+    def track_key(artist: str, title: str, album: str) -> str:
+        return f"{artist}\n{title}\n{album}"
+
+
+    @dataclass(frozen=True)
+    class Entry:
+        info: TrackInfo
+        cover: Palette | None
+
+
+    def _info_from(data: dict[str, Any]) -> TrackInfo:
+        return TrackInfo(
+            **{
+                **data,
+                "genres": tuple(data.get("genres", ())),
+                "sources": list(data.get("sources", ())),
+            }
+        )
+
+
+    def _palette_from(data: dict[str, Any] | None) -> Palette | None:
+        if data is None:
+            return None
+        rgb = data.get("rgb")
+        return Palette(
+            **{
+                **data,
+                "related": tuple(data.get("related", ())),
+                "rgb": tuple(rgb) if rgb else None,
+            }
+        )
+
+
+    class TrackCache:
+        """Least recently used track entries, keyed by track_key."""
+
+        def __init__(self, size: int = CACHE_SIZE, version: str = "") -> None:
+            self.size = size
+            self.version = version
+            self.entries: OrderedDict[str, Entry] = OrderedDict()
+
+        def get(self, key: str) -> Entry | None:
+            entry = self.entries.get(key)
+            if entry is not None:
+                self.entries.move_to_end(key)
+            return entry
+
+        def put(self, key: str, entry: Entry) -> None:
+            self.entries[key] = entry
+            self.entries.move_to_end(key)
+            while len(self.entries) > self.size:
+                self.entries.popitem(last=False)
+
+        def find(self, key: str) -> Entry | None:
+            """The entry for key, else one for the same song on the same album
+            spelled another way (punctuation, featured artists)."""
+            entry = self.get(key)
+            if entry is not None:
+                return entry
+            artist, title, album = key.split("\n", 2)
+            for other, candidate in reversed(self.entries.items()):
+                other_artist, other_title, other_album = other.split("\n", 2)
+                if normalize(album) == normalize(other_album) and same_track(
+                    title, artist, other_title, other_artist
+                ):
+                    self.entries.move_to_end(other)
+                    return candidate
+            return None
+
+        def to_data(self) -> dict[str, Any]:
+            return {
+                "version": self.version,
+                "tracks": {
+                    key: {
+                        "info": asdict(entry.info),
+                        "cover": None if entry.cover is None else asdict(entry.cover),
+                    }
+                    for key, entry in self.entries.items()
+                },
+            }
+
+        def load(self, data: Any) -> None:
+            """Replace the entries with stored ones from the same code version;
+            anything malformed is dropped."""
+            self.entries.clear()
+            if not isinstance(data, dict) or data.get("version") != self.version:
+                return
+            tracks = data.get("tracks")
+            if not isinstance(tracks, dict):
+                return
+            for key, item in tracks.items():
+                if not isinstance(key, str) or key.count("\n") != 2:
+                    continue
+                try:
+                    entry = Entry(_info_from(item["info"]), _palette_from(item["cover"]))
+                except (KeyError, TypeError, ValueError):
+                    continue
+                self.put(key, entry)
+
+
+    class CacheStorage(Protocol):
+        async def async_load(self) -> Any: ...
+
+        def async_delay_save(self, data_func: Any, delay: float = 0) -> None: ...
+
+
+    class TrackCacheStore:
+        """A TrackCache persisted through a Home Assistant Store."""
+
+        def __init__(self, storage: CacheStorage) -> None:
+            self._storage = storage
+            self.cache = TrackCache()
+
+        async def async_load(self, version: str) -> None:
+            self.cache.version = version
+            self.cache.load(await self._storage.async_load())
+
+        def put(self, key: str, entry: Entry) -> None:
+            self.cache.put(key, entry)
+            self._storage.async_delay_save(self.cache.to_data, SAVE_DELAY_SECONDS)

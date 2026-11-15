@@ -466,6 +466,9 @@ views:
               ({{ (i * 100) | round | int }}%)
               {%- set sec = state_attr(d, 'section') %}
               {%- if sec and sec != 'normal' %} · {{ sec }} part{% endif %}
+              {% if state_attr(d, 'next_ready') %}
+              <br>**Next ready:** {{ state_attr(d, 'next_ready') }}
+              {% endif %}
               {% if state_attr(d, 'spotify_status') == 'unavailable' %}
               <br>⚠️ Spotify isn't answering (rate limited?): energy and tempo are estimated
               {% endif %}

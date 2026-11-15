@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import itertools
+import json
 import re
 import sys
 import types
@@ -36,6 +37,7 @@ rules = load("rules")
 metadata = load("metadata")
 pins = load("pins")
 sections = load("sections")
+trackcache = load("trackcache")
 
 CSS_GRADIENT = re.compile(
     r"^linear-gradient\(90deg(, rgb\(\d{1,3}, \d{1,3}, \d{1,3}\) \d{1,3}%)+\)$"
@@ -911,6 +913,141 @@ class TestMetadata(unittest.TestCase):
         )
         single = {"toptags": {"tag": {"name": "jazz", "count": "55"}}}
         self.assertEqual(metadata.lastfm_genres(single), ("jazz",))
+
+
+class TestTrackCache(unittest.TestCase):
+    INFO = metadata.TrackInfo(
+        genres=("rap",), bpm=140.0, energy=0.8, sources=["library"]
+    )
+    COVER = palette.Palette(
+        hue=29.0, chroma=0.2, source="cover", related=(40.0,), rgb=(255, 0, 0)
+    )
+
+    def test_entries_survive_a_restart_with_the_same_code(self) -> None:
+        cache = trackcache.TrackCache(version="v1")
+        key = trackcache.track_key("Playboi Carti", "Stop Breathing", "Whole Lotta Red")
+        cache.put(key, trackcache.Entry(self.INFO, self.COVER))
+        cache.put(
+            trackcache.track_key("A", "B", "C"), trackcache.Entry(self.INFO, None)
+        )
+        restored = trackcache.TrackCache(version="v1")
+        restored.load(json.loads(json.dumps(cache.to_data())))
+        self.assertEqual(restored.get(key), trackcache.Entry(self.INFO, self.COVER))
+        self.assertIsNone(restored.get(trackcache.track_key("A", "B", "C")).cover)
+
+    def test_new_colour_code_starts_empty(self) -> None:
+        cache = trackcache.TrackCache(version="v1")
+        cache.put(
+            trackcache.track_key("A", "B", "C"), trackcache.Entry(self.INFO, self.COVER)
+        )
+        newer = trackcache.TrackCache(version="v2")
+        newer.load(cache.to_data())
+        self.assertEqual(newer.entries, {})
+
+    def test_malformed_entries_are_dropped(self) -> None:
+        cache = trackcache.TrackCache(version="v1")
+        cache.load(
+            {
+                "version": "v1",
+                "tracks": {
+                    "no separators": {"info": {}, "cover": None},
+                    "A\nB\nC": {"info": {"unknown_field": 1}, "cover": None},
+                    "D\nE\nF": {"info": {"genres": ["pop"]}, "cover": None},
+                },
+            }
+        )
+        self.assertEqual(list(cache.entries), ["D\nE\nF"])
+
+    def test_oldest_entries_go_first(self) -> None:
+        cache = trackcache.TrackCache(size=2)
+        for name in ("one", "two", "three"):
+            cache.put(
+                trackcache.track_key("A", name, "X"), trackcache.Entry(self.INFO, None)
+            )
+        self.assertIsNone(cache.get(trackcache.track_key("A", "one", "X")))
+        self.assertIsNotNone(cache.get(trackcache.track_key("A", "three", "X")))
+
+    def test_find_matches_another_spelling_on_the_same_album_only(self) -> None:
+        cache = trackcache.TrackCache()
+        entry = trackcache.Entry(self.INFO, self.COVER)
+        cache.put(
+            trackcache.track_key(
+                "Drake, 21 Savage",
+                "Jimmy Cooks (feat. 21 Savage)",
+                "Honestly, Nevermind",
+            ),
+            entry,
+        )
+        self.assertEqual(
+            cache.find(
+                trackcache.track_key("Drake", "Jimmy Cooks", "Honestly, Nevermind")
+            ),
+            entry,
+        )
+        self.assertIsNone(
+            cache.find(trackcache.track_key("Drake", "Jimmy Cooks", "Other Album"))
+        )
+
+    def test_code_version_follows_the_colour_code(self) -> None:
+        version = trackcache.code_version()
+        self.assertEqual(len(version), 16)
+        self.assertEqual(version, trackcache.code_version())
+
+
+class TestQueue(unittest.TestCase):
+    BODY = {
+        "currently_playing": {
+            "type": "track",
+            "name": "Rollin",
+            "artists": [{"name": "Calvin Harris"}, {"name": "Future"}],
+        },
+        "queue": [
+            {
+                "type": "track",
+                "id": "4iV5W9uYEdYUVa79Axb7Rh",
+                "name": "Slide",
+                "duration_ms": 230000,
+                "artists": [
+                    {"name": "Calvin Harris"},
+                    {"name": "Frank Ocean"},
+                    {"name": "Migos"},
+                ],
+                "album": {
+                    "name": "Funk Wav Bounces Vol. 1",
+                    "images": [
+                        {"url": "https://i.scdn.co/640", "width": 640},
+                        {"url": "https://i.scdn.co/300", "width": 300},
+                        {"url": "https://i.scdn.co/64", "width": 64},
+                    ],
+                },
+            }
+        ],
+    }
+
+    def test_next_song_from_the_queue(self) -> None:
+        queued = metadata.next_in_queue(self.BODY, "Rollin", "Calvin Harris, Future")
+        self.assertEqual(
+            queued,
+            metadata.QueuedTrack(
+                title="Slide",
+                artist="Calvin Harris, Frank Ocean, Migos",
+                album="Funk Wav Bounces Vol. 1",
+                spotify_id="4iV5W9uYEdYUVa79Axb7Rh",
+                duration=230.0,
+                art_url="https://i.scdn.co/300",
+            ),
+        )
+
+    def test_queue_for_another_song_or_without_a_song_next_is_ignored(self) -> None:
+        self.assertIsNone(metadata.next_in_queue(self.BODY, "Slide", "Calvin Harris"))
+        episode = {**self.BODY, "queue": [{"type": "episode", "name": "Podcast"}]}
+        self.assertIsNone(metadata.next_in_queue(episode, "Rollin", "Calvin Harris"))
+        self.assertIsNone(
+            metadata.next_in_queue(
+                {**self.BODY, "queue": []}, "Rollin", "Calvin Harris"
+            )
+        )
+        self.assertIsNone(metadata.next_in_queue(None, "Rollin", "Calvin Harris"))
 
 
 if __name__ == "__main__":
