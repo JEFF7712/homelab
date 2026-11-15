@@ -454,6 +454,78 @@ G1 X0 Y5 E1
             server.shutdown()
             server.server_close()
 
+    def test_demo_printer_sweeps_layers(self):
+        idle = {"print_status": "finish", "task_name": "coupon", "errors": ["old"]}
+        start = w.demo_printer(idle, 175, 1000.0, 1000.0)
+        self.assertEqual(start["print_status"], "running")
+        self.assertEqual((start["current_layer"], start["print_progress"]), ("1", "0"))
+        self.assertEqual(start["total_layer_count"], "175")
+        self.assertEqual(start["errors"], [])
+        self.assertEqual(start["task_name"], "coupon")
+        half = w.demo_printer(idle, 175, 1000.0, 1000.0 + w.DEMO_SWEEP / 2)
+        self.assertEqual((half["current_layer"], half["print_progress"]), ("88", "50"))
+        done = w.demo_printer(idle, 175, 1000.0, 1000.0 + w.DEMO_SWEEP + 5)
+        self.assertEqual(
+            (done["current_layer"], done["print_progress"]), ("175", "100")
+        )
+        self.assertEqual(float(done["remaining_time"]), 0.0)
+
+    def test_demo_needs_key_and_cached_job_and_ends(self):
+        app = w.Workshop(
+            "http://unused", "private-ha-token", Path("."), "http://workshop"
+        )
+        server = ThreadingHTTPServer(("127.0.0.1", 0), w.handler(app))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = "http://127.0.0.1:" + str(server.server_port)
+
+        def post(path, key):
+            req = urllib.request.Request(
+                base + path, b"{}", headers={"X-Workshop-Key": key}
+            )
+            return urllib.request.urlopen(req)
+
+        def state():
+            with urllib.request.urlopen(base + "/state") as response:
+                return json.load(response)
+
+        try:
+            for key, code in (("wrong", 403), (app.key, 409)):
+                with (
+                    self.subTest(key=key),
+                    self.assertRaises(urllib.error.HTTPError) as error,
+                ):
+                    post("/demo", key)
+                self.assertEqual(error.exception.code, code)
+            app.observe(
+                [
+                    {"entity_id": w.PREFIX + "print_status", "state": "idle"},
+                    {"entity_id": w.PREFIX + "total_layer_count", "state": "40"},
+                    {
+                        "entity_id": w.PREFIX + "gcode_file_downloaded",
+                        "state": "9-cube.gcode.gcode",
+                    },
+                ],
+                0.0,
+            )
+            app.shared = {"kind": "image", "value": "data:image/png;base64,"}
+            post("/demo", app.key).close()
+            self.assertEqual(app.demo["file"], "9-cube.gcode.gcode")
+            current = state()
+            self.assertEqual(current["mode"], "print")
+            self.assertTrue(current["demo"])
+            self.assertIsNone(current["shared"])
+            self.assertEqual(current["printer"]["total_layer_count"], "40")
+            self.assertEqual(app.printer["print_status"], "idle")
+            app.demo["at"] -= w.DEMO_SWEEP + w.DEMO_HOLD
+            self.assertFalse(state()["demo"])
+            self.assertIn(state()["mode"], ("clock", "night"))
+            post("/demo", app.key).close()
+            post("/dismiss", app.key).close()
+            self.assertIsNone(app.demo)
+        finally:
+            server.shutdown()
+            server.server_close()
+
     def test_share_auth_and_dismiss(self):
         app = w.Workshop(
             "http://unused", "private-ha-token", Path("."), "http://workshop"
