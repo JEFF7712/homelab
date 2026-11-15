@@ -155,6 +155,8 @@ class CacheStorage(Protocol):
 
     def async_delay_save(self, data_func: Any, delay: float = 0) -> None: ...
 
+    async def async_save(self, data: Any) -> None: ...
+
 
 class TrackCacheStore:
     """A TrackCache persisted through a Home Assistant Store."""
@@ -170,3 +172,8 @@ class TrackCacheStore:
     def put(self, key: str, entry: Entry) -> None:
         self.cache.put(key, entry)
         self._storage.async_delay_save(self.cache.to_data, SAVE_DELAY_SECONDS)
+
+    async def async_save(self) -> None:
+        """Write now; delayed saves wait for a quiet spell, which a long
+        batch of puts never leaves."""
+        await self._storage.async_save(self.cache.to_data())
