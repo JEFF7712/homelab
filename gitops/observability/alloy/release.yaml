@@ -63,9 +63,40 @@ spec:
             }
           }
 
+          // Read the host journal directory explicitly. Without a path the
+          // reader opens only the local machine's journal, keyed by
+          // /etc/machine-id, which is empty in the Alloy image, so it matched
+          // no files and read nothing. The directory holds one machine-id
+          // subdirectory per host, mounted through the varlog hostPath.
           loki.source.journal "journal" {
-            forward_to = [loki.write.local.receiver]
-            labels = { component = "system-journal" }
+            path          = "/var/log/journal"
+            relabel_rules = discovery.relabel.journal.rules
+            forward_to    = [loki.write.local.receiver]
+            labels        = { component = "system-journal" }
+          }
+
+          discovery.relabel "journal" {
+            targets = []
+
+            rule {
+              source_labels = ["__journal__hostname"]
+              target_label  = "hostname"
+            }
+
+            rule {
+              source_labels = ["__journal__systemd_unit"]
+              target_label  = "unit"
+            }
+
+            rule {
+              source_labels = ["__journal_priority_keyword"]
+              target_label  = "level"
+            }
+
+            rule {
+              source_labels = ["__journal__transport"]
+              target_label  = "transport"
+            }
           }
 
           loki.write "local" {
