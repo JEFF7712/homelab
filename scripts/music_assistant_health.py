@@ -37,8 +37,11 @@ async def main():
                 for entity in (source, imported):
                     async with session.get('http://127.0.0.1:8123/api/states/' + entity,
                             headers={'Authorization': 'Bearer ' + token}) as response:
-                        response.raise_for_status()
-                        states[entity] = (await response.json())['state']
+                        if response.status == 404:
+                            states[entity] = None
+                        else:
+                            response.raise_for_status()
+                            states[entity] = (await response.json())['state']
                 healthy = (player is not None and player['available']
                            and all(states.get(entity) not in (None, 'unknown', 'unavailable')
                                    for entity in (source, imported)))
