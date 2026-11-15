@@ -113,8 +113,24 @@ skipped, so reruns only do new songs. It runs in the background, logs
 start and end (`notify: false` turns that off). The automation
 `music_director_prepare_playlists` runs it quietly at 04:30 each night,
 which also refills the cache after a colour change emptied it. A full run
-takes roughly an hour, mostly Last.fm genre lookups for songs missing from
-the local library.
+takes roughly 2.5 hours, mostly Last.fm genre lookups for songs missing from
+the local library. A cover that downloads and decodes but has no usable
+colour is stored as checked and not looked up again; only failed downloads
+are retried.
+
+### Music Colours panel
+
+The **Music Colours** sidebar panel (`panel.py`, `panel.js`, served by the
+integration at `/music_director_static/panel.js`) reviews prepared
+playlists. Each run of `prepare_playlists` stores playlist membership in
+`.storage/music_director.playlists`. For each song the panel shows the LED
+strip gradient, the room light colours, the source (cover, genre and mood,
+pinned, or not prepared yet), genres and intensity, with filters and
+search. The colour picker pins that colour to the song's album, the same pin
+the dashboard's Music Mode Pin sets; **Unpin** returns the album to
+automatic colours. The panel uses the websocket commands
+`music_director/playlists`, `music_director/playlist` and
+`music_director/pin`.
 
 The cover palette merges colour clusters within 20° of hue (so a cover-wide
 tint such as Dawn FM's muted blue counts as one colour), then takes the most
