@@ -10,7 +10,7 @@ data:
         rules:
           - alert: HostKernelOOMKilled
             expr: |
-              count_over_time({component="system-journal"} |= "Out of memory: Kill process" [5m]) > 0
+              count_over_time({component="system-journal"} |= "Out of memory: Kill" [5m]) > 0
             for: 0m
             labels:
               severity: critical
