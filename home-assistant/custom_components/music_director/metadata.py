@@ -167,3 +167,66 @@ def apply_lastfm(info: TrackInfo, body: Any, artist: str) -> None:
     if genres and not info.genres:
         info.genres = genres
         info.sources.append("lastfm")
+
+
+# Spotify art width closest to this is used for the next track's cover.
+ART_WIDTH = 300
+
+
+@dataclass(frozen=True)
+class QueuedTrack:
+    """The song Spotify will play next."""
+
+    title: str
+    artist: str
+    album: str
+    spotify_id: str | None
+    duration: float | None
+    art_url: str | None
+
+
+def next_in_queue(body: Any, title: str, artist: str) -> QueuedTrack | None:
+    """The next song from Spotify's queue endpoint, if the queue belongs to
+    the track playing now (title and artist) and its head is a song."""
+    if not isinstance(body, dict):
+        return None
+    playing = body.get("currently_playing")
+    if not isinstance(playing, dict) or not same_track(
+        title, artist, playing.get("name") or "", _artists(playing)
+    ):
+        return None
+    queue = body.get("queue")
+    if not isinstance(queue, list) or not queue or not isinstance(queue[0], dict):
+        return None
+    item = queue[0]
+    if item.get("type") != "track" or not item.get("name"):
+        return None
+    album = item.get("album") if isinstance(item.get("album"), dict) else {}
+    images = [
+        image
+        for image in album.get("images") or ()
+        if isinstance(image, dict) and image.get("url")
+    ]
+    art = min(
+        images,
+        key=lambda image: abs((image.get("width") or ART_WIDTH) - ART_WIDTH),
+        default=None,
+    )
+    duration = item.get("duration_ms")
+    return QueuedTrack(
+        title=item["name"],
+        artist=_artists(item),
+        album=album.get("name") or "",
+        spotify_id=item.get("id") if isinstance(item.get("id"), str) else None,
+        duration=duration / 1000 if isinstance(duration, (int, float)) else None,
+        art_url=art["url"] if art else None,
+    )
+
+
+def _artists(item: dict[str, Any]) -> str:
+    """Artist names joined the way Home Assistant's Spotify player shows them."""
+    return ", ".join(
+        a["name"]
+        for a in item.get("artists") or ()
+        if isinstance(a, dict) and a.get("name")
+    )

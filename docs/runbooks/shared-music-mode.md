@@ -83,6 +83,25 @@ track that fell back to the vibe palette checks its cover again 8 s and
 25 s in (`COVER_RECHECK_SECONDS`) and switches to it if the art arrived
 late (log: `Late cover colour`).
 
+### Track cache and next-song lookahead
+
+Looked-up info and cover palettes for the last 1000 tracks are kept in
+`.storage/music_director.tracks` (`trackcache.py`), so replays skip every
+lookup, also after a restart. The stored cache carries a hash of
+`palette.py` and `metadata.py`; a deploy that changes either starts from an
+empty cache, so colour changes apply to every song straight away. To clear
+it by hand, stop Home Assistant and delete that file.
+
+15 s into each song (`PREPARE_DELAY_SECONDS`) the director reads Spotify's
+queue (`GET /v1/me/player/queue`, one call per song, signed in through the
+Spotify integration's own config entry) and looks up the next song: info by
+its Spotify ID and the cover from Spotify's 300 px art. When it plays, the
+director finds it in the cache and only updates LedFx. The queue is ignored
+unless it belongs to the playing song, and a skip or shuffle that plays a
+different song falls back to the normal lookup. `sensor.music_director`
+reports `next_ready` ("Artist - Title"), shown on the preview card; the log
+says `Prepared next track`.
+
 The cover palette merges colour clusters within 20° of hue (so a cover-wide
 tint such as Dawn FM's muted blue counts as one colour), then takes the most
 vivid well-represented group. Skin tones, browns and olives (`palette.muddy`)
