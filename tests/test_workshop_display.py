@@ -4,6 +4,7 @@ import base64
 import importlib.util
 import io
 import json
+import math
 import tempfile
 import threading
 import unittest
@@ -207,6 +208,133 @@ class WorkshopTests(unittest.TestCase):
             w.select_mode("finish", {"kind": "image"}, 12, finished, 1000.0), "image"
         )
 
+    def test_toolpath_groups_extrusion_by_layer(self):
+        gcode = """\
+; filament_colour = #1A2B3C;#FFFFFF
+G90
+M83
+G1 X0 Y0 E5 ; purge before the first layer is skipped
+; CHANGE_LAYER
+; Z_HEIGHT: 0.2
+G1 X10 Y0 F600
+G1 X20 Y0 E1
+G1 X20 Y10 E1
+G1 X30 Y10 F9000
+G1 X40 Y10 E-0.8
+G1 E0.8
+G1 X50 Y10 E1
+; CHANGE_LAYER
+; Z_HEIGHT: 0.4
+G3 X50 Y10 I-5 J0 E3
+G91
+G1 X0 Y5 E1
+""".splitlines(keepends=True)
+        path = w.toolpath(gcode)
+        segments = [
+            tuple(round(v, 3) for v in path["segments"][i : i + 6])
+            for i in range(0, len(path["segments"]), 6)
+        ]
+        layer_one = [
+            (10, 0, 0.2, 20, 0, 0.2),
+            (20, 0, 0.2, 20, 10, 0.2),
+            (40, 10, 0.2, 50, 10, 0.2),
+        ]
+        self.assertEqual(segments[:3], [tuple(map(float, s)) for s in layer_one])
+        self.assertEqual(path["color"], "#1A2B3C")
+        # Layer two: a full counter-clockwise circle of radius 5, then a relative move.
+        arc = segments[3:-1]
+        self.assertGreaterEqual(len(arc), 12)
+        for x0, y0, z0, x1, y1, z1 in arc:
+            self.assertEqual((z0, z1), (0.4, 0.4))
+            self.assertAlmostEqual(math.hypot(x1 - 45, y1 - 10), 5, places=2)
+        self.assertEqual((arc[0][0], arc[0][1]), (50.0, 10.0))
+        self.assertEqual((arc[-1][3], arc[-1][4]), (50.0, 10.0))
+        self.assertEqual(segments[-1], (50.0, 10.0, 0.4, 50.0, 15.0, 0.4))
+        self.assertEqual(path["layers"], [0, 3, len(segments)])
+        self.assertEqual(
+            [round(v, 3) for v in path["bounds"]], [10.0, 0.0, 0.0, 50.0, 15.0, 0.4]
+        )
+
+    def test_toolpath_reduces_to_budget(self):
+        lines = ["; CHANGE_LAYER\n", "; Z_HEIGHT: 0.2\n", "M83\n", "G1 X0 Y0\n"]
+        lines += [f"G1 X{i * 0.05:.2f} Y0 E0.01\n" for i in range(1, 2001)]
+        lines += ["; CHANGE_LAYER\n", "; Z_HEIGHT: 0.4\n", "G1 X0 Y5 E1\n"]
+        path = w.toolpath(lines, budget=200)
+        self.assertLessEqual(len(path["segments"]) // 6, 200)
+        self.assertEqual(path["layers"][-1], len(path["segments"]) // 6)
+        self.assertEqual(path["layers"][2] - path["layers"][1], 1)
+        # The merged path still reaches the true end of the line.
+        first_layer = path["segments"][: path["layers"][1] * 6]
+        self.assertAlmostEqual(first_layer[-3], 100.0, places=3)
+        with self.assertRaises(ValueError):
+            w.toolpath(["G1 X1 Y1 E1\n"])
+
+    def test_model_file_skips_stale_or_idle_jobs(self):
+        printer = {
+            "print_status": "prepare",
+            "task_name": "Phone Stand",
+            "gcode_file_downloaded": "41-phone stand.gcode.gcode",
+        }
+        self.assertEqual(w.model_file(printer, None), "41-phone stand.gcode.gcode")
+        stale = {**printer, "gcode_file_downloaded": "40-bracket.gcode.gcode"}
+        self.assertIsNone(w.model_file(stale, None))
+        self.assertIsNone(w.model_file({**printer, "print_status": "idle"}, None))
+        finished = {**printer, "print_status": "finish"}
+        self.assertEqual(
+            w.model_file(finished, {"at": 0}), printer["gcode_file_downloaded"]
+        )
+        for name in ("unknown", "ERROR", "../secrets.gcode"):
+            self.assertIsNone(
+                w.model_file({**printer, "gcode_file_downloaded": name}, None)
+            )
+
+    def test_model_is_loaded_from_ha_cache_and_served_locally(self):
+        gcode = b"; CHANGE_LAYER\n; Z_HEIGHT: 0.2\nM83\nG1 X1 Y1\nG1 X2 Y1 E1\n"
+        seen = []
+
+        class FakeHA(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def do_GET(self):
+                seen.append((self.path, self.headers.get("Authorization")))
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(gcode)))
+                self.end_headers()
+                self.wfile.write(gcode)
+
+        ha = ThreadingHTTPServer(("127.0.0.1", 0), FakeHA)
+        threading.Thread(target=ha.serve_forever, daemon=True).start()
+        app = w.Workshop(
+            "http://127.0.0.1:" + str(ha.server_port),
+            "private-ha-token",
+            Path("."),
+            "http://workshop",
+        )
+        app.load_model("7-a b.gcode.gcode")
+        server = ThreadingHTTPServer(("127.0.0.1", 0), w.handler(app))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = "http://127.0.0.1:" + str(server.server_port)
+        try:
+            self.assertEqual(
+                seen, [(w.PRINTS + "7-a%20b.gcode.gcode", "Bearer private-ha-token")]
+            )
+            with urllib.request.urlopen(base + "/model") as response:
+                meta = json.load(response)
+            self.assertEqual(meta["status"], "ready")
+            self.assertEqual(meta["layers"], [0, 1])
+            with urllib.request.urlopen(base + "/model.bin") as response:
+                blob = response.read()
+            self.assertEqual(len(blob), 6 * 4)
+            ha.shutdown()
+            ha.server_close()
+            app.load_model("8-missing.gcode.gcode")
+            self.assertEqual(app.model["status"], "error")
+            self.assertEqual(app.model["file"], "8-missing.gcode.gcode")
+        finally:
+            server.shutdown()
+            server.server_close()
+
     def test_pairing_key_survives_restart(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "pairing-key"
@@ -322,6 +450,78 @@ class WorkshopTests(unittest.TestCase):
                 urllib.request.urlopen(req)
             self.assertEqual(error.exception.code, 403)
             self.assertIsNone(app.player)
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_demo_printer_sweeps_layers(self):
+        idle = {"print_status": "finish", "task_name": "coupon", "errors": ["old"]}
+        start = w.demo_printer(idle, 175, 1000.0, 1000.0)
+        self.assertEqual(start["print_status"], "running")
+        self.assertEqual((start["current_layer"], start["print_progress"]), ("1", "0"))
+        self.assertEqual(start["total_layer_count"], "175")
+        self.assertEqual(start["errors"], [])
+        self.assertEqual(start["task_name"], "coupon")
+        half = w.demo_printer(idle, 175, 1000.0, 1000.0 + w.DEMO_SWEEP / 2)
+        self.assertEqual((half["current_layer"], half["print_progress"]), ("88", "50"))
+        done = w.demo_printer(idle, 175, 1000.0, 1000.0 + w.DEMO_SWEEP + 5)
+        self.assertEqual(
+            (done["current_layer"], done["print_progress"]), ("175", "100")
+        )
+        self.assertEqual(float(done["remaining_time"]), 0.0)
+
+    def test_demo_needs_key_and_cached_job_and_ends(self):
+        app = w.Workshop(
+            "http://unused", "private-ha-token", Path("."), "http://workshop"
+        )
+        server = ThreadingHTTPServer(("127.0.0.1", 0), w.handler(app))
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = "http://127.0.0.1:" + str(server.server_port)
+
+        def post(path, key):
+            req = urllib.request.Request(
+                base + path, b"{}", headers={"X-Workshop-Key": key}
+            )
+            return urllib.request.urlopen(req)
+
+        def state():
+            with urllib.request.urlopen(base + "/state") as response:
+                return json.load(response)
+
+        try:
+            for key, code in (("wrong", 403), (app.key, 409)):
+                with (
+                    self.subTest(key=key),
+                    self.assertRaises(urllib.error.HTTPError) as error,
+                ):
+                    post("/demo", key)
+                self.assertEqual(error.exception.code, code)
+            app.observe(
+                [
+                    {"entity_id": w.PREFIX + "print_status", "state": "idle"},
+                    {"entity_id": w.PREFIX + "total_layer_count", "state": "40"},
+                    {
+                        "entity_id": w.PREFIX + "gcode_file_downloaded",
+                        "state": "9-cube.gcode.gcode",
+                    },
+                ],
+                0.0,
+            )
+            app.shared = {"kind": "image", "value": "data:image/png;base64,"}
+            post("/demo", app.key).close()
+            self.assertEqual(app.demo["file"], "9-cube.gcode.gcode")
+            current = state()
+            self.assertEqual(current["mode"], "print")
+            self.assertTrue(current["demo"])
+            self.assertIsNone(current["shared"])
+            self.assertEqual(current["printer"]["total_layer_count"], "40")
+            self.assertEqual(app.printer["print_status"], "idle")
+            app.demo["at"] -= w.DEMO_SWEEP + w.DEMO_HOLD
+            self.assertFalse(state()["demo"])
+            self.assertIn(state()["mode"], ("clock", "night"))
+            post("/demo", app.key).close()
+            post("/dismiss", app.key).close()
+            self.assertIsNone(app.demo)
         finally:
             server.shutdown()
             server.server_close()
