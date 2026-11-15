@@ -91,3 +91,89 @@ class SectionTracker:
         if ratio <= ENTER_QUIET:
             return QUIET
         return NORMAL
+
+
+# Drops: a sudden, sustained jump in loudness (a drop or a chorus slamming
+# in), as opposed to the gradual changes sections follow. The strip answers
+# with a short flash. A one second average must rise well above the last few
+# seconds and above the song's baseline, and stay there briefly, so single
+# kicks and the return after a gap between phrases do not count.
+PUNCH_SECONDS = 1.0
+DROP_JUMP = 1.5
+DROP_ABOVE_BASELINE = 1.25
+DROP_HOLD_SECONDS = 0.6
+DROP_COOLDOWN_SECONDS = 45.0
+# Music coming back after near-silence (a pause, a gap between songs) is not
+# a drop: none for this long after the one second average falls below a
+# tenth of the baseline (the few-second average needs that long to catch up).
+# Tuned on a live hip-hop recording on 2026-11-14: no drops in 90 s of verses,
+# none when music resumed after a pause, one when a beat came in after a
+# quiet intro.
+SILENT_SHARE = 0.1
+AFTER_SILENCE_SECONDS = 12.0
+
+
+@dataclass
+class DropDetector:
+    punch: float = 0.0
+    recent: float = 0.0
+    baseline: float = 0.0
+    started: float | None = None
+    last_sample: float | None = None
+    rising_since: float | None = None
+    last_drop: float | None = None
+    last_silent: float | None = None
+
+    def reset(self, now: float) -> None:
+        """Start a new track."""
+        self.punch = self.recent = self.baseline = 0.0
+        self.started = now
+        self.last_sample = None
+        self.rising_since = None
+        self.last_drop = None
+        self.last_silent = None
+
+    def add(self, level: float, now: float) -> bool:
+        """Feed one loudness sample. Returns True on a drop."""
+        if self.started is None:
+            self.reset(now)
+        level = max(0.0, level)
+        if self.last_sample is None:
+            self.punch = self.recent = self.baseline = level
+        else:
+            dt = max(0.0, now - self.last_sample)
+            self.punch += (level - self.punch) * (1 - math.exp(-dt / PUNCH_SECONDS))
+            self.recent += (level - self.recent) * (1 - math.exp(-dt / FAST_SECONDS))
+            self.baseline += (level - self.baseline) * (
+                1 - math.exp(-dt / SLOW_SECONDS)
+            )
+        self.last_sample = now
+        assert self.started is not None
+        if self.punch <= SILENT_SHARE * self.baseline or self.baseline <= SILENCE:
+            self.last_silent = now
+        jumping = (
+            self.baseline > SILENCE
+            and self.punch >= DROP_JUMP * self.recent
+            and self.punch >= DROP_ABOVE_BASELINE * self.baseline
+        )
+        if not jumping:
+            self.rising_since = None
+            return False
+        if self.rising_since is None:
+            self.rising_since = now
+        if (
+            now - self.started < WARMUP_SECONDS
+            or now - self.rising_since < DROP_HOLD_SECONDS
+            or (
+                self.last_silent is not None
+                and now - self.last_silent < AFTER_SILENCE_SECONDS
+            )
+            or (
+                self.last_drop is not None
+                and now - self.last_drop < DROP_COOLDOWN_SECONDS
+            )
+        ):
+            return False
+        self.last_drop = now
+        self.rising_since = None
+        return True

@@ -78,6 +78,7 @@ from .rules import (
 )
 from .sections import (
     NORMAL,
+    DropDetector,
     SECTION_BRIGHTNESS,
     SECTION_DRIVE,
     SECTION_INTENSITY,
@@ -125,6 +126,11 @@ SPOTIFY_QUEUE_URL = "https://api.spotify.com/v1/me/player/queue"
 # How far into a song the next one is looked up: late enough to skip songs
 # that are skipped straight away, early enough to finish before it ends.
 PREPARE_DELAY_SECONDS = 15.0
+# The drop flash: the strip's background lights up in the song's colour
+# under the running effect, then fades out, as (background brightness,
+# seconds) steps. The effect keeps running, so nothing restarts.
+FLASH_STEPS = ((1.0, 0.3), (0.6, 0.2), (0.35, 0.2), (0.15, 0.2))
+NO_BACKGROUND = "#000000"
 # Playlist preparation: ReccoBeats takes up to 40 IDs a call, and a short
 # pause per song keeps Last.fm and the library well under their limits.
 PREPARE_BATCH = 40
@@ -260,12 +266,19 @@ class Director:
         self._spotify_refreshed = 0.0
         # Why the last track had no Spotify ID, for the dashboard.
         self.spotify_status = "ok"
+        # ok, unreachable or error: LedFx's API and audio feed, for the
+        # Music Mode device alert.
+        self.ledfx_status = "ok"
         # Chosen colour (Music Mode Colour light on), or None for Auto.
         self.manual_rgb: tuple[int, int, int] | None = None
         self.brightness_pct = DEFAULT_BRIGHTNESS
         self.pins = PinStore(Store(hass, STORAGE_VERSION, STORAGE_KEY))
         # Live song sections from LedFx's audio (sections.py).
         self.sections = SectionTracker()
+        # Drops in the live audio flash the strip (Music Mode Drop Flash).
+        self.drops = DropDetector()
+        self.drop_flash = True
+        self._flash_task: asyncio.Task[None] | None = None
         self.section = NORMAL
         self._audio_task: asyncio.Task[None] | None = None
         # Music Mode Strip Colours: one solid colour instead of a gradient.
@@ -305,6 +318,7 @@ class Director:
         while True:
             try:
                 async with self._session.ws_connect(url, heartbeat=30) as ws:
+                    self._set_ledfx_status("ok")
                     await ws.send_json(
                         {
                             "id": 1,
@@ -323,14 +337,95 @@ class Director:
                         if data.get("graph_id") != graph:
                             continue
                         level = sum(float(v) for v in data.get("melbank") or ())
-                        changed = self.sections.add(level, time.monotonic())
+                        now = time.monotonic()
+                        changed = self.sections.add(level, now)
                         if changed is not None:
                             self._set_section(changed)
+                        if self.drops.add(level, now):
+                            self._flash()
             except asyncio.CancelledError:
                 raise
             except Exception as error:  # noqa: BLE001 - keep listening
                 _LOGGER.debug("LedFx audio feed: %s", type(error).__name__)
+                self._set_ledfx_status("unreachable")
             await asyncio.sleep(10)
+
+    @callback
+    def set_drop_flash(self, enabled: bool) -> None:
+        self.drop_flash = enabled
+        async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+
+    @callback
+    def _flash(self) -> None:
+        decision = self._decision
+        if (
+            not self.drop_flash
+            or decision is None
+            or not decision.title
+            or not self._is_on(self.config.enabled)
+            or not self._is_on(self.config.strip)
+            or (self._flash_task is not None and not self._flash_task.done())
+        ):
+            return
+        _LOGGER.debug("Drop: flashing the strip")
+        self._flash_task = self.hass.async_create_task(self._run_flash(decision))
+
+    async def _run_flash(self, start: Decision) -> None:
+        """Light the strip's background in the song's colour and fade it
+        out. Strip updates wait meanwhile; the latest decision is sent at the
+        end."""
+        colour = to_hex(solid_colour(start.palette))
+        try:
+            for share, seconds in FLASH_STEPS:
+                decision = self._decision
+                if decision is None or decision.title != start.title:
+                    break
+                await self._ledfx(
+                    "PUT",
+                    {
+                        "type": decision.effect,
+                        "config": {
+                            **decision.config,
+                            "brightness": 1.0,
+                            "background_color": colour,
+                            "background_brightness": share,
+                        },
+                    },
+                )
+                await asyncio.sleep(seconds)
+        finally:
+            self._flash_task = None
+            decision = self._decision
+            if (
+                decision is not None
+                and self._is_on(self.config.enabled)
+                and self._is_on(self.config.strip)
+            ):
+                if decision.title == start.title and decision.effect == start.effect:
+                    await self._ledfx(
+                        "PUT",
+                        {
+                            "type": decision.effect,
+                            "config": {
+                                **decision.config,
+                                "background_color": NO_BACKGROUND,
+                            },
+                        },
+                    )
+                else:
+                    await self._push_strip(decision)
+
+    @callback
+    def _set_ledfx_status(self, status: str) -> None:
+        if status == self.ledfx_status:
+            return
+        self.ledfx_status = status
+        if status == "ok":
+            _LOGGER.info("LedFx is back")
+        else:
+            _LOGGER.warning("LedFx is %s", status)
+        if self._decision is not None and self._is_on(self.config.enabled):
+            self._publish(self._decision)
 
     @callback
     def _set_section(self, section: str) -> None:
@@ -354,6 +449,8 @@ class Director:
                 self._stop_audio()
                 self._cancel()
                 self._cancel_prepare()
+                if self._flash_task is not None:
+                    self._flash_task.cancel()
                 self.hass.async_create_task(self._stop())
             return
         if not self._is_on(self.config.enabled):
@@ -543,6 +640,9 @@ class Director:
         self._publish(decision)
         # The pin light follows the playing track.
         async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+        if self._flash_task is not None:
+            # The flash sends the latest decision when it ends.
+            return
         if self._is_on(self.config.strip):
             if (
                 previous is not None
@@ -574,6 +674,7 @@ class Director:
             if new_track:
                 # A new song: a new loudness baseline.
                 self.sections.reset(time.monotonic())
+                self.drops.reset(time.monotonic())
                 self.section = NORMAL
                 self.next_ready = None
             self._track_key = key
@@ -1167,6 +1268,7 @@ class Director:
                 "pinned_effect": self.current_pinned_effect(),
                 "natural_palette_source": decision.natural.source,
                 "spotify_status": self.spotify_status,
+                "ledfx_status": self.ledfx_status,
                 "section": self.section,
                 "brightness_pct": self.brightness_pct,
                 "auto_palette_source": decision.auto_palette.source,
@@ -1201,8 +1303,12 @@ class Director:
                         response.status,
                         (await response.text())[:200],
                     )
+                    self._set_ledfx_status("error")
+                else:
+                    self._set_ledfx_status("ok")
         except (aiohttp.ClientError, TimeoutError) as error:
             _LOGGER.warning("LedFx %s failed: %s", method, error)
+            self._set_ledfx_status("unreachable")
 
     async def _ensure_transition(self) -> bool:
         """Set the strip's crossfade between effects. LedFx keeps virtual

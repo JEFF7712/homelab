@@ -208,6 +208,20 @@ per section, so beats, fills and gaps between phrases do not flip it.
 | normal | 0.9 | ±0 | ±0 |
 | loud | 1.0 | +0.15 | +0.25 |
 
+### Drop flash
+
+`sections.DropDetector` watches the same audio feed for drops: a one second
+average jumping 1.5× above the last few seconds and 1.25× above the song's
+baseline, held for 0.6 s. None fire in the first 20 s of a song, within 12 s
+of near-silence (music resuming after a pause is not a drop) or within 45 s
+of the last one. On a drop the strip's background lights up in the song's
+colour under the running effect and fades out over about a second
+(`FLASH_STEPS`, LedFx `background_color` and `background_brightness` via
+`PUT`, so the effect does not restart). Strip updates wait during the flash
+and the latest decision is sent after it. Bulbs do not flash.
+`switch.music_mode_drop_flash` ("Flash on drops") turns it off and keeps
+that across restarts.
+
 Effect drive shifts the 0–1 tempo and energy levels behind the effect's
 speed and reactivity (`rules.dynamics`), so choruses and drops move faster
 and react harder, and breakdowns calm down. A song with no known tempo or
@@ -381,6 +395,17 @@ once and holds across tracks, still with each track's colours and dynamics,
 until it is set back to Auto, which restores that track's automatic effect.
 `sensor.music_director` reports `effect_mode` (auto or manual) and
 `auto_effect`.
+
+## Device offline alert
+
+`music_mode_device_alert` notifies `notify.rupan_phone` while Music Mode is
+on when LedFx stops answering (`sensor.music_director` `ledfx_status` is
+`unreachable` or `error` for a minute; set by the effect API calls and the
+audio feed), or a light of an area taking part (or the WLED strip, with the
+strip toggle on) is unavailable for a minute. It checks again a minute
+after Music Mode starts, so devices already offline are reported. Lights of
+areas not taking part are ignored. A test keeps its light list in step with
+`scripts/shared_music_area.yaml`.
 
 ## Verify and troubleshoot
 
