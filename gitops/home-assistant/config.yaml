@@ -2510,6 +2510,7 @@ data:
     from .director import DOMAIN, Director, DirectorConfig
     from .metadata import SongOverride
     from .palette import NAMED_HUES, hex_rgb
+    from .panel import async_setup_panel
     from .rules import EFFECTS
     from .trackcache import code_version
 
@@ -2595,6 +2596,9 @@ data:
         hass.data[DOMAIN] = director
         await director.pins.async_load(director.config.overrides)
         await director.tracks.async_load(await hass.async_add_executor_job(code_version))
+        await director.playlists.async_load()
+        # Music Colours sidebar panel (panel.py, panel.js).
+        await async_setup_panel(hass)
 
         async def refresh(_call: ServiceCall) -> None:
             director.schedule(force=True)
@@ -2720,7 +2724,10 @@ data:
     from .trackcache import (
         CACHE_STORAGE_KEY,
         CACHE_STORAGE_VERSION,
+        PLAYLIST_STORAGE_KEY,
         Entry,
+        PlaylistSong,
+        PlaylistStore,
         TrackCacheStore,
         track_key,
     )
@@ -2837,6 +2844,21 @@ data:
         )
 
 
+    def _natural(entry: Entry) -> tuple[Palette, str, float]:
+        """A cached track's automatic palette (its cover's, else genre and
+        mood), effect family and intensity, before any pin."""
+        info = entry.info
+        features = info.features()
+        family = classify(features)
+        level = intensity(features, family)
+        if entry.cover:
+            return with_intensity(entry.cover, level), family, level
+        palette = vibe_palette(
+            info.genres, info.energy, info.valence, tempo_level(info.bpm), level
+        )
+        return palette, family, level
+
+
     def _decode_pixels(data: bytes) -> list[tuple[int, int, int]]:
         from PIL import Image  # Home Assistant ships Pillow; import off the event loop.
 
@@ -2856,6 +2878,9 @@ data:
             self._session = async_get_clientsession(hass)
             self.tracks = TrackCacheStore(
                 Store(hass, CACHE_STORAGE_VERSION, CACHE_STORAGE_KEY)
+            )
+            self.playlists = PlaylistStore(
+                Store(hass, CACHE_STORAGE_VERSION, PLAYLIST_STORAGE_KEY)
             )
             self._prepare_task: asyncio.Task[None] | None = None
             self._prepare_run: asyncio.Task[None] | None = None
@@ -3222,8 +3247,8 @@ data:
             next_key = track_key(queued.artist, queued.title, queued.album)
             label = f"{queued.artist} - {queued.title}"
             entry = self.tracks.cache.find(next_key)
-            if entry is None or entry.cover is None:
-                info, cover = await asyncio.gather(
+            if entry is None or (entry.cover is None and not entry.checked):
+                info, (cover, checked) = await asyncio.gather(
                     self._gather_info(
                         queued.title, queued.artist, queued.duration, queued.spotify_id
                     ),
@@ -3231,7 +3256,7 @@ data:
                 )
                 if self._track_key != key:
                     return
-                self.tracks.put(next_key, Entry(info, cover))
+                self.tracks.put(next_key, Entry(info, cover, checked))
                 _LOGGER.info("Prepared next track %s", label)
             self.next_ready = label
             if self._decision is not None:
@@ -3258,8 +3283,8 @@ data:
                 )
                 return
             wanted = {normalize(name) for name in names or ()}
-            tracks: dict[str, Any] = {}
-            chosen = []
+            tracks: dict[str, QueuedTrack] = {}
+            membership: dict[str, list[PlaylistSong]] = {}
             for playlist in await mass.music.get_library_playlists(limit=1000):
                 if not any(
                     m.provider_domain == "spotify" for m in playlist.provider_mappings
@@ -3267,17 +3292,21 @@ data:
                     continue
                 if wanted and normalize(playlist.name) not in wanted:
                     continue
-                chosen.append(playlist.name)
+                songs = membership.setdefault(playlist.name, [])
                 for track in await mass.music.get_playlist_tracks(
                     playlist.item_id, playlist.provider
                 ):
-                    tracks.setdefault(track.uri, track)
+                    queued = _playlist_track(track)
+                    key = track_key(queued.artist, queued.title, queued.album)
+                    songs.append(PlaylistSong(key, queued.art_url))
+                    tracks.setdefault(key, queued)
+            # The colour review panel lists songs by playlist.
+            await self.playlists.async_replace(membership, partial=bool(wanted))
+            chosen = list(membership)
             todo = []
-            for track in tracks.values():
-                queued = _playlist_track(track)
-                key = track_key(queued.artist, queued.title, queued.album)
+            for key, queued in tracks.items():
                 entry = self.tracks.cache.find(key)
-                if entry is None or entry.cover is None:
+                if entry is None or (entry.cover is None and not entry.checked):
                     todo.append((key, queued))
             self._notify(
                 notify,
@@ -3297,7 +3326,7 @@ data:
                     else None
                 )
                 for key, queued in batch:
-                    info, cover = await asyncio.gather(
+                    info, (cover, checked) = await asyncio.gather(
                         self._gather_info(
                             queued.title,
                             queued.artist,
@@ -3308,13 +3337,77 @@ data:
                         ),
                         self._art_palette(queued.art_url),
                     )
-                    self.tracks.put(key, Entry(info, cover))
+                    self.tracks.put(key, Entry(info, cover, checked))
                     done += 1
                     await asyncio.sleep(PREPARE_PAUSE_SECONDS)
                 _LOGGER.info("Prepared %d of %d playlist songs", done, len(todo))
                 # Keep the progress if Home Assistant restarts mid-run.
                 await self.tracks.async_save()
             self._notify(notify, f"Prepared {done} songs from {len(chosen)} playlists.")
+
+        def playlist_names(self) -> list[dict[str, Any]]:
+            return [
+                {"name": name, "songs": len(songs)}
+                for name, songs in sorted(
+                    self.playlists.playlists.items(), key=lambda item: item[0].lower()
+                )
+            ]
+
+        def playlist_colours(self, name: str) -> list[dict[str, Any]] | None:
+            """What the lights would show for each song in a prepared playlist:
+            the strip gradient, the area colours and where the colour comes from."""
+            songs = self.playlists.playlists.get(name)
+            if songs is None:
+                return None
+            rows = []
+            for song in songs:
+                artist, title, album = song.key.split("\n", 2)
+                row: dict[str, Any] = {
+                    "key": song.key,
+                    "title": title,
+                    "artist": artist,
+                    "album": album,
+                    "art": song.art,
+                }
+                entry = self.tracks.cache.find(song.key)
+                pin = self.pins.pins.find(title, artist, album)
+                if entry is None and not (pin and pin.color):
+                    row["source"] = "pending"
+                    rows.append(row)
+                    continue
+                if entry is not None:
+                    natural, family, level = _natural(entry)
+                    row["family"] = family
+                    row["intensity"] = round(level, 2)
+                    row["genres"] = list(entry.info.genres[:3])
+                else:
+                    natural = vibe_palette()
+                pinned = named_palette(pin.color, "override") if pin and pin.color else None
+                palette = pinned or natural
+                row["source"] = (
+                    "pinned" if pinned else "cover" if natural.source == "cover" else "vibe"
+                )
+                row["pin"] = pin.color if pinned and pin else None
+                row["auto"] = to_hex(solid_colour(natural))
+                row["colour"] = to_hex(solid_colour(palette))
+                row["gradient"] = gradient(palette)
+                row["areas"] = [
+                    to_hex(rgb) for rgb in area_colors(palette, len(self.config.areas))
+                ]
+                rows.append(row)
+            return rows
+
+        @callback
+        def pin_song(self, title: str, artist: str, album: str, colour: str | None) -> None:
+            """Pin a colour to a song's album (or the song, without an album) from
+            the review panel, or None to unpin it."""
+            if colour is None:
+                self.pins.pins.unpin(title, artist, album)
+            else:
+                self.pins.pins.pin(title, artist, album, colour)
+            self.pins.save()
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            self._reapply()
 
         def _music_assistant(self) -> Any:
             for entry in self.hass.config_entries.async_entries("music_assistant"):
@@ -3339,20 +3432,22 @@ data:
                 )
             )
 
-        async def _queued_cover(self, queued: QueuedTrack) -> Palette | None:
+        async def _queued_cover(self, queued: QueuedTrack) -> tuple[Palette | None, bool]:
             return await self._art_palette(queued.art_url)
 
-        async def _art_palette(self, url: str | None) -> Palette | None:
+        async def _art_palette(self, url: str | None) -> tuple[Palette | None, bool]:
+            """The cover palette at url, and whether the art was decoded (so a
+            None palette means the cover has no usable colour)."""
             if not url:
-                return None
+                return None, False
             data = await self._download(url)
             if data is None:
-                return None
+                return None, False
             try:
-                return await self.hass.async_add_executor_job(_cover_palette, data)
+                return await self.hass.async_add_executor_job(_cover_palette, data), True
             except (OSError, ValueError) as error:
-                _LOGGER.debug("Next cover unreadable: %s", type(error).__name__)
-                return None
+                _LOGGER.debug("Cover unreadable: %s", type(error).__name__)
+                return None, False
 
         async def _spotify_queue(self) -> Any:
             """Spotify's queue for the account behind the Spotify player, with
@@ -3410,7 +3505,7 @@ data:
                 )
                 entry = Entry(info, cover)
                 self.tracks.put(key, entry)
-            elif entry.cover is None:
+            elif entry.cover is None and not entry.checked:
                 # A missed cover is not remembered: try again on replay.
                 entry = Entry(entry.info, await self._cover_for(key))
                 self.tracks.put(key, entry)
@@ -3419,25 +3514,12 @@ data:
                 if key not in self.tracks.cache.entries:
                     # Found under another spelling: remember this one too.
                     self.tracks.put(key, entry)
-            info, cover = entry.info, entry.cover
-            features = info.features()
-            family = classify(features)
-            level = intensity(features, family)
+            info = entry.info
+            palette, family, level = _natural(entry)
             # Colours come from pins (seeded from configured overrides); the
             # configured overrides still set effects.
             song = find_override(
                 tuple(o for o in self.config.overrides if o.effect), title, artist, album
-            )
-            palette = (
-                with_intensity(cover, level)
-                if cover
-                else vibe_palette(
-                    info.genres,
-                    info.energy,
-                    info.valence,
-                    tempo_level(info.bpm),
-                    level,
-                )
             )
             if song and song.effect:
                 effect = song.effect
@@ -3955,7 +4037,7 @@ data:
       "domain": "music_director",
       "name": "Music Director",
       "codeowners": ["@JEFF7712"],
-      "dependencies": ["http"],
+      "dependencies": ["frontend", "http", "panel_custom", "websocket_api"],
       "after_dependencies": ["spotify"],
       "documentation": "https://gitlab.com/JEFF7712/homelab",
       "integration_type": "service",
@@ -4908,6 +4990,517 @@ data:
 
     def to_hex(rgb: RGB) -> str:
         return "#{:02x}{:02x}{:02x}".format(*rgb)
+  component.music_director.panel.js: |
+    // Music Colours: review the colour each playlist song gets in Music Mode,
+    // and pin or unpin album colours. Served by music_director (panel.py).
+
+    const SOURCES = {
+      cover: "Cover",
+      vibe: "Genre & mood",
+      pinned: "Pinned",
+      pending: "Not prepared",
+    };
+    const FILTERS = ["all", "cover", "vibe", "pinned", "pending"];
+    const STORAGE_KEY = "music-colours-playlist";
+
+    function remembered() {
+      try {
+        return window.localStorage.getItem(STORAGE_KEY);
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    function remember(name) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, name);
+      } catch (_error) {
+        // Private windows and blocked storage: the choice is not kept.
+      }
+    }
+
+    function el(tag, attrs = {}, children = []) {
+      const node = document.createElement(tag);
+      for (const [key, value] of Object.entries(attrs)) {
+        if (key === "class") node.className = value;
+        else if (key === "text") node.textContent = value;
+        else if (key === "style") node.setAttribute("style", value);
+        else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+        else node.setAttribute(key, value);
+      }
+      for (const child of children) if (child) node.append(child);
+      return node;
+    }
+
+    const STYLE = `
+      :host {
+        display: block;
+        min-height: 100vh;
+        background: var(--primary-background-color);
+        color: var(--primary-text-color);
+        font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif);
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 56px;
+        padding: 0 12px;
+        background: var(--app-header-background-color, var(--primary-color));
+        color: var(--app-header-text-color, #fff);
+        font-size: 20px;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      select, input[type="search"] {
+        flex: 1 1 220px;
+        min-width: 0;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font-size: 15px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 8px 0 4px;
+      }
+      .chip {
+        padding: 6px 12px;
+        border-radius: 16px;
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .chip.on {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: var(--text-primary-color, #fff);
+      }
+      .note {
+        color: var(--secondary-text-color);
+        font-size: 13px;
+        margin: 8px 0 12px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 52px minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 12px;
+        background: var(--card-background-color);
+        box-shadow: var(--ha-card-box-shadow, none);
+      }
+      .art {
+        width: 52px;
+        height: 52px;
+        border-radius: 6px;
+        object-fit: cover;
+        background: var(--divider-color);
+      }
+      .text { min-width: 0; }
+      .title, .sub {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .title { font-weight: 500; }
+      .sub { color: var(--secondary-text-color); font-size: 13px; }
+      .strip {
+        height: 10px;
+        border-radius: 5px;
+        margin-top: 6px;
+        background: var(--divider-color);
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 1px solid rgba(127, 127, 127, 0.4);
+      }
+      .badge {
+        padding: 1px 8px;
+        border-radius: 10px;
+        border: 1px solid var(--divider-color);
+      }
+      .badge.pinned { border-color: var(--primary-color); color: var(--primary-color); }
+      .actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+      }
+      .pick {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      input[type="color"] {
+        width: 36px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        background: none;
+        cursor: pointer;
+      }
+      button.unpin {
+        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--divider-color);
+        background: transparent;
+        color: var(--primary-text-color);
+        cursor: pointer;
+      }
+      .empty { padding: 32px 0; text-align: center; color: var(--secondary-text-color); }
+      @media (max-width: 600px) {
+        main { padding: 12px 16px; }
+        .row { grid-template-columns: 44px minmax(0, 1fr); }
+        .art { width: 44px; height: 44px; }
+        .actions {
+          grid-column: 1 / -1;
+          flex-direction: row;
+          justify-content: flex-end;
+        }
+      }
+    `;
+
+    class MusicColoursPanel extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: "open" });
+        this._playlists = [];
+        this._playlist = null;
+        this._songs = [];
+        this._filter = "all";
+        this._query = "";
+        this._status = "Loading playlists…";
+        this._started = false;
+      }
+
+      set hass(hass) {
+        this._hass = hass;
+        if (this._menu) this._menu.hass = hass;
+        if (!this._started) {
+          this._started = true;
+          this._build();
+          this._loadPlaylists();
+        }
+      }
+
+      set narrow(narrow) {
+        this._narrow = narrow;
+        if (this._menu) this._menu.narrow = narrow;
+      }
+
+      _build() {
+        const root = this.shadowRoot;
+        root.append(el("style", { text: STYLE }));
+        this._menu = document.createElement("ha-menu-button");
+        this._menu.hass = this._hass;
+        this._menu.narrow = this._narrow;
+        root.append(el("div", { class: "toolbar" }, [this._menu, el("span", { text: "Music Colours" })]));
+        this._select = el("select", {
+          "aria-label": "Playlist",
+          onchange: (event) => this._loadPlaylist(event.target.value),
+        });
+        this._search = el("input", {
+          type: "search",
+          placeholder: "Search songs, artists, albums",
+          "aria-label": "Search",
+          oninput: (event) => {
+            this._query = event.target.value.trim().toLowerCase();
+            this._renderSongs();
+          },
+        });
+        this._chips = el("div", { class: "chips" });
+        this._summary = el("div", { class: "note" });
+        this._list = el("div");
+        root.append(
+          el("main", {}, [
+            el("div", { class: "controls" }, [this._select, this._search]),
+            this._chips,
+            this._summary,
+            this._list,
+          ]),
+        );
+        this._renderSongs();
+      }
+
+      async _loadPlaylists() {
+        try {
+          this._playlists = await this._hass.callWS({ type: "music_director/playlists" });
+        } catch (error) {
+          this._status = `Could not load playlists: ${error.message || error}`;
+          this._renderSongs();
+          return;
+        }
+        this._select.replaceChildren(
+          ...this._playlists.map((p) => el("option", { value: p.name, text: `${p.name} (${p.songs})` })),
+        );
+        if (!this._playlists.length) {
+          this._status = "No playlists prepared yet. Run music_director.prepare_playlists.";
+          this._renderSongs();
+          return;
+        }
+        const saved = remembered();
+        const first = this._playlists.some((p) => p.name === saved) ? saved : this._playlists[0].name;
+        this._select.value = first;
+        this._loadPlaylist(first);
+      }
+
+      async _loadPlaylist(name) {
+        this._playlist = name;
+        remember(name);
+        this._status = "Loading songs…";
+        this._songs = [];
+        this._renderSongs();
+        try {
+          this._songs = await this._hass.callWS({ type: "music_director/playlist", name });
+          this._status = "";
+        } catch (error) {
+          this._status = `Could not load ${name}: ${error.message || error}`;
+        }
+        this._renderSongs();
+      }
+
+      async _pin(song, colour) {
+        try {
+          await this._hass.callWS({
+            type: "music_director/pin",
+            title: song.title,
+            artist: song.artist,
+            album: song.album,
+            colour,
+          });
+        } catch (error) {
+          window.alert(`Could not change the pin: ${error.message || error}`);
+          return;
+        }
+        // A pin covers the whole album, so other rows can change too.
+        const scroll = window.scrollY;
+        await this._loadPlaylist(this._playlist);
+        window.scrollTo(0, scroll);
+      }
+
+      _counts() {
+        const counts = { all: this._songs.length, cover: 0, vibe: 0, pinned: 0, pending: 0 };
+        for (const song of this._songs) counts[song.source] = (counts[song.source] || 0) + 1;
+        return counts;
+      }
+
+      _renderSongs() {
+        if (!this._list) return;
+        const counts = this._counts();
+        this._chips.replaceChildren(
+          ...FILTERS.filter((f) => f === "all" || counts[f]).map((f) =>
+            el("button", {
+              class: `chip${this._filter === f ? " on" : ""}`,
+              text: `${f === "all" ? "All" : SOURCES[f]} ${counts[f] || 0}`,
+              onclick: () => {
+                this._filter = f;
+                this._renderSongs();
+              },
+            }),
+          ),
+        );
+        this._summary.textContent = this._songs.length
+          ? "The bar is the LED strip; the dots are the room lights. Pins apply to the whole " +
+            "album and override the automatic colour; unpin to go back to automatic."
+          : "";
+        if (this._status) {
+          this._list.replaceChildren(el("div", { class: "empty", text: this._status }));
+          return;
+        }
+        const query = this._query;
+        const shown = this._songs.filter(
+          (song) =>
+            (this._filter === "all" || song.source === this._filter) &&
+            (!query || `${song.title} ${song.artist} ${song.album}`.toLowerCase().includes(query)),
+        );
+        if (!shown.length) {
+          this._list.replaceChildren(el("div", { class: "empty", text: "No matching songs." }));
+          return;
+        }
+        this._list.replaceChildren(...shown.map((song) => this._row(song)));
+      }
+
+      _row(song) {
+        const art = song.art
+          ? el("img", {
+              class: "art",
+              src: song.art,
+              alt: "",
+              loading: "lazy",
+              referrerpolicy: "no-referrer",
+            })
+          : el("div", { class: "art" });
+        const meta = el("div", { class: "meta" }, [
+          el("span", { class: `badge ${song.source}`, text: SOURCES[song.source] || song.source }),
+          ...(song.areas || []).map((hex) => el("span", { class: "dot", style: `background:${hex}`, title: hex })),
+          song.genres && song.genres.length ? el("span", { text: song.genres.join(", ") }) : null,
+          song.intensity !== undefined ? el("span", { text: `intensity ${Math.round(song.intensity * 100)}%` }) : null,
+        ]);
+        const text = el("div", { class: "text" }, [
+          el("div", { class: "title", text: song.title }),
+          el("div", { class: "sub", text: `${song.artist} · ${song.album}` }),
+          el("div", { class: "strip", style: song.gradient ? `background:${song.gradient}` : "" }),
+          meta,
+        ]);
+        const picker = el("input", {
+          type: "color",
+          value: song.colour || "#ff0000",
+          "aria-label": `Pin a colour for ${song.album || song.title}`,
+          onchange: (event) => this._pin(song, event.target.value),
+        });
+        const actions = el("div", { class: "actions" }, [
+          el("label", { class: "pick" }, [el("span", { text: song.pin ? "Pinned" : "Pin" }), picker]),
+          song.pin
+            ? el("button", {
+                class: "unpin",
+                text: "Unpin",
+                onclick: () => this._pin(song, null),
+              })
+            : null,
+        ]);
+        return el("div", { class: "row" }, [art, text, actions]);
+      }
+    }
+
+    if (!customElements.get("music-colours-panel")) {
+      customElements.define("music-colours-panel", MusicColoursPanel);
+    }
+  component.music_director.panel.py: |
+    """Music Colours: a sidebar panel to review and pin playlist song colours.
+
+    The panel (panel.js, served from this directory) talks to the director over
+    three websocket commands: list the prepared playlists, list one playlist's
+    songs with the colours the lights would show, and pin or unpin a colour.
+    """
+
+    from __future__ import annotations
+
+    import hashlib
+    from pathlib import Path
+    from typing import Any
+
+    import voluptuous as vol
+    from homeassistant.components import panel_custom, websocket_api
+    from homeassistant.components.http import StaticPathConfig
+    from homeassistant.core import HomeAssistant, callback
+
+    from .director import DOMAIN, Director
+    from .palette import hex_rgb
+
+    PANEL_FILE = Path(__file__).parent / "panel.js"
+    STATIC_URL = "/music_director_static/panel.js"
+    PANEL_PATH = "music-colours"
+    ELEMENT = "music-colours-panel"
+
+
+    def _director(hass: HomeAssistant) -> Director:
+        return hass.data[DOMAIN]
+
+
+    def _hex(value: Any) -> str:
+        if hex_rgb(str(value)) is None:
+            raise vol.Invalid(f"not a #RRGGBB colour: {value!r}")
+        return str(value).lower()
+
+
+    @websocket_api.websocket_command({vol.Required("type"): "music_director/playlists"})
+    @callback
+    def ws_playlists(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+    ) -> None:
+        connection.send_result(msg["id"], _director(hass).playlist_names())
+
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): "music_director/playlist",
+            vol.Required("name"): str,
+        }
+    )
+    @callback
+    def ws_playlist(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+    ) -> None:
+        rows = _director(hass).playlist_colours(msg["name"])
+        if rows is None:
+            connection.send_error(msg["id"], "not_found", "No such prepared playlist")
+            return
+        connection.send_result(msg["id"], rows)
+
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): "music_director/pin",
+            vol.Required("title"): str,
+            vol.Required("artist"): str,
+            vol.Required("album"): str,
+            # A #RRGGBB colour, or null to unpin.
+            vol.Required("colour"): vol.Any(None, _hex),
+        }
+    )
+    @callback
+    def ws_pin(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+    ) -> None:
+        _director(hass).pin_song(msg["title"], msg["artist"], msg["album"], msg["colour"])
+        connection.send_result(msg["id"])
+
+
+    async def async_setup_panel(hass: HomeAssistant) -> None:
+        for command in (ws_playlists, ws_playlist, ws_pin):
+            websocket_api.async_register_command(hass, command)
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(STATIC_URL, str(PANEL_FILE), False)]
+        )
+        # The version busts the browser cache when the panel changes.
+        version = hashlib.sha256(
+            await hass.async_add_executor_job(PANEL_FILE.read_bytes)
+        ).hexdigest()[:12]
+        await panel_custom.async_register_panel(
+            hass,
+            frontend_url_path=PANEL_PATH,
+            webcomponent_name=ELEMENT,
+            sidebar_title="Music Colours",
+            sidebar_icon="mdi:palette-swatch",
+            module_url=f"{STATIC_URL}?v={version}",
+            require_admin=False,
+        )
   component.music_director.pins.py: |
     """Album colour pins: song overrides set from the dashboard.
 
@@ -5472,6 +6065,7 @@ data:
     from .palette import Palette
 
     CACHE_STORAGE_KEY = "music_director.tracks"
+    PLAYLIST_STORAGE_KEY = "music_director.playlists"
     CACHE_STORAGE_VERSION = 1
     # Room for every song in the library's playlists (about 7,500 in 2026-11).
     CACHE_SIZE = 10000
@@ -5499,6 +6093,9 @@ data:
     class Entry:
         info: TrackInfo
         cover: Palette | None
+        # The cover art was decoded: no cover means it has no usable colour,
+        # not that the download failed, so it is not looked up again.
+        checked: bool = False
 
 
     def _info_from(data: dict[str, Any]) -> TrackInfo:
@@ -5550,6 +6147,7 @@ data:
             self._stored[key] = stored or {
                 "info": asdict(entry.info),
                 "cover": None if entry.cover is None else asdict(entry.cover),
+                "checked": entry.checked,
             }
             while len(self.entries) > self.size:
                 old, _ = self.entries.popitem(last=False)
@@ -5597,7 +6195,11 @@ data:
                 if not isinstance(key, str) or key.count("\n") != 2:
                     continue
                 try:
-                    entry = Entry(_info_from(item["info"]), _palette_from(item["cover"]))
+                    entry = Entry(
+                        _info_from(item["info"]),
+                        _palette_from(item["cover"]),
+                        bool(item.get("checked")),
+                    )
                 except (KeyError, TypeError, ValueError):
                     continue
                 self.put(key, entry, item)
@@ -5630,3 +6232,46 @@ data:
             """Write now; delayed saves wait for a quiet spell, which a long
             batch of puts never leaves."""
             await self._storage.async_save(self.cache.to_data())
+
+
+    @dataclass(frozen=True)
+    class PlaylistSong:
+        key: str
+        art: str | None
+
+
+    class PlaylistStore:
+        """Which songs each prepared playlist holds, for the colour review panel."""
+
+        def __init__(self, storage: CacheStorage) -> None:
+            self._storage = storage
+            self.playlists: dict[str, list[PlaylistSong]] = {}
+
+        async def async_load(self) -> None:
+            data = await self._storage.async_load()
+            self.playlists = {}
+            if not isinstance(data, dict):
+                return
+            for name, songs in data.items():
+                if isinstance(name, str) and isinstance(songs, list):
+                    self.playlists[name] = [
+                        PlaylistSong(song[0], song[1])
+                        for song in songs
+                        if isinstance(song, list)
+                        and len(song) == 2
+                        and isinstance(song[0], str)
+                        and song[0].count("\n") == 2
+                    ]
+
+        async def async_replace(
+            self, playlists: dict[str, list[PlaylistSong]], partial: bool
+        ) -> None:
+            """Store a run's playlists: all of them (dropping deleted ones), or
+            with partial, only the named ones."""
+            self.playlists = {**self.playlists, **playlists} if partial else playlists
+            await self._storage.async_save(
+                {
+                    name: [[song.key, song.art] for song in songs]
+                    for name, songs in self.playlists.items()
+                }
+            )
