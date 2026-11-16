@@ -31,22 +31,42 @@ class ZfsPoolSpaceAlertTests(unittest.TestCase):
         assert len(cls.rules) == 3
 
     def check_case(
-        self, used_gb: dict[str, int], avail_gb: int, warning: bool, critical: bool
+        self,
+        used_gb: dict[str, int],
+        avail_gb: int,
+        warning: bool,
+        critical: bool,
+        mounts: dict[str, int] | None = None,
     ) -> None:
         series = []
         for device, used in {**used_gb, "tank/media@daily": 9_999}.items():
-            labels = f'job="nas-01-node",fstype="zfs",device="{device}"'
-            size = (used + avail_gb) * GB
-            series += [
-                {
-                    "series": f"node_filesystem_size_bytes{{{labels}}}",
-                    "values": f"{size}+0x30",
-                },
-                {
-                    "series": f"node_filesystem_avail_bytes{{{labels}}}",
-                    "values": f"{avail_gb * GB}+0x30",
-                },
-            ]
+            for mount in range((mounts or {}).get(device, 1)):
+                series += self.dataset_series(device, mount, used, avail_gb)
+        self.run_promtool(series, warning, critical)
+
+    @staticmethod
+    def dataset_series(
+        device: str, mount: int, used: int, avail_gb: int
+    ) -> list[dict[str, str]]:
+        labels = (
+            f'job="nas-01-node",fstype="zfs",device="{device}",'
+            f'mountpoint="/{device}/{mount}"'
+        )
+        size = (used + avail_gb) * GB
+        return [
+            {
+                "series": f"node_filesystem_size_bytes{{{labels}}}",
+                "values": f"{size}+0x30",
+            },
+            {
+                "series": f"node_filesystem_avail_bytes{{{labels}}}",
+                "values": f"{avail_gb * GB}+0x30",
+            },
+        ]
+
+    def run_promtool(
+        self, series: list[dict[str, str]], warning: bool, critical: bool
+    ) -> None:
         expected = {"zpool": "tank"}
         cases = [
             {
@@ -108,6 +128,23 @@ class ZfsPoolSpaceAlertTests(unittest.TestCase):
     def test_snapshot_mounts_do_not_count_as_usage(self) -> None:
         self.check_case(
             {"tank/media": 700}, avail_gb=300, warning=False, critical=False
+        )
+
+    def test_bind_mounted_dataset_counts_once(self) -> None:
+        # 2026-11-16 zroot: persist is bind-mounted 12 times. Counted once it
+        # is 77.5% used; summing every mount reported 94% and paged critical.
+        self.check_case(
+            {
+                "tank/persist": 60,
+                "tank/attic": 70,
+                "tank/nix-cache": 35,
+                "tank/nix": 9,
+                "tank/log": 3,
+            },
+            avail_gb=51,
+            warning=False,
+            critical=False,
+            mounts={"tank/persist": 12, "tank/nix": 2},
         )
 
 

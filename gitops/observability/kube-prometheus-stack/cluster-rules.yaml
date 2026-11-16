@@ -184,21 +184,26 @@ spec:
         # node_exporter exports no zpool alloc/free gauges here, so derive pool
         # usage from its datasets: avail is pool-wide and size - avail is each
         # dataset's referenced data. Snapshot space is invisible, so this
-        # understates usage.
+        # understates usage. Impermanence bind-mounts one dataset at many
+        # paths, so take each device once before summing.
         - record: zpool:used:percent
           expr: |
             100 * sum by (zpool) (
               label_replace(
-                node_filesystem_size_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"}
-                - node_filesystem_avail_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"},
+                max by (device) (
+                  node_filesystem_size_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"}
+                  - node_filesystem_avail_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"}
+                ),
                 "zpool", "$1", "device", "([^/]+).*"
               )
             )
             / (
               sum by (zpool) (
                 label_replace(
-                  node_filesystem_size_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"}
-                  - node_filesystem_avail_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"},
+                  max by (device) (
+                    node_filesystem_size_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"}
+                    - node_filesystem_avail_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"}
+                  ),
                   "zpool", "$1", "device", "([^/]+).*"
                 )
               )
