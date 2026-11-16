@@ -128,11 +128,11 @@
     };
     # Bulk media is replaceable; snapshots only cover recent mistakes. Unset
     # periods fall back to sanoid's defaults (48 hourly, 6 monthly), which
-    # pinned months of replaced files. Temporarily keep one daily so autoprune
-    # releases the 2026-11-14 beets retag; restore daily = 7 afterwards.
+    # pinned months of replaced files and, with a full-library beets retag,
+    # nearly filled tank on 2026-11-15.
     templates.media = {
       hourly = 0;
-      daily = 1;
+      daily = 7;
       monthly = 0;
       autosnap = true;
       autoprune = true;
