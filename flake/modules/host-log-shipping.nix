@@ -7,6 +7,7 @@
 {
   config,
   lib,
+  fleetInventory,
   ...
 }:
 let
@@ -33,6 +34,22 @@ in
       # loki-push LoadBalancer VIP (gitops/observability/loki/push-service.yaml).
       default = "10.0.40.17";
       description = "IPv4 address of the Loki push endpoint; the unit may connect only here.";
+    };
+
+    lokiNextHops = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      # The k3s servers: they peer BGP and each runs one loki-gateway replica
+      # (gitops/observability/loki/release.yaml).
+      default = map (name: fleetInventory.hosts.${name}.address) [
+        "homelab-01"
+        "homelab-02"
+        "homelab-03"
+      ];
+      description = ''
+        Nodes the push VIP is routed to directly on the shared VLAN. Through
+        OPNsense the path is asymmetric (the node answers on the VLAN), pf
+        never sees the replies and stalls each TCP stream after about 64 KB.
+      '';
     };
 
     lokiUrl = lib.mkOption {
@@ -90,6 +107,22 @@ in
         "--storage.path=/var/lib/alloy/data"
         "--disable-reporting"
       ];
+    };
+
+    # Equal-cost route to the push VIP across the gateway nodes, hashed per
+    # connection, skipping a node whose neighbour entry has failed. Both
+    # hosts name their primary network "30-infrastructure".
+    systemd.network.networks."30-infrastructure".routes = [
+      {
+        Destination = "${cfg.lokiAddress}/32";
+        MultiPathRoute = map (
+          hop: "${hop}@${config.systemd.network.networks."30-infrastructure".matchConfig.Name} 1"
+        ) cfg.lokiNextHops;
+      }
+    ];
+    boot.kernel.sysctl = {
+      "net.ipv4.fib_multipath_hash_policy" = 1;
+      "net.ipv4.fib_multipath_use_neigh" = 1;
     };
 
     environment.etc."alloy/config.alloy".text = ''

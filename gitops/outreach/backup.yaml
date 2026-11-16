@@ -1,0 +1,89 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: outreach-backup-secrets
+  namespace: automation
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-automation
+  target:
+    name: outreach-backup-secrets
+    creationPolicy: Owner
+  data:
+    - secretKey: AWS_ACCESS_KEY_ID
+      remoteRef:
+        key: homelab-automation-values
+        property: R2_ACCESS_KEY_ID
+    - secretKey: AWS_SECRET_ACCESS_KEY
+      remoteRef:
+        key: homelab-automation-values
+        property: R2_SECRET_ACCESS_KEY
+    - secretKey: RESTIC_PASSWORD
+      remoteRef:
+        key: homelab-automation-values
+        property: RESTIC_PASSWORD
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: outreach-backup
+  namespace: automation
+spec:
+  schedule: '25 3 * * *'
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 900
+      template:
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: restic
+              image: registry.rupan.dev/upstream/docker.io/restic/restic@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510  # yamllint disable-line rule:line-length
+              envFrom:
+                - secretRef: {name: outreach-backup-secrets}
+              env:
+                - name: RESTIC_REPOSITORY
+                  value: >-
+                    s3:https://5d99d63dea23dde67ccb07e5dfb31107.r2.cloudflarestorage.com/homelab-longhorn-backup/restic-outreach
+                - {name: AWS_DEFAULT_REGION, value: us-east-1}
+                - {name: HOME, value: /tmp}
+              command: [/bin/sh, -ec]
+              args:
+                - |
+                  test -s /state/snapshots/latest.tar
+                  restic cat config >/dev/null 2>&1 || restic init
+                  restic backup --host homelab-outreach /state/snapshots/latest.tar
+                  restic check
+                  restic restore latest --target /tmp/restore
+                  sha256sum /tmp/restore/state/snapshots/latest.tar
+              resources:
+                requests: {cpu: 100m, memory: 128Mi}
+                limits: {cpu: '1', memory: 512Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - {name: state, mountPath: /state, readOnly: true}
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+            - name: state
+              persistentVolumeClaim: {claimName: outreach-state, readOnly: true}
+            - name: tmp
+              emptyDir: {sizeLimit: 256Mi}
