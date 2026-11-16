@@ -10,9 +10,23 @@ layout, an operator-only catalog operation, and a saved OpenTofu plan with
 persistent-data deletion, management-connectivity loss or bulk destruction
 wait here for a passkey.
 An agent running `just ship --deploy <ops>` without an operator token files a
-request, prints its link, and waits. ntfy pushes the same link. Approving
-asks for the operator's passkey; the dashboard then triggers the deployment
-as the operator and `ship` follows the pipeline.
+request, prints its link, and waits. ntfy pushes the same link when a passkey
+is needed. The request kind determines what approval authorizes:
+
+| Kind | Approval covers | Effect of main advancing |
+| --- | --- | --- |
+| `grant` | Exact protected file versions, identified by a content digest | Unrelated commits preserve approval; changed covered content needs a new grant |
+| `merge` | A PR head, with carryover for an unchanged gated diff | Main advancing alone does not invalidate approval |
+| `deploy` | An operator-triggered operation against a particular pipeline and commit | A pending request for an older main commit is superseded |
+
+Protected-file grants last 24 hours. Approved merges can cover deployment
+grants for the same file versions without another passkey. Operator-only
+operations and saved-plan risks use `deploy` requests instead.
+
+Deployment freshness and approval validity are separate checks. `ship` may
+retry validation and prerequisites on newer main while retaining an
+exact-content grant. A "main moved" retry does not itself mean another
+passkey is needed; inspect the request kind and protected content.
 
 ## Design
 
@@ -29,7 +43,7 @@ as the operator and `ship` follows the pipeline.
   enrolled passkey, made on the public origin against a single-use challenge
   bound to that request. An agent driving the operator's browser can click
   Approve but cannot produce the assertion. A request triggers at most once.
-- **Execution:** the service holds the operator's Woodpecker token and calls
+- **Deployment requests (`deploy` only):** the service holds the operator's Woodpecker token and calls
   the same deployment endpoint the Woodpecker UI does. CI's deployment policy
   still checks the operator identity, the current main commit and the parent
   pipeline, so a request approved after main moved fails rather than

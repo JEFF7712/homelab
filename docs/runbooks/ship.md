@@ -138,6 +138,11 @@ Pass `--deploy <ops>` to recover only selected operations. Source validation mus
 pass, but unrelated failed main-pipeline operations do not block deployment.
 Required operation prerequisites and exact source/artifact checks still apply.
 Main advancing triggers revalidation and a retry within the overall deadline.
+This refreshes execution inputs, not exact-content approvals: unrelated
+commits do not invalidate protected-file grants or merge approvals. Only
+operator-triggered `deploy` requests are superseded by main advancing;
+covered file changes or grant expiry can require a new content approval.
+See [approval request kinds](approvals.md).
 
 The Woodpecker policy service on homelab-04 runs the policy and operation
 catalog from its deployed NixOS generation, not from main. A merged change
