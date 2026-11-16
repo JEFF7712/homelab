@@ -26,8 +26,11 @@ class AccessChecksTest(unittest.TestCase):
 
     def test_reports_each_failure_with_a_remedy_and_never_the_secret(self) -> None:
         recipient = "age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl"
+        ssh_targets = []
 
         def runner(command, timeout):
+            if command[0] == "ssh":
+                ssh_targets.append(command[-2])
             if command[0] == "age-keygen":
                 return 0, recipient
             if command[0] == "ssh" and command[-2].endswith(".13"):
@@ -55,6 +58,11 @@ class AccessChecksTest(unittest.TestCase):
         self.assertEqual(by_name["access:ssh:homelab-02"]["status"], "pass")
         self.assertEqual(by_name["access:registry-observed-snapshot"]["status"], "pass")
         self.assertNotIn("AGE-SECRET-KEY", json.dumps(checks))
+        # Agents reach hosts only through the read-only observer account.
+        self.assertEqual(
+            sorted(ssh_targets),
+            ["agent-observer@10.0.30.12", "agent-observer@10.0.30.13"],
+        )
 
 
 def json_time(root: Path) -> float:

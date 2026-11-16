@@ -62,4 +62,4 @@ Handoffs and merge requests state changes, verification results, and limitations
 
 ## Infrastructure Changes
 
-Keep secrets SOPS-encrypted and preserve TLS verification. Before deployment, verify target identity, review the plan, and identify recovery. Use CI for OpenTofu and OPNsense changes and Flux for Kubernetes. Verify live state after authorized deployment.
+Agents reach fleet hosts over SSH only as the read-only `agent-observer` account (journal, unit states, files; no sudo). Anything needing root goes through CI operations (`just ship --deploy <op>`) or the operator. Keep secrets SOPS-encrypted and preserve TLS verification. Before deployment, verify target identity, review the plan, and identify recovery. Use CI for OpenTofu and OPNsense changes and Flux for Kubernetes. Verify live state after authorized deployment.
