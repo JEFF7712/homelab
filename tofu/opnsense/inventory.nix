@@ -1357,27 +1357,8 @@
       };
     };
     portForwards = {
-      wan-monero-p2p = {
-        description = "WAN Monero P2P to homelab 04";
-        enabled = true;
-        sequence = 100;
-        interface = [ "wan" ];
-        ip_protocol = "inet";
-        protocol = "tcp";
-        log = false;
-        nat_reflection = "default";
-        source = {
-          net = "any";
-        };
-        destination = {
-          net = "wanip";
-          port = "18080";
-        };
-        target = {
-          ip = fleetInventory.hosts.homelab-04.address;
-          port = "18080";
-        };
-      };
+      # No Monero P2P forward: the building's upstream router never passes
+      # WAN 18080, and monerod takes inbound peers through its onion service.
       wan-netbird-wireguard = {
         description = "WAN NetBird WireGuard to adguard netbird 01";
         enabled = true;
