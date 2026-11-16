@@ -570,6 +570,14 @@ giving an operator token to the agent. Never commit tokens.
 
 ## Recovery
 
+An idle `repository-contract` build can be a blocked test cleanup rather than
+an OOM. Pipeline #15720 stalled with a fake Forgejo server in `accept()` and
+its test waiting in `shutdown()`. A closed `QuestionBroker` had left its accept
+thread alive, allowing it to consume a connection after the descriptor was
+reused. Broker shutdown must wake and join that thread before closing its
+listening socket. Capture the worker stacks and cgroup OOM counters before
+retrying a run with this symptom; quiet buffered logs alone do not identify it.
+
 A pipeline can fail before posting a validation status. Read its API `errors`
 field when no workflows exist: connection refused at `127.0.0.1:8010/config`
 points to `woodpecker-policy.service` on homelab-04. If configuration succeeds

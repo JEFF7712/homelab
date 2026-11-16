@@ -25,6 +25,8 @@ Fetch = Callable[[str, dict[str, str]], int]
 
 WOODPECKER = "http://ci.internal:8000"
 OBSERVED_STALE_SECONDS = 7 * 24 * 3600
+# Agents reach fleet hosts only as this read-only account (common-base.nix).
+OBSERVER_USER = "agent-observer"
 
 
 def run(command: Sequence[str], timeout: float) -> tuple[int, str]:
@@ -182,7 +184,7 @@ def access_checks(
                 "BatchMode=yes",
                 "-o",
                 "ConnectTimeout=5",
-                f"rupan@{address}",
+                f"{OBSERVER_USER}@{address}",
                 "true",
             ],
             10,
@@ -192,7 +194,7 @@ def access_checks(
                 f"ssh:{name}",
                 code == 0,
                 address if code == 0 else output[-200:],
-                f"check reachability and authorized keys for {name}",
+                f"check reachability and the {OBSERVER_USER} authorized key for {name}",
             )
         )
 
