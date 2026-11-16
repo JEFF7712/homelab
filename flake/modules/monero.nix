@@ -363,19 +363,15 @@ in
         RestartSec = "30s";
         # Additions to the upstream sandbox, which already sets
         # ProtectProc=invisible. MemoryDenyWriteExecute stays off: RandomX
-        # JIT-compiles into writable+executable pages. AF_NETLINK is dropped:
-        # glibc's getaddrinfo falls back when its netlink interface probe
-        # fails, and monerod has no other use for it. @resources stays
+        # JIT-compiles into writable+executable pages. @resources stays
         # allowed: monerod calls sched_setscheduler (in @resources) during
-        # startup and was killed with SIGSYS when it was denied.
+        # startup and was killed with SIGSYS when it was denied. The upstream
+        # RestrictAddressFamilies keeps AF_NETLINK: without it the ZMQ RPC
+        # interface resolver aborts monerod at startup.
         SystemCallArchitectures = "native";
         SystemCallFilter = lib.mkForce [
           "@system-service"
           "~@privileged"
-        ];
-        RestrictAddressFamilies = lib.mkForce [
-          "AF_INET"
-          "AF_INET6"
         ];
       };
     };

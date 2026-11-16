@@ -238,7 +238,8 @@ class MoneroModuleTests(unittest.TestCase):
         self.assertEqual(
             service["SystemCallFilter"], ["@system-service", "~@privileged"]
         )
-        self.assertEqual(service["RestrictAddressFamilies"], ["AF_INET", "AF_INET6"])
+        # ZMQ RPC aborts monerod without netlink.
+        self.assertIn("AF_NETLINK", service["RestrictAddressFamilies"])
         self.assertEqual(service["ProtectProc"], "invisible")
         self.assertEqual(service["CapabilityBoundingSet"], "")
         self.assertTrue(service["NoNewPrivileges"])
