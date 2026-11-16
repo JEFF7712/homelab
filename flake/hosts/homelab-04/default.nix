@@ -138,6 +138,9 @@ in
 
   homelab.monero.enable = true;
   homelab.monero.tor.enable = true;
+  # The building's upstream router never forwards WAN 18080, so clearnet
+  # inbound cannot arrive; peers reach the node through the onion listener.
+  homelab.monero.openP2P = false;
   environment.persistence."/persist".directories = [ "/var/lib/tor" ];
   # monerod peaked at about 1 GiB, mostly reclaimable LMDB pages; the 8G
   # default left that room to CI. Tor runs in its own unit.
