@@ -95,6 +95,17 @@ spec:
       # while the gateway runs on one of them.
       nodeSelector:
         node-role.kubernetes.io/control-plane: "true"
+      nginxConfig:
+        # The gateway also proxies Loki's delete, flush and rules APIs. The
+        # two hosts admitted by push-policy.yaml may only push logs; every
+        # other request from them gets 403. Pods (10.42.0.0/16) are not
+        # matched. This is here rather than as a Cilium HTTP rule because
+        # Cilium's L7 proxy never answered the LoadBalancer traffic.
+        serverSnippet: |
+          set $loki_push_request "$remote_addr $request_method $uri";
+          if ($loki_push_request ~ "^10\.0\.30\.(10|20) (?!POST /loki/api/v1/push$)") {
+            return 403;
+          }
     singleBinary:
       replicas: 1
       # The store is the static local claim in local-storage.yaml (homelab-05

@@ -200,7 +200,9 @@ class PushPolicyTests(unittest.TestCase):
         self.assertEqual(expected, {"10.0.30.20/32", "10.0.30.10/32"})
         (port,) = rule["toPorts"]
         self.assertEqual(port["ports"], [{"port": "8080", "protocol": "TCP"}])
-        self.assertEqual(port["rules"]["http"], [{"method": "POST", "path": PUSH_PATH}])
+        # Cilium's L7 proxy never answered the LoadBalancer SYNs; the
+        # push-only restriction lives in the gateway's nginx instead.
+        self.assertNotIn("rules", port)
 
     def test_in_cluster_access_is_the_observability_namespace_only(self) -> None:
         policy = load(PUSH_POLICY)
@@ -244,6 +246,31 @@ class PushPolicyTests(unittest.TestCase):
             )
         ]
         self.assertEqual(users, [PUSH_SERVICE])
+
+    def test_gateway_limits_the_shipping_hosts_to_pushes(self) -> None:
+        snippet = load(LOKI_RELEASE)["spec"]["values"]["gateway"]["nginxConfig"][
+            "serverSnippet"
+        ]
+        match = re.search(r'if \(\$loki_push_request ~ "(.+)"\)', snippet)
+        assert match is not None
+        self.assertIn(
+            'set $loki_push_request "$remote_addr $request_method $uri";', snippet
+        )
+        self.assertIn("return 403;", snippet)
+        # nginx uses PCRE; Python's re has the same lookahead semantics.
+        denied = re.compile(match.group(1))
+        for ip in non_cluster_hosts().values():
+            self.assertIsNone(denied.search(f"{ip} POST {PUSH_PATH}"))
+            for request in (
+                "GET /loki/api/v1/query_range",
+                "POST /loki/api/v1/delete",
+                "POST /flush",
+                f"GET {PUSH_PATH}",
+                f"POST {PUSH_PATH}/x",
+            ):
+                self.assertIsNotNone(denied.search(f"{ip} {request}"), request)
+        self.assertIsNone(denied.search("10.42.2.5 GET /loki/api/v1/query_range"))
+        self.assertIsNone(denied.search("10.0.30.100 GET /loki/api/v1/query_range"))
 
     def test_gateway_runs_on_bgp_peers(self) -> None:
         values = load(LOKI_RELEASE)["spec"]["values"]
