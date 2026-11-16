@@ -270,9 +270,17 @@ topk(15, delta(homelab_path_disk_usage_bytes{job="homelab-04-node"}[1d]))
 
 Persistent data is not collected by policy: the Monero chain, agent workspace
 disk images (qcow2 without discard, so they grow to their virtual size),
-Woodpecker's database and its daily dumps in `/persist/woodpecker/backups`
-(14 days of full copies), and platform backup state. Retention changes for
-those are the operator's decision.
+Woodpecker's database and platform backup state. Retention changes for those
+are the operator's decision.
+
+`woodpecker-backup-dump` (`flake/modules/woodpecker-backup-source.nix`) keeps
+the 3 newest daily dumps in `/persist/woodpecker/backups`
+(`RETAINED_DUMPS`, about 7.5 GiB each), approved by the operator on
+2026-11-16. Retention counts dumps, not days, so missed days never delete the
+last good copy; the pruning runs only after a new dump succeeded. Older copies
+remain off-host: the hourly `platform-backup` ships the live database to R2
+and the nightly external backup on `adguard-netbird-01` keeps restic history
+of this directory, reading the newest dump from `backup-manifest.json`.
 
 ## Acceptance
 
