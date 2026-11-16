@@ -67,6 +67,8 @@ in
       };
     };
     systemd.services.sway-tty1.after = [ "workshop-display.service" ];
+    # Chromium loads the page once at boot; restart the session when it changes.
+    systemd.services.sway-tty1.restartTriggers = [ ./workshop-display/display.html ];
     services.avahi = {
       enable = true;
       # Publish the workshop on the physical LAN, not Docker, Cilium or VM bridges.
