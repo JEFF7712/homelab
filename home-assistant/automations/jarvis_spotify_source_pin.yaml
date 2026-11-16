@@ -21,6 +21,9 @@ triggers:
     to: "playing"
     id: "playing"
 conditions:
+  - condition: state
+    entity_id: input_boolean.spotify_connect
+    state: "on"
   - condition: template
     value_template: >-
       {% set src = state_attr('media_player.spotify_rupan', 'source') %}
@@ -32,7 +35,8 @@ actions:
       spotify_sources: "{{ state_attr('media_player.spotify_rupan', 'source_list') | default([], true) }}"
       target_source: >-
         {{
-          (spotify_sources | select('search', '(?i)(soundbar|satellite|music assistant)')
+          (spotify_sources | select('search', '(?i)(soundbar|satellite)')
+          | reject('search', '(?i)bedroom')
           | list | first) | default('', true)
         }}
   - choose:

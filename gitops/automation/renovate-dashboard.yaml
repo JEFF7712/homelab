@@ -22,85 +22,85 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-      - name: dashboard
-        command: [python, /config/dashboard.py]
-        image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
-        resources:
-          requests:
-            cpu: 50m
-            memory: 128Mi
-          limits:
-            memory: 512Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          readOnlyRootFilesystem: true
-          runAsNonRoot: true
-          runAsUser: 65532
-          runAsGroup: 65532
-          capabilities:
-            drop:
-            - ALL
-          seccompProfile:
-            type: RuntimeDefault
-        env:
-        - name: PORT
-          value: '8080'
-        - name: POD_NAMESPACE
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.namespace
-        - name: RENOVATE_AGENT_STATE_CONFIGMAP
-          value: renovate-agent-state
-        - name: RENOVATE_AGENT_APPROVAL_LABEL
-          value: renovate-agent-approved
-        - name: RENOVATE_AGENT_APPROVAL_COMMAND
-          value: /renovate-agent approve
-        - name: GITHUB_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: renovate-secrets
-              key: github-token
-        - name: FORGEJO_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: renovate-secrets
-              key: forgejo-token
-        - name: FORGEJO_APPROVAL_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: renovate-secrets
-              key: forgejo-approval-token
-        ports:
-        - containerPort: 8080
-        readinessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-          initialDelaySeconds: 3
-          periodSeconds: 10
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 20
-        volumeMounts:
-        - name: config
-          mountPath: /config
-          readOnly: true
-        - name: tmp
-          mountPath: /tmp
+        - name: dashboard
+          command: [python, /config/dashboard.py]
+          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: PORT
+              value: '8080'
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: RENOVATE_AGENT_STATE_CONFIGMAP
+              value: renovate-agent-state
+            - name: RENOVATE_AGENT_APPROVAL_LABEL
+              value: renovate-agent-approved
+            - name: RENOVATE_AGENT_APPROVAL_COMMAND
+              value: /renovate-agent approve
+            - name: GITHUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: renovate-secrets
+                  key: github-token
+            - name: FORGEJO_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: renovate-secrets
+                  key: forgejo-token
+            - name: FORGEJO_APPROVAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: renovate-secrets
+                  key: forgejo-approval-token
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
       volumes:
-      - name: config
-        projected:
-          defaultMode: 493
-          sources:
-          - configMap:
-              name: automation-config
-          - configMap:
-              name: forgejo-dashboard-script
-      - name: tmp
-        emptyDir: {}
+        - name: config
+          projected:
+            defaultMode: 493
+            sources:
+              - configMap:
+                  name: automation-config
+              - configMap:
+                  name: forgejo-dashboard-script
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -111,8 +111,8 @@ spec:
   selector:
     app: renovate-dashboard
   ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 8080
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
   type: ClusterIP
 ---

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -21,8 +23,33 @@ SHARED_AUTOMATION = REPO_ROOT / "home-assistant/automations/shared_music_mode.ya
 SHARED_HOST = "10.0.30.15"
 BEDROOM_HOST = "10.0.30.20"
 
-# Virtual sink monitor before the delayed bedroom Bluetooth output.
-BEDROOM_PULSE_SOURCE = "bedroom_music_pre_delay.monitor"
+
+APPLIANCE_RULES = (
+    "nixosConfigurations.adguard-netbird-01.config.networking.firewall.extraInputRules"
+)
+
+
+def appliance_input_rules() -> str:
+    """Evaluated nftables input rules of the appliance that runs the relay."""
+    if shutil.which("nix") is None:
+        raise unittest.SkipTest("nix is required for configuration evaluation")
+    return json.loads(
+        subprocess.run(
+            [
+                "nix",
+                "eval",
+                "--json",
+                f"path:{REPO_ROOT}?dir=flake#{APPLIANCE_RULES}",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    )
+
+
+# Bluetooth sink that carries all bedroom playback on the NAS.
+BEDROOM_PULSE_SOURCE = "bluez_output.E4_58_BC_10_CA_C9.1.monitor"
 
 BEDROOM_LIGHTS = (
     "light.desk_lamp_desk_lamp",
@@ -94,15 +121,13 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         # bedroom instance must not reference it.
         self.assertNotIn("SPDIF", module)
 
-    def test_shairport_audio_is_split_before_the_delayed_bluetooth_output(self) -> None:
+    def test_shairport_audio_plays_directly_without_delay(self) -> None:
         host = NAS_HOST.read_text()
-        self.assertIn("module-null-sink sink_name=bedroom_music_pre_delay", host)
-        self.assertIn('PULSE_SINK = "bedroom_music_pre_delay"', host)
-        self.assertIn("pw-loopback", host)
-        self.assertIn("--capture=bedroom_music_pre_delay", host)
-        self.assertIn('"stream.capture.sink":true', host)
-        self.assertIn("--playback=bluez_output.E4_58_BC_10_CA_C9.1", host)
-        self.assertIn("--delay=0.45", host)
+        self.assertNotIn("bedroom_music_pre_delay", host)
+        self.assertNotIn("pw-loopback", host)
+        self.assertNotIn("--delay", host)
+        self.assertIn('allow_session_interruption = "yes"', host)
+        self.assertIn("--target=bluez_output.E4_58_BC_10_CA_C9.1", host)
 
     def test_state_and_credentials_are_persistent(self) -> None:
         module = MODULE.read_text()
@@ -159,18 +184,17 @@ class BedroomLedFxModuleTests(unittest.TestCase):
         module = MODULE.read_text()
         self.assertIn("install -d -m 0700 -o 1000 -g 1000", module)
 
-    def test_rest_api_is_limited_to_cluster_nodes(self) -> None:
+    def test_rest_api_firewall_allows_home_and_vpn_subnets(self) -> None:
         module = MODULE.read_text()
         rule = re.search(r"tcp dport \$\{toString cfg\.port\} accept", module)
         self.assertIsNotNone(rule)
-        self.assertIn("10.0.30.11", module)
-        self.assertIn("10.0.30.15", module)
-        self.assertNotIn("10.0.30.0/24 tcp dport 8888", module)
+        self.assertIn("10.0.0.0/16", module)
+        self.assertIn("100.64.0.0/10", module)
 
     def test_relay_accepts_frames_from_the_nas(self) -> None:
-        appliance = APPLIANCE.read_text()
         self.assertIn(
-            "ip saddr { 10.0.30.15, 10.0.30.20 } udp dport 9000 accept", appliance
+            f"ip saddr {{ {SHARED_HOST}, {BEDROOM_HOST} }} udp dport 9000 accept",
+            [line.strip() for line in appliance_input_rules().splitlines()],
         )
 
     def test_alsa_pulse_pcm_is_defined_for_the_container(self):
@@ -192,9 +216,6 @@ class BedroomIsolationTests(unittest.TestCase):
     def test_ledfx_instances_have_distinct_endpoints(self) -> None:
         urls = rest_command_urls()
         self.assertEqual(
-            urls["ledfx_activate_scene"], f"http://{SHARED_HOST}:8888/api/scenes"
-        )
-        self.assertEqual(
             urls["ledfx_bedroom_activate_scene"],
             f"http://{BEDROOM_HOST}:8888/api/scenes",
         )
@@ -202,10 +223,15 @@ class BedroomIsolationTests(unittest.TestCase):
             urls["ledfx_bedroom_deactivate_scene"],
             f"http://{BEDROOM_HOST}:8888/api/scenes",
         )
-        self.assertEqual(
-            urls["ledfx_deactivate_scene"],
-            f"http://{SHARED_HOST}:8888/api/scenes",
+        # The shared instance is driven only by the music_director integration.
+        core = yaml.load(
+            CORE.read_text(encoding="utf-8"), Loader=DuplicateKeySafeLoader
         )
+        self.assertEqual(
+            core["music_director"]["ledfx_url"], f"http://{SHARED_HOST}:8888"
+        )
+        shared = [url for url in urls.values() if SHARED_HOST in url]
+        self.assertEqual(shared, [])
         self.assertNotEqual(SHARED_HOST, BEDROOM_HOST)
 
     def test_bedroom_automation_only_uses_bedroom_commands(self) -> None:
@@ -216,12 +242,14 @@ class BedroomIsolationTests(unittest.TestCase):
         self.assertNotIn("rest_command.ledfx_activate_scene", raw)
         self.assertNotIn("rest_command.ledfx_deactivate_scene", raw)
 
-    def test_bedroom_automation_never_references_shared_lights(self) -> None:
+    def test_bedroom_automation_never_references_lights(self) -> None:
         raw = BEDROOM_AUTOMATION.read_text()
         for light in SHARED_LIGHTS:
             self.assertNotIn(light, raw)
         for light in BEDROOM_LIGHTS:
-            self.assertIn(light, raw)
+            self.assertNotIn(light, raw)
+        self.assertNotIn("adaptive_lighting", raw)
+        self.assertIn("input_boolean.bedroom_matrix_power", raw)
 
     def test_shared_automation_never_references_bedroom_entities(self) -> None:
         raw = SHARED_AUTOMATION.read_text()

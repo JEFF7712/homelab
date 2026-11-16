@@ -14,10 +14,17 @@ ROOT = Path(__file__).resolve().parents[1]
 class OfflineInputsTest(unittest.TestCase):
     def test_provider_archives_match_locked_versions_and_checksums(self) -> None:
         entries = json.loads((ROOT / "nix/ci-providers.json").read_text())
-        self.assertEqual(len(entries), 8)
+        from scripts.ci.sync_providers import locked_versions
+
+        versions = locked_versions(ROOT)
+        self.assertEqual({entry["address"] for entry in entries}, set(versions))
+        self.assertEqual(len(entries), 4 * len(versions))
         for entry in entries:
-            stack = entry["address"].split("/")[-1]
-            lock = (ROOT / "tofu" / stack / ".terraform.lock.hcl").read_text()
+            lock = next(
+                path.read_text()
+                for path in ROOT.glob("tofu/*/.terraform.lock.hcl")
+                if f'provider "{entry["address"]}"' in path.read_text()
+            )
             self.assertIn(f'provider "{entry["address"]}"', lock)
             self.assertIn(
                 f'version     = "{entry["version"]}"',
@@ -61,6 +68,32 @@ class OfflineInputsTest(unittest.TestCase):
 
 
 class ProviderSyncTest(unittest.TestCase):
+    def test_sync_uses_the_locked_terraform_registry(self) -> None:
+        from scripts.ci.sync_providers import sync
+
+        entry = {
+            "address": "registry.terraform.io/davidlukac/tplinkeasysmart",
+            "version": "0.32.4",
+            "platform": "linux_amd64",
+        }
+        requested = []
+
+        def fetch(url: str) -> dict:
+            requested.append(url)
+            return {
+                "filename": "provider.zip",
+                "download_url": "https://example/provider.zip",
+                "shasum": "00" * 32,
+            }
+
+        sync([entry], {entry["address"]: "0.33.0"}, fetch)
+        self.assertEqual(
+            requested,
+            [
+                "https://registry.terraform.io/v1/providers/davidlukac/tplinkeasysmart/0.33.0/download/linux/amd64"
+            ],
+        )
+
     def test_sync_moves_only_changed_providers_to_registry_checksums(self) -> None:
         from scripts.ci.sync_providers import sync
 

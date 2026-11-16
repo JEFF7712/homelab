@@ -1,0 +1,3 @@
+name: Bedroom Matrix Vinyl Contrast
+icon: null
+entity_id: input_number.bedroom_matrix_vinyl_contrast

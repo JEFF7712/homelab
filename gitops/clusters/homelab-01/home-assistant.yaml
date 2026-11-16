@@ -16,9 +16,5 @@ spec:
   healthChecks:
     - apiVersion: apps/v1
       kind: Deployment
-      name: home-assistant-postgres
-      namespace: home-assistant
-    - apiVersion: apps/v1
-      kind: Deployment
       name: home-assistant
       namespace: home-assistant

@@ -1,4 +1,9 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  fleetInventory,
+  ...
+}:
 let
   # Cloud MQTT bridge for Roku bulbs whose firmware closed the LAN port-88
   # server (LS1016X strip on 1.2.1.13). Speaks the same topics/discovery as
@@ -37,7 +42,7 @@ in
 
   sops.templates."roku-cloud-bridge-mqtt.env" = {
     content = ''
-      MQTT_HOST=10.0.30.10
+      MQTT_HOST=${fleetInventory.hosts.adguard-netbird-01.address}
       MQTT_PORT=1883
       MQTT_USER=roku-bridge
       MQTT_PASS=${config.sops.placeholder."mosquitto-roku-bridge-password"}
@@ -55,6 +60,12 @@ in
       "mosquitto.service"
     ];
     wants = [ "network-online.target" ];
+    # Stop and start with the broker. With only ordering, a switch that
+    # restarted mosquitto left the bridge crash-restarting against the
+    # stopped broker, failed at the end of activation, and the failed unit
+    # rolled back the nixpkgs update of this host (2026-11-10).
+    requires = [ "mosquitto.service" ];
+    partOf = [ "mosquitto.service" ];
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
       User = "roku-cloud-bridge";

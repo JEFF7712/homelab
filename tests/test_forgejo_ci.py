@@ -27,8 +27,8 @@ import yaml
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from scripts.ci import build_users
 from scripts.ci.authority import select
-from scripts.ci.dr_mirror import mirror, refs
 from scripts.ci.operation import SupersededSource, current_source, pack, unpack
 from scripts.ci.operation import main as operation_main
 from scripts.ci.platform_backup import snapshot_database
@@ -43,6 +43,7 @@ from scripts.ci.policy import (
     defers_to_branch_push,
     find_reusable_validation,
     grant_approved,
+    held_schedule_targets,
     resolve_configuration,
     schedule_state,
     verify_request,
@@ -72,23 +73,6 @@ class CloneIdentityPreparationTest(unittest.TestCase):
         for token in ["", "\nOTHER=value", "token\rOTHER=value", "token value"]:
             with self.subTest(token=token), self.assertRaises(ValueError):
                 clone_environment(token)
-
-
-class GitLabRecoveryGraphTest(unittest.TestCase):
-    def test_apply_waits_for_both_plans_in_its_own_pipeline(self) -> None:
-        workflow = yaml.safe_load((ROOT / "config/ci/gitlab-dr.yml").read_text())
-        self.assertNotIn("environment", workflow["validate"])
-        self.assertEqual(
-            set(workflow["operate"]["needs"]),
-            {"validate", "opnsense-plan", "cloudflare-plan"},
-        )
-        for name in ["opnsense-plan", "cloudflare-plan"]:
-            job = workflow[name]
-            self.assertEqual(job["stage"], "plan")
-            self.assertEqual(job["extends"], ".production-operation")
-            self.assertTrue(job["script"][0].startswith(f"CI_OPERATION={name} "))
-            self.assertEqual(job["rules"][-1], {"when": "never"})
-            self.assertIn("CI_COMMIT_REF_PROTECTED", job["rules"][0]["if"])
 
 
 class CurrentSourceTest(unittest.TestCase):
@@ -190,14 +174,6 @@ class CurrentSourceTest(unittest.TestCase):
             current_source(environment)
         self.assertEqual(request.call_count, 1)
 
-    def test_recovery_tip_uses_native_gitlab_clone_authentication(self) -> None:
-        environment = {"CI_COMMIT_SHA": SHA, "CI_OPERATION_AUTHORITY": "gitlab"}
-        with patch(
-            "scripts.ci.operation.subprocess.check_output",
-            side_effect=[SHA, SHA + " refs/heads/main\n"],
-        ):
-            current_source(environment)
-
 
 class SupersededOperationTest(unittest.TestCase):
     def superseded_main(self, event: str) -> None:
@@ -269,7 +245,7 @@ class PolicyTest(unittest.TestCase):
             self.assertTrue(VALIDATION_COMMAND.startswith("nix develop ./flake#ci "))
             self.assertEqual(
                 workflow["steps"][0]["commands"],
-                [VALIDATION_COMMAND],
+                [build_users.setup_command(), VALIDATION_COMMAND],
             )
             self.assertNotIn("from_secret", json.dumps(workflow))
 
@@ -297,6 +273,7 @@ class PolicyTest(unittest.TestCase):
                 VALIDATION + ".yaml",
                 "opnsense-plan.yaml",
                 "cloudflare-plan.yaml",
+                "cloudflare-access-plan.yaml",
                 "registry-lock-import.yaml",
             ],
         )
@@ -315,9 +292,10 @@ class PolicyTest(unittest.TestCase):
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
         )
 
-    def test_job_nix_builds_without_host_shared_build_users(self) -> None:
+    def test_job_nix_builds_as_users_the_host_does_not_own(self) -> None:
         # The image's nixbld UIDs equal the host's, and a host nix-daemon
-        # SIGKILLs every process of a build UID around its own builds.
+        # SIGKILLs every process of a build UID around its own builds; root
+        # builders can create /homeless-shelter and fail every later build.
         result = configuration(self.request, self.catalog, current=SHA)
         result["configs"] += self.deployment()["configs"]
         for item in result["configs"]:
@@ -333,7 +311,13 @@ class PolicyTest(unittest.TestCase):
                 }
                 with self.subTest(workflow=item["name"], step=step["name"]):
                     self.assertEqual(settings["sandbox"], "false")
-                    self.assertEqual(settings["build-users-group"], "")
+                    # niks3 is the only local cache; Attic is retired.
+                    self.assertEqual(
+                        settings["extra-substituters"],
+                        "http://10.0.30.20:8090?priority=30",
+                    )
+                    self.assertEqual(settings["build-users-group"], build_users.GROUP)
+                    self.assertEqual(step["commands"][0], build_users.setup_command())
 
     def test_nixos_publish_is_manual_and_forgejo_sourced(self) -> None:
         operation = self.catalog["nixos-publish"]
@@ -341,9 +325,10 @@ class PolicyTest(unittest.TestCase):
         self.assertTrue(operation["mutation"])
         self.assertEqual(operation["group"], "nix-cache")
         self.assertEqual(
-            operation["environment"]["ATTIC_TOKEN"],
-            {"from_secret": "attic_token"},
+            operation["environment"]["NIKS3_TOKEN"],
+            {"from_secret": "niks3_token"},
         )
+        self.assertNotIn("ATTIC_TOKEN", operation["environment"])
         self.assertEqual(
             operation["environment"]["FORGEJO_SOURCE_READ_TOKEN"],
             {"from_secret": "forgejo_source_read_token"},
@@ -430,6 +415,90 @@ class PolicyTest(unittest.TestCase):
         self.assertEqual(workflow["depends_on"], [VALIDATION])
         self.assertEqual(workflow["labels"], {"tier": "deploy", "type": "docker"})
 
+    def nightly_workflows(self, **kwargs) -> dict[str, dict]:
+        self.request["pipeline"].update(event="cron", cron="nightly")
+        result = configuration(self.request, self.catalog, current=SHA, **kwargs)
+        return {
+            item["name"].removesuffix(".yaml"): yaml.safe_load(item["data"])
+            for item in result["configs"]
+        }
+
+    def test_scheduled_fleet_deployment_follows_its_dry_run(self) -> None:
+        workflows = self.nightly_workflows()
+        self.assertIn("deploy-fleet-dry-run", workflows["deploy-fleet"]["depends_on"])
+        self.assertNotIn(
+            "deploy-fleet", workflows["deploy-fleet-dry-run"]["depends_on"]
+        )
+
+    def test_held_scheduled_deployment_reports_and_the_rest_runs(self) -> None:
+        workflows = self.nightly_workflows(
+            held_targets={"deploy-fleet": ["flake/modules/approvals.nix"]}
+        )
+        self.assertNotIn("deploy-fleet", workflows)
+        held = workflows["deploy-fleet-held"]
+        self.assertEqual(held["labels"]["tier"], "sandbox")
+        self.assertIn("flake/modules/approvals.nix", held["steps"][0]["commands"][0])
+        self.assertIn("deploy-fleet-dry-run", workflows)
+        self.assertIn("nixos-deploy", workflows)
+
+    def test_scheduled_host_deployments_get_the_agent_authority_check(self) -> None:
+        # A cron run skips the agent deployment check; without this, the
+        # nightly deploy-fleet would activate changes awaiting the operator.
+        class Mirror:
+            def __init__(self, changes, grant="g"):
+                self.changes, self.grant, self.calls = changes, grant, []
+
+            def authority_changes(self, commit, netrc, baseline, paths, host):
+                self.calls.append((commit, paths, host))
+                return self.changes, self.grant
+
+        request = {"pipeline": {"event": "cron", "cron": "nightly", "commit": SHA}}
+        mirror = Mirror(["flake/modules/approvals.nix"])
+        held = held_schedule_targets(
+            request, self.catalog, mirror, {}, lambda grant: False
+        )
+        self.assertEqual(held, {"deploy-fleet": ["flake/modules/approvals.nix"]})
+        # Only host deployments are checked, not the dry runs or the laptop.
+        self.assertEqual([call[2] for call in mirror.calls], [True])
+        self.assertEqual(
+            held_schedule_targets(
+                request, self.catalog, mirror, {}, lambda grant: True
+            ),
+            {},
+        )
+        self.assertEqual(
+            held_schedule_targets(
+                request, self.catalog, Mirror([]), {}, lambda g: False
+            ),
+            {},
+        )
+        self.assertIn(
+            "deploy-fleet",
+            held_schedule_targets(request, self.catalog, None, None, lambda g: False),
+        )
+        self.assertEqual(
+            held_schedule_targets(
+                {"pipeline": {"event": "cron", "cron": "promote", "commit": SHA}},
+                self.catalog,
+                mirror,
+                {},
+                lambda grant: False,
+            ),
+            {},
+        )
+
+    def test_fleet_schedules_cover_the_reboot_window_through_daylight_saving(
+        self,
+    ) -> None:
+        crons = json.loads((ROOT / "config/ci/woodpecker-crons.json").read_text())
+        self.assertEqual(SCHEDULES["fleet-reboot"], ("fleet-reboot",))
+        self.assertEqual(SCHEDULES["fleet-lock"], ("fleet-lock-update",))
+        # 03:05 and 04:05 CST, 04:05 and 05:05 CDT: one run lands in the
+        # 03:00-04:30 start window either way.
+        self.assertEqual(crons["fleet-reboot"]["schedule"], "5 9,10 * * *")
+        # The lock PR has hours to merge before the 08:17 UTC delivery.
+        self.assertEqual(crons["fleet-lock"]["schedule"], "23 5 * * *")
+
     def test_schedules_split_fast_maintenance_from_nightly_work(self) -> None:
         for name, targets in SCHEDULES.items():
             self.request["pipeline"].update(event="cron", cron=name)
@@ -454,10 +523,40 @@ class PolicyTest(unittest.TestCase):
             "\n".join(self.catalog["registry-promote-first-party"]["commands"]),
         )
         self.assertIn("cache-publish", SCHEDULES["maintenance"])
+        # The VIP probe must cross OPNsense often and alert on its own: a
+        # nightly-only proof missed a six-hour FRR route dropout.
+        self.assertIn("vip-dataplane-watch", SCHEDULES["maintenance"])
+        watch = self.catalog["vip-dataplane-watch"]
+        self.assertEqual(watch["needs"], [])
+        self.assertFalse(watch["mutation"])
+        self.assertEqual(
+            watch["environment"]["NTFY_TOKEN"], {"from_secret": "ntfy_token"}
+        )
+        self.assertIn("scripts.ci.notify vip-dataplane", watch["commands"][0])
         self.request["pipeline"].update(event="cron", cron="unknown")
         self.assertEqual(
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
         )
+
+    def test_scheduled_operations_start_after_their_needs(self) -> None:
+        for name, targets in SCHEDULES.items():
+            self.request["pipeline"].update(event="cron", cron=name)
+            result = configuration(self.request, self.catalog, current=SHA)
+            for item in result["configs"][1:]:
+                target = item["name"].removesuffix(".yaml")
+                needs = self.catalog[target]["needs"]
+                # A prerequisite the same schedule runs goes first, so the
+                # nightly deploy-fleet follows its own dry run.
+                prerequisite = self.catalog[target]["prerequisite"]
+                ordered = [prerequisite] if prerequisite in targets else []
+                with self.subTest(schedule=name, operation=target):
+                    self.assertTrue(set(needs) <= set(targets))
+                    if target != "webhook-watchdog":
+                        self.assertEqual(
+                            yaml.safe_load(item["data"])["depends_on"],
+                            [VALIDATION, *needs, *ordered],
+                        )
+        self.assertIn("opnsense-plan", self.catalog["opnsense-dataplane"]["needs"])
 
     def test_operations_serialize_per_resource(self) -> None:
         result = configuration(self.request, self.catalog, current=SHA)
@@ -1377,6 +1476,49 @@ class GrantPolicyTest(unittest.TestCase):
 
 
 class StateTest(unittest.TestCase):
+    def test_switch_states_require_encryption_and_use_independent_locks(self) -> None:
+        envelope = json.dumps(
+            {
+                "serial": 1,
+                "lineage": "switch",
+                "encrypted_data": "ciphertext",
+                "encryption_version": "v0",
+            }
+        ).encode()
+        for name in ("switches-upstairs", "switches-downstairs"):
+            self.assertEqual(
+                self.store.request("GET", name, False, "plan", "plan", b"", "")[0], 404
+            )
+            self.assertEqual(
+                self.store.request(
+                    "LOCK", name, True, "deploy", "deploy", self.lock, ""
+                )[0],
+                200,
+            )
+            self.assertEqual(
+                self.store.request(
+                    "POST", name, False, "plan", "plan", envelope, "lock-1"
+                )[0],
+                403,
+            )
+            self.assertEqual(
+                self.store.request(
+                    "POST", name, False, "deploy", "deploy", self.original, "lock-1"
+                )[0],
+                400,
+            )
+            self.assertEqual(
+                self.store.request(
+                    "POST", name, False, "deploy", "deploy", envelope, "lock-1"
+                )[0],
+                200,
+            )
+            self.assertEqual(
+                self.store.request("GET", name, False, "plan", "plan", b"", "")[1],
+                envelope,
+            )
+        self.assertEqual(self.request("GET"), (200, self.original))
+
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -1410,6 +1552,50 @@ class StateTest(unittest.TestCase):
         self.assertEqual(
             self.request("UNLOCK", user="plan", lock=True, body=self.lock)[0], 200
         )
+
+    def test_access_state_bootstraps_without_replacing_existing_states(self) -> None:
+        with self.assertRaises(ValueError):
+            self.store.check_ready()
+        self.store.import_state("cloudflare", self.original)
+        self.store.check_ready()
+        self.assertEqual(
+            self.store.request(
+                "GET", "cloudflare-access", False, "plan", "plan", b"", ""
+            )[0],
+            404,
+        )
+        self.assertEqual(
+            self.store.request(
+                "LOCK", "cloudflare-access", True, "deploy", "deploy", self.lock, ""
+            )[0],
+            200,
+        )
+        self.assertEqual(
+            self.store.request(
+                "POST",
+                "cloudflare-access",
+                False,
+                "plan",
+                "plan",
+                self.original,
+                "lock-1",
+            )[0],
+            403,
+        )
+        self.assertEqual(
+            self.store.request(
+                "POST",
+                "cloudflare-access",
+                False,
+                "deploy",
+                "deploy",
+                self.original,
+                "lock-1",
+            )[0],
+            200,
+        )
+        self.store.check_ready()
+        self.assertEqual(self.request("GET"), (200, self.original))
 
     def test_state_writes_require_matching_owner_and_preserve_lineage(self) -> None:
         self.assertEqual(self.request("POST", body=self.original)[0], 409)
@@ -1501,7 +1687,7 @@ class ArtifactTest(unittest.TestCase):
 
 
 class NativeBackendTest(unittest.TestCase):
-    def test_opentofu_plan_apply_tls_locking_and_fallback_authority(self) -> None:
+    def test_opentofu_plan_apply_tls_locking_and_disabled_authority(self) -> None:
         if not shutil.which("tofu"):
             self.skipTest("OpenTofu is required for native backend integration")
         with tempfile.TemporaryDirectory() as temporary:
@@ -1527,11 +1713,6 @@ class NativeBackendTest(unittest.TestCase):
                     "password": "deploy-fixture",
                     "role": "deploy",
                     "authority": "woodpecker",
-                },
-                "gitlab-deploy": {
-                    "password": "dr-fixture",
-                    "role": "deploy",
-                    "authority": "gitlab",
                 },
             }
             cert, key = certificate("localhost")
@@ -1596,103 +1777,17 @@ class NativeBackendTest(unittest.TestCase):
                 self.assertEqual(updated["lineage"], original["lineage"])
                 self.assertGreater(updated["serial"], original["serial"])
                 self.assertEqual(updated["resources"][0]["type"], "terraform_data")
-                select(store.path, "gitlab")
+                select(store.path, "disabled")
                 tofu("plan", "-input=false", success=False)
-                environment.update(
-                    TF_HTTP_USERNAME="gitlab-deploy", TF_HTTP_PASSWORD="dr-fixture"
-                )
-                tofu("plan", "-input=false")
-                lock = b'{"ID":"active-dr-lock"}'
-                store.request(
-                    "LOCK", "opnsense", True, "gitlab-deploy", "deploy", lock, ""
-                )
+                select(store.path, "woodpecker")
+                lock = b'{"ID":"active-lock"}'
+                store.request("LOCK", "opnsense", True, "deploy", "deploy", lock, "")
                 with self.assertRaises(ValueError):
-                    select(store.path, "woodpecker")
+                    select(store.path, "disabled")
             finally:
                 server.shutdown()
                 server.server_close()
                 thread.join()
-
-
-class RecoveryMirrorTest(unittest.TestCase):
-    def test_owned_source_can_be_read_by_root_without_global_git_trust(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            source = Path(temporary)
-            subprocess.run(["git", "init", "-q", str(source)], check=True)
-            with patch.dict(os.environ, {"GIT_TEST_ASSUME_DIFFERENT_OWNER": "1"}):
-                rejected = subprocess.run(
-                    ["git", "-C", str(source), "status"],
-                    capture_output=True,
-                    check=False,
-                )
-                self.assertNotEqual(rejected.returncode, 0)
-                self.assertEqual(refs(source), {})
-
-    def test_normal_mirroring_rejects_divergence_without_deleting_recovery_commits(
-        self,
-    ) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source, destination = root / "source", root / "mirror.git"
-            source.mkdir()
-
-            def git(*args: str, cwd: Path = source) -> str:
-                return subprocess.check_output(
-                    ["git", *args], cwd=cwd, text=True, stderr=subprocess.DEVNULL
-                ).strip()
-
-            git("init", "-q", "-b", "main")
-            git("config", "user.name", "Test")
-            git("config", "user.email", "test@example.invalid")
-            (source / "file").write_text("initial")
-            git("add", "file")
-            git("commit", "-qm", "initial")
-            git("init", "--bare", "-q", str(destination))
-            mirror(source, str(destination))
-            base = git("rev-parse", "HEAD")
-            git("commit", "--allow-empty", "-qm", "recovery-only")
-            git("push", "-q", str(destination), "main")
-            recovery = git("rev-parse", "HEAD")
-            git("reset", "--hard", "-q", base)
-            git("commit", "--allow-empty", "-qm", "primary-only")
-            with self.assertRaises(subprocess.CalledProcessError):
-                mirror(source, str(destination))
-            self.assertEqual(
-                git("rev-parse", "refs/heads/main", cwd=destination), recovery
-            )
-
-    def test_rebased_renovate_branches_are_replaced(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source, destination = root / "source", root / "mirror.git"
-            source.mkdir()
-
-            def git(*args: str, cwd: Path = source) -> str:
-                return subprocess.check_output(
-                    ["git", *args], cwd=cwd, text=True, stderr=subprocess.DEVNULL
-                ).strip()
-
-            git("init", "-q", "-b", "main")
-            git("config", "user.name", "Test")
-            git("config", "user.email", "test@example.invalid")
-            git("commit", "--allow-empty", "-qm", "initial")
-            git("checkout", "-q", "-b", "renovate/dependency")
-            git("commit", "--allow-empty", "-qm", "bump")
-            git("init", "--bare", "-q", str(destination))
-            mirror(source, str(destination))
-            git("checkout", "-q", "main")
-            git("commit", "--allow-empty", "-qm", "main moves on")
-            git("checkout", "-q", "renovate/dependency")
-            git("rebase", "-q", "main")
-            mirror(source, str(destination))
-            self.assertEqual(
-                git("rev-parse", "refs/heads/renovate/dependency", cwd=destination),
-                git("rev-parse", "HEAD"),
-            )
-            self.assertEqual(
-                git("rev-parse", "refs/heads/main", cwd=destination),
-                git("rev-parse", "main"),
-            )
 
 
 if __name__ == "__main__":

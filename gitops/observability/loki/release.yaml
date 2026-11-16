@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: loki
-      version: 7.3.0
+      version: 7.5.0
       sourceRef:
         kind: HelmRepository
         name: grafana
@@ -21,7 +21,7 @@ spec:
             digest: sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d
           - name: docker.io/grafana/loki-canary
             newName: registry.rupan.dev/upstream/docker.io/grafana/loki-canary  # yamllint disable-line rule:line-length
-            digest: sha256:0dac7d5cb383adb8d3723676a70ed0c65b582e636846f4ce48703556dd509ad1
+            digest: sha256:6d53ce040b436e558936fe05514729c230e9e04edf1fe411d02701025e515924
           - name: docker.io/grafana/loki-helm-test
             newName: registry.rupan.dev/upstream/docker.io/grafana/loki-helm-test  # yamllint disable-line rule:line-length
             digest: sha256:2ed6447bbdbcd23019c3fdb02bce6db3fbef296d5a8f77a68d3dbc386bfa43fb
@@ -57,6 +57,12 @@ spec:
         # Alloy replays pod logs after restarts; a single stale entry makes
         # Loki reject the whole batch, which silently stops all ingestion.
         reject_old_samples: false
+        # About 110 MiB/day on disk (6.6 GiB for 60 days measured on the old
+        # NFS store), so 30 days stays well inside the 20Gi local PV.
+        retention_period: 720h
+      compactor:
+        retention_enabled: true
+        delete_request_store: filesystem
       schemaConfig:
         configs:
           - from: "2024-04-01"
@@ -83,18 +89,63 @@ spec:
         ring:
           kvstore:
             store: inmemory
+    gateway:
+      # loki-push (push-service.yaml) uses externalTrafficPolicy Local, and
+      # only control-plane nodes peer BGP, so the VIP is advertised only
+      # while the gateway runs on one of them.
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
+      nginxConfig:
+        # The gateway also proxies Loki's delete, flush and rules APIs. The
+        # two hosts admitted by push-policy.yaml may only push logs; every
+        # other request from them gets 403. Pods (10.42.0.0/16) are not
+        # matched. This is here rather than as a Cilium HTTP rule because
+        # Cilium's L7 proxy never answered the LoadBalancer traffic.
+        serverSnippet: |
+          set $loki_push_request "$remote_addr $request_method $uri";
+          if ($loki_push_request ~ "^10\.0\.30\.(10|20) (?!POST /loki/api/v1/push$)") {
+            return 403;
+          }
     singleBinary:
       replicas: 1
+      # The store is the static local claim in local-storage.yaml (homelab-05
+      # NVMe), not a claim template: the chart names its template "storage",
+      # which would rebind the retained NFS claim storage-loki-0.
+      persistence:
+        enabled: false
       extraVolumes:
+        - name: storage
+          persistentVolumeClaim:
+            claimName: loki-local
         - name: loki-rules
           configMap:
             name: loki-alerting-rules
       extraVolumeMounts:
+        - name: storage
+          mountPath: /var/loki
         - name: loki-rules
           mountPath: /var/loki/rules/fake
-      persistence:
-        storageClass: nfs-cluster
-        size: 20Gi
+      # Refuse to start on an empty store before the cold copy from the NFS
+      # claim has verified and written its marker.
+      initContainers:
+        - name: require-store-migration
+          image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47  # yamllint disable-line rule:line-length
+          command: [/bin/sh, -ec, 'test -f /var/loki/.migration-complete']
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+          volumeMounts:
+            - name: storage
+              mountPath: /var/loki
+              readOnly: true
       resources:
         requests:
           cpu: 200m

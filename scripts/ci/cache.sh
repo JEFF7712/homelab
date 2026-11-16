@@ -4,7 +4,7 @@ cd "$(dirname "$0")/../.."
 flake=${1:-./flake}
 target_set=${2:-homelab}
 
-cache_work=$(mktemp -d "${TMPDIR:-/tmp}/attic-ci-XXXXXX")
+cache_work=$(mktemp -d "${TMPDIR:-/tmp}/cache-ci-XXXXXX")
 trap 'rm -rf "$cache_work"' EXIT
 export XDG_CONFIG_HOME="$cache_work/config"
 mkdir -p "$XDG_CONFIG_HOME"
@@ -25,8 +25,11 @@ if [[ "$target_set" == "homelab" ]]; then
     "$flake#checks.x86_64-linux.agent-workspace-libvirt-normalization"
     "$flake#checks.x86_64-linux.zot-registry"
     "$flake#checks.x86_64-linux.zot-registry-service"
+    "$flake#checks.x86_64-linux.niks3-cache-service"
     "$flake#checks.x86_64-linux.opnsense-types"
     "$flake#checks.x86_64-linux.opnsense-config"
+    "$flake#checks.x86_64-linux.tofu-types"
+    "$flake#checks.x86_64-linux.tofu-config"
     "$flake#checks.x86_64-linux.fleet-inventory"
     "$flake#checks.x86_64-linux.kiosk-tty1"
     "$flake#checks.x86_64-linux.kernel-modules-aggregation"
@@ -54,6 +57,10 @@ if [[ "$target_set" == homelab ]]; then
   default_builder=fast
 fi
 builder=${HOMELAB_CACHE_BUILDER:-$default_builder}
+# A dropped cache.nixos.org download (an HTTP 416 on resume) otherwise fails
+# the derivation outright; build it from source instead.
+NIX_CONFIG="${NIX_CONFIG:-}"$'\nfallback = true'
+export NIX_CONFIG
 started=$SECONDS
 case "$builder" in
   fast)
@@ -79,8 +86,10 @@ case "$builder" in
 esac
 echo "Cache build: builder=$builder targets=${#build_targets[@]} elapsed_seconds=$((SECONDS - started))"
 
-if [[ -z "${ATTIC_TOKEN:-}" ]]; then
-  echo "Build succeeded; ATTIC_TOKEN is not set, so upload is skipped."
+# niks3 is the only Nix cache; Attic no longer serves or receives paths
+# (docs/runbooks/ci-pipelines.md).
+if [[ -z "${NIKS3_TOKEN:-}" ]]; then
+  echo "Build succeeded; NIKS3_TOKEN is not set, so upload is skipped."
   exit 0
 fi
 nix flake archive --json --no-write-lock-file "$flake" > "$cache_work/archive.json"
@@ -90,36 +99,21 @@ if [[ "$builder" == native ]]; then
 fi
 mapfile -t build_derivations < "$cache_work/derivations"
 nix-store --query --requisites --include-outputs "${build_derivations[@]}" >> "$cache_work/paths"
-attic login local http://10.0.30.20:8080/ "$ATTIC_TOKEN"
 awk '!seen[$0]++' "$cache_work/paths" > "$cache_work/unique"
 
-# One path Attic rejects (it has refused single NARs with "Bad NAR Hash or
-# Size") aborts a whole push, so push in batches and retry a failed batch one
-# path at a time. Skipped paths are reported; only a push where nothing at all
-# succeeds fails the job.
-push() {
-  attic push local:homelab --ignore-upstream-cache-filter --jobs 8 --stdin
-}
-split -l 200 "$cache_work/unique" "$cache_work/batch."
-pushed=0
-skipped=()
-for batch in "$cache_work"/batch.*; do
-  if push < "$batch"; then
-    pushed=$((pushed + 1))
-    continue
-  fi
-  while read -r path; do
-    if push <<< "$path"; then
-      pushed=$((pushed + 1))
-    else
-      skipped+=("$path")
-    fi
-  done < "$batch"
-done
-if ((${#skipped[@]})); then
-  printf 'Attic rejected %d path(s); they stay uncached:\n' "${#skipped[@]}" >&2
-  printf '  %s\n' "${skipped[@]}" >&2
-  if ((pushed == 0)); then
-    exit 1
-  fi
+printf '%s' "$NIKS3_TOKEN" > "$cache_work/niks3-token"
+started=$SECONDS
+niks3_status=0
+niks3 push --stdin --server-url http://10.0.30.20:8090 \
+  --auth-token-path "$cache_work/niks3-token" --retry-timeout 2m \
+  < "$cache_work/unique" > "$cache_work/niks3.jsonl" || niks3_status=$?
+jq -r 'select(.status == "error") | "  \(.path): \(.message)"' \
+  "$cache_work/niks3.jsonl" > "$cache_work/niks3-errors"
+ok=$(jq -s '[.[] | select(.status == "ok")] | length' "$cache_work/niks3.jsonl")
+echo "niks3 push: ok=$ok elapsed_seconds=$((SECONDS - started))"
+if [[ -s "$cache_work/niks3-errors" || "$niks3_status" -ne 0 ]]; then
+  printf 'niks3 failed %d path(s) (exit %d):\n' \
+    "$(wc -l < "$cache_work/niks3-errors")" "$niks3_status" >&2
+  cat "$cache_work/niks3-errors" >&2
+  exit 1
 fi

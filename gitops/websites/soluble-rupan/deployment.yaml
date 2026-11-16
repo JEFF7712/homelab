@@ -5,7 +5,7 @@ metadata:
   name: website-deploy
   namespace: soluble-rupan
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: soluble-rupan-web

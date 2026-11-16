@@ -6,7 +6,7 @@ metadata:
 spec:
   refreshInterval: 1h
   secretStoreRef:
-    name: homelab-secrets
+    name: homelab-observability
     kind: ClusterSecretStore
   target:
     name: grafana-cloudflare-oidc
@@ -25,9 +25,9 @@ spec:
   data:
     - secretKey: client_id
       remoteRef:
-        key: homelab-values
+        key: homelab-observability-values
         property: GRAFANA_CLOUDFLARE_OIDC_CLIENT_ID
     - secretKey: client_secret
       remoteRef:
-        key: homelab-values
+        key: homelab-observability-values
         property: GRAFANA_CLOUDFLARE_OIDC_CLIENT_SECRET

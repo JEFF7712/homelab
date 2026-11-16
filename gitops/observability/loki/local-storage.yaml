@@ -1,0 +1,46 @@
+# Loki's filesystem store (chunks, TSDB index, WAL) on homelab-05 NVMe, so log
+# ingestion and queries do not depend on the NAS. The host directory comes from
+# flake/hosts/homelab-05/default.nix. The static claim is not owned by the
+# StatefulSet, so scaling or recreating it never deletes the data. The previous
+# NFS claim storage-loki-0 is retained, unmounted, for the operator to remove.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: loki-nvme-05
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  labels:
+    homelab.rupan.dev/storage: loki-local
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-nvme
+  claimRef:
+    namespace: observability
+    name: loki-local
+  local:
+    path: /persist/loki
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [homelab-05]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: loki-local
+  namespace: observability
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  storageClassName: local-nvme
+  accessModes: [ReadWriteOnce]
+  volumeName: loki-nvme-05
+  resources:
+    requests:
+      storage: 20Gi

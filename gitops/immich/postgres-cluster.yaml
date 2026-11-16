@@ -7,7 +7,7 @@ metadata:
   namespace: immich
 spec:
   instances: 2
-  imageName: ghcr.io/tensorchord/cloudnative-vectorchord:16
+  imageName: registry.rupan.dev/upstream/ghcr.io/tensorchord/cloudnative-vectorchord:16@sha256:f5a17fa05faf25e81304ee95e9f920d8ae077ac4a4ef0a1251e09c7197cbb236  # yamllint disable-line rule:line-length
   primaryUpdateStrategy: unsupervised
   bootstrap:
     initdb:

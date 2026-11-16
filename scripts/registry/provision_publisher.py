@@ -69,6 +69,18 @@ def auth_file(identity: str, password: str) -> str:
     return json.dumps({"auths": {REGISTRY: {"auth": token}}})
 
 
+def publisher_secret(name: str, value: str, existing: dict[str, Any] | None) -> dict:
+    body = {
+        "name": name,
+        "value": value,
+        "events": ["deployment"] if existing is None else existing["events"],
+        "images": [] if existing is None else (existing.get("images") or []),
+    }
+    if existing is not None:
+        body["note"] = existing.get("note") or ""
+    return body
+
+
 def remote(command: str, data: bytes | None = None) -> bytes:
     return subprocess.run(
         ["ssh", REGISTRY_HOST, command], input=data, capture_output=True, check=True
@@ -131,7 +143,13 @@ def main() -> None:
         raise RuntimeError(f"Cannot read Woodpecker secret {HTPASSWD_SECRET}")
     entries = users.decode().splitlines()
     issued: list[tuple[str, str, str]] = []
+    metadata: dict[str, dict[str, Any] | None] = {}
     for repository in args.repositories:
+        name = secret_name(repository)
+        status, current = woodpecker("GET", f"/secrets/{name}")
+        if status != 404 and (status != 200 or not isinstance(current, dict)):
+            raise RuntimeError(f"Cannot read Woodpecker secret {name}: HTTP {status}")
+        metadata[name] = current if status == 200 else None
         identity = publisher_identity(policy, repository)
         password = secrets.token_urlsafe(32)
         hashed = subprocess.run(
@@ -169,12 +187,7 @@ def main() -> None:
         )
     for repository, identity, password in issued:
         name = secret_name(repository)
-        body = {
-            "name": name,
-            "value": auth_file(identity, password),
-            "events": ["deployment"],
-            "images": [],
-        }
+        body = publisher_secret(name, auth_file(identity, password), metadata[name])
         status, _ = woodpecker("PATCH", f"/secrets/{name}", body)
         if status == 404:
             status, _ = woodpecker("POST", "/secrets", body)

@@ -148,7 +148,7 @@ class MergeUnderLeaseTest(unittest.TestCase):
         shipper.remaining = lambda: 60.0
         shipper.args = argparse.Namespace(merge_style="merge")
         shipper.remaining = lambda: 60.0
-        shipper.wait_status = lambda sha, label: None
+        shipper.wait_status = lambda sha, label, pull=None: None
         verdicts = list(policy or [])
         shipper.wait_policy = lambda pull: verdicts.pop(0) if verdicts else True
         shipper.outdated = lambda head: outdated.pop(0) if outdated else []
@@ -240,7 +240,7 @@ class MergeUnderLeaseTest(unittest.TestCase):
             "merged": False,
             "head": {"sha": "a" * 40, "ref": "feat/x"},
         }
-        shipper.wait_status = lambda sha, label: None
+        shipper.wait_status = lambda sha, label, pull=None: None
         attempts = [LeaseLost("lost"), "m" * 40]
 
         def merge_locked(number: int) -> str:

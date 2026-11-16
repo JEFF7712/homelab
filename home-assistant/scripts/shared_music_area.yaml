@@ -1,0 +1,152 @@
+alias: "Lighting: Shared Music Area"
+description: >-
+  Join, stand by, paint, switch off or leave one shared music mode area.
+  When Music Mode starts, every area is snapshotted to
+  scene.pre_music_<area> and taken off Adaptive Lighting: join then paints a
+  taking-part area and standby switches the others off. Mid-session, relight
+  and off follow the area's toggle without touching the snapshot. Leave
+  restores the snapshot and hands the area back to Adaptive Lighting.
+  Join and relight set the area's shade from sensor.music_director at its
+  brightness_pct (number.music_mode_brightness); paint, on every new track,
+  changes only the colour of lights that are on, so brightness set on a
+  light by hand, or a light switched off by hand, stays as it is.
+mode: parallel
+max: 20
+fields:
+  area:
+    description: Area key, matching input_boolean.music_mode_<area>.
+    required: true
+    example: kitchen_ceiling
+    selector:
+      select:
+        options:
+          - kitchen_ceiling
+          - dining_table
+          - floor_lamp
+          - tulip_lamp
+          - ceiling_strip
+  step:
+    description: join, standby, paint, relight, off or leave.
+    required: true
+    example: join
+    selector:
+      select:
+        options:
+          - join
+          - standby
+          - paint
+          - relight
+          - "off"
+          - leave
+sequence:
+  - variables:
+      areas:
+        kitchen_ceiling:
+          lights:
+            - light.kitchen_ceiling_light_1
+            - light.kitchen_ceiling_light_2
+          adaptive: switch.adaptive_lighting_all_dimmable_lights
+        dining_table:
+          lights:
+            - light.kitchen_dining_table_ceiling_light_1
+            - light.kitchen_dining_table_ceiling_light_2
+          adaptive: switch.adaptive_lighting_govee_dining_bulbs
+        floor_lamp:
+          lights:
+            - light.living_room_floor_lamp
+          adaptive: switch.adaptive_lighting_all_dimmable_lights
+        tulip_lamp:
+          lights:
+            - light.living_room_tulip_lamp
+          adaptive: switch.adaptive_lighting_all_dimmable_lights
+        ceiling_strip:
+          lights:
+            - light.apollo_led_strip_apollo_led_strip
+          adaptive: ""
+      config: "{{ areas.get(area) }}"
+      snapshot: "scene.pre_music_{{ area }}"
+      rgb: "{{ (state_attr('sensor.music_director', 'area_colors') or {}).get(area) }}"
+  - condition: template
+    value_template: "{{ config is mapping and step in ['join', 'standby', 'paint', 'relight', 'off', 'leave'] }}"
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ step in ['join', 'standby'] }}"
+        sequence:
+          - action: scene.create
+            data:
+              scene_id: "pre_music_{{ area }}"
+              snapshot_entities: "{{ config.lights }}"
+          - if:
+              - condition: template
+                value_template: "{{ config.adaptive != '' }}"
+            then:
+              - action: adaptive_lighting.set_manual_control
+                data:
+                  entity_id: "{{ config.adaptive }}"
+                  lights: "{{ config.lights }}"
+                  manual_control: true
+  - if:
+      - condition: template
+        value_template: "{{ step in ['standby', 'off'] }}"
+    then:
+      # No fade: Zigbee bulbs fade to off slowly and unreliably.
+      - action: light.turn_off
+        target:
+          entity_id: "{{ config.lights }}"
+      - stop: Area off
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ step == 'leave' }}"
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ state_attr(snapshot, 'entity_id') is not none }}"
+            then:
+              - action: scene.turn_on
+                target:
+                  entity_id: "{{ snapshot }}"
+          - if:
+              - condition: template
+                value_template: "{{ config.adaptive != '' }}"
+            then:
+              - action: adaptive_lighting.set_manual_control
+                data:
+                  entity_id: "{{ config.adaptive }}"
+                  lights: "{{ config.lights }}"
+                  manual_control: false
+              - action: adaptive_lighting.apply
+                data:
+                  entity_id: "{{ config.adaptive }}"
+                  lights: "{{ config.lights }}"
+                  turn_on_lights: false
+          - stop: Area restored
+  - if:
+      - condition: template
+        value_template: "{{ rgb is sequence and rgb is not string and rgb | length == 3 }}"
+    then:
+      - if:
+          - condition: template
+            value_template: "{{ step == 'paint' }}"
+        then:
+          - variables:
+              lit: "{{ config.lights | select('is_state', 'on') | list }}"
+          - if:
+              - condition: template
+                value_template: "{{ lit | length > 0 }}"
+            then:
+              - action: light.turn_on
+                target:
+                  entity_id: "{{ lit }}"
+                data:
+                  rgb_color: "{{ rgb }}"
+                  transition: 2
+        else:
+          - action: light.turn_on
+            target:
+              entity_id: "{{ config.lights }}"
+            data:
+              rgb_color: "{{ rgb }}"
+              brightness_pct: "{{ state_attr('sensor.music_director', 'brightness_pct') | int(70) }}"
+              transition: 2

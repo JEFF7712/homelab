@@ -42,3 +42,15 @@ namespace enforcing the target level, `kubectl create --dry-run=server` each
 pod template into it (dropping `serviceAccountName`), and delete the namespace.
 Fix every violation in the owning manifest first. Loosening to `privileged`
 also means updating `PRIVILEGED` in the test, with the reason recorded here.
+
+## Voice satellite privilege
+
+The Linux voice assistant connects as UID 1001 to the existing host PulseAudio
+Unix socket. PulseAudio owns the audio hardware. The satellite drops all Linux
+capabilities, forbids privilege escalation, uses RuntimeDefault seccomp and
+disables Kubernetes token mounting. Host networking and the existing audio/socket
+mounts remain for the integration. Before rollout, enumeration of both HyperX
+QuadCast and onboard audio succeeded in the existing container with no effective,
+permitted, inherited or ambient capabilities and `no_new_privs`; no audio was
+recorded. During rollout verify satellite readiness and the voice path; restore
+the previous manifest if the runtime sandbox prevents normal operation.

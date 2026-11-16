@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Render /config/extended.conf from the template plus secret env."""
+import os
+import sys
+from pathlib import Path
+
+TEMPLATE = Path("/tmp/lidarr-extended/extended.conf.template")
+DEST = Path("/config/extended.conf")
+
+
+def main() -> int:
+    arl = os.environ.get("DEEZER_ARL", "").strip()
+    api_key = os.environ.get("LIDARR_API_KEY", "").strip()
+    missing = [
+        name
+        for name, value in (("DEEZER_ARL", arl), ("LIDARR_API_KEY", api_key))
+        if not value
+    ]
+    if missing:
+        print(
+            "render-extended-conf: missing required env: "
+            + ", ".join(missing),
+            file=sys.stderr,
+        )
+        return 1
+    text = TEMPLATE.read_text(encoding="utf-8")
+    text = text.replace("__DEEZER_ARL__", arl).replace(
+        "__LIDARR_API_KEY__", api_key
+    )
+    if "__DEEZER_ARL__" in text or "__LIDARR_API_KEY__" in text:
+        print(
+            "render-extended-conf: placeholder left unreplaced",
+            file=sys.stderr,
+        )
+        return 1
+    DEST.write_text(text, encoding="utf-8")
+    os.chmod(DEST, 0o644)
+    print("render-extended-conf: wrote /config/extended.conf")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

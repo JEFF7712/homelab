@@ -70,6 +70,10 @@ def main() -> int:
             )
         if "memory_oom_kill" in cgroup:
             resources.append(f"cgroup_oom_kills={cgroup['memory_oom_kill']}")
+        if "cpu_usage_usec" in cgroup:
+            resources.append(
+                f"cgroup_cpu_usage={cgroup['cpu_usage_usec'] / 1000000:.1f}s"
+            )
         if "cpu_throttled_usec" in cgroup:
             resources.append(
                 f"cgroup_cpu_throttled={cgroup['cpu_throttled_usec'] / 1000000:.1f}s"

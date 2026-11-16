@@ -1,6 +1,7 @@
 from typing import Any
 
 import pytest
+
 from walk_weather import FORECAST_MAX_AGE, WalkWeather
 
 

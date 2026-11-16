@@ -1,0 +1,3 @@
+name: 'Music Mode: Tulip Lamp'
+icon: mdi:lamp
+entity_id: input_boolean.music_mode_tulip_lamp

@@ -11,10 +11,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GATEWAY_FILE = REPO_ROOT / "gitops" / "voice" / "gateway.yaml"
-BACKENDS = ("nemotron", "cloud")
+BACKENDS = ("nemotron",)
 ADDRESSES = {
     "nemotron": "wyoming-stt-nemotron:10300",
-    "cloud": "wyoming-stt-groq:10300",
 }
 
 

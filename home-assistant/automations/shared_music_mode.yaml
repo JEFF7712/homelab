@@ -1,14 +1,25 @@
 id: shared_music_mode
 alias: "Lighting: Shared Music Mode"
 description: >-
-  While Music Mode is on, all six shared bulbs take one colour per track:
-  the dominant colour of the soundbar's album art at a fixed brightness,
-  applied by script.shared_music_album_color. Pausing keeps the last colour.
-  The pre-music state is snapshotted first; when turned off, the snapshot is
-  restored, then Adaptive Lighting control and circadian state resume.
-  LedFx stays up for future LED strips but no longer drives these bulbs.
+  While Music Mode is on, only the lights whose input_boolean.music_mode_<area>
+  toggle is on are lit. Starting Music Mode snapshots every shared area and
+  the living room LED strip, switches both Adaptive Lighting entries off
+  (restored to their prior state when Music Mode ends) and takes the areas
+  off Adaptive Lighting (script.shared_music_area); taking-part areas are painted with their shade
+  of the track's palette from sensor.music_director, repainted on every new
+  track and on colour or brightness changes, and the rest are switched off.
+  New tracks change only the colour of lit areas, so a light's own brightness
+  slider holds; moving Music Mode Brightness relights every taking-part area
+  at that brightness. Toggling an area or the strip while Music Mode is on
+  lights or switches it off immediately. Turning Music Mode off restores every area and the strip
+  to its snapshot. The toggles keep their last values between sessions. The
+  mushroom lamp has no toggle: Music Mode always switches it off and
+  restores it afterwards, and a manual switch-on during Music Mode is left
+  alone. The strip's colours and effects come from the music_director
+  integration through LedFx; here it is only switched on (at full WLED
+  brightness, which scales the LedFx stream) or off.
 mode: queued
-max: 5
+max: 10
 triggers:
   - trigger: state
     entity_id: input_boolean.shared_music_mode
@@ -19,79 +30,182 @@ triggers:
     to: "off"
     id: "mode_off"
   - trigger: state
-    entity_id: media_player.homelab_05_satellite_media_player_2
-    attribute: entity_picture
-    id: "track"
+    entity_id:
+      - input_boolean.music_mode_kitchen_ceiling
+      - input_boolean.music_mode_dining_table
+      - input_boolean.music_mode_floor_lamp
+      - input_boolean.music_mode_tulip_lamp
+      - input_boolean.music_mode_ceiling_strip
+    to:
+      - "on"
+      - "off"
+    id: "area"
+  - trigger: state
+    entity_id: input_boolean.music_mode_led_strip
+    to:
+      - "on"
+      - "off"
+    id: "strip"
+  - trigger: state
+    entity_id: sensor.music_director
+    id: "palette"
 conditions: []
 actions:
+  - variables:
+      areas:
+        - kitchen_ceiling
+        - dining_table
+        - floor_lamp
+        - tulip_lamp
+        - ceiling_strip
+      taking_part: >-
+        {% set ns = namespace(on=[]) %}
+        {% for area in areas if is_state('input_boolean.music_mode_' ~ area, 'on') %}
+        {% set ns.on = ns.on + [area] %}
+        {% endfor %}
+        {{ ns.on }}
   - choose:
       - conditions:
           - condition: trigger
             id: "mode_on"
         sequence:
+          # Adaptive Lighting stays off for the whole session, so a light
+          # switched back on mid-session keeps its music colour.
           - action: scene.create
             data:
-              scene_id: pre_music_mode_shared
+              scene_id: pre_music_adaptive_lighting
               snapshot_entities:
-                - light.kitchen_ceiling_light_1
-                - light.kitchen_ceiling_light_2
-                - light.living_room_floor_lamp
-                - light.living_room_tulip_lamp
-                - light.kitchen_dining_table_ceiling_light_1
-                - light.kitchen_dining_table_ceiling_light_2
-          - action: adaptive_lighting.set_manual_control
+                - switch.adaptive_lighting_all_dimmable_lights
+                - switch.adaptive_lighting_govee_dining_bulbs
+          - action: switch.turn_off
+            target:
+              entity_id:
+                - switch.adaptive_lighting_all_dimmable_lights
+                - switch.adaptive_lighting_govee_dining_bulbs
+          - action: scene.create
             data:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights
-              lights:
-                - light.kitchen_ceiling_light_1
-                - light.kitchen_ceiling_light_2
-                - light.living_room_floor_lamp
-                - light.living_room_tulip_lamp
-                - light.kitchen_dining_table_ceiling_light_1
-                - light.kitchen_dining_table_ceiling_light_2
-              manual_control: true
-          - action: script.shared_music_album_color
-      - conditions:
-          - condition: trigger
-            id: "track"
-          - condition: state
-            entity_id: input_boolean.shared_music_mode
-            state: "on"
-          - condition: state
-            entity_id: media_player.homelab_05_satellite_media_player_2
-            state: "playing"
-        sequence:
-          - action: script.shared_music_album_color
+              scene_id: pre_music_mushroom_lamp
+              snapshot_entities:
+                - light.kitchen_mushroom_lamp
+          - action: light.turn_off
+            target:
+              entity_id: light.kitchen_mushroom_lamp
+          - action: scene.create
+            data:
+              scene_id: pre_music_led_strip
+              snapshot_entities:
+                - light.living_room_led_strip
+          - if:
+              - condition: template
+                value_template: "{{ is_state('input_boolean.music_mode_led_strip', 'on') }}"
+            then:
+              # Full WLED brightness: WLED scales LedFx's stream by its own
+              # brightness, so Music Mode Brightness alone sets the level.
+              - action: light.turn_on
+                target:
+                  entity_id: light.living_room_led_strip
+                data:
+                  brightness: 255
+            else:
+              - action: light.turn_off
+                target:
+                  entity_id: light.living_room_led_strip
+          - repeat:
+              for_each: "{{ areas }}"
+              sequence:
+                - action: script.shared_music_area
+                  data:
+                    area: "{{ repeat.item }}"
+                    step: "{{ 'join' if repeat.item in taking_part else 'standby' }}"
       - conditions:
           - condition: trigger
             id: "mode_off"
         sequence:
+          # Adaptive Lighting comes back first so leave can hand each area
+          # back to it.
           - if:
               - condition: template
-                value_template: "{{ state_attr('scene.pre_music_mode_shared', 'entity_id') is not none }}"
+                value_template: "{{ state_attr('scene.pre_music_adaptive_lighting', 'entity_id') is not none }}"
             then:
               - action: scene.turn_on
                 target:
-                  entity_id: scene.pre_music_mode_shared
-          - action: adaptive_lighting.set_manual_control
+                  entity_id: scene.pre_music_adaptive_lighting
+          - repeat:
+              for_each: "{{ areas }}"
+              sequence:
+                - action: script.shared_music_area
+                  data:
+                    area: "{{ repeat.item }}"
+                    step: leave
+          - repeat:
+              for_each:
+                - scene.pre_music_mushroom_lamp
+                - scene.pre_music_led_strip
+              sequence:
+                - if:
+                    - condition: template
+                      value_template: "{{ state_attr(repeat.item, 'entity_id') is not none }}"
+                  then:
+                    - action: scene.turn_on
+                      target:
+                        entity_id: "{{ repeat.item }}"
+      - conditions:
+          - condition: trigger
+            id: "area"
+          - condition: state
+            entity_id: input_boolean.shared_music_mode
+            state: "on"
+        sequence:
+          - action: script.shared_music_area
             data:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights
-              lights:
-                - light.kitchen_ceiling_light_1
-                - light.kitchen_ceiling_light_2
-                - light.living_room_floor_lamp
-                - light.living_room_tulip_lamp
-                - light.kitchen_dining_table_ceiling_light_1
-                - light.kitchen_dining_table_ceiling_light_2
-              manual_control: false
-          - action: adaptive_lighting.apply
-            data:
-              entity_id: switch.adaptive_lighting_all_dimmable_lights
-              lights:
-                - light.kitchen_ceiling_light_1
-                - light.kitchen_ceiling_light_2
-                - light.living_room_floor_lamp
-                - light.living_room_tulip_lamp
-                - light.kitchen_dining_table_ceiling_light_1
-                - light.kitchen_dining_table_ceiling_light_2
-              turn_on_lights: false
+              area: "{{ trigger.entity_id | replace('input_boolean.music_mode_', '') }}"
+              step: "{{ 'relight' if trigger.to_state.state == 'on' else 'off' }}"
+      - conditions:
+          - condition: trigger
+            id: "strip"
+          - condition: state
+            entity_id: input_boolean.shared_music_mode
+            state: "on"
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ trigger.to_state.state == 'on' }}"
+            then:
+              # Full WLED brightness: WLED scales LedFx's stream by its own
+              # brightness, so Music Mode Brightness alone sets the level.
+              - action: light.turn_on
+                target:
+                  entity_id: light.living_room_led_strip
+                data:
+                  brightness: 255
+            else:
+              - action: light.turn_off
+                target:
+                  entity_id: light.living_room_led_strip
+      - conditions:
+          - condition: trigger
+            id: "palette"
+          - condition: state
+            entity_id: input_boolean.shared_music_mode
+            state: "on"
+          - condition: template
+            value_template: >-
+              {% set new = trigger.to_state.attributes if trigger.to_state else {} %}
+              {% set old = trigger.from_state.attributes if trigger.from_state else {} %}
+              {{ new.area_colors is defined
+                 and (old.get('area_colors') != new.area_colors
+                      or old.get('brightness_pct') != new.get('brightness_pct')) }}
+        sequence:
+          - variables:
+              step: >-
+                {{ 'relight' if trigger.from_state is not none
+                   and trigger.from_state.attributes.get('brightness_pct')
+                       != trigger.to_state.attributes.get('brightness_pct')
+                   else 'paint' }}
+          - repeat:
+              for_each: "{{ taking_part }}"
+              sequence:
+                - action: script.shared_music_area
+                  data:
+                    area: "{{ repeat.item }}"
+                    step: "{{ step }}"

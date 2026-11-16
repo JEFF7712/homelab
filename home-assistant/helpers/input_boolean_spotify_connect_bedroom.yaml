@@ -1,0 +1,3 @@
+name: Bedroom Spotify Connect
+icon: mdi:spotify
+entity_id: input_boolean.spotify_connect_bedroom

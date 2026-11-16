@@ -51,8 +51,10 @@ but its pin never merged, the next run finds the retained version and pins it
 without repacking. Generic package files are immutable, so a bad upload is
 fixed with a new version number, never by replacing the file.
 
-Applications with seed snapshots (`node_seeds`, currently quartz) are rejected;
-pack those by hand.
+Applications with seed snapshots (`node_seeds`, including Quartz) reuse their
+retained archives. The operation verifies every seed against its catalog digest
+and restores it at the same workspace destination used by the release build
+before proving the offline install and build.
 
 ## Credential
 
@@ -71,3 +73,35 @@ pipelines keep using the read-only `supply_read_password`.
 
 The shared node toolchain (`node-toolchain/*`) is still uploaded by hand with
 `node_supply.py upload`.
+
+## Upgrading the Node major
+
+Node application releases run on Node 24, which is supported until
+2028-04-30; move to the next LTS major before then. A release image is
+assembled from the `node-toolchain` supply and the catalog pins in
+`config/ci/applications.json`, not from the producer Dockerfiles, so a
+base-image bump alone changes nothing and fails the registry gate. Renovate
+therefore does not propose Node majors for
+`gitops/producer-base-images/base-images.yaml`. The 2026-11 attempt (#602,
+#670) stopped at step 2: the recipe for `node-musl.tar.gz` and
+`node-libs.tar.gz` is not recorded, so write it down with the next upload.
+
+1. Mirror the new `node:<major>-slim` and `node:<major>-alpine` images next to
+   the current ones: append them to `base-images.yaml`, and merge only their
+   two new records into `registry/images.inventory.json` and
+   `registry/images.lock.json` (a full regeneration renames unrelated IDs).
+   Confirm `registry-lock-import` copied both.
+2. Operator: build `node-toolchain/<n+1>` (`node.tar.gz`, `node-musl.tar.gz`,
+   `node-libs.tar.gz`) from the Node release that the pinned nixpkgs ships as
+   `nodejs_<major>`, and upload it with `node_supply.py upload`. Agents hold
+   no package write token.
+3. Point `nix_toolchain` in `scripts/ci/node_supply.py` at `nodejs_<major>`,
+   then refresh every Node application's npm cache through
+   `config/ci/node-supply-requests.json` (see above).
+4. Pin the new toolchain in `applications.json` and move the
+   `release_base_image` entries that use the Node runtime to the new alpine
+   mirror. This deploys the CI host.
+5. Update each producer Dockerfile (rupan.dev, rupanism, distrojeff-site,
+   obsidian-vault `quartz/Dockerfile`), release and promote each application.
+6. Move the `config/ci/projectctl-contracts.json` images, then remove the old
+   major's entries from `base-images.yaml`, the inventory and the lock.

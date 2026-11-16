@@ -35,6 +35,15 @@ class ReportsTest(unittest.TestCase):
                 },
             )
 
+    def test_cpu_limit_reads_the_quota_and_treats_max_as_unlimited(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            self.assertIsNone(run.cpu_limit(directory))
+            (directory / "cpu.max").write_text("200000 100000\n")
+            self.assertEqual(run.cpu_limit(directory), 2.0)
+            (directory / "cpu.max").write_text("max 100000\n")
+            self.assertIsNone(run.cpu_limit(directory))
+
     def test_anon_peak_tracks_the_highest_sample_until_stopped(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -91,6 +100,7 @@ class ReportsTest(unittest.TestCase):
                         "memory_oom_kill": 0,
                         "memory_peak_bytes": 8388608,
                         "memory_anon_peak_bytes": 4194304,
+                        "cpu_usage_usec": 5500000,
                         "cpu_throttled_usec": 3000000,
                     },
                 },
@@ -114,6 +124,7 @@ class ReportsTest(unittest.TestCase):
             self.assertIn("cgroup_peak=8MiB", output.getvalue())
             self.assertIn("cgroup_anon_peak=4MiB", output.getvalue())
             self.assertIn("cgroup_oom_kills=0", output.getvalue())
+            self.assertIn("cgroup_cpu_usage=5.5s", output.getvalue())
             self.assertIn("cgroup_cpu_throttled=3.0s", output.getvalue())
             self.assertNotIn("[WAIT / QUEUE]", output.getvalue())
 
@@ -232,7 +243,7 @@ class ReportsTest(unittest.TestCase):
         self.assertIsInstance(result, ReportResult)
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / "nested/tests.xml"
-            write_report(result, output)
+            write_report(result.cases, output)
             report = ET.parse(output).getroot()
         self.assertEqual(report.attrib["tests"], "9")
         self.assertEqual(report.attrib["failures"], "3")
@@ -241,6 +252,105 @@ class ReportsTest(unittest.TestCase):
         names = [case.attrib["name"] for case in report]
         self.assertEqual(len(names), len(set(names)))
         self.assertIn("subtest detail", ET.tostring(report).decode())
+
+    def test_parallel_runner_matches_serial_report_and_fixtures(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "test_fixture.py").write_text(
+                "import unittest\n"
+                "def setUpModule():\n    raise ValueError('module fixture')\n"
+                "class Example(unittest.TestCase):\n    def test_unused(self):\n        pass\n"
+            )
+            (directory / "test_outcomes.py").write_text(
+                "import unittest\n"
+                "class Outcomes(unittest.TestCase):\n"
+                "    @classmethod\n"
+                "    def setUpClass(cls):\n        cls.ready = True\n"
+                "    def test_pass(self):\n        self.assertTrue(self.ready)\n"
+                "    def test_fail(self):\n        self.fail('parallel detail')\n"
+                "    @unittest.skip('skip detail')\n"
+                "    def test_skip(self):\n        pass\n"
+            )
+            for index in range(3):
+                (directory / f"test_pass_{index}.py").write_text(
+                    "import unittest\n"
+                    "class Passing(unittest.TestCase):\n"
+                    "    def test_ok(self):\n        pass\n"
+                )
+            reports = {}
+            for jobs in ("1", "3"):
+                output = directory / f"report-{jobs}.xml"
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "scripts.ci.tests",
+                        "--start",
+                        temporary,
+                        "--output",
+                        str(output),
+                        "--log-report",
+                        "--jobs",
+                        jobs,
+                    ],
+                    cwd=ROOT,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(result.returncode, 1, result.stderr)
+                # Tracebacks follow every per-test line, as a log tail shows.
+                self.assertIn(
+                    "parallel detail", result.stderr.rsplit(" ... ok\n", 1)[-1]
+                )
+                self.assertEqual(recover_report(result.stdout), output.read_bytes())
+                report = ET.parse(output).getroot()
+                reports[jobs] = (
+                    {
+                        key: report.get(key)
+                        for key in ("tests", "failures", "errors", "skipped")
+                    },
+                    [(case.get("classname"), case.get("name")) for case in report],
+                )
+            self.assertEqual(reports["3"], reports["1"])
+            self.assertEqual(
+                reports["3"][0],
+                {"tests": "7", "failures": "1", "errors": "1", "skipped": "1"},
+            )
+            self.assertIn("with 3 workers", result.stderr)
+            # Failing tests are named on the last lines a log tail keeps.
+            module_error, failure = result.stderr.rstrip().splitlines()[-2:]
+            self.assertIn("test_fixture", module_error)
+            self.assertEqual(failure, "  test_outcomes.Outcomes.test_fail")
+
+    def test_parallel_runner_passes_when_every_module_passes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            for index in range(2):
+                (Path(temporary) / f"test_pass_{index}.py").write_text(
+                    "import unittest\n"
+                    "class Passing(unittest.TestCase):\n"
+                    "    def test_ok(self):\n        pass\n"
+                )
+            output = Path(temporary) / "report.xml"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.ci.tests",
+                    "--start",
+                    temporary,
+                    "--output",
+                    str(output),
+                    "--jobs",
+                    "2",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(ET.parse(output).getroot().get("tests"), "2")
 
     def test_runner_returns_failure_and_writes_report(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

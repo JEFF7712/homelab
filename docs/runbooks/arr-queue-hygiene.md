@@ -2,7 +2,7 @@
 
 ## Why this exists
 
-Music flows into Lidarr from two paths with different metadata sources:
+Music acquisition and import use different metadata sources:
 
 - soularr / spotify-sync request by Spotify identity,
 - Arr-Extended downloads from streaming sources,
@@ -29,7 +29,8 @@ search stay on). Note: a Prowlarr full sync may re-enable it; re-check
 ## What the CronJob does
 
 `arr-queue-hygiene` (nightly 06:15 America/Chicago, manifest
-`gitops/media/arr-queue-hygiene.yaml`) purges queue items stuck in
+`gitops/media/arr-queue-hygiene.yaml`, script
+`gitops/media/arr-queue-hygiene/hygiene.py`) purges queue items stuck in
 `importFailed` longer than `RETENTION_DAYS` (default 3):
 
 1. Bulk-removes them from the Lidarr queue (`removeFromClient=false`,
@@ -68,8 +69,10 @@ kubectl exec -n media deploy/lidarr -c lidarr -- sh -c \
 
 Quarantined downloads live under
 `/config/extended/import-quarantine-<date>/` on the `lidarr-config` PVC.
-Review with `beet import` from the beets job image, or delete them. Files
-are re-downloadable streaming grabs, so deleting is safe.
+Inspect the quarantined files and metadata before choosing manual import or
+cleanup. Do not infer that every file can be downloaded again. Preserve any
+needed copy and follow the repository's exact-change approval boundary for
+intended persistent-data destruction.
 
 ## Verifying the Pirate Bay indexer
 

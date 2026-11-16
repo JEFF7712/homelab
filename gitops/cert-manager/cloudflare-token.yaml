@@ -7,7 +7,7 @@ spec:
   refreshInterval: 1h
   secretStoreRef:
     kind: ClusterSecretStore
-    name: homelab-secrets
+    name: homelab-cert-manager
   target:
     name: cloudflare-api-token
     creationPolicy: Owner
@@ -16,5 +16,5 @@ spec:
   data:
     - secretKey: api-token
       remoteRef:
-        key: homelab-values
+        key: homelab-cert-manager-values
         property: CF_API_TOKEN

@@ -22,6 +22,7 @@ class ZotRegistryModuleTests(unittest.TestCase):
             flake = builtins.getFlake (toString {json.dumps(str(ROOT / "flake"))});
             system = flake.inputs.nixpkgs.lib.nixosSystem {{
               system = "x86_64-linux";
+              specialArgs.fleetInventory = import {json.dumps(str(ROOT / "inventory"))} {{ inherit (flake.inputs.nixpkgs) lib; }};
               modules = [
                 flake.inputs.impermanence.nixosModules.impermanence
                 flake.inputs.sops-nix.nixosModules.sops
@@ -222,7 +223,15 @@ class ZotRegistryModuleTests(unittest.TestCase):
 
         self.assertIn('"/mnt/backup-2tb/registry-restic"', nas_data)
         self.assertIn('"/persist/zot/status"', nas_data)
-        self.assertIn("restic forget --prune", nas_data)
+        import shlex
+
+        command = next(
+            line.strip()
+            for line in nas_data.replace("\\\n", " ").splitlines()
+            if line.strip().startswith("restic forget ")
+        )
+        self.assertIn("--prune", shlex.split(command))
+        self.assertIn("--group-by", shlex.split(command))
 
     def test_background_gc_reclaims_blobs_daily(self) -> None:
         module = MODULE.read_text()

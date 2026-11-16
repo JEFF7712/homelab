@@ -1,0 +1,25 @@
+refresh:
+  name: Refresh
+  description: >-
+    Re-decide the palette and LedFx effect for the playing track and apply
+    them again.
+prepare_playlists:
+  name: Prepare playlists
+  description: >-
+    Look up every song in the library's Spotify playlists through Music
+    Assistant ahead of time, so they switch instantly when played. Runs in
+    the background; already prepared songs are skipped.
+  fields:
+    playlists:
+      name: Playlists
+      description: Playlist names to prepare. Leave empty for all of them.
+      example: '["Pee", "Pee 2"]'
+      selector:
+        text:
+          multiple: true
+    notify:
+      name: Notify
+      description: Show a notification when the run starts and finishes.
+      default: true
+      selector:
+        boolean:

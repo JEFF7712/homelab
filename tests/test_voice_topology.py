@@ -64,7 +64,8 @@ class VoiceTopologyTest(unittest.TestCase):
             report["desired"]["gateways"]["stt"]["backends"][0]["name"], "nemotron"
         )
         self.assertEqual(
-            report["desired"]["gateways"]["tts"]["backends"][1]["name"], "piper"
+            report["desired"]["ha_pipeline"]["response_entity"],
+            "sensor.jarvis_response",
         )
         self.assertEqual(
             report["desired"]["ha_pipeline"]["conversation_agent"], "Jarvis Jev Router"

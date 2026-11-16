@@ -12,7 +12,7 @@
       "host_type": "appliance-dns",
       "ip": "10.0.30.10",
       "name": "adguard-netbird-01",
-      "order": 6
+      "order": 5
     },
     "homelab-01": {
       "host_type": "k3s-stateful",
@@ -36,19 +36,19 @@
       "host_type": "k3s-worker",
       "ip": "10.0.30.14",
       "name": "homelab-04",
-      "order": 4
+      "order": 7
     },
     "homelab-05": {
       "host_type": "k3s-worker",
       "ip": "10.0.30.15",
       "name": "homelab-05",
-      "order": 5
+      "order": 4
     },
     "nas-01": {
       "host_type": "appliance-nas",
       "ip": "10.0.30.20",
       "name": "nas-01",
-      "order": 7
+      "order": 6
     }
   }
 }

@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import threading
-from pathlib import Path
 
 logger = logging.getLogger("arcade_high_scores")
 
@@ -21,7 +20,9 @@ def default_scores() -> dict[str, int]:
 class HighScoreManager:
     """Thread-safe persistent storage for arcade personal bests and high scores."""
 
-    def __init__(self, primary_path: str | None = None, fallback_path: str | None = None) -> None:
+    def __init__(
+        self, primary_path: str | None = None, fallback_path: str | None = None
+    ) -> None:
         self.primary_path = primary_path or os.environ.get(
             "ARCADE_HIGH_SCORES_FILE", "/data/arcade_high_scores.json"
         )
@@ -39,21 +40,25 @@ class HighScoreManager:
             if not os.path.exists(path):
                 continue
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     data = json.load(f)
                 if isinstance(data, dict):
                     for k, v in data.items():
                         if isinstance(v, int):
                             self.scores[k] = v
                     self.active_path = path
-                    logger.info("Loaded arcade high scores from %s: %s", path, self.scores)
+                    logger.info(
+                        "Loaded arcade high scores from %s: %s", path, self.scores
+                    )
                     return
             except Exception as e:
                 logger.warning("Failed to load high scores from %s: %s", path, e)
 
         # Neither file exists yet; choose writable path
         self.active_path = self._determine_writable_path()
-        logger.info("Initialized high scores with defaults. Active path: %s", self.active_path)
+        logger.info(
+            "Initialized high scores with defaults. Active path: %s", self.active_path
+        )
 
     def _determine_writable_path(self) -> str:
         primary_dir = os.path.dirname(self.primary_path) or "."
@@ -83,7 +88,9 @@ class HighScoreManager:
                 self.active_path = target
                 return
             except (OSError, PermissionError) as e:
-                logger.warning("Failed writing high scores to %s (%s); trying fallback", target, e)
+                logger.warning(
+                    "Failed writing high scores to %s (%s); trying fallback", target, e
+                )
                 continue
 
     def get_score(self, game_id: str) -> int:
@@ -101,6 +108,8 @@ class HighScoreManager:
             if score > current:
                 self.scores[game_id] = score
                 self._save_unlocked()
-                logger.info("NEW HIGH SCORE for %s: %d (previous: %d)", game_id, score, current)
+                logger.info(
+                    "NEW HIGH SCORE for %s: %d (previous: %d)", game_id, score, current
+                )
                 return True, score
             return False, current

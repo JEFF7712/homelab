@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
@@ -51,6 +52,8 @@ in
       description = "Accept inbound TCP on p2pPort so the node serves full history to peers.";
     };
 
+    tor.enable = lib.mkEnableOption "Tor onion P2P listener for monerod";
+
     requiredAvailGiB = lib.mkOption {
       type = lib.types.ints.positive;
       default = 625;
@@ -67,6 +70,12 @@ in
       type = lib.types.str;
       default = "300%";
       description = "systemd CPUQuota for monerod, bounding initial sync on shared hosts.";
+    };
+
+    memoryHigh = lib.mkOption {
+      type = lib.types.str;
+      default = "6G";
+      description = "systemd MemoryHigh for monerod; reclaim starts here, below memoryMax.";
     };
 
     memoryMax = lib.mkOption {
@@ -116,8 +125,8 @@ in
       allowedCidrs = lib.mkOption {
         type = lib.types.listOf lib.types.str;
         default = [
-          "10.0.10.0/24"
-          "10.0.20.0/24"
+          fleetInventory.networks.management.cidr
+          fleetInventory.networks.clients.cidr
           "100.64.0.0/10"
         ];
         description = "Client subnets allowed to reach restricted RPC: management, clients, and NetBird VPN. Guest IoT is deliberately excluded.";
@@ -147,17 +156,60 @@ in
       prune = false;
       rpc.address = "127.0.0.1";
       rpc.port = 18081;
+      environmentFile = lib.mkIf cfg.tor.enable "/run/monero-onion.env";
       extraConfig = ''
         p2p-bind-port=${toString cfg.p2pPort}
         check-updates=disabled
         enable-dns-blocklist=1
         out-peers=12
         in-peers=48
+        ${lib.optionalString cfg.tor.enable ''
+          anonymous-inbound=''${MONERO_ONION_ADDRESS}:18084,127.0.0.1:18084,48
+          tx-proxy=tor,127.0.0.1:9050,disable_noise
+        ''}
         ${lib.optionalString cfg.restrictedRpc.enable ''
           rpc-restricted-bind-ip=0.0.0.0
           rpc-restricted-bind-port=${toString cfg.restrictedRpc.port}
           disable-rpc-ban=1
         ''}
+      '';
+    };
+
+    services.tor = lib.mkIf cfg.tor.enable {
+      enable = true;
+      client.enable = true;
+      relay.onionServices.monero = {
+        version = 3;
+        map = [
+          {
+            port = 18084;
+            target = {
+              addr = "127.0.0.1";
+              port = 18084;
+            };
+          }
+        ];
+      };
+    };
+
+    systemd.services.monero-onion-env = lib.mkIf cfg.tor.enable {
+      description = "Prepare monerod onion address";
+      requires = [ "tor.service" ];
+      after = [ "tor.service" ];
+      before = [ "monero.service" ];
+      serviceConfig.Type = "oneshot";
+      script = ''
+        set -eu
+        hostname=/var/lib/tor/onion/monero/hostname
+        for attempt in $(seq 1 30); do
+          if [ -s "$hostname" ]; then
+            break
+          fi
+          sleep 1
+        done
+        test -s "$hostname"
+        printf 'MONERO_ONION_ADDRESS=%s\n' "$(cat "$hostname")" > /run/monero-onion.env
+        chmod 0644 /run/monero-onion.env
       '';
     };
 
@@ -176,7 +228,7 @@ in
 
     networking.firewall.extraInputRules = lib.mkAfter ''
       ${lib.optionalString cfg.openP2P "tcp dport ${toString cfg.p2pPort} accept"}
-      ip saddr 10.0.30.0/24 tcp dport ${toString cfg.exporterPort} accept
+      ip saddr ${fleetInventory.networks.infrastructure.cidr} tcp dport ${toString cfg.exporterPort} accept
       ip saddr 10.42.0.0/16 tcp dport ${toString cfg.exporterPort} accept
       ${lib.optionalString cfg.restrictedRpc.enable "ip saddr { ${lib.concatStringsSep ", " cfg.restrictedRpc.allowedCidrs} } tcp dport ${toString cfg.restrictedRpc.port} accept"}
     '';
@@ -186,6 +238,8 @@ in
     ];
 
     systemd.services.monero = {
+      requires = lib.optionals cfg.tor.enable [ "monero-onion-env.service" ];
+      after = lib.optionals cfg.tor.enable [ "monero-onion-env.service" ];
       # A failed preflight exits non-zero and blocks daemon startup. Ordered
       # before the upstream config-generation preStart.
       preStart = lib.mkBefore "${preflight}";
@@ -198,7 +252,7 @@ in
         # enforced by the cgroup I/O controller regardless of elevator.
         IOReadBandwidthMax = "${cfg.ioDevice} ${cfg.readBandwidthMax}";
         IOWriteBandwidthMax = "${cfg.ioDevice} ${cfg.writeBandwidthMax}";
-        MemoryHigh = "6G";
+        MemoryHigh = cfg.memoryHigh;
         MemoryMax = cfg.memoryMax;
         TimeoutStopSec = "300s";
         RestartSec = "30s";

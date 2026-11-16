@@ -35,5 +35,3 @@ __all__ = [
     "Tron2P",
     "register_game",
 ]
-
-

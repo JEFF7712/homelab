@@ -43,9 +43,8 @@ triggers:
       - "bedroom music mode on"
       - "turn on music mode in [the] bedroom"
       - "start music mode in [the] bedroom"
-      - "turn on [the] roku music mode"
-      - "turn on music mode [on|for] [all] [the] bedroom lights"
-      - "turn on music mode [on|for] [all] [the] roku lights"
+      - "turn on [the] bedroom matrix music mode"
+      - "turn on matrix music mode"
   - trigger: conversation
     id: "bedroom_off"
     command:
@@ -55,10 +54,8 @@ triggers:
       - "bedroom music mode off"
       - "turn off music mode in [the] bedroom"
       - "stop music mode in [the] bedroom"
-      - "turn off [the] roku music mode"
-      - "stop [the] roku music mode"
-      - "turn off music mode [on|for] [all] [the] bedroom lights"
-      - "turn off music mode [on|for] [all] [the] roku lights"
+      - "turn off [the] bedroom matrix music mode"
+      - "turn off matrix music mode"
 conditions: []
 actions:
   - choose:

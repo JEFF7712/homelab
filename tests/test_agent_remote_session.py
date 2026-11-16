@@ -194,6 +194,28 @@ class RemoteSessionTests(unittest.TestCase):
                     Path("."),
                 ),
             )
+            config.write_text(
+                json.dumps(
+                    {
+                        "repos": [
+                            {
+                                "local": str(nested.parent),
+                                "host": "local",
+                            }
+                        ],
+                        "roots": [
+                            {
+                                "local": str(projects),
+                                "remote": "/server/projects",
+                                "host": "agent-rupan",
+                                "exclude": [str(plain.parent)],
+                            }
+                        ],
+                    }
+                )
+            )
+            self.assertIsNone(mapping_for(nested, config))
+            self.assertIsNone(mapping_for(plain, config))
 
     def test_seed_preserves_git_history_and_dirty_source_in_both_clients(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

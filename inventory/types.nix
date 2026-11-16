@@ -7,6 +7,13 @@ let
     builtins.match "[0-9]{1,3}(\\.[0-9]{1,3}){3}" value != null
     && builtins.all (part: lib.toInt part <= 255) (lib.splitString "." value)
   );
+  cidr = types.addCheck (types.strMatching "[0-9.]+/[0-9]{1,2}") (
+    value:
+    let
+      parts = lib.splitString "/" value;
+    in
+    ipv4.check (builtins.head parts) && lib.toInt (builtins.elemAt parts 1) <= 32
+  );
   network = types.submodule {
     options = {
       description = option types.nonEmptyStr;
@@ -14,15 +21,7 @@ let
       tag = option (types.ints.between 1 4094);
       interfaceName = option types.nonEmptyStr;
       gateway = option ipv4;
-      cidr = option (
-        types.addCheck (types.strMatching "[0-9.]+/[0-9]{1,2}") (
-          value:
-          let
-            parts = lib.splitString "/" value;
-          in
-          ipv4.check (builtins.head parts) && lib.toInt (builtins.elemAt parts 1) <= 32
-        )
-      );
+      cidr = option cidr;
       dhcp = mkOption {
         default = null;
         type = types.nullOr (
@@ -109,6 +108,19 @@ let
       };
     };
   };
+  staticRoute = types.submodule {
+    options = {
+      network = option cidr;
+      gatewayName = option (types.strMatching "[a-zA-Z0-9_-]{1,32}");
+      gatewayHost = option types.nonEmptyStr;
+      gatewayInterface = option types.nonEmptyStr;
+      description = option types.str;
+      enabled = mkOption {
+        type = types.bool;
+        default = true;
+      };
+    };
+  };
 in
 {
   inherit
@@ -116,5 +128,6 @@ in
     network
     host
     dnsRecord
+    staticRoute
     ;
 }

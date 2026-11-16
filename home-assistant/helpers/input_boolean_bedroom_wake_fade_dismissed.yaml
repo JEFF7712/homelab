@@ -1,0 +1,3 @@
+name: Bedroom Wake Fade Dismissed
+icon: mdi:alarm-off
+entity_id: input_boolean.bedroom_wake_fade_dismissed

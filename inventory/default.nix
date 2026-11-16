@@ -13,11 +13,13 @@ let
           networks = mkOption { type = types.attrsOf sharedTypes.network; };
           bootstrapHost = mkOption { type = types.nonEmptyStr; };
           dns = mkOption { type = types.listOf sharedTypes.dnsRecord; };
+          staticRoutes = mkOption { type = types.listOf sharedTypes.staticRoute; };
         };
       }
       ./hosts.nix
       ./networks.nix
       ./dns.nix
+      ./static-routes.nix
     ]
     ++ extraModules;
   };
@@ -116,6 +118,18 @@ let
     {
       assertion = unique (map (host: host.deploymentOrder) (builtins.attrValues cfg.hosts));
       message = "Fleet deployment order must be unique.";
+    }
+    {
+      assertion = unique (map (route: route.gatewayName) cfg.staticRoutes);
+      message = "Static route gateway names must be unique.";
+    }
+    {
+      assertion = unique (map (route: route.network) cfg.staticRoutes);
+      message = "Static route destinations must be unique.";
+    }
+    {
+      assertion = builtins.all (route: builtins.hasAttr route.gatewayHost cfg.hosts) cfg.staticRoutes;
+      message = "Static routes must reference declared fleet hosts as gateways.";
     }
     {
       assertion = builtins.all (
@@ -223,6 +237,14 @@ lib.asserts.checkAssertWarn assertions [ ] {
       }
     ) (inView "unboundOrder");
   };
+  staticRoutes = map (route: {
+    network = route.network;
+    gateway_name = route.gatewayName;
+    gateway_address = cfg.hosts.${route.gatewayHost}.address;
+    gateway_interface = route.gatewayInterface;
+    description = route.description;
+    enabled = if route.enabled then "1" else "0";
+  }) cfg.staticRoutes;
   hostCIDRs = lib.mapAttrs (
     _: host: "${host.address}/${toString ranges.${host.network}.prefix}"
   ) cfg.hosts;

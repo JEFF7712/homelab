@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
@@ -122,23 +123,25 @@ in
 
     pulseSource = lib.mkOption {
       type = lib.types.str;
-      default = "bedroom_music_pre_delay.monitor";
+      default = "bluez_output.E4_58_BC_10_CA_C9.1.monitor";
       description = ''
-        PulseAudio source LedFx analyses. This virtual sink receives the
-        Shairport stream before it is delayed for the bedroom Bluetooth
-        speaker, so the effects stay aligned with the original audio.
+        PulseAudio source LedFx analyses. This is the monitor of the Bluetooth
+        sink that carries all bedroom playback on this host, so the bedroom
+        effects follow the bedroom speaker directly without delay. It is
+        deliberately NOT the shared audio tap used by the living-room LedFx
+        instance.
       '';
     };
 
     port = lib.mkOption {
       type = lib.types.port;
       default = 8888;
-      description = "Host port for the LedFx REST API. Only the k3s nodes may reach it.";
+      description = "Host port for the LedFx REST API and web UI. Reachable from LAN, cluster, and NetBird.";
     };
 
     oscTarget = lib.mkOption {
       type = lib.types.str;
-      default = "10.0.30.10:9000";
+      default = "${fleetInventory.hosts.adguard-netbird-01.address}:9000";
       description = "relay host:port that receives this instance's OSC frames.";
     };
 
@@ -201,7 +204,7 @@ in
     environment.persistence."/persist".directories = [ (toString cfg.stateDir) ];
 
     networking.firewall.extraInputRules = lib.mkAfter ''
-      ip saddr { 10.0.30.11, 10.0.30.12, 10.0.30.13, 10.0.30.14, 10.0.30.15 } tcp dport ${toString cfg.port} accept
+      ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport ${toString cfg.port} accept
     '';
 
     systemd.services.ledfx-bedroom = {

@@ -1,16 +1,24 @@
 from __future__ import annotations
 
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.checks.flake_jobs import Check, nix_build, run
+from scripts.checks.flake_jobs import (
+    Check,
+    build_jobs,
+    failure_report,
+    nix_build,
+    run,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -57,6 +65,99 @@ class FlakeJobsTest(unittest.TestCase):
             ],
         )
 
+    def test_checks_build_concurrently_up_to_the_job_count(self) -> None:
+        # Both builds must be in flight at once for the barrier to release;
+        # a single builder would time out on the first build.
+        barrier = threading.Barrier(2, timeout=5)
+        lock = threading.Lock()
+        active = 0
+        peak = 0
+
+        def build(target: Check) -> bool:
+            nonlocal active, peak
+            with lock:
+                active += 1
+                peak = max(peak, active)
+            try:
+                if target.attr != "checks.fail":
+                    barrier.wait()
+                return target.attr != "checks.fail"
+            finally:
+                with lock:
+                    active -= 1
+
+        count, failures = run(
+            [
+                line(attr="checks.repository-contract", drvPath="/nix/store/a.drv"),
+                line(attr="checks.packet-flow", drvPath="/nix/store/b.drv"),
+                line(attr="checks.fail", drvPath="/nix/store/c.drv"),
+            ],
+            build,
+            jobs=2,
+        )
+        self.assertEqual(count, 3)
+        self.assertEqual(failures, ["/nix/store/c.drv^*: build failed"])
+        self.assertEqual(peak, 2)
+
+    def test_vm_tests_build_one_at_a_time_beside_other_checks(self) -> None:
+        # The unit suite must still start while a VM test is building, but a
+        # second VM test waits: two TCG guests in two CPUs miss their boot
+        # timeouts (pipeline #12524).
+        lock = threading.Lock()
+        active = {"vm": 0, "other": 0}
+        peaks = {"vm": 0, "overlap": 0}
+        first_vm_running = threading.Event()
+        contract_done = threading.Event()
+
+        def build(target: Check) -> bool:
+            kind = "vm" if target.vm else "other"
+            with lock:
+                active[kind] += 1
+                peaks["vm"] = max(peaks["vm"], active["vm"])
+                if active["vm"] and active["other"]:
+                    peaks["overlap"] = 1
+            try:
+                if target.attr == "checks.libvirt":
+                    first_vm_running.set()
+                    contract_done.wait(5)
+                elif target.attr == "checks.repository-contract":
+                    first_vm_running.wait(5)
+                    contract_done.set()
+                return True
+            finally:
+                with lock:
+                    active[kind] -= 1
+
+        count, failures = run(
+            [
+                line(
+                    attr="checks.libvirt",
+                    drvPath="/nix/store/a-vm-test-run-libvirt.drv",
+                ),
+                line(
+                    attr="checks.niks3",
+                    drvPath="/nix/store/b-vm-test-run-niks3.drv",
+                ),
+                line(
+                    attr="checks.repository-contract",
+                    drvPath="/nix/store/c-repository-contract.drv",
+                ),
+            ],
+            build,
+            jobs=2,
+            vm_jobs=1,
+        )
+        self.assertEqual((count, failures), (3, []))
+        self.assertEqual(peaks, {"vm": 1, "overlap": 1})
+
+    def test_build_jobs_follow_the_cpu_quota_with_an_override(self) -> None:
+        self.assertEqual(build_jobs({}, cpus=2.0), (2, 1))
+        self.assertEqual(build_jobs({}, cpus=1.0), (2, 1))
+        self.assertEqual(build_jobs({}, cpus=4.0), (2, 1))
+        self.assertEqual(build_jobs({}, cpus=8.0), (4, 2))
+        self.assertEqual(build_jobs({"CI_FLAKE_BUILD_JOBS": "1"}, cpus=8.0), (1, 2))
+        self.assertEqual(build_jobs({"CI_FLAKE_BUILD_JOBS": "x"}, cpus=6.0), (3, 1))
+
     def test_no_checks_is_a_failure(self) -> None:
         _, failures = run(
             [line(attr="hosts.nas-01", drvPath="/nix/store/a-nas.drv")],
@@ -101,6 +202,80 @@ class FlakeJobsTest(unittest.TestCase):
                 [("flake-repository-contract", 0), ("flake-topology", 5)],
             )
             self.assertTrue(all(entry["elapsed_seconds"] > 0 for entry in records))
+
+    UNIT_LOG = "\n".join(
+        [
+            "running 3 tests",
+            "=" * 70,  # printed by a test, not a failure
+            "test_a (test_m.Case.test_a) ... ok",
+            "test_b (test_m.Case.test_b) ... FAIL",
+            "test_c (test_n.Case.test_c) ... ERROR",
+            "=" * 70,
+            "FAIL: test_b (test_m.Case.test_b)",
+            "-" * 70,
+            "Traceback (most recent call last):",
+            "AssertionError: 1 != 2",
+            "=" * 70,
+            "ERROR: test_c (test_n.Case.test_c)",
+            "FileNotFoundError: receipt",
+            "-" * 70,
+            "Ran 3 tests in 1.0s with 4 workers",
+            "",
+            "FAILED",
+            "  test_m.Case.test_b",
+        ]
+    )
+
+    def test_failure_report_keeps_every_traceback_of_a_unit_suite(self) -> None:
+        report = failure_report(self.UNIT_LOG).splitlines()
+        self.assertEqual(report[1], "FAIL: test_b (test_m.Case.test_b)")
+        self.assertIn("AssertionError: 1 != 2", report)
+        self.assertIn("FileNotFoundError: receipt", report)
+        self.assertNotIn("test_a (test_m.Case.test_a) ... ok", report)
+        self.assertFalse([line for line in report if line.startswith("Ran ")])
+
+    def test_failure_report_tails_other_logs_and_bounds_its_size(self) -> None:
+        other = "\n".join(f"line {n}" for n in range(500))
+        self.assertEqual(failure_report(other).splitlines()[0], "line 420")
+        huge = self.UNIT_LOG.replace(
+            "AssertionError: 1 != 2", "\n".join(["frame"] * 1000)
+        )
+        report = failure_report(huge).splitlines()
+        self.assertEqual(len(report), 401)
+        self.assertRegex(report[-1], r"^\.\.\. \d+ more lines$")
+
+    def test_failed_build_prints_the_tracebacks_from_its_log(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "build.log").write_text(self.UNIT_LOG)
+            nix = directory / "nix"
+            nix.write_text(
+                f"#!{sys.executable}\n"
+                "import sys\n"
+                "if sys.argv[1] == 'log':\n"
+                "    assert sys.argv[2] == '/nix/store/failed.drv', sys.argv\n"
+                f"    print(open({str(directory / 'build.log')!r}).read())\n"
+                "    sys.exit(0)\n"
+                "sys.exit(1)\n"
+            )
+            nix.chmod(0o755)
+            stderr = io.StringIO()
+            with (
+                patch.dict(
+                    os.environ,
+                    PATH=f"{directory}:{os.environ['PATH']}",
+                    CI_TIMING_DIR=str(directory),
+                ),
+                patch("sys.stderr", stderr),
+            ):
+                ok = nix_build(
+                    Check("checks.repository-contract", "/nix/store/failed.drv^*")
+                )
+        self.assertFalse(ok)
+        output = stderr.getvalue()
+        self.assertIn("===== flake-repository-contract failure =====", output)
+        self.assertIn("ERROR: test_c (test_n.Case.test_c)", output)
+        self.assertIn("FileNotFoundError: receipt", output)
 
 
 @unittest.skipUnless(shutil.which("nix"), "requires Nix source evaluation")

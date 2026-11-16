@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-for tool in yamllint kubectl kubeconform python; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool; run nix develop ./flake" >&2; exit 127; }; done
+for tool in yamllint kubectl kubeconform python shellcheck; do command -v "$tool" >/dev/null || { echo "missing required tool: $tool; run nix develop ./flake" >&2; exit 127; }; done
 if [[ "${CI_LINT_EXTERNAL:-0}" != "1" ]]; then yamllint gitops; fi
+# Shell scripts that ConfigMap generators deploy into workloads, linted
+# like the repository's own (scripts/checks/agent-workflows.sh).
+shopt -s globstar nullglob
+shell_scripts=(gitops/**/*.sh gitops/media/lidarr-extended/tidal-dl-shim)
+# The Lidarr extended scripts `source` this template as bash; its
+# assignments are read there, so unused-variable warnings do not apply.
+sourced_configs=(gitops/media/lidarr-extended/extended.conf.template)
+shopt -u globstar nullglob
+if ((${#shell_scripts[@]})); then shellcheck "${shell_scripts[@]}"; fi
+if ((${#sourced_configs[@]})); then
+  shellcheck --shell=bash --exclude=SC2034 "${sourced_configs[@]}"
+fi
 python -m scripts.websites.render --check
 schema_root="$PWD/schemas/kubernetes"
 core_schema_root="$PWD/schemas/kubernetes-core/v1.35.7-standalone-strict"

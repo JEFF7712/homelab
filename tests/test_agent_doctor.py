@@ -12,7 +12,11 @@ class AgentDoctorTest(unittest.TestCase):
     def test_invalid_adapter_syntax_fails_without_echoing_content(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repository = Path(directory)
-            shutil.copy(ROOT / ".gitlab-ci.yml", repository / ".gitlab-ci.yml")
+            (repository / "config/ci").mkdir(parents=True)
+            shutil.copy(
+                ROOT / "config/ci/operations.json",
+                repository / "config/ci/operations.json",
+            )
             (repository / ".codex").mkdir()
             (repository / ".codex/hooks.json").write_text(
                 '{"token": "synthetic-private-value"'

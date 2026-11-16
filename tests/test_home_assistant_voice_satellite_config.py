@@ -3,6 +3,8 @@ from pathlib import Path
 
 import yaml
 
+from tests.gitops_render import config_map
+
 
 class VoiceSatelliteConfigTests(unittest.TestCase):
     def test_mic_volume_overrides_upstream_maximum_default(self) -> None:
@@ -35,8 +37,8 @@ class VoiceSatelliteConfigTests(unittest.TestCase):
         manifests = list(
             yaml.safe_load_all((root / "gitops/voice/satellite.yaml").read_text())
         )
-        configmap = next(item for item in manifests if item["kind"] == "ConfigMap")
-        self.assertEqual(configmap["metadata"]["name"], "satellite-patch-code")
+        configmap = config_map("voice", "satellite-patch-code")
+        self.assertEqual(configmap["metadata"]["namespace"], "voice")
         self.assertIn("__main__.py", configmap["data"])
         self.assertIn("satellite.py", configmap["data"])
         self.assertIn("healthcheck.py", configmap["data"])
