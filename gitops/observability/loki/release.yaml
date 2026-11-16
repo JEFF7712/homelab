@@ -89,6 +89,12 @@ spec:
         ring:
           kvstore:
             store: inmemory
+    gateway:
+      # loki-push (push-service.yaml) uses externalTrafficPolicy Local, and
+      # only control-plane nodes peer BGP, so the VIP is advertised only
+      # while the gateway runs on one of them.
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: "true"
     singleBinary:
       replicas: 1
       # The store is the static local claim in local-storage.yaml (homelab-05

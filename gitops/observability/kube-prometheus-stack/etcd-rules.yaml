@@ -1,0 +1,126 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: etcd-health
+  namespace: observability
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    # Embedded etcd on the three k3s servers, scraped by the `etcd` job in
+    # release.yaml. Three members tolerate one loss, so one member down
+    # already pages. Latency thresholds suit SATA SSDs: on 2026-11-15 the
+    # healthy p99 was <=32ms for WAL fsync and backend commit on every member;
+    # the warnings sit about ten times higher, and the critical fsync bound is
+    # where a member starts missing the 1s election timeout.
+    - name: etcd.rules
+      rules:
+        - alert: EtcdMemberDown
+          expr: up{job="etcd"} == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "etcd member on {{ $labels.node }} is unreachable"
+            description: >-
+              Prometheus has not scraped etcd on {{ $labels.node }} for 5 minutes. The cluster has no
+              remaining failure tolerance.
+
+        - alert: EtcdQuorumAtRisk
+          expr: count(up{job="etcd"} == 1) < 2 or absent(up{job="etcd"} == 1)
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Fewer than two etcd members are reachable"
+            description: >-
+              At most one of the three etcd members answers its metrics endpoint; the Kubernetes API
+              cannot commit writes without quorum.
+
+        - alert: EtcdNoLeader
+          expr: etcd_server_has_leader{job="etcd"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "etcd member on {{ $labels.node }} has no leader"
+            description: "etcd on {{ $labels.node }} has reported no leader for 1 minute."
+
+        - alert: EtcdFrequentLeaderChanges
+          # A rolling k3s server deploy restarts every member and causes up
+          # to about four changes per member; more than five in an hour is
+          # an unstable cluster, usually a slow disk or network.
+          expr: increase(etcd_server_leader_changes_seen_total{job="etcd"}[1h]) > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "etcd on {{ $labels.node }} sees frequent leader changes"
+            description: >-
+              etcd on {{ $labels.node }} observed {{ $value | printf "%.0f" }} leader changes in the
+              last hour.
+
+        - alert: EtcdWalFsyncSlow
+          expr: |
+            histogram_quantile(0.99,
+              sum by (node, le) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd"}[5m]))
+            ) > 0.25
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "etcd WAL fsync is slow on {{ $labels.node }}"
+            description: >-
+              The 99th percentile WAL fsync on {{ $labels.node }} has been {{ $value | humanizeDuration
+              }} for 10 minutes (healthy is under 32ms). Check the disk's health and write load.
+
+        - alert: EtcdWalFsyncCritical
+          expr: |
+            histogram_quantile(0.99,
+              sum by (node, le) (rate(etcd_disk_wal_fsync_duration_seconds_bucket{job="etcd"}[5m]))
+            ) > 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "etcd WAL fsync exceeds 1s on {{ $labels.node }}"
+            description: >-
+              The 99th percentile WAL fsync on {{ $labels.node }} has been {{ $value | humanizeDuration
+              }} for 5 minutes, at the election timeout. Expect leader loss; check the disk now.
+
+        - alert: EtcdBackendCommitSlow
+          expr: |
+            histogram_quantile(0.99,
+              sum by (node, le) (rate(etcd_disk_backend_commit_duration_seconds_bucket{job="etcd"}[5m]))
+            ) > 0.25
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "etcd backend commit is slow on {{ $labels.node }}"
+            description: >-
+              The 99th percentile backend commit on {{ $labels.node }} has been {{ $value |
+              humanizeDuration }} for 10 minutes (healthy is under 32ms).
+
+        - alert: EtcdDatabaseNearQuota
+          expr: etcd_mvcc_db_total_size_in_bytes{job="etcd"} / etcd_server_quota_backend_bytes{job="etcd"} > 0.8
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "etcd database on {{ $labels.node }} is above 80% of its quota"
+            description: >-
+              The etcd database on {{ $labels.node }} uses {{ $value | humanizePercentage }} of its
+              backend quota. Compact and defragment before it reaches the quota and etcd stops accepting
+              writes.
+
+        - alert: EtcdDatabaseAtQuota
+          expr: etcd_mvcc_db_total_size_in_bytes{job="etcd"} / etcd_server_quota_backend_bytes{job="etcd"} > 0.95
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "etcd database on {{ $labels.node }} is nearly full"
+            description: >-
+              The etcd database on {{ $labels.node }} uses {{ $value | humanizePercentage }} of its
+              backend quota; at the quota etcd raises NOSPACE and rejects writes.

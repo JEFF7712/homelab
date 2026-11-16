@@ -8,6 +8,7 @@ resources:
   - kube-prometheus-stack/local-storage.yaml
   - kube-prometheus-stack/registry-rules.yaml
   - kube-prometheus-stack/cluster-rules.yaml
+  - kube-prometheus-stack/etcd-rules.yaml
   - kube-prometheus-stack/gpu-rules.yaml
   - kube-prometheus-stack/jarvis-rules.yaml
   - kube-prometheus-stack/monero-rules.yaml
@@ -18,6 +19,8 @@ resources:
   - loki/rules-configmap.yaml
   - loki/local-storage.yaml
   - loki/release.yaml
+  - loki/push-service.yaml
+  - loki/push-policy.yaml
   - alloy/release.yaml
   - grafana/service.yaml
   - grafana/cloudflare-oidc.yaml

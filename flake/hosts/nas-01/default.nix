@@ -24,9 +24,13 @@
     ../../modules/platform-backup.nix
     ../../modules/nas-syncthing.nix
     ../../modules/nas-backup-source.nix
+    ../../modules/host-log-shipping.nix
   ];
 
   networking.hostName = "nas-01";
+
+  # Journal to Loki: ZFS, smartd and kernel errors reach the journal alerts.
+  homelab.logShipping.enable = true;
 
   sops.defaultSopsFile = ../../../secrets/hosts/nas-01.sops.yaml;
 
