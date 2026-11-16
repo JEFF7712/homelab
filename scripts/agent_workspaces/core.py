@@ -520,7 +520,16 @@ def render_domain(workspace: Workspace) -> str:
         ET.SubElement(
             disk,
             "driver",
-            {"name": "qemu", "type": "qcow2", "cache": "none", "io": "native"},
+            # Pass guest TRIM through so blocks freed inside the guest shrink
+            # the qcow2 file on the host's shared /persist.
+            {
+                "name": "qemu",
+                "type": "qcow2",
+                "cache": "none",
+                "io": "native",
+                "discard": "unmap",
+                "detect_zeroes": "unmap",
+            },
         )
         ET.SubElement(disk, "source", {"file": path})
         ET.SubElement(disk, "target", {"dev": target, "bus": "virtio"})
