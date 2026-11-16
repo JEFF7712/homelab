@@ -226,9 +226,14 @@ class HostSecretsTest(unittest.TestCase):
             self.assertEqual(
                 ci_host["secrets"][name]["restartUnits"], ["approvals.service"]
             )
+        # The workshop display replaced kiosk-rotate as the token's consumer.
         self.assertIn(
-            "kiosk-ha-token:/run/secrets/kiosk-ha-token",
-            ci_host["units"]["kiosk-rotate"],
+            "ha-token:/run/secrets/kiosk-ha-token",
+            ci_host["units"]["workshop-display"],
+        )
+        self.assertEqual(
+            ci_host["secrets"]["kiosk-ha-token"]["restartUnits"],
+            ["workshop-display.service"],
         )
         voice_host = self.evaluated["homelab-05"]
         self.assertEqual(
