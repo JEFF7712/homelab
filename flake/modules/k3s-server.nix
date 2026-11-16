@@ -76,6 +76,25 @@ in
       description = "Runtime file containing the k3s cluster token.";
     };
 
+    imageGc = {
+      highThreshold = lib.mkOption {
+        type = lib.types.ints.between 1 100;
+        default = 70;
+        description = ''
+          Image filesystem usage percent at which the kubelet starts deleting
+          unused images. The kubelet can free only its own images, so on a
+          filesystem shared with other data keep this below the
+          `imagefs.available<15Gi` eviction threshold but above the usage those
+          other consumers cause, or image GC fails every five minutes.
+        '';
+      };
+      lowThreshold = lib.mkOption {
+        type = lib.types.ints.between 0 99;
+        default = 60;
+        description = "Image filesystem usage percent the kubelet's image GC deletes down to.";
+      };
+    };
+
     bootstrapCilium = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -105,6 +124,10 @@ in
     };
 
     assertions = [
+      {
+        assertion = cfg.imageGc.lowThreshold < cfg.imageGc.highThreshold;
+        message = "homelab.k3s.imageGc.lowThreshold must be below highThreshold.";
+      }
       {
         # k3s stops parsing flags at the first bare word, so an unquoted space
         # silently drops every later flag.
@@ -244,8 +267,8 @@ in
         ++ [
           "--kubelet-arg=container-log-max-size=10Mi"
           "--kubelet-arg=container-log-max-files=5"
-          "--kubelet-arg=image-gc-high-threshold=70"
-          "--kubelet-arg=image-gc-low-threshold=60"
+          "--kubelet-arg=image-gc-high-threshold=${toString cfg.imageGc.highThreshold}"
+          "--kubelet-arg=image-gc-low-threshold=${toString cfg.imageGc.lowThreshold}"
           "--kubelet-arg=eviction-hard=memory.available<500Mi,nodefs.available<2Gi,imagefs.available<15Gi"
         ]
         ++ lib.optionals (cfg.role == "server") [

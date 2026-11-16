@@ -268,6 +268,15 @@ Growth per consumer over a day:
 topk(15, delta(homelab_path_disk_usage_bytes{job="homelab-04-node"}[1d]))
 ```
 
+Kubelet image garbage collection (`homelab.k3s.imageGc`) starts at 95% and
+collects down to 90% on homelab-04, against the fleet default of 70/60. Its
+image filesystem is the shared `/persist`, which other data keeps above 70%,
+and the kubelet can delete only its own images (about 10 GiB), so at 70% it
+failed every five minutes with `Image garbage collection failed multiple times
+in a row`. 95% (about 48 GiB free) still starts before the
+`imagefs.available<15Gi` eviction threshold. The 58 GiB disks of homelab-02
+and homelab-03 keep 70%, which is below their 74% eviction point.
+
 Persistent data is not collected by policy: the Monero chain, agent workspace
 disk images (qcow2 without discard, so they grow to their virtual size),
 Woodpecker's database and its daily dumps in `/persist/woodpecker/backups`
