@@ -239,6 +239,41 @@ healthy. Preview the plan at any time, read-only:
 nix develop ./flake#ops -c just fleet-reboot --dry-run --ignore-window --no-notify
 ```
 
+## Disk capacity on homelab-04
+
+homelab-04 has one 953 GiB btrfs filesystem: `/persist`, `/nix`, `/var/log`
+and the kubelet and k3s directories are subvolumes sharing its free space, so
+`node_filesystem_avail_bytes` is the same for every one of those mountpoints
+and cannot say which consumer grew. `flake/modules/persist-capacity.nix`
+(`homelab.persistCapacity`) supplies the breakdown and bounds the Nix store:
+
+- `persist-usage-metrics.timer` walks `/persist` (two levels, deeper entries
+  from 1 GiB), `/nix/store` and `/var/log` with `du -x` every two hours and
+  publishes `homelab_path_disk_usage_bytes{path}` and
+  `homelab_nix_system_generations` through the textfile collector of the
+  host node exporter (port 9101, job `homelab-04-node`). A failed walk sets
+  `homelab_path_disk_usage_failures` instead of failing the unit.
+- `nix-gc` runs daily instead of weekly, first trimming the system profile to
+  its 20 newest generations (`systemGenerations`), then applying the fleet's
+  30-day age limit. 20 generations cover several days of deployments for
+  rollback; the 30-day limit alone kept 193 (42.5 GiB of closures against
+  12.7 GiB for the newest 20) because this host's system changed on most
+  commits.
+- `nix.settings.min-free`/`max-free` (32/64 GiB) make the Nix daemon collect
+  unreachable paths during a build when free space is nearly gone.
+
+Growth per consumer over a day:
+
+```promql
+topk(15, delta(homelab_path_disk_usage_bytes{job="homelab-04-node"}[1d]))
+```
+
+Persistent data is not collected by policy: the Monero chain, agent workspace
+disk images (qcow2 without discard, so they grow to their virtual size),
+Woodpecker's database and its daily dumps in `/persist/woodpecker/backups`
+(14 days of full copies), and platform backup state. Retention changes for
+those are the operator's decision.
+
 ## Acceptance
 
 After deployment, verify the selected hosts and dependent workloads using

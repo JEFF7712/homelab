@@ -22,6 +22,7 @@ in
     ../../modules/kiosk.nix
     ../../modules/workshop-display.nix
     ../../modules/monero.nix
+    ../../modules/persist-capacity.nix
     ../../modules/moonlight-client.nix
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
@@ -130,6 +131,10 @@ in
       }
     ];
   };
+
+  # /persist is shared by Monero, CI, agent VMs and the Nix store; see
+  # docs/runbooks/nixos-host-deployment.md (Disk capacity on homelab-04).
+  homelab.persistCapacity.enable = true;
 
   homelab.monero.enable = true;
   homelab.monero.tor.enable = true;
