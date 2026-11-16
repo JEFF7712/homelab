@@ -158,6 +158,15 @@ in
     primaryInterface = "enp0s31f6";
     nodeIp = fleetInventory.hosts.homelab-04.address;
     serverAddress = fleetInventory.k3sEndpoint;
+    # The image filesystem is the shared 953 GiB /persist (Monero, agent
+    # workspaces, Woodpecker), above 70% for reasons image GC cannot fix: the
+    # kubelet owns only about 10 GiB of images. Start image GC at 95% (about
+    # 48 GiB free), before the Nix store's 32 GiB min-free and the 15 GiB
+    # imagefs eviction threshold (98.4%).
+    imageGc = {
+      highThreshold = 95;
+      lowThreshold = 90;
+    };
   };
 
   services.k3s.extraFlags = [
