@@ -236,7 +236,7 @@ class MoneroModuleTests(unittest.TestCase):
         service = evaluate("")["serviceConfig"]
         self.assertEqual(service["SystemCallArchitectures"], "native")
         self.assertEqual(
-            service["SystemCallFilter"], ["@system-service", "~@privileged @resources"]
+            service["SystemCallFilter"], ["@system-service", "~@privileged"]
         )
         self.assertEqual(service["RestrictAddressFamilies"], ["AF_INET", "AF_INET6"])
         self.assertEqual(service["ProtectProc"], "invisible")
