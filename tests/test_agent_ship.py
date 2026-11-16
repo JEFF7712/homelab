@@ -444,7 +444,8 @@ class ShipPlanRetryTest(unittest.TestCase):
     def test_superseded_operations_resume_on_the_new_main(self) -> None:
         shipper = ship.Shipper.__new__(ship.Shipper)
         shipper.summary = {"operations": [], "promotions": []}
-        shipper.say = lambda message: None
+        messages = []
+        shipper.say = messages.append
         shipper.remaining = lambda: 60.0
         parents = iter([("a" * 40, 10), ("b" * 40, 11)])
         shipper.main_pipeline = lambda merged: next(parents)
@@ -464,6 +465,12 @@ class ShipPlanRetryTest(unittest.TestCase):
             calls, [(10, "dry-run"), (10, "deploy"), (11, "dry-run"), (11, "deploy")]
         )
         self.assertEqual(shipper.summary["validation_pipeline"], 11)
+        self.assertTrue(
+            any(
+                "Main movement does not invalidate exact-content grants" in message
+                for message in messages
+            )
+        )
 
     def test_other_operation_failures_are_not_retried(self) -> None:
         shipper = ship.Shipper.__new__(ship.Shipper)

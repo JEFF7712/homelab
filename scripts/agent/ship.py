@@ -1121,7 +1121,11 @@ class Shipper:
                 prerequisite = catalog[operation].get("prerequisite")
                 if prerequisite in operations[:index]:
                     index = operations.index(prerequisite)
-                self.say(f"main moved during {operation}; retrying on the new main")
+                self.say(
+                    f"main moved during {operation}; retrying on the new main. "
+                    "Main movement does not invalidate exact-content grants; "
+                    "a retry alone does not mean another passkey is needed."
+                )
                 main_sha, parent = self.main_pipeline(merged)
                 continue
             self.summary.update(main=main_sha, validation_pipeline=parent)
