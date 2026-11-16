@@ -1,10 +1,11 @@
 # Ingress to the Loki gateway. In-cluster, only the observability namespace
 # uses it (loki-canary pushes and queries through it; Grafana and Alloy talk
 # to the loki service directly). From outside the cluster, only the two
-# journal shippers in flake/modules/host-log-shipping.nix, and the Cilium
-# HTTP proxy limits them to log pushes: the gateway also proxies the delete,
-# flush and rules APIs, which they must not reach. Anything else, including
-# other LAN hosts and k3s node addresses, is dropped.
+# journal shippers in flake/modules/host-log-shipping.nix; the gateway's
+# nginx (serverSnippet in release.yaml) limits them to log pushes. Anything
+# else, including other LAN hosts and k3s node addresses, is dropped. An L7
+# rule here is deliberately absent: with it, Cilium's proxy took the
+# LoadBalancer SYNs and never answered, so no push connected.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -31,7 +32,3 @@ spec:
         - ports:
             - port: "8080"
               protocol: TCP
-          rules:
-            http:
-              - method: POST
-                path: /loki/api/v1/push
