@@ -1,5 +1,6 @@
 import json
 import os
+import socket
 import subprocess
 import sys
 import tempfile
@@ -187,6 +188,38 @@ class CredentialPolicyTests(unittest.TestCase):
 
 
 class AskServerTests(unittest.TestCase):
+    def test_closing_idle_broker_stops_its_accept_thread_before_reusing_socket(
+        self,
+    ) -> None:
+        entered = threading.Event()
+        threads: list[threading.Thread] = []
+        accept = socket.socket.accept
+        thread = threading.Thread
+
+        def accepting(server: socket.socket) -> tuple[socket.socket, Any]:
+            entered.set()
+            return accept(server)
+
+        def start_thread(*args: Any, **kwargs: Any) -> threading.Thread:
+            created = thread(*args, **kwargs)
+            threads.append(created)
+            return created
+
+        with (
+            mock.patch("socket.socket.accept", accepting),
+            mock.patch(
+                "scripts.orchestrator.worker_cli.threading.Thread", start_thread
+            ),
+        ):
+            broker = QuestionBroker()
+            self.addCleanup(broker.close)
+            self.assertTrue(entered.wait(2), "broker never entered accept")
+            broker.close()
+            broker.close()
+            self.assertFalse(
+                threads[0].is_alive(), "closed broker leaked its accept thread"
+            )
+
     def rpc(
         self,
         child: subprocess.Popen[str],
