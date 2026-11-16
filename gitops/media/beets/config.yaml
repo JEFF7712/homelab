@@ -1,7 +1,10 @@
 directory: /data/music
 library: /data/.beets/library.db
 statefile: /data/.beets/state.pickle
-plugins: musicbrainz fetchart embedart scrub lastgenre
+# No embedart or scrub: both rewrite whole audio files, and tank/media
+# snapshots pin every old copy (2026-11-15 pool near-full). fetchart's
+# cover.jpg is what Navidrome serves.
+plugins: musicbrainz fetchart lastgenre
 # Fill empty genres from Last.fm tags (whitelisted) as albums import;
 # existing genre tags are kept. Navidrome serves them to music lighting.
 lastgenre:
