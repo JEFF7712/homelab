@@ -293,6 +293,8 @@ def _cloud_init(workspace: Workspace) -> tuple[str, str, str]:
         "runcmd": [
             ["loginctl", "enable-linger", workspace.raw["guest_username"]],
             ["systemctl", "enable", "--now", "ssh"],
+            # Weekly TRIM returns freed blocks to the host (disks use discard).
+            ["systemctl", "enable", "--now", "fstrim.timer"],
         ],
     }
     metadata = {

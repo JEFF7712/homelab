@@ -97,6 +97,54 @@ Installation is a Rupan-only authorized replacement:
 Running agent processes survive laptop disconnects while the guest stays on.
 They do not survive a VM reboot; conversation files survive and can be resumed.
 
+## Disk discard
+
+Workspace disks are qcow2 files on homelab-04's shared `/persist`. Without
+discard, blocks a guest frees are never returned, so each image grows towards
+its virtual size (2026-11-16: Rupan 84.9 of 96 GiB, Sam about 17 GiB).
+`rupan-nixos.xml` and `render_domain` give every qcow2 disk
+`discard="unmap" detect_zeroes="unmap"` on the virtio-blk bus, which passes
+guest TRIM through to QEMU. Both guests already run a weekly `fstrim.timer`
+(NixOS and Ubuntu enable it by default; cloud-init for newly provisioned
+guests also enables it explicitly), but QEMU ignores their TRIM until the
+domain is started with the new driver attributes.
+
+No deployment applies this to an existing guest: the host's
+`agent-workspace-domains.service` defines a domain from its saved XML only
+when the domain is missing, and nothing copies `rupan-nixos.xml` to the host.
+The operator applies it per guest at a convenient time, which cold-restarts
+that guest and ends its sessions (for Rupan, every agent and the operator's
+session). Do it from the LAN or the laptop, not from inside the guest being
+restarted. As root on homelab-04, for `rupan` (domain `agent-rupan`) or
+`sam` (`agent-sam`):
+
+```sh
+id=rupan; dom=agent-$id; ctl=/persist/agent-workspaces/$id/control
+cp -p $ctl/domain.xml $ctl/domain.xml.before-discard-$(date +%Y%m%d)
+virsh dumpxml --inactive $dom > $ctl/inactive-before-discard.xml
+# Add discard="unmap" detect_zeroes="unmap" to every qcow2 <driver> (Rupan:
+# copy config/agent-workspaces/rupan-nixos.xml, keeping any newer memory size;
+# Sam: both vda and vdb, the raw seed cdrom stays unchanged).
+sed -i 's|type="qcow2" cache="none" io="native" \?/>|type="qcow2" cache="none" io="native" discard="unmap" detect_zeroes="unmap"/>|' $ctl/domain.xml
+grep -c 'discard="unmap"' $ctl/domain.xml   # 1 for rupan, 2 for sam
+virsh define $ctl/domain.xml                # persistent definition only
+virsh shutdown $dom                         # wait for "shut off"
+virsh domstate $dom
+virsh start $dom
+virsh dumpxml $dom | grep discard           # active definition has it
+```
+
+Then, inside the guest, once: `sudo fstrim -av`. It reports the trimmed
+amount per filesystem. Confirm on the host with `qemu-img info -U <disk>`
+(`disk size` drops) and in Prometheus after the next two-hourly walk:
+
+```promql
+homelab_path_disk_usage_bytes{job="homelab-04-node",path=~"/persist/agent-workspaces(/.*)?"}
+```
+
+If the guest does not boot, restore the saved `domain.xml.before-discard-*`,
+`virsh define` it and start the domain again.
+
 ## Access and acceptance
 
 Each recovery guest is narrowly routed: `adguard-netbird-01` has host routes to `172.31.10.2/32` and `172.31.10.6/32` via `homelab-04`, and the host permits that router as an ingress source. NetBird grants each workspace only to its owner's specific peer on TCP 22 and 443. The account configuration is reconciled from `config/netbird/agent-workspaces.json`.
