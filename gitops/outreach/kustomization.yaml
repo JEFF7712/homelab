@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: automation
+resources:
+  - workload.yaml
+  - backup.yaml
+configMapGenerator:
+  - name: outreach-code
+    files:
+      - app/outreach.py
+      - app/runner.py
+  - name: outreach-dependencies
+    files:
+      - vendor/manifest.json
+      - vendor/openpyxl-3.1.5-py2.py3-none-any.whl
+      - vendor/et_xmlfile-2.0.0-py3-none-any.whl
