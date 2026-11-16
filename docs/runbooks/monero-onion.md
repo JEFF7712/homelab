@@ -59,11 +59,17 @@ sudo -u monero curl -m 5 -o /dev/null -w '%{http_code}\n' https://getmonero.org/
 The nixpkgs unit already runs as `monero` with no capabilities,
 `NoNewPrivileges`, `PrivateUsers`, `ProtectSystem=strict`, `ProtectProc=invisible`
 and `@system-service`. The module adds `SystemCallArchitectures=native`,
-`SystemCallFilter=~@privileged @resources`, and drops `AF_NETLINK` from
+`SystemCallFilter=~@privileged`, and drops `AF_NETLINK` from
 `RestrictAddressFamilies` (glibc's address probe falls back without it).
-`MemoryDenyWriteExecute` stays off because RandomX JIT-compiles. A blocked
-syscall kills the process with `SIGSYS`; look for `audit: type=1326` kernel
-lines or a `monero.service` restart loop. The nixpkgs Tor unit is already
+`@resources` stays allowed: monerod calls `sched_setscheduler` (syscall 144)
+at startup and crash-looped when it was denied. `MemoryDenyWriteExecute`
+stays off because RandomX JIT-compiles. A blocked syscall kills the process
+with `SIGSYS`, and the fleet deploy's failed-unit check does not catch a unit
+in its restart delay, so check after every sandbox change:
+
+```logql
+{hostname="homelab-04", transport="audit"} |= "monerod"
+``` The nixpkgs Tor unit is already
 confined further (`RootDirectory`, `MemoryDenyWriteExecute`, native
 architecture, narrowed syscall groups) and is left unchanged.
 

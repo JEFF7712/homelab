@@ -365,11 +365,13 @@ in
         # ProtectProc=invisible. MemoryDenyWriteExecute stays off: RandomX
         # JIT-compiles into writable+executable pages. AF_NETLINK is dropped:
         # glibc's getaddrinfo falls back when its netlink interface probe
-        # fails, and monerod has no other use for it.
+        # fails, and monerod has no other use for it. @resources stays
+        # allowed: monerod calls sched_setscheduler (in @resources) during
+        # startup and was killed with SIGSYS when it was denied.
         SystemCallArchitectures = "native";
         SystemCallFilter = lib.mkForce [
           "@system-service"
-          "~@privileged @resources"
+          "~@privileged"
         ];
         RestrictAddressFamilies = lib.mkForce [
           "AF_INET"
