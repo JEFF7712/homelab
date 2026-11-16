@@ -20,7 +20,7 @@ just workspace-deprovision <id> --authorized
 
 It accepts only a domain whose UUID, manifest hash, receipt, and disks agree. It destroys and undefines the domain but preserves both disks, seed material, domain XML, and receipt. Re-provisioning a matching deprovisioned workspace reuses those verified assets.
 
-`flake/modules/agent-workspace-network.nix` derives one host-owned bridge and one interface-bound nftables policy per enabled workspace. The host must use systemd-networkd. Libvirt requires nftables and networkd. Guest IPv6, spoofed IPv4, other workspace segments, host input, private/special destinations, and unsolicited ingress are denied. Explicit HA capability API, DNS, NTP, public Internet egress, and declared SSH/HTTPS ingress sources are allowed. `services.agent-workspace-network.tcpEgress` adds typed, host-owned destination IPv4/TCP grants for named local workspaces before the private-network deny rule; a grant to one of the hypervisor's own addresses is also admitted on host input. Rupan's personal development VM is a full development environment: NAS Forgejo Git (2222) and API (3000), the signed cache (8080), Woodpecker (8000) and the approvals service (8020) on `homelab-04`, OPNsense HTTPS (443, at the address from `inventory/dns.nix`), the Kubernetes API (6443, via `kubernetes_api`), and SSH (22) to every fleet host, which `just doctor --live` and `just ship` require. The guest resolves `git.internal`, `ci.internal`, and `OPNsense.internal` from its own host entries in `nixos-config`, since its DNS is public. Sam's grants are unchanged. Filtering occurs before Internet masquerade. Stopping nftables first lowers each workspace tap interface, then destroys a running domain before removing policy.
+`flake/modules/agent-workspace-network.nix` derives one host-owned bridge and one interface-bound nftables policy per enabled workspace. The host must use systemd-networkd. Libvirt requires nftables and networkd. Guest IPv6, spoofed IPv4, other workspace segments, host input, private/special destinations, and unsolicited ingress are denied. Explicit HA capability API, DNS, NTP, public Internet egress, and declared SSH/HTTPS ingress sources are allowed. `services.agent-workspace-network.tcpEgress` adds typed, host-owned destination IPv4/TCP grants for named local workspaces before the private-network deny rule; a grant to one of the hypervisor's own addresses is also admitted on host input. Rupan's personal development VM is a full development environment: NAS Forgejo Git (2222) and API (3000), the signed cache (8080), Woodpecker (8000) and the approvals service (8020) on `homelab-04`, OPNsense HTTPS (443, at the address from `inventory/dns.nix`), the Kubernetes API (6443, via `kubernetes_api`), and SSH (22) to every fleet host as the read-only `agent-observer` account, which `just doctor --live` checks. The guest resolves `git.internal`, `ci.internal`, and `OPNsense.internal` from its own host entries in `nixos-config`, since its DNS is public. Sam's grants are unchanged. Filtering occurs before Internet masquerade. Stopping nftables first lowers each workspace tap interface, then destroys a running domain before removing policy.
 
 The host modules are enabled on `homelab-04`. On top of its usual 1 CPU and 2 GiB system reservation, Kubernetes reserves the workspace slice's CPU and memory limits (2 CPUs and 14 GiB), so the guests never compete with pod requests. The workspace slice limits all workspace VMs together to 200 percent CPU, uses a 13 GiB memory pressure threshold, and has a 14 GiB hard memory limit. The limit covers Rupan's 10 GiB guest, Sam's 2 GiB guest, and QEMU overhead. The versioned enrollment inventory remains empty; the existing guests have separately maintained libvirt registrations and network-only recovery definitions.
 
@@ -46,11 +46,23 @@ filesystem, and its image carries no provider or infrastructure credentials.
 Since 2026-10-26, by Rupan's explicit choice, the running guest is a full
 operator workstation equivalent to the laptop. Its home directory holds the
 `homelab-agent` tea login and Git push key, a Woodpecker token, the
-cluster-admin kubeconfig, and the SOPS age key. Its own SSH key
-(`developer@agent-rupan`) is authorized for `rupan` on every fleet host through
-`flake/modules/common-base.nix`, and the network grants above admit it. To
-revoke this access, remove that key, delete those files from the guest, and
-narrow `tcpEgress.rupan` in `flake/hosts/homelab-04/default.nix`.
+cluster-admin kubeconfig, and the SOPS age key. Since 2026-11-16 its own SSH
+key (`developer@agent-rupan`) is no longer authorized for `rupan`; on every
+fleet host it logs in only as the unprivileged `agent-observer` account
+defined in `flake/modules/common-base.nix`. That account has no sudo rule, is
+not in `wheel`, and belongs only to its own group and `systemd-journal`, so
+agents can read journals, unit states, disk usage and world-readable files but
+cannot change a host. Host changes go through CI operations or the operator.
+The key carries `restrict,pty,from=` with the source each host observed:
+`172.31.10.2` on homelab-04 and homelab-04's masqueraded `10.0.30.14` on every
+other host. The latter means any process on homelab-04 holding the private key
+could also use it; the key itself stays only in the guest. To revoke this
+access, remove the observer key, delete the credential files from the guest,
+and narrow `tcpEgress.rupan` in `flake/hosts/homelab-04/default.nix`.
+
+```sh
+ssh agent-observer@10.0.30.11 'systemctl --failed; journalctl -u k3s -n 50'
+```
 
 The libvirt definition the host actually starts is
 `/persist/agent-workspaces/rupan/control/domain.xml`;

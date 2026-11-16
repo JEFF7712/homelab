@@ -101,10 +101,17 @@ on another infrastructure machine cannot authenticate with this key. The key
 still executes noninteractive deployment commands from the trusted sources;
 this is source containment, not a forced-command deployment interface.
 
-The operator's two original keys and the personal `developer@agent-rupan`
-workstation key remain unrestricted. The development VM intentionally has the
-same operator authority as the laptop; see [agent workspaces](agent-workspaces.md).
-Do not revoke these operator identities to restrict an automation workflow.
+The operator's two original keys remain unrestricted on `rupan`. Do not revoke
+these operator identities to restrict an automation workflow.
+
+The agent workspace VM's key (`developer@agent-rupan`) is not on `rupan`. It
+is authorized only for the `agent-observer` account: a normal login outside
+`wheel`, with its own primary group plus `systemd-journal` and no sudo rule,
+and `restrict,pty,from=` limited to the observed VM source (`172.31.10.2` on
+homelab-04, `10.0.30.14` elsewhere). Agents therefore cannot activate or
+mutate a host directly; they use CI operations. `tests/test_fleet_ssh_access.py`
+checks both accounts on every host's evaluated configuration. See
+[agent workspaces](agent-workspaces.md).
 
 On 2026-11-04 the CI host's SSH journal showed current CI container connections
 using the first operator key, not the legacy `homelab-nas-deploy` key. Restricting
