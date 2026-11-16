@@ -8,6 +8,7 @@ resources:
   - kube-prometheus-stack/local-storage.yaml
   - kube-prometheus-stack/registry-rules.yaml
   - kube-prometheus-stack/cluster-rules.yaml
+  - kube-prometheus-stack/etcd-rules.yaml
   - kube-prometheus-stack/gpu-rules.yaml
   - kube-prometheus-stack/jarvis-rules.yaml
   - kube-prometheus-stack/monero-rules.yaml
