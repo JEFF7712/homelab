@@ -11,7 +11,8 @@ P2P cannot arrive. The host sets `homelab.monero.openP2P = false`: the host
 firewall keeps 18080 closed, the clearnet listener binds to `127.0.0.1`, and
 `hide-my-port` stops monerod advertising it (monerod then logs `Incoming
 connections disabled` instead of the hourly `No incoming connections`
-warning). Outbound clearnet peers and onion inbound are unaffected.
+warning). Outbound clearnet peers and onion inbound are unaffected. OPNsense
+has no WAN 18080 port forward (`tofu/opnsense/inventory.nix`).
 
 ## Exposure and egress filter
 

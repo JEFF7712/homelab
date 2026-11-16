@@ -1542,30 +1542,6 @@
       }
     },
     "firewall_nat_port_forwards": {
-      "wan-monero-p2p": {
-        "description": "WAN Monero P2P to homelab 04",
-        "destination": {
-          "net": "wanip",
-          "port": "18080"
-        },
-        "enabled": true,
-        "interface": [
-          "wan"
-        ],
-        "ip_protocol": "inet",
-        "log": false,
-        "nat_reflection": "default",
-        "protocol": "tcp",
-        "sequence": 100,
-        "source": {
-          "net": "any",
-          "port": null
-        },
-        "target": {
-          "ip": "10.0.30.14",
-          "port": "18080"
-        }
-      },
       "wan-netbird-wireguard": {
         "description": "WAN NetBird WireGuard to adguard netbird 01",
         "destination": {
