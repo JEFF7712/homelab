@@ -62,6 +62,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Cloudflare Access](runbooks/cloudflare-access.md)
 - [Monero onion P2P](runbooks/monero-onion.md)
 - [Network outage monitor](runbooks/network-monitor.md)
+- [Host journal shipping](runbooks/host-log-shipping.md)
 - [Prometheus memory](runbooks/prometheus-memory.md)
 - [Prometheus local storage migration](runbooks/prometheus-storage.md)
 - [homelab-04 Ethernet transmit hang](runbooks/homelab04-network.md)
