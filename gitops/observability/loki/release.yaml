@@ -92,7 +92,11 @@ spec:
     gateway:
       # loki-push (push-service.yaml) uses externalTrafficPolicy Local, and
       # only control-plane nodes peer BGP, so the VIP is advertised only
-      # while the gateway runs on one of them.
+      # while the gateway runs on one of them. One replica per control-plane
+      # node (the chart's anti-affinity spreads them): nas-01 and
+      # adguard-netbird-01 route the VIP straight to those three nodes
+      # (flake/modules/host-log-shipping.nix), and each needs a local backend.
+      replicas: 3
       nodeSelector:
         node-role.kubernetes.io/control-plane: "true"
       nginxConfig:

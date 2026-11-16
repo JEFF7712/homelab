@@ -41,12 +41,20 @@ builtins.mapAttrs (
   let
     config = system.config;
     shipping = config.homelab.logShipping or { enable = false; };
+    k3sRole = if config.services.k3s.enable then config.services.k3s.role else null;
   in
   if !shipping.enable then
-    { enable = false; }
+    { enable = false; inherit k3sRole; }
   else
     {
       enable = true;
+      inherit k3sRole;
+      nextHops = shipping.lokiNextHops;
+      routes = config.systemd.network.networks."30-infrastructure".routes;
+      sysctl = {
+        hash = config.boot.kernel.sysctl."net.ipv4.fib_multipath_hash_policy";
+        neigh = config.boot.kernel.sysctl."net.ipv4.fib_multipath_use_neigh";
+      };
       alloyEnabled = config.services.alloy.enable;
       hostName = config.networking.hostName;
       lokiAddress = shipping.lokiAddress;
@@ -69,7 +77,7 @@ builtins.mapAttrs (
 
 
 @cache
-def shipping_hosts() -> dict[str, dict[str, Any]]:
+def evaluated_hosts() -> dict[str, dict[str, Any]]:
     if shutil.which("nix") is None:
         raise unittest.SkipTest("nix is required for configuration evaluation")
     result = subprocess.run(
@@ -85,8 +93,18 @@ def shipping_hosts() -> dict[str, dict[str, Any]]:
         text=True,
         check=True,
     )
-    evaluated = json.loads(result.stdout)
-    return {name: host for name, host in evaluated.items() if host["enable"]}
+    evaluated: dict[str, dict[str, Any]] = json.loads(result.stdout)
+    return evaluated
+
+
+def shipping_hosts() -> dict[str, dict[str, Any]]:
+    return {name: host for name, host in evaluated_hosts().items() if host["enable"]}
+
+
+def k3s_servers() -> set[str]:
+    return {
+        name for name, host in evaluated_hosts().items() if host["k3sRole"] == "server"
+    }
 
 
 def fleet() -> dict[str, Any]:
@@ -182,6 +200,26 @@ class HostShippingConfigurationTests(unittest.TestCase):
                     "--storage.path=/var/lib/alloy/data", service["ExecStart"]
                 )
                 self.assertIn("/var/lib/alloy", host["persisted"])
+
+    def test_vip_is_routed_straight_to_the_gateway_nodes(self) -> None:
+        # Through OPNsense the path is asymmetric and pf stalls each stream
+        # after about 64 KB; the hosts reach the k3s servers on their VLAN.
+        servers = k3s_servers()
+        self.assertTrue(servers)
+        server_ips = {fleet()["hosts"][name]["ip"] for name in servers}
+        replicas = load(LOKI_RELEASE)["spec"]["values"]["gateway"]["replicas"]
+        self.assertEqual(replicas, len(servers))
+        for name, host in shipping_hosts().items():
+            with self.subTest(host=name):
+                self.assertEqual(set(host["nextHops"]), server_ips)
+                (route,) = [
+                    route
+                    for route in host["routes"]
+                    if route.get("Destination") == f"{host['lokiAddress']}/32"
+                ]
+                hops = {entry.split("@")[0] for entry in route["MultiPathRoute"]}
+                self.assertEqual(hops, server_ips)
+                self.assertEqual(host["sysctl"], {"hash": 1, "neigh": 1})
 
 
 class PushPolicyTests(unittest.TestCase):
