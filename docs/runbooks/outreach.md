@@ -11,6 +11,11 @@ with no Service, public endpoint, or mounted Kubernetes token. The laptop's
 kubectl command. The sender CronJob runs every minute independently of the
 laptop. Both serialize workspace access with NFS-supported file locks.
 
+Mail egress adds public TCP 465 and 993 for the outreach pods to the existing
+automation namespace policy. DNS uses the namespace's existing DNS rules.
+Do not add an application DNS proxy rule without verifying DNS resolution from
+the actual pods. Gmail connections retain TLS verification and bounded timeouts.
+
 ## State and workflow
 
 `outreach-state` in namespace `automation` is an NFS PVC retained when Flux

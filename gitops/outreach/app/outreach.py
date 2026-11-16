@@ -333,7 +333,7 @@ def creds() -> tuple[str, str]:
 class Mailbox:
     def __init__(self) -> None:
         user, pw = creds()
-        self.imap = imaplib.IMAP4_SSL("imap.gmail.com")
+        self.imap = imaplib.IMAP4_SSL("imap.gmail.com", timeout=60)
         self.imap.login(user, pw)
         self.special = {}
         _, lines = self.imap.list()
