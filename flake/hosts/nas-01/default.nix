@@ -256,10 +256,6 @@
            static void flush(void) {
         '')
       ];
-      postPatch = (old.postPatch or "") + ''
-        substituteInPlace shairport.c \
-          --replace-fail "config.port = 5000;" "if (config.port == 0) config.port = 5000;"
-      '';
     });
     arguments = "-p 5002";
     settings = {
