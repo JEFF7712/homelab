@@ -83,7 +83,8 @@ class QuestionBroker:
         self.lock = threading.Lock()
         self.counter = 0
         self.closed = False
-        threading.Thread(target=self._accept, daemon=True).start()
+        self._accept_thread = threading.Thread(target=self._accept, daemon=True)
+        self._accept_thread.start()
 
     def _accept(self) -> None:
         while True:
@@ -91,6 +92,10 @@ class QuestionBroker:
                 connection, _ = self.server.accept()
             except OSError:
                 return
+            with self.lock:
+                if self.closed:
+                    connection.close()
+                    return
             threading.Thread(
                 target=self._receive, args=(connection,), daemon=True
             ).start()
@@ -140,15 +145,24 @@ class QuestionBroker:
 
     def close(self) -> None:
         with self.lock:
+            if self.closed:
+                return
             self.closed = True
             waiting, self.waiting = self.waiting, {}
+        # close() alone does not interrupt a blocking accept on Linux. Wake
+        # it and retire the thread before the descriptor can be reused.
+        try:
+            self.server.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        self._accept_thread.join()
+        self.server.close()
         for connection in waiting.values():
             try:
                 connection.sendall(b'{"cancelled": true}\n')
             except OSError:
                 pass
             connection.close()
-        self.server.close()
         shutil.rmtree(self.directory, ignore_errors=True)
 
 
