@@ -1,0 +1,31 @@
+# Loki push endpoint for the two NixOS hosts that are not k3s nodes
+# (nas-01 and adguard-netbird-01, flake/modules/host-log-shipping.nix). It
+# fronts the chart's nginx gateway; push-policy.yaml admits only those two
+# addresses, and only for POST /loki/api/v1/push.
+apiVersion: v1
+kind: Service
+metadata:
+  name: loki-push
+  namespace: observability
+  annotations:
+    io.cilium/lb-ipam-ips: 10.0.40.17
+  labels:
+    bgp-advertise: "true"
+spec:
+  type: LoadBalancer
+  loadBalancerClass: io.cilium/bgp-control-plane
+  # Local keeps the client address so the policy's CIDR allowlist matches;
+  # with Cluster a node without the gateway pod would SNAT it. Only the
+  # control-plane nodes peer BGP, so the gateway is pinned to them in
+  # release.yaml. No NodePort: the VIP is the only external entry.
+  externalTrafficPolicy: Local
+  allocateLoadBalancerNodePorts: false
+  selector:
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/instance: loki
+    app.kubernetes.io/name: loki
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP

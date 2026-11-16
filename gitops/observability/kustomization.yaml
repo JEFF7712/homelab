@@ -19,6 +19,8 @@ resources:
   - loki/rules-configmap.yaml
   - loki/local-storage.yaml
   - loki/release.yaml
+  - loki/push-service.yaml
+  - loki/push-policy.yaml
   - alloy/release.yaml
   - grafana/service.yaml
   - grafana/cloudflare-oidc.yaml
