@@ -42,6 +42,7 @@ DRAIN_TIMEOUT = 300.0
 # job before it can uncordon, so the next run releases a marked cordon once
 # the node runs the desired system healthily. Operator cordons carry no mark.
 CORDON_MARK = "homelab.fleet/deploy-cordon"
+K3S_TYPES = ("k3s-worker", "k3s-stateful")
 # Embedded etcd members carry this k3s node label. Restarting k3s on one
 # restarts its member, so every member must answer healthy before one is
 # taken down and again after it returns: two members down loses quorum.
@@ -700,10 +701,11 @@ class FleetDeployer:
         except FleetDeploymentError as error:
             logger.error("[%s] Could not clear the cordon mark: %s", node_name, error)
 
-    def release_stale_cordon(self, host: HostConfig) -> None:
+    def release_stale_cordon(self, host: HostConfig) -> bool:
         """Uncordon a node a killed run left cordoned, once it is healthy.
 
-        Only called for hosts already running the desired system.
+        Only called for hosts already running the desired system. Returns
+        whether the cordon was released.
         """
         result = run_command(
             ["kubectl", "get", "node", host.name, "-o", "json"],
@@ -716,9 +718,9 @@ class FleetDeployer:
         except ValueError:
             node = {}
         if not isinstance(node, dict) or not node.get("spec", {}).get("unschedulable"):
-            return
+            return False
         if node.get("metadata", {}).get("annotations", {}).get(CORDON_MARK) != "true":
-            return
+            return False
         ready = any(
             c.get("type") == "Ready" and c.get("status") == "True"
             for c in node.get("status", {}).get("conditions", [])
@@ -732,11 +734,44 @@ class FleetDeployer:
                 ready,
                 ", ".join(sorted(failed)) or "none",
             )
-            return
+            return False
         logger.info(
             "[%s] Releasing the cordon an interrupted deployment left", host.name
         )
         self.uncordon_node(host.name)
+        return True
+
+    def heal_cordons(self) -> dict[str, Any]:
+        """Release cordons a killed deployment left, without deploying anything.
+
+        The CI host's switch restarts Docker and kills the deploy job driving
+        it, so nothing uncordons the host until the next deployment (two hours
+        on 2026-11-16). A scheduled run of this releases such a cordon once the
+        host runs the desired system healthily; a host on any other system
+        stays cordoned for the next deployment or the operator.
+        """
+        marked = marked_cordons(self.runner)
+        healed: list[str] = []
+        kept: list[str] = []
+        for host in self.targets:
+            if host.name not in marked or host.host_type not in K3S_TYPES:
+                continue
+            desired = self.desired_system(host)
+            running = self.running_system(host)
+            if running != desired:
+                logger.warning(
+                    "[%s] Left cordoned while running %s, not %s; leaving it "
+                    "for the next deployment",
+                    host.name,
+                    running,
+                    desired,
+                )
+                kept.append(host.name)
+            elif self.release_stale_cordon(host):
+                healed.append(host.name)
+            else:
+                kept.append(host.name)
+        return {"healed": healed, "kept": kept}
 
     def drain_node(self, node_name: str) -> None:
         logger.info(
@@ -770,8 +805,7 @@ class FleetDeployer:
         )
         return self.system_path(result.stdout)
 
-    def prepare_host(self, host: HostConfig) -> bool:
-        """Realize changed systems before any workload is disrupted."""
+    def desired_system(self, host: HostConfig) -> str:
         result = run_command(
             [
                 "nix",
@@ -783,7 +817,11 @@ class FleetDeployer:
             runner=self.runner,
             timeout=120.0,
         )
-        desired = self.system_path(result.stdout)
+        return self.system_path(result.stdout)
+
+    def prepare_host(self, host: HostConfig) -> bool:
+        """Realize changed systems before any workload is disrupted."""
+        desired = self.desired_system(host)
         previous = self.running_system(host)
         self.prepared[host.name] = (previous, desired)
         if desired == previous:
@@ -1345,10 +1383,7 @@ class FleetDeployer:
                 if self.prepare_host(host):
                     changed.append(host)
                 else:
-                    if not self.dry_run and host.host_type in (
-                        "k3s-worker",
-                        "k3s-stateful",
-                    ):
+                    if not self.dry_run and host.host_type in K3S_TYPES:
                         self.release_stale_cordon(host)
                     results.append(
                         {
@@ -1411,6 +1446,23 @@ class FleetDeployer:
                     logger.warning(
                         "[%s] Could not remove temporary GC roots: %s", name, error
                     )
+
+
+def marked_cordons(runner: Runner) -> set[str]:
+    """Nodes still cordoned with the deployer's mark."""
+    result = run_command(
+        ["kubectl", "get", "nodes", "-o", "json"], runner=runner, timeout=30.0
+    )
+    try:
+        nodes = json.loads(result.stdout).get("items", [])
+    except (ValueError, AttributeError) as error:
+        raise FleetDeploymentError(f"Cannot read nodes: {error}") from error
+    return {
+        node["metadata"]["name"]
+        for node in nodes
+        if node.get("spec", {}).get("unschedulable")
+        and node["metadata"].get("annotations", {}).get(CORDON_MARK) == "true"
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1506,6 +1558,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Output structured JSON results upon completion.",
     )
+    parser.add_argument(
+        "--heal-cordons",
+        action="store_true",
+        help="Deploy nothing; release cordons a killed deployment left on "
+        "healthy hosts already running the desired system.",
+    )
     return parser
 
 
@@ -1541,6 +1599,9 @@ def main(
             "dry_run": args.dry_run,
         },
     )
+
+    if args.heal_cordons:
+        return heal(args, targets, runner, ssh_opts)
 
     try:
         with lock, contextlib.ExitStack() as held:
@@ -1583,6 +1644,40 @@ def main(
     except Exception as err:
         logger.exception("Unexpected error during fleet deployment: %s", err)
         return 1
+
+
+def heal(
+    args: argparse.Namespace,
+    targets: list[HostConfig],
+    runner: Runner,
+    ssh_opts: list[str] | None,
+) -> int:
+    """--heal-cordons: a no-op unless a marked cordon exists and no run is live."""
+    try:
+        if not marked_cordons(runner):
+            logger.info("No cordon left by a deployment")
+            return 0
+        with ClusterLease(lease_holder("deploy-fleet heal"), runner=runner):
+            result = FleetDeployer(
+                targets,
+                skip_preflight=True,
+                ssh_user=args.ssh_user,
+                flake_path=args.flake_path,
+                runner=runner,
+                enable_notifications=False,
+                ssh_opts=ssh_opts,
+            ).heal_cordons()
+    except LockContentionError as err:
+        # A live deployment owns its cordons and releases them itself.
+        logger.info("Deployment in progress, not healing: %s", err)
+        return 0
+    except FleetDeploymentError as err:
+        logger.error("Cannot heal cordons: %s", err)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+    # A cordon kept on a host that is not healthy needs attention.
+    return 1 if result["kept"] else 0
 
 
 if __name__ == "__main__":

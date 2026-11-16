@@ -1382,5 +1382,87 @@ class ClusterLeaseTest(unittest.TestCase):
         self.assertFalse(any("lease" in " ".join(argv) for argv in api.calls))
 
 
+class HealCordonsTest(unittest.TestCase):
+    """--heal-cordons after the CI host's switch killed the deploy job."""
+
+    OLD = DeployFleetTest.OLD
+    NEW = DeployFleetTest.NEW
+    NOW = datetime.now(UTC)
+
+    def heal(self, *, marked=True, running=None, ready=True, failed="", holder=None):
+        self.api = LeaseApi()
+        if holder:
+            self.api.hold(holder, self.NOW - timedelta(seconds=30))
+        self.commands = []
+        annotations = {CORDON_MARK: "true"} if marked else {}
+        node = {
+            "metadata": {"name": "homelab-04", "annotations": annotations},
+            "spec": {"unschedulable": True},
+            "status": {
+                "conditions": [
+                    {"type": "Ready", "status": "True" if ready else "False"}
+                ]
+            },
+        }
+
+        def runner(argv, **kwargs):
+            self.commands.append(argv)
+            output = ""
+            if argv[:3] == ["kubectl", "get", "nodes"]:
+                output = json.dumps({"items": [node]})
+            elif argv[:3] == ["kubectl", "get", "node"]:
+                output = json.dumps(node)
+            elif argv[0] == "kubectl" and "lease" in " ".join(argv) or "-f" in argv:
+                return self.api(argv, **kwargs)
+            elif argv[:3] == ["nix", "eval", "--raw"]:
+                output = self.NEW
+            elif argv[0] == "ssh" and argv[-1] == "readlink -e /run/current-system":
+                output = running or self.NEW
+            elif argv[0] == "ssh" and argv[-1].startswith("systemctl --failed"):
+                output = failed
+            return subprocess.CompletedProcess(argv, 0, output, "")
+
+        with tempfile.TemporaryDirectory() as directory:
+            return main(
+                ["--heal-cordons", "--lock-file", directory + "/lock"], runner=runner
+            )
+
+    def mutations(self):
+        return [
+            cmd[1:3]
+            for cmd in self.commands
+            if cmd[0] == "kubectl" and cmd[1] in ("uncordon", "annotate")
+        ]
+
+    def test_without_a_marked_cordon_it_takes_no_lease_and_touches_no_host(self):
+        self.assertEqual(self.heal(marked=False), 0)
+        self.assertEqual(self.api.calls, [])
+        self.assertFalse(any(cmd[0] == "ssh" for cmd in self.commands))
+
+    def test_healthy_host_on_the_desired_system_is_released(self):
+        self.assertEqual(self.heal(), 0)
+        self.assertEqual(
+            self.mutations(), [["uncordon", "homelab-04"], ["annotate", "--overwrite"]]
+        )
+        self.assertIsNone(self.api.lease)
+
+    def test_host_on_another_system_or_unhealthy_stays_cordoned(self):
+        for case in (
+            {"running": self.OLD},
+            {"ready": False},
+            {"failed": "k3s.service loaded failed failed K3s\n"},
+        ):
+            with self.subTest(case):
+                self.assertEqual(self.heal(**case), 1)
+                self.assertEqual(self.mutations(), [])
+
+    def test_a_live_deployment_keeps_its_own_cordon(self):
+        self.assertEqual(self.heal(holder="deploy-fleet pipeline 9"), 0)
+        self.assertEqual(self.mutations(), [])
+        self.assertEqual(
+            self.api.lease["spec"]["holderIdentity"], "deploy-fleet pipeline 9"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

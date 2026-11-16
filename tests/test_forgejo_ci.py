@@ -29,6 +29,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from scripts.ci import build_users
 from scripts.ci.authority import select
+from scripts.ci.deployment_risk import host_operation
 from scripts.ci.operation import SupersededSource, current_source, pack, unpack
 from scripts.ci.operation import main as operation_main
 from scripts.ci.platform_backup import snapshot_database
@@ -533,6 +534,16 @@ class PolicyTest(unittest.TestCase):
             watch["environment"]["NTFY_TOKEN"], {"from_secret": "ntfy_token"}
         )
         self.assertIn("scripts.ci.notify vip-dataplane", watch["commands"][0])
+        # A cordon the CI host's self-deployment strands is released within
+        # one maintenance interval. Its own group keeps it from queueing
+        # behind a running deployment (the fleet lease already excludes
+        # one), and it gets the scheduled host-deployment authority check.
+        self.assertIn("fleet-cordon-heal", SCHEDULES["maintenance"])
+        heal = self.catalog["fleet-cordon-heal"]
+        self.assertTrue(heal["mutation"])
+        self.assertNotEqual(heal["group"], self.catalog["deploy-fleet"]["group"])
+        self.assertEqual(heal["commands"][-1], "just deploy-fleet --heal-cordons")
+        self.assertTrue(host_operation(heal))
         self.request["pipeline"].update(event="cron", cron="unknown")
         self.assertEqual(
             len(configuration(self.request, self.catalog, current=SHA)["configs"]), 1
