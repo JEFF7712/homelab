@@ -16,6 +16,7 @@ resources:
   - media.yaml
   - music-assistant.yaml
   - observability.yaml
+  - outreach.yaml
   - obsidian.yaml
   - platform.yaml
   - pod-agent.yaml

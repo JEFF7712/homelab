@@ -1,0 +1,173 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: outreach-state
+  namespace: automation
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes: [ReadWriteMany]
+  storageClassName: nfs-cluster
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: outreach-control
+  namespace: automation
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: outreach-control
+  template:
+    metadata:
+      labels:
+        app: outreach-control
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: outreach
+          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d  # yamllint disable-line rule:line-length
+          command: [python, /app/runner.py, idle]
+          env:
+            - {name: OUTREACH_ROOT, value: /state/outreach}
+            - {name: OUTREACH_CREDS, value: /credentials/gmail.env}
+            - {name: OUTREACH_NOTIFIER_ENV, value: /credentials/notifier.env}
+            - {name: PYTHONDONTWRITEBYTECODE, value: '1'}
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits: {cpu: '1', memory: 256Mi}
+          readinessProbe:
+            exec:
+              command: [python, /app/runner.py, health]
+            periodSeconds: 30
+            timeoutSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - {name: code, mountPath: /app, readOnly: true}
+            - {name: dependencies, mountPath: /deps, readOnly: true}
+            - {name: credentials, mountPath: /credentials, readOnly: true}
+            - {name: state, mountPath: /state}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: code
+          configMap: {name: outreach-code}
+        - name: dependencies
+          configMap: {name: outreach-dependencies}
+        - name: credentials
+          secret: {secretName: outreach-credentials, defaultMode: 0440}
+        - name: state
+          persistentVolumeClaim: {claimName: outreach-state}
+        - name: tmp
+          emptyDir: {sizeLimit: 128Mi}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: outreach-sender
+  namespace: automation
+spec:
+  schedule: '* * * * *'
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 900
+      template:
+        metadata:
+          labels:
+            app: outreach-sender
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: outreach
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d  # yamllint disable-line rule:line-length
+              command: [python, /app/runner.py, send-due]
+              env:
+                - {name: OUTREACH_ROOT, value: /state/outreach}
+                - {name: OUTREACH_CREDS, value: /credentials/gmail.env}
+                - {name: OUTREACH_NOTIFIER_ENV, value: /credentials/notifier.env}
+                - {name: PYTHONDONTWRITEBYTECODE, value: '1'}
+              resources:
+                requests: {cpu: 50m, memory: 128Mi}
+                limits: {cpu: '1', memory: 256Mi}
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - {name: code, mountPath: /app, readOnly: true}
+                - {name: dependencies, mountPath: /deps, readOnly: true}
+                - {name: credentials, mountPath: /credentials, readOnly: true}
+                - {name: state, mountPath: /state}
+                - {name: tmp, mountPath: /tmp}
+          volumes:
+            - name: code
+              configMap: {name: outreach-code}
+            - name: dependencies
+              configMap: {name: outreach-dependencies}
+            - name: credentials
+              secret: {secretName: outreach-credentials, defaultMode: 0440}
+            - name: state
+              persistentVolumeClaim: {claimName: outreach-state}
+            - name: tmp
+              emptyDir: {sizeLimit: 128Mi}
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: outreach-mail-egress
+  namespace: automation
+spec:
+  endpointSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [outreach-control, outreach-sender]
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+            k8s:k8s-app: kube-dns
+      toPorts:
+        - ports:
+            - {port: '53', protocol: ANY}
+          rules:
+            dns:
+              - matchPattern: '*'
+    - toFQDNs:
+        - matchName: imap.gmail.com
+        - matchName: smtp.gmail.com
+      toPorts:
+        - ports:
+            - {port: '465', protocol: TCP}
+            - {port: '993', protocol: TCP}
