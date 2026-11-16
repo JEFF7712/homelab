@@ -181,33 +181,57 @@ spec:
             summary: "ZFS pool {{ $labels.zpool }} is degraded or faulted"
             description: "ZFS pool {{ $labels.zpool }} on nas-01 state is {{ $labels.state }}."
 
-        - alert: ZfsPoolSpaceWarning
+        # node_exporter exports no zpool alloc/free gauges here, so derive pool
+        # usage from its datasets: avail is pool-wide and size - avail is each
+        # dataset's referenced data. Snapshot space is invisible, so this
+        # understates usage.
+        - record: zpool:used:percent
           expr: |
-            (
-              node_zfs_zpool_alloc_bytes{job="nas-01-node"}
-              /
-              (node_zfs_zpool_alloc_bytes{job="nas-01-node"} + node_zfs_zpool_free_bytes{job="nas-01-node"})
-            ) * 100 > 80
+            100 * sum by (zpool) (
+              label_replace(
+                node_filesystem_size_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"}
+                - node_filesystem_avail_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"},
+                "zpool", "$1", "device", "([^/]+).*"
+              )
+            )
+            / (
+              sum by (zpool) (
+                label_replace(
+                  node_filesystem_size_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"}
+                  - node_filesystem_avail_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"},
+                  "zpool", "$1", "device", "([^/]+).*"
+                )
+              )
+              + min by (zpool) (
+                label_replace(
+                  node_filesystem_avail_bytes{job="nas-01-node",fstype="zfs",device!~".*@.*"},
+                  "zpool", "$1", "device", "([^/]+).*"
+                )
+              )
+            )
+
+        - alert: ZfsPoolSpaceWarning
+          expr: zpool:used:percent > 80
           for: 15m
           labels:
             severity: warning
           annotations:
             summary: "ZFS pool {{ $labels.zpool }} is above 80% capacity"
-            description: "ZFS pool {{ $labels.zpool }} on nas-01 has exceeded 80% allocated capacity."
+            description: >-
+              ZFS pool {{ $labels.zpool }} on nas-01 has {{ $value | printf "%.1f" }}%
+              of its space used by dataset data (snapshots excluded).
 
         - alert: ZfsPoolSpaceCritical
-          expr: |
-            (
-              node_zfs_zpool_alloc_bytes{job="nas-01-node"}
-              /
-              (node_zfs_zpool_alloc_bytes{job="nas-01-node"} + node_zfs_zpool_free_bytes{job="nas-01-node"})
-            ) * 100 > 90
+          expr: zpool:used:percent > 90
           for: 5m
           labels:
             severity: critical
           annotations:
             summary: "ZFS pool {{ $labels.zpool }} is above 90% capacity"
-            description: "ZFS pool {{ $labels.zpool }} on nas-01 has exceeded 90% allocated capacity."
+            description: >-
+              ZFS pool {{ $labels.zpool }} on nas-01 has {{ $value | printf "%.1f" }}%
+              of its space used by dataset data (snapshots excluded). Every dataset
+              on the pool stops accepting writes when it fills.
 
         - alert: SmartDeviceHealthFailing
           expr: smartctl_device_smart_status == 0

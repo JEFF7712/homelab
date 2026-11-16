@@ -126,6 +126,17 @@
       autosnap = true;
       autoprune = true;
     };
+    # Bulk media is replaceable; snapshots only cover recent mistakes. Unset
+    # periods fall back to sanoid's defaults (48 hourly, 6 monthly), which
+    # pinned months of replaced files. Temporarily keep one daily so autoprune
+    # releases the 2026-11-14 beets retag; restore daily = 7 afterwards.
+    templates.media = {
+      hourly = 0;
+      daily = 1;
+      monthly = 0;
+      autosnap = true;
+      autoprune = true;
+    };
     templates.weekly = {
       daily = 7;
       autosnap = true;
@@ -138,7 +149,7 @@
       "tank/backups/syncthing".useTemplate = [ "operational" ];
       "tank/cluster".useTemplate = [ "operational" ];
       "tank/forgejo".useTemplate = [ "operational" ];
-      "tank/media".useTemplate = [ "weekly" ];
+      "tank/media".useTemplate = [ "media" ];
       "tank/attic".useTemplate = [ "weekly" ];
       "tank/registry".useTemplate = [ "operational" ];
     };

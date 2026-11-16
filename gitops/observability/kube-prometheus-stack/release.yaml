@@ -133,6 +133,28 @@ spec:
                 labels:
                   node: homelab-05
                   gpu_model: "NVIDIA T600"
+          # Embedded etcd on the k3s servers (--etcd-expose-metrics, plain
+          # HTTP). The server firewall admits 2381 only from homelab-05, where
+          # this pod's local PV pins it. Keep only the families the etcd rules
+          # use, and drop latency buckets far from their thresholds.
+          - job_name: etcd
+            static_configs:
+              - targets: [10.0.30.11:2381]
+                labels:
+                  node: homelab-01
+              - targets: [10.0.30.12:2381]
+                labels:
+                  node: homelab-02
+              - targets: [10.0.30.13:2381]
+                labels:
+                  node: homelab-03
+            metric_relabel_configs:
+              - action: keep
+                source_labels: [__name__]
+                regex: 'etcd_server_(has_leader|is_leader|leader_changes_seen_total|proposals_failed_total|proposals_pending|quota_backend_bytes)|etcd_mvcc_db_total_size_in(_use_in)?_bytes|etcd_disk_(wal_fsync|backend_commit)_duration_seconds_(bucket|sum|count)'  # yamllint disable-line rule:line-length
+              - action: drop
+                source_labels: [__name__, le]
+                regex: 'etcd_disk_.*_bucket;(0\.001|0\.002|0\.004|4\.096|8\.192)'
         resources:
           requests:
             cpu: 250m
@@ -264,6 +286,18 @@ spec:
               - alertname = "NodeRootFilesystemLowSpace"
             equal:
               - instance
+          - source_matchers:
+              - alertname = "EtcdWalFsyncCritical"
+            target_matchers:
+              - alertname = "EtcdWalFsyncSlow"
+            equal:
+              - node
+          - source_matchers:
+              - alertname = "EtcdDatabaseAtQuota"
+            target_matchers:
+              - alertname = "EtcdDatabaseNearQuota"
+            equal:
+              - node
           - source_matchers:
               - alertname = "MoneroPersistSpaceCritical"
             target_matchers:
