@@ -188,7 +188,10 @@ state or fetch the real pairing QR; they use placeholder pairing details.
 They do not select a mode or change content on the physical monitor.
 
 Edit `flake/modules/workshop-display/display.html` to change the shared layout.
-After deployment, refresh the preview to see the new design. For quick local
+Chromium loads the page once at boot, so `display.html` is a restart trigger of
+`sway-tty1`: a deploy that changes it restarts the kiosk session (dropping any
+AirPlay mirror) and the monitor shows the new page. After deployment, refresh
+the preview to see the new design. For quick local
 iteration, serve `flake/modules/workshop-display/` with `python -m http.server`
 and open `/display.html?preview=clock` (or `?preview=night`); no HA credentials
 or running backend are needed. The iframe preview is same-origin only; live
