@@ -172,6 +172,32 @@ class RemoteTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "not configured"):
                 client.transport({"version": 1, "args": ["queue"]})
 
+    def test_render_reports_only_the_created_laptop_path(self):
+        response = runner.rpc(self.request)
+        response.update(
+            stdout="/tmp/server-preview/example.eml\n",
+            artifacts={
+                "example.eml": runner.encode(b"Subject: Preview\n\nExisting draft")
+            },
+        )
+        client.atomic_write(client.MASTER, self.book)
+        client.atomic_write(
+            client.RECEIPT,
+            json.dumps({"master_sha256": response["master_sha256"]}).encode(),
+        )
+        spec = self.root / "batch.json"
+        spec.write_text(json.dumps({"batch": "test", "emails": []}))
+        output = self.root / "laptop-previews"
+        args = client.parser().parse_args(["render", str(spec), "--out", str(output)])
+        with patch.object(client, "transport", return_value=response):
+            with patch("sys.stdout", new_callable=io.StringIO) as stdout:
+                self.assertEqual(
+                    client.run(args, ["render", str(spec), "--out", str(output)]), 0
+                )
+                reported = Path(stdout.getvalue().strip())
+        self.assertEqual(reported, output / "example.eml")
+        self.assertEqual(reported.read_bytes(), b"Subject: Preview\n\nExisting draft")
+
 
 if __name__ == "__main__":
     unittest.main()

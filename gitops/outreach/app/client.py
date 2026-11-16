@@ -145,7 +145,8 @@ def run(args: argparse.Namespace, arguments: list[str]) -> int:
     if pulling:
         request["args"] = ["sync"]
     response = transport(request)
-    sys.stdout.write(response.get("stdout", ""))
+    if args.command != "render":
+        sys.stdout.write(response.get("stdout", ""))
     sys.stderr.write(response.get("stderr", ""))
     if "master" in response:
         master = base64.b64decode(response["master"], validate=True)
