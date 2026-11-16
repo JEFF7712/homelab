@@ -233,6 +233,10 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
         # unnoticed for six hours on 2026-11-02; this probes them through
         # OPNsense and posts to ntfy when they stop answering.
         "vip-dataplane-watch",
+        # The CI host's switch kills the deploy job driving it, which then
+        # never uncordons the host; this releases such a cordon once the
+        # host runs the desired system healthily (2026-11-16: two hours).
+        "fleet-cordon-heal",
         # Post-merge housekeeping lives here rather than on every main push,
         # so a merge's pipeline (the parent deployments need) ends quickly.
         "sync-to-github",

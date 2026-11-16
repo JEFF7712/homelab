@@ -183,13 +183,20 @@ a later host failed. Follow the affected host or service runbook for recovery.
 homelab-04, the CI host, deploys last. Its switch restarts Docker and kills the
 deploy job driving it. The switch itself finishes in the transient
 `homelab-fleet-switch` unit (`journalctl -u homelab-fleet-switch`), but the job
-never verifies or uncordons the node, and the pipeline fails. The deployer
-annotates every cordon it places with `homelab.fleet/deploy-cordon`. A later
-run that finds such a node already on the desired system, Ready and without
-failed units uncordons it. Recover with
-`just ship --resume <main sha> --deploy deploy-fleet` after the fleet Lease
-expires (5 minutes). A failed host recovery or reboot keeps its cordon without
-the mark, and only a person releases it.
+never verifies or uncordons the node, and the pipeline may stay "running" in
+Woodpecker until someone cancels it (#16028 on 2026-11-16). The deployer
+annotates every cordon it places with `homelab.fleet/deploy-cordon`. The
+`fleet-cordon-heal` operation in the `maintenance` schedule (every 30 minutes)
+runs `just deploy-fleet --heal-cordons`: with no marked cordon it exits without
+taking the fleet Lease; otherwise it takes the Lease (a live deployment keeps
+its own cordons) and uncordons a marked node that already runs the desired
+system, is Ready and has no failed units. A marked node on any other system, or
+unhealthy, stays cordoned and fails the operation for attention. Any later
+deployment applies the same release. Like a scheduled `deploy-fleet`, the heal
+is held while main carries protected changes the operator has not approved. To
+recover sooner, run `just ship --resume <main sha> --deploy fleet-cordon-heal`.
+A failed host recovery or reboot keeps its cordon without the mark, and only a
+person releases it.
 
 ## Nightly nixpkgs update
 
