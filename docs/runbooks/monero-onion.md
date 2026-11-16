@@ -59,10 +59,11 @@ sudo -u monero curl -m 5 -o /dev/null -w '%{http_code}\n' https://getmonero.org/
 The nixpkgs unit already runs as `monero` with no capabilities,
 `NoNewPrivileges`, `PrivateUsers`, `ProtectSystem=strict`, `ProtectProc=invisible`
 and `@system-service`. The module adds `SystemCallArchitectures=native`,
-`SystemCallFilter=~@privileged`, and drops `AF_NETLINK` from
-`RestrictAddressFamilies` (glibc's address probe falls back without it).
-`@resources` stays allowed: monerod calls `sched_setscheduler` (syscall 144)
-at startup and crash-looped when it was denied. `MemoryDenyWriteExecute`
+and `SystemCallFilter=~@privileged`. Two tighter settings were tried and
+reverted because monerod crash-looped: denying `@resources` (it calls
+`sched_setscheduler`, syscall 144, at startup) and dropping `AF_NETLINK`
+(the ZMQ RPC interface resolver aborts with `Address family not supported by
+protocol (src/ip_resolver.cpp:542)`). `MemoryDenyWriteExecute`
 stays off because RandomX JIT-compiles. A blocked syscall kills the process
 with `SIGSYS`, and the fleet deploy's failed-unit check does not catch a unit
 in its restart delay, so check after every sandbox change:
