@@ -91,7 +91,10 @@ A node release can set `"node_test": true` in `config/ci/applications.json`
 `supply_read_password` and runs no repository code, and `application-tests`
 installs with `npm ci --offline` and runs `npm test` with no secret. A failing
 test turns `ci/woodpecker/application-validation` red and, on main, blocks the
-release. The application repository's `supply_read_password` secret must allow
+release. Both steps run on the locked glibc `python:3.14.7` image rather than
+the app's Alpine validation image: the retained musl node needs
+`LD_LIBRARY_PATH`, which processes spawned with a sanitized environment (the
+MCP SDK's stdio transport) lose, so they die at startup. The application repository's `supply_read_password` secret must allow
 the `pull_request` and `manual` events as well as `push`; Woodpecker refuses
 the whole pipeline otherwise. A lockfile change the pinned cache does not
 cover fails with `ENOTCACHED`; a missing optional native fails later, because

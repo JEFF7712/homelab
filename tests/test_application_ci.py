@@ -14,7 +14,12 @@ from unittest.mock import patch
 
 import yaml
 
-from scripts.ci.applications import Application, configuration, load_catalog
+from scripts.ci.applications import (
+    NODE_TEST_IMAGE,
+    Application,
+    configuration,
+    load_catalog,
+)
 from scripts.ci.node_service import validate as validate_node
 from scripts.ci.policy import resolve_configuration
 from scripts.ci.static_site import validate
@@ -719,6 +724,10 @@ class NodeReleaseTest(unittest.TestCase):
             )
             # The step that runs checkout code never receives a secret.
             self.assertNotIn("environment", tests)
+            # glibc, so the retained node and the processes it spawns need no
+            # LD_LIBRARY_PATH (uwagent pipeline 57).
+            self.assertEqual(tests["image"], NODE_TEST_IMAGE)
+            self.assertEqual(prepare["image"], NODE_TEST_IMAGE)
             self.assertIn("<server-owned-node-test>", tests["commands"][0])
             self.assertIn(" prepare-test ", prepare["commands"][0])
             self.assertIn(" test --supply ", tests["commands"][0])

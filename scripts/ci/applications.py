@@ -11,6 +11,11 @@ from typing import Any
 
 from scripts.ci import build_users
 
+# Node test suites run on glibc Python: the retained musl node needs
+# LD_LIBRARY_PATH, which child processes started with a sanitized environment
+# (the MCP SDK's stdio transport) do not inherit, so they die at startup.
+NODE_TEST_IMAGE = "registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d"
+
 
 @dataclass(frozen=True)
 class Application:
@@ -518,7 +523,7 @@ def configuration(
         workflow["steps"] += [
             {
                 "name": "prepare-test-inputs",
-                "image": app.validation_image,
+                "image": NODE_TEST_IMAGE,
                 "environment": {
                     "FORGEJO_TOKEN": {"from_secret": "supply_read_password"}
                 },
@@ -526,7 +531,7 @@ def configuration(
             },
             {
                 "name": "application-tests",
-                "image": app.validation_image,
+                "image": NODE_TEST_IMAGE,
                 "commands": [f"{test_stub} test {test_args}"],
             },
         ]
