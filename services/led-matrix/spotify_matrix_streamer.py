@@ -327,10 +327,15 @@ class TCPMatrixStreamer:
             while self._receive_acknowledgements():
                 pass
             now = time.monotonic()
+            effective_keepalive = (
+                min(self.keepalive_interval, 0.35)
+                if (self.keepalive_interval is not None and self.protocol == "R565")
+                else self.keepalive_interval
+            )
             if (
-                self.keepalive_interval is not None
+                effective_keepalive is not None
                 and self._last_payload == raw_bytes
-                and (now - self._last_send_time) < self.keepalive_interval
+                and (now - self._last_send_time) < effective_keepalive
             ):
                 self.skipped_frames += 1
                 return True
