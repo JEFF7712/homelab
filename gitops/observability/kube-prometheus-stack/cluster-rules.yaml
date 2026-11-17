@@ -108,7 +108,10 @@ spec:
               has not had all desired replicas ready for 15 minutes.
 
         - alert: KubePersistentVolumeFillingUp
-          expr: (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) * 100 < 15
+          expr: |
+            min by (namespace, persistentvolumeclaim) (
+              (kubelet_volume_stats_available_bytes / kubelet_volume_stats_capacity_bytes) * 100
+            ) < 15
           for: 15m
           labels:
             severity: warning

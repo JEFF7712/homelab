@@ -70,6 +70,10 @@
       },
       "FORGEJO_SOURCE_READ_TOKEN": {
         "from_secret": "forgejo_source_read_token"
+      },
+      "NTFY_TOPIC": "homelab-alerts",
+      "NTFY_TOKEN": {
+        "from_secret": "ntfy_token"
       }
     },
     "file_secrets": [
@@ -77,7 +81,10 @@
       "STATE_CA_FILE"
     ],
     "group": "registry-content",
-    "needs": [],
+    "needs": [
+      "registry-lock-import",
+      "registry-retention-reconcile"
+    ],
     "outputs": [
       "artifacts/registry/"
     ],

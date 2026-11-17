@@ -36,23 +36,41 @@ def free_bytes(path: Path) -> int:
     return stats.f_bavail * stats.f_frsize
 
 
-def import_until_low_space(command: list[str], directory: Path) -> tuple[int, bool]:
-    """Run the importer; interrupt it if free space drops below the floor."""
+def import_until_low_space(
+    command: list[str], directory: Path
+) -> tuple[int | None, str | None]:
+    """Run the importer; interrupt cleanly on low space or SIGTERM (node drain)."""
+    interrupted: list[str] = []
     process = subprocess.Popen(command, stdin=subprocess.DEVNULL)
-    while True:
-        try:
-            return process.wait(timeout=POLL_SECONDS), False
-        except subprocess.TimeoutExpired:
-            if free_bytes(directory) >= MIN_FREE_BYTES:
-                continue
-        print(json.dumps({"event": "beets_low_space_stop"}), flush=True)
+    previous_sigterm = signal.getsignal(signal.SIGTERM)
+
+    def handle_sigterm(_signum: int, _frame: object) -> None:
+        interrupted.append("paused_node_drain")
         process.send_signal(signal.SIGINT)
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+    try:
+        while True:
+            try:
+                rc = process.wait(timeout=POLL_SECONDS)
+                return rc, (interrupted[0] if interrupted else None)
+            except subprocess.TimeoutExpired:
+                if interrupted:
+                    break
+                if free_bytes(directory) >= MIN_FREE_BYTES:
+                    continue
+                interrupted.append("paused_low_space")
+                print(json.dumps({"event": "beets_low_space_stop"}), flush=True)
+                process.send_signal(signal.SIGINT)
+                break
         try:
             process.wait(timeout=STOP_GRACE_SECONDS)
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait()
-        return process.returncode, True
+        return process.returncode, interrupted[0]
+    finally:
+        signal.signal(signal.SIGTERM, previous_sigterm)
 
 
 def run(config_path: Path, paths: list[str]) -> int:
@@ -65,9 +83,9 @@ def run(config_path: Path, paths: list[str]) -> int:
     before = counts(database)
     print(json.dumps({"event": "beets_start", "before": before}), flush=True)
     if free_bytes(directory) < MIN_FREE_BYTES:
-        returncode, low_space = None, True
+        returncode, pause_reason = None, "paused_low_space"
     else:
-        returncode, low_space = import_until_low_space(
+        returncode, pause_reason = import_until_low_space(
             [
                 "beet",
                 "-c",
@@ -80,8 +98,8 @@ def run(config_path: Path, paths: list[str]) -> int:
             directory,
         )
     after = counts(database)
-    if low_space:
-        code, status = 0, "paused_low_space"
+    if pause_reason:
+        code, status = 0, pause_reason
     else:
         code = returncode or (1 if after["tracks"] == 0 else 0)
         status = "failed" if code else "completed"

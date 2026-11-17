@@ -175,6 +175,33 @@ class PlatformBackupStagingTests(unittest.TestCase):
             self.assertEqual(list((persist / "platform-backup").iterdir()), [])
 
     @patch("scripts.ci.platform_backup.subprocess.run")
+    def test_nas_backup_stages_niks3_keys_when_present(self, run):
+        with tempfile.TemporaryDirectory() as temporary:
+            persist = Path(temporary)
+            for name in ("forgejo", "garage", "niks3"):
+                (persist / name).mkdir()
+            (persist / "niks3/signing-key").write_text("homelab-niks3-1:secret\n")
+            db = persist / "tofu-state/state.sqlite"
+            db.parent.mkdir()
+            with sqlite3.connect(db) as conn:
+                conn.execute("CREATE TABLE t (x INT)")
+
+            staged_niks3 = []
+
+            def fake_run(command, **kwargs):
+                if command[:2] == ["systemctl", "is-active"]:
+                    return subprocess.CompletedProcess(command, 3, "inactive\n", "")
+                if command[0] == "restic" and "backup" in command:
+                    staged_niks3.append(
+                        (kwargs["cwd"] / "niks3/signing-key").read_text()
+                    )
+                return subprocess.CompletedProcess(command, 0, "", "")
+
+            run.side_effect = fake_run
+            run_backup("nas-01", persist_root=persist)
+            self.assertEqual(staged_niks3, ["homelab-niks3-1:secret\n"])
+
+    @patch("scripts.ci.platform_backup.subprocess.run")
     def test_failed_upload_cleans_persistent_stage(self, run):
         with tempfile.TemporaryDirectory() as temporary:
             persist = Path(temporary)

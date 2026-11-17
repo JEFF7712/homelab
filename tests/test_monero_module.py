@@ -61,6 +61,7 @@ def evaluate(extra_config: str) -> dict:
           enable = cfg.services.prometheus.exporters.node.enable;
           port = cfg.services.prometheus.exporters.node.port;
           collectors = cfg.services.prometheus.exporters.node.enabledCollectors;
+          extraFlags = cfg.services.prometheus.exporters.node.extraFlags;
           openFirewall = cfg.services.prometheus.exporters.node.openFirewall;
         }};
       }}
@@ -214,6 +215,7 @@ class MoneroModuleTests(unittest.TestCase):
         self.assertEqual(result["exporter"]["port"], 9101)
         self.assertIn("systemd", result["exporter"]["collectors"])
         self.assertIn("filesystem", result["exporter"]["collectors"])
+        self.assertIn("--collector.disable-defaults", result["exporter"]["extraFlags"])
         self.assertFalse(result["exporter"]["openFirewall"])
         self.assertIn("tcp dport 9101 accept", result["firewall"])
 
