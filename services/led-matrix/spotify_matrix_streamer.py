@@ -54,27 +54,139 @@ def write_private_file(path: Path, contents: str) -> None:
             os.unlink(temporary)
 
 
-def frame_to_rgb565(image: Image.Image, brightness: float = 1.0) -> bytes:
+_BAYER_4X4 = np.array(
+    [
+        [0, 8, 2, 10],
+        [12, 4, 14, 6],
+        [3, 11, 1, 9],
+        [15, 7, 13, 5],
+    ],
+    dtype=np.uint8,
+)
+_BAYER_64X64 = np.tile(_BAYER_4X4, (16, 16))
+_R5_FROM_Q4 = np.array(
+    [((q << 1) | (q >> 3)) << 11 for q in range(16)], dtype=np.uint16
+)
+_G6_FROM_Q4 = np.array([((q << 2) | (q >> 2)) << 5 for q in range(16)], dtype=np.uint16)
+_B5_FROM_Q4 = np.array([(q << 1) | (q >> 3) for q in range(16)], dtype=np.uint16)
+
+_DITHER_LUT_CACHE: dict[float, np.ndarray] = {}
+_LINEAR_565_CACHE: dict[float, tuple[np.ndarray, np.ndarray, np.ndarray]] = {}
+_RGB888_LUT_CACHE: dict[float, np.ndarray] = {}
+
+
+def _dither_lut_4bit(brightness: float) -> np.ndarray:
+    b_key = max(0.0, min(1.0, round(float(brightness), 4)))
+    cached = _DITHER_LUT_CACHE.get(b_key)
+    if cached is not None:
+        return cached
+
+    lut = np.zeros(256, dtype=np.uint8)
+    if b_key > 0.0:
+        for c in range(1, 256):
+            scaled = (c / 255.0) * b_key
+            raw_fp = 240.0 * (scaled**1.35)
+            if raw_fp < 7.0:
+                lut[c] = 0
+            elif raw_fp < 16.0:
+                # Keep intentional dim 1px strokes solid rather than dotted
+                lut[c] = 16
+            else:
+                lut[c] = min(240, round(raw_fp))
+    _DITHER_LUT_CACHE[b_key] = lut
+    return lut
+
+
+def _linear_565_luts(brightness: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    b_key = max(0.0, min(1.0, round(float(brightness), 4)))
+    cached = _LINEAR_565_CACHE.get(b_key)
+    if cached is not None:
+        return cached
+    vals = np.clip(np.arange(256, dtype=np.float32) * b_key, 0, 255).astype(np.uint16)
+    luts = (
+        ((vals >> 3) & 0x1F) << 11,
+        ((vals >> 2) & 0x3F) << 5,
+        (vals >> 3) & 0x1F,
+    )
+    _LINEAR_565_CACHE[b_key] = luts
+    return luts
+
+
+def _rgb888_lut(brightness: float) -> np.ndarray:
+    b_key = max(0.0, min(1.0, round(float(brightness), 4)))
+    cached = _RGB888_LUT_CACHE.get(b_key)
+    if cached is not None:
+        return cached
+    lut = np.clip(np.round(np.arange(256, dtype=np.float32) * b_key), 0, 255).astype(
+        np.uint8
+    )
+    _RGB888_LUT_CACHE[b_key] = lut
+    return lut
+
+
+def frame_to_rgb565(
+    image: Image.Image, brightness: float = 1.0, *, dither: bool = True
+) -> bytes:
     if image.size != (64, 64):
         raise ValueError("Matrix frames must be 64x64")
-    arr = np.asarray(image.convert("RGB"), dtype=np.float32)
-    arr = np.clip(arr * brightness, 0, 255).astype(np.uint16)
-    r = (arr[..., 0] >> 3) & 0x1F
-    g = (arr[..., 1] >> 2) & 0x3F
-    b = (arr[..., 2] >> 3) & 0x1F
-    return ((r << 11) | (g << 5) | b).astype("<u2").tobytes()
+    if brightness <= 0.0:
+        return bytes(8192)
+    rgb = image if image.mode == "RGB" else image.convert("RGB")
+    arr = np.asarray(rgb, dtype=np.uint8)
+    if dither:
+        lut = _dither_lut_4bit(brightness)
+        fp = lut[arr]
+        q_r = (fp[..., 0] + _BAYER_64X64) >> 4
+        q_g = (fp[..., 1] + _BAYER_64X64) >> 4
+        q_b = (fp[..., 2] + _BAYER_64X64) >> 4
+        packed = _R5_FROM_Q4[q_r] | _G6_FROM_Q4[q_g] | _B5_FROM_Q4[q_b]
+    else:
+        r_lut, g_lut, b_lut = _linear_565_luts(brightness)
+        packed = r_lut[arr[..., 0]] | g_lut[arr[..., 1]] | b_lut[arr[..., 2]]
+    return packed.astype("<u2", copy=False).tobytes()
+
+
+def frame_to_rgb888(image: Image.Image, brightness: float = 1.0) -> bytes:
+    if image.size != (64, 64):
+        raise ValueError("Matrix frames must be 64x64")
+    if brightness <= 0.0:
+        return bytes(12288)
+    rgb = image if image.mode == "RGB" else image.convert("RGB")
+    b_key = max(0.0, min(1.0, round(float(brightness), 4)))
+    if b_key == 1.0:
+        return rgb.tobytes()
+    lut = _rgb888_lut(b_key)
+    return lut[np.asarray(rgb, dtype=np.uint8)].tobytes()
 
 
 class USBMatrixStreamer:
-    def __init__(self, port: str | None = None) -> None:
+    def __init__(
+        self,
+        port: str | None = None,
+        *,
+        pixel_format: str = "rgb565",
+        keepalive_interval: float | None = None,
+    ) -> None:
+        if pixel_format not in ("rgb565", "rgb888"):
+            raise ValueError("pixel_format must be 'rgb565' or 'rgb888'")
         self.port = port
+        self.pixel_format = pixel_format
+        self.keepalive_interval = keepalive_interval
         self.serial: serial.Serial | None = None
         self.frames = 0
+        self.skipped_frames = 0
         self.failures = 0
         self.last_error = 0.0
+        self._last_payload: bytes | None = None
+        self._last_send_time = 0.0
 
     def send_frame(self, image: Image.Image, brightness: float = 1.0) -> bool:
-        raw_bytes = frame_to_rgb565(image, brightness)
+        if self.pixel_format == "rgb888":
+            header = b"S888"
+            raw_bytes = frame_to_rgb888(image, brightness)
+        else:
+            header = b"S565"
+            raw_bytes = frame_to_rgb565(image, brightness)
         try:
             if self.serial is None:
                 port = self.port
@@ -94,10 +206,22 @@ class USBMatrixStreamer:
                     port, 115200, timeout=1.0, write_timeout=1.0, exclusive=True
                 )
                 self.serial.reset_input_buffer()
-            if self.serial.write(b"S565" + raw_bytes) != 8196:
+                self._last_payload = None
+            now = time.monotonic()
+            if (
+                self.keepalive_interval is not None
+                and self._last_payload == raw_bytes
+                and (now - self._last_send_time) < self.keepalive_interval
+            ):
+                self.skipped_frames += 1
+                return True
+            packet = header + raw_bytes
+            if self.serial.write(packet) != len(packet):
                 raise OSError("Incomplete USB frame write")
             if self.serial.read(1) != b"A":
                 raise OSError("Pico did not acknowledge the USB frame")
+            self._last_payload = raw_bytes
+            self._last_send_time = time.monotonic()
             self.frames += 1
             return True
         except (OSError, serial.SerialException) as error:
@@ -117,20 +241,36 @@ class USBMatrixStreamer:
         if self.serial is not None:
             self.serial.close()
             self.serial = None
+        self._last_payload = None
 
 
 class TCPMatrixStreamer:
-    """Send RGB565 frames with a bounded number awaiting display acknowledgement."""
+    """Send RGB565 or RGB888 frames with bounded pipelining and static deduplication."""
 
-    def __init__(self, host: str, port: int = 9999, *, max_in_flight: int = 1) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int = 9999,
+        *,
+        max_in_flight: int = 1,
+        keepalive_interval: float | None = None,
+    ) -> None:
         if not 1 <= max_in_flight <= 4:
             raise ValueError("max_in_flight must be between 1 and 4")
+        if keepalive_interval is not None and keepalive_interval <= 0:
+            raise ValueError("keepalive_interval must be positive")
         self.host = host
         self.port = port
         self.max_in_flight = max_in_flight
+        self.keepalive_interval = keepalive_interval
         self.sock: socket.socket | None = None
+        self.protocol = "R565"
         self._pending_frames = 0
+        self._oldest_pending_since = 0.0
+        self._last_payload: bytes | None = None
+        self._last_send_time = 0.0
         self.frames = 0
+        self.skipped_frames = 0
         self.failures = 0
         self.last_error = 0.0
         self.last_ack = 0.0
@@ -140,7 +280,10 @@ class TCPMatrixStreamer:
             return False
         readable, _, _ = select.select([self.sock], [], [], 1.0 if wait else 0)
         if not readable:
-            if wait:
+            if wait or (
+                self._oldest_pending_since
+                and (time.monotonic() - self._oldest_pending_since) >= 1.0
+            ):
                 raise TimeoutError("Pico did not acknowledge displayed frames")
             return False
         replies = self.sock.recv(self._pending_frames)
@@ -149,12 +292,15 @@ class TCPMatrixStreamer:
                 "Pico disconnected or returned an invalid frame acknowledgement"
             )
         self._pending_frames -= len(replies)
+        now = time.monotonic()
+        self._oldest_pending_since = now if self._pending_frames else 0.0
         self.frames += len(replies)
-        self.last_ack = time.monotonic()
+        self.last_ack = now
         return True
 
     def send_frame(self, image: Image.Image, brightness: float = 1.0) -> bool:
-        raw_bytes = frame_to_rgb565(image, brightness)
+        if image.size != (64, 64):
+            raise ValueError("Matrix frames must be 64x64")
         try:
             if self.sock is None:
                 self.sock = socket.create_connection(
@@ -169,14 +315,34 @@ class TCPMatrixStreamer:
                             "Pico disconnected before the ready handshake"
                         )
                     ready.extend(part)
-                if ready != b"R565":
+                if ready not in (b"R565", b"R888"):
                     raise ConnectionError("Pico returned an invalid ready handshake")
+                self.protocol = ready.decode("ascii")
+                self._last_payload = None
+            raw_bytes = (
+                frame_to_rgb888(image, brightness)
+                if self.protocol == "R888"
+                else frame_to_rgb565(image, brightness)
+            )
             while self._receive_acknowledgements():
                 pass
+            now = time.monotonic()
+            if (
+                self.keepalive_interval is not None
+                and self._last_payload == raw_bytes
+                and (now - self._last_send_time) < self.keepalive_interval
+            ):
+                self.skipped_frames += 1
+                return True
             while self._pending_frames >= self.max_in_flight:
                 self._receive_acknowledgements(wait=True)
             self.sock.sendall(raw_bytes)
+            send_t = time.monotonic()
+            if self._pending_frames == 0:
+                self._oldest_pending_since = send_t
             self._pending_frames += 1
+            self._last_payload = raw_bytes
+            self._last_send_time = send_t
             self._receive_acknowledgements(wait=self.max_in_flight == 1)
             return True
         except OSError as error:
@@ -196,6 +362,8 @@ class TCPMatrixStreamer:
             self.sock.close()
             self.sock = None
         self._pending_frames = 0
+        self._oldest_pending_since = 0.0
+        self._last_payload = None
 
 
 # --- Album Art Rendering (Spinning Record) ---
@@ -204,41 +372,31 @@ class TCPMatrixStreamer:
 VINYL_SATURATION = 1.25
 VINYL_CONTRAST = 1.12
 
+_VINYL_GEOMETRY_CACHE: dict[int, tuple[int, int, Image.Image, Image.Image]] = {}
+_VINYL_ART_CACHE: list[tuple[Image.Image, int, Image.Image]] = []
+_IDLE_FRAME_CACHE: dict[int, Image.Image] = {}
 
-def render_record(art: Image.Image | None, angle: float, size: int = 64) -> Image.Image:
-    frame = Image.new("RGBA", (size, size), (0, 0, 0, 255))
-    if art is None:
-        return frame.convert("RGB")
+
+def _vinyl_geometry(size: int) -> tuple[int, int, Image.Image, Image.Image]:
+    cached = _VINYL_GEOMETRY_CACHE.get(size)
+    if cached is not None:
+        return cached
 
     margin = max(2, size // 32)
     disc_size = size - margin * 2
 
-    # Crop album art to disk, compensate for the panel's narrow color depth,
-    # then rotate by angle
-    art_square = ImageOps.fit(
-        art, (disc_size, disc_size), method=Image.Resampling.LANCZOS
-    )
-    if VINYL_SATURATION != 1.0:
-        art_square = ImageEnhance.Color(art_square).enhance(VINYL_SATURATION)
-    if VINYL_CONTRAST != 1.0:
-        art_square = ImageEnhance.Contrast(art_square).enhance(VINYL_CONTRAST)
-    rotated = art_square.rotate(angle, resample=Image.Resampling.BICUBIC)
-
-    # Circular mask
     disc_mask = Image.new("L", (disc_size, disc_size), 0)
     mask_draw = ImageDraw.Draw(disc_mask)
     mask_draw.ellipse((0, 0, disc_size - 1, disc_size - 1), fill=255)
-    frame.paste(rotated.convert("RGBA"), (margin, margin), disc_mask)
 
-    # Draw vinyl edges and center spindle label
-    draw = ImageDraw.Draw(frame, "RGBA")
+    overlay = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay, "RGBA")
     outer = (margin, margin, size - margin - 1, size - margin - 1)
     draw.ellipse(outer, outline=(6, 6, 6, 255), width=max(1, size // 32))
 
     center = size // 2
     label_radius = max(5, size // 11)
     hole_radius = max(2, size // 25)
-
     draw.ellipse(
         (
             center - label_radius,
@@ -258,10 +416,47 @@ def render_record(art: Image.Image | None, angle: float, size: int = 64) -> Imag
         ),
         fill=(0, 0, 0, 255),
     )
-    return frame.convert("RGB")
+
+    result = (margin, disc_size, disc_mask, overlay)
+    _VINYL_GEOMETRY_CACHE[size] = result
+    return result
+
+
+def _prepare_vinyl_art(art: Image.Image, disc_size: int) -> Image.Image:
+    for cached_art, cached_size, prepared in _VINYL_ART_CACHE:
+        if cached_art is art and cached_size == disc_size:
+            return prepared
+    art_square = ImageOps.fit(
+        art, (disc_size, disc_size), method=Image.Resampling.LANCZOS
+    )
+    if VINYL_SATURATION != 1.0:
+        art_square = ImageEnhance.Color(art_square).enhance(VINYL_SATURATION)
+    if VINYL_CONTRAST != 1.0:
+        art_square = ImageEnhance.Contrast(art_square).enhance(VINYL_CONTRAST)
+    prepared = art_square.convert("RGBA")
+    _VINYL_ART_CACHE.append((art, disc_size, prepared))
+    if len(_VINYL_ART_CACHE) > 4:
+        _VINYL_ART_CACHE.pop(0)
+    return prepared
+
+
+def render_record(art: Image.Image | None, angle: float, size: int = 64) -> Image.Image:
+    if art is None:
+        return Image.new("RGB", (size, size), (0, 0, 0))
+
+    margin, disc_size, disc_mask, overlay = _vinyl_geometry(size)
+    art_square = _prepare_vinyl_art(art, disc_size)
+    rotated = art_square.rotate(angle, resample=Image.Resampling.BICUBIC)
+
+    frame = Image.new("RGBA", (size, size), (0, 0, 0, 255))
+    frame.paste(rotated, (margin, margin), disc_mask)
+    return Image.alpha_composite(frame, overlay).convert("RGB")
 
 
 def render_idle(size: int = 64) -> Image.Image:
+    cached = _IDLE_FRAME_CACHE.get(size)
+    if cached is not None:
+        return cached
     frame = Image.new("RGB", (size, size), (0, 0, 0))
     draw = ImageDraw.Draw(frame)
     margin = max(2, size // 32)
@@ -276,6 +471,7 @@ def render_idle(size: int = 64) -> Image.Image:
         (center - radius, center - radius, center + radius, center + radius),
         fill=(20, 20, 20),
     )
+    _IDLE_FRAME_CACHE[size] = frame
     return frame
 
 
@@ -537,10 +733,10 @@ def run_streamer(args: argparse.Namespace) -> None:
     frame_interval = 1.0 / fps
     rotation_speed = args.rotation_speed  # degrees / sec
 
-    streamer = (
-        USBMatrixStreamer(args.serial_port)
+    streamer: USBMatrixStreamer | TCPMatrixStreamer = (
+        USBMatrixStreamer(args.serial_port, keepalive_interval=4.0)
         if args.transport == "usb"
-        else TCPMatrixStreamer(pico_ip, port)
+        else TCPMatrixStreamer(pico_ip, port, max_in_flight=4, keepalive_interval=4.0)
     )
     print(f"Streaming over {args.transport} at {fps} FPS", flush=True)
 
@@ -549,7 +745,7 @@ def run_streamer(args: argparse.Namespace) -> None:
         print("Running in TEST mode (synthetic album art, spinning continuously)")
         test_art = render_test_album(64)
         angle = 0.0
-        last_t = time.monotonic()
+        last_t = next_frame_at = time.monotonic()
         while True:
             t0 = time.monotonic()
             dt = t0 - last_t
@@ -558,9 +754,12 @@ def run_streamer(args: argparse.Namespace) -> None:
 
             frame = render_record(test_art, angle, size=64)
             streamer.send_frame(frame, brightness=args.brightness)
-            elapsed = time.monotonic() - t0
-            sleep_time = max(0.0, frame_interval - elapsed)
-            time.sleep(sleep_time)
+            next_frame_at += frame_interval
+            after = time.monotonic()
+            if next_frame_at < after:
+                next_frame_at = after
+            else:
+                time.sleep(next_frame_at - after)
 
     # Spotify Client setup
     client_id = args.client_id or os.environ.get("SPOTIFY_CLIENT_ID")
@@ -597,8 +796,13 @@ def run_streamer(args: argparse.Namespace) -> None:
                     is_playing = bool(data.get("is_playing", False))
                     images = data["item"].get("album", {}).get("images", [])
                     if images:
-                        # Grab highest quality image (or smallest suitable)
-                        url = images[0].get("url")
+                        # Prefer ~300px artwork over 640px for a 60x60 disc
+                        suitable = [
+                            img["url"]
+                            for img in images
+                            if img.get("url") and int(img.get("width") or 640) >= 200
+                        ]
+                        url = suitable[-1] if suitable else images[0].get("url")
                         if url != current_art_url:
                             resp = requests.get(url, timeout=10)
                             current_art_img = Image.open(BytesIO(resp.content)).convert(
@@ -627,7 +831,7 @@ def run_streamer(args: argparse.Namespace) -> None:
     poll_thread = threading.Thread(target=update_spotify, daemon=True)
     poll_thread.start()
 
-    last_frame_t = time.monotonic()
+    last_frame_t = next_frame_at = time.monotonic()
 
     print("Spotify Matrix Streamer active. Press Ctrl+C to stop.")
     while True:
@@ -645,9 +849,12 @@ def run_streamer(args: argparse.Namespace) -> None:
             frame = render_idle(size=64)
             streamer.send_frame(frame, brightness=args.brightness)
 
-        elapsed = time.monotonic() - now
-        sleep_time = max(0.0, frame_interval - elapsed)
-        time.sleep(sleep_time)
+        next_frame_at += frame_interval
+        after = time.monotonic()
+        if next_frame_at < after:
+            next_frame_at = after
+        else:
+            time.sleep(next_frame_at - after)
 
 
 def main() -> None:

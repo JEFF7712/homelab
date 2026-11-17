@@ -249,7 +249,12 @@ def main() -> None:
     }
 
     cache = ArtworkCache(source)
-    streamer = TCPMatrixStreamer(args.pico_ip, args.port, max_in_flight=4)
+    streamer = TCPMatrixStreamer(
+        args.pico_ip,
+        args.port,
+        max_in_flight=4,
+        keepalive_interval=None if args.duration else 4.0,
+    )
     stop = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
     signal.signal(signal.SIGINT, lambda *_: stop.set())
@@ -258,7 +263,8 @@ def main() -> None:
         multiplayer_hub, host="0.0.0.0", port=args.web_port, stop_event=stop
     )
 
-    started = last_tick = time.monotonic()
+    frame_interval = 1.0 / args.fps
+    started = last_tick = next_frame_at = time.monotonic()
     last_ack = last_health = 0.0
     max_frame_ms = 0.0
     last_title = ""
@@ -338,6 +344,8 @@ def main() -> None:
                                 "metadata_available": spotify_state.available,
                                 "artwork_ready": False,
                                 "frames": streamer.frames,
+                                "skipped_frames": streamer.skipped_frames,
+                                "protocol": streamer.protocol,
                                 "failures": streamer.failures,
                                 "max_frame_ms": round(max_frame_ms, 2),
                                 "provider": getattr(
@@ -348,7 +356,12 @@ def main() -> None:
                     )
                     last_health = tick
                 last_tick = tick
-                stop.wait(max(0, 1 / args.fps - (time.monotonic() - tick)))
+                next_frame_at += frame_interval
+                after = time.monotonic()
+                if next_frame_at < after:
+                    next_frame_at = after
+                else:
+                    stop.wait(next_frame_at - after)
                 continue
 
             if active_mode == "Spotify":
@@ -401,6 +414,8 @@ def main() -> None:
                             "metadata_available": spotify_state.available,
                             "artwork_ready": art is not None,
                             "frames": streamer.frames,
+                            "skipped_frames": streamer.skipped_frames,
+                            "protocol": streamer.protocol,
                             "failures": streamer.failures,
                             "max_frame_ms": round(max_frame_ms, 2),
                             "provider": getattr(
@@ -411,7 +426,12 @@ def main() -> None:
                 )
                 last_health = tick
             last_tick = tick
-            stop.wait(max(0, 1 / args.fps - (time.monotonic() - tick)))
+            next_frame_at += frame_interval
+            after = time.monotonic()
+            if next_frame_at < after:
+                next_frame_at = after
+            else:
+                stop.wait(next_frame_at - after)
     finally:
         elapsed = time.monotonic() - started
         spotify_state = source.snapshot()
@@ -426,6 +446,8 @@ def main() -> None:
             "source": getattr(source, "active_provider", "home_assistant"),
             "seconds": elapsed,
             "acknowledged_frames": streamer.frames,
+            "skipped_frames": streamer.skipped_frames,
+            "protocol": streamer.protocol,
             "failures": streamer.failures,
             "displayed_fps": streamer.frames / elapsed if elapsed > 0 else 0,
             "max_frame_ms": max_frame_ms,
