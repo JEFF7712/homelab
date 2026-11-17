@@ -284,6 +284,7 @@ in
         "systemd"
         "filesystem"
       ];
+      extraFlags = [ "--collector.disable-defaults" ];
       openFirewall = false;
     };
 

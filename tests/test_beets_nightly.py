@@ -160,6 +160,42 @@ class TestNightlyRunner(unittest.TestCase):
         self.assertEqual(summary["added"], {"tracks": 5, "albums": 1})
         self.assertEqual(summary["import_exit_code"], 130)
 
+    def test_sigterm_node_drain_interrupts_cleanly_and_exits_zero(self):
+        process = FakeProcess(lambda: 0, polls_before_exit=2)
+
+        def popen(command, **kwargs):
+            create_library(self.database, tracks=4)
+            return process
+
+        installed = {}
+
+        def fake_signal(sig, handler):
+            prev = installed.get(sig)
+            installed[sig] = handler
+            return prev
+
+        def wait_and_drain(timeout=None):
+            if not process.signals:
+                installed[MOD["signal"].SIGTERM](MOD["signal"].SIGTERM, None)
+                raise subprocess.TimeoutExpired("beet", timeout)
+            process.returncode = 130
+            return 130
+
+        process.wait = wait_and_drain
+        with (
+            patch.object(MOD["subprocess"], "Popen", side_effect=popen),
+            patch.object(MOD["signal"], "signal", side_effect=fake_signal),
+            patch.dict(
+                MOD["run"].__globals__, free_bytes=lambda _: MOD["MIN_FREE_BYTES"] * 2
+            ),
+        ):
+            code = MOD["run"](self.config, [])
+        summary = json.loads((self.database.parent / "last-run.json").read_text())
+        self.assertEqual(process.signals, [MOD["signal"].SIGINT])
+        self.assertEqual(code, 0)
+        self.assertEqual(summary["status"], "paused_node_drain")
+        self.assertEqual(summary["added"], {"tracks": 4, "albums": 1})
+
     def test_corrupt_library_stops_before_import(self):
         self.database.parent.mkdir()
         self.database.write_bytes(b"not a database")

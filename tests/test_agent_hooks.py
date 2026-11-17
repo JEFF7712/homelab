@@ -286,6 +286,22 @@ class AgentHookTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(json.loads(result.stdout), {})
 
+    def test_canonical_skills_are_symlinked_across_client_directories(self) -> None:
+        canonical = sorted(
+            path.name
+            for path in (ROOT / "skills").iterdir()
+            if (path / "SKILL.md").is_file()
+        )
+        self.assertTrue(canonical)
+        for client_dir in (".claude/skills", ".agents/skills"):
+            for name in canonical:
+                link = ROOT / client_dir / name
+                self.assertTrue(link.is_symlink(), f"missing symlink {link}")
+                self.assertEqual(link.resolve(), (ROOT / "skills" / name).resolve())
+        claude_md = ROOT / "CLAUDE.md"
+        self.assertTrue(claude_md.is_symlink())
+        self.assertEqual(claude_md.resolve(), (ROOT / "AGENTS.md").resolve())
+
 
 class AgentStopHookTest(unittest.TestCase):
     def make_repo(self, directory: str) -> Path:

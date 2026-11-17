@@ -494,9 +494,9 @@ class PolicyTest(unittest.TestCase):
         crons = json.loads((ROOT / "config/ci/woodpecker-crons.json").read_text())
         self.assertEqual(SCHEDULES["fleet-reboot"], ("fleet-reboot",))
         self.assertEqual(SCHEDULES["fleet-lock"], ("fleet-lock-update",))
-        # 03:05 and 04:05 CST, 04:05 and 05:05 CDT: one run lands in the
-        # 03:00-04:30 start window either way.
-        self.assertEqual(crons["fleet-reboot"]["schedule"], "5 9,10 * * *")
+        # 02:20, 03:20 and 04:20 CST; 03:20, 04:20 and 05:20 CDT: two runs land
+        # in the 03:00-04:30 start window either way, clear of :00 backups.
+        self.assertEqual(crons["fleet-reboot"]["schedule"], "20 8,9,10 * * *")
         # The lock PR has hours to merge before the 08:17 UTC delivery.
         self.assertEqual(crons["fleet-lock"]["schedule"], "23 5 * * *")
 

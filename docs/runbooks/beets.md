@@ -16,8 +16,9 @@ to 99%.
 
 `nightly.py` does not start the importer when `/data` has less than 800 GB
 free, and interrupts it with SIGINT if free space drops below that floor
-mid-run. Completed albums are already saved in the state file, so the next
-night resumes. Both cases log `"status": "paused_low_space"` and exit 0.
+mid-run or if a node drain sends SIGTERM. Completed albums are already saved in
+the state file, so the next night resumes. These cases log `"status":
+"paused_low_space"` or `"paused_node_drain"` and exit 0.
 Rewritten blocks return to the pool as snapshots expire after 7 days. Quiet mode skips uncertain matches;
 `incremental_skip_later: true` leaves those albums eligible for a later retry.
 The `musicbrainz` plugin must be explicitly enabled with beets 2.13.

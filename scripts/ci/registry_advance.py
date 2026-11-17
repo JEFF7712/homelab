@@ -97,12 +97,20 @@ def major(tag: str | None) -> str | None:
 
 
 def tags(lock: Mapping[str, Any], repository: str) -> dict[str, str | None]:
-    """Upstream source tag of each locked digest of a mirror repository."""
-    return {
-        entry["digest"]: (entry.get("source") or {}).get("tag")
-        for entry in lock["images"]
-        if entry.get("destination_repository") == repository
-    }
+    """Upstream source tag of each locked digest of a mirror repository.
+
+    A consumer reference carries no tag and can appear after the declaration
+    entry for the same digest; keep the declared tag rather than overwriting it
+    with None.
+    """
+    found: dict[str, str | None] = {}
+    for entry in lock["images"]:
+        if entry.get("destination_repository") != repository:
+            continue
+        tag = (entry.get("source") or {}).get("tag")
+        if entry["digest"] not in found or tag is not None:
+            found[entry["digest"]] = tag
+    return found
 
 
 def renovate_bump(files: list[str], diff: str) -> tuple[str, str] | None:

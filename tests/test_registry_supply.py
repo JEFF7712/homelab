@@ -1091,10 +1091,19 @@ class RegistryCatalogContractTests(unittest.TestCase):
     def test_drift_check_uses_node_credentials_and_preserves_the_report(
         self,
     ) -> None:
+        operation = self.catalog["registry-drift-check"]
         script = self.script("registry-drift-check")
         self.assertIn("REGISTRY_NODE_PASSWORD_FILE", script)
         self.assertIn("artifacts/registry/drift-report.json", script)
-        self.assertFalse(self.catalog["registry-drift-check"]["mutation"])
+        self.assertFalse(operation["mutation"])
+        self.assertEqual(
+            operation["needs"],
+            ["registry-lock-import", "registry-retention-reconcile"],
+        )
+        self.assertEqual(operation["environment"]["NTFY_TOPIC"], "homelab-alerts")
+        self.assertEqual(
+            operation["environment"]["NTFY_TOKEN"], {"from_secret": "ntfy_token"}
+        )
 
     def test_gc_fixture_runs_offline_and_touches_no_real_registry(self) -> None:
         operation = self.catalog["registry-gc-fixture"]

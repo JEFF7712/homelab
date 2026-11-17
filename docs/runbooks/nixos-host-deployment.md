@@ -216,8 +216,9 @@ The nightly cycle (UTC schedules in `config/ci/woodpecker-crons.json`):
   baseline lacks, the schedule shows a `deploy-fleet-held` step naming them
   instead, exactly as an agent deployment would wait; approve the grant or
   ship the change, and the next night delivers.
-- `fleet-reboot` at 09:05 and 10:05 reboots hosts onto the installed kernel;
-  whichever run falls inside 03:00-04:30 America/Chicago acts.
+- `fleet-reboot` at 08:20, 09:20 and 10:20 reboots hosts onto the installed
+  kernel (clear of the hourly `:00` platform backup and `:30` restore drill);
+  whichever runs fall inside 03:00-04:30 America/Chicago act.
 
 ## Kernel reboots
 

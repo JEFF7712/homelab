@@ -72,6 +72,8 @@ class DiagTest(unittest.TestCase):
                     }
                 ]
             },
+            "cronjobs": {"items": []},
+            "jobs": {"items": []},
             "pods": {"items": [pod("crash", False, 2, "CrashLoopBackOff")]},
             "events": {"items": []},
         }
@@ -91,6 +93,48 @@ class DiagTest(unittest.TestCase):
         self.assertEqual(report["problems"][0]["log_tail"], ["boom"])
         self.assertIn("--previous", next(c for c in calls if "logs" in c))
         self.assertNotIn("delete", json.dumps(calls))
+
+    def test_failed_latest_cronjob_run_marks_app_unhealthy(self) -> None:
+        from scripts.agent.diag import job_problems
+
+        cronjobs = [
+            {
+                "metadata": {"name": "nightly", "namespace": "app"},
+                "spec": {"suspend": False},
+            }
+        ]
+        jobs = [
+            {
+                "metadata": {
+                    "name": "nightly-1",
+                    "namespace": "app",
+                    "creationTimestamp": "2026-11-16T03:00:00Z",
+                    "ownerReferences": [{"kind": "CronJob", "name": "nightly"}],
+                },
+                "status": {"conditions": [{"type": "Complete", "status": "True"}]},
+            },
+            {
+                "metadata": {
+                    "name": "nightly-2",
+                    "namespace": "app",
+                    "creationTimestamp": "2026-11-17T03:00:00Z",
+                    "ownerReferences": [{"kind": "CronJob", "name": "nightly"}],
+                },
+                "status": {
+                    "conditions": [
+                        {
+                            "type": "Failed",
+                            "status": "True",
+                            "reason": "BackoffLimitExceeded",
+                        }
+                    ]
+                },
+            },
+        ]
+        problems = job_problems(cronjobs, jobs)
+        self.assertEqual(len(problems), 1)
+        self.assertEqual(problems[0]["job"], "nightly-2")
+        self.assertEqual(problems[0]["reason"], "BackoffLimitExceeded")
 
 
 if __name__ == "__main__":
