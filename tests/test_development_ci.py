@@ -730,6 +730,7 @@ class PolicyIntegrationTest(unittest.TestCase):
             node_outputs=[],
             node_seeds=[],
             node_runtime="",
+            node_test=False,
         )
         self.dev_project = DevelopmentProject(
             name="autocompress",
