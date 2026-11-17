@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import socket
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +32,38 @@ def _available_tasks(root: Path) -> list[str]:
     return sorted(result)
 
 
+def environment_payload(root: Path) -> dict[str, Any]:
+    """Local observations only: never authenticate, probe networks or read secrets."""
+    home = Path.home()
+    tools = {
+        name: shutil.which(name) is not None
+        for name in ("nix", "ssh", "kubectl", "flux", "sops", "tea", "tofu", "curl")
+    }
+    credentials = {
+        "kubernetes": bool(os.environ.get("KUBECONFIG"))
+        or (home / ".kube/config").is_file(),
+        "forgejo": (home / ".config/tea/config.yml").is_file(),
+        "woodpecker": bool(os.environ.get("WOODPECKER_TOKEN"))
+        or (home / ".config/woodpecker/token").is_file(),
+        "sops-age": bool(os.environ.get("SOPS_AGE_KEY"))
+        or Path(
+            os.environ.get("SOPS_AGE_KEY_FILE") or home / ".config/sops/age/keys.txt"
+        ).is_file(),
+        "home-assistant": bool(os.environ.get("HASS_TOKEN"))
+        or bool(
+            os.environ.get("HASS_TOKEN_FILE")
+            and Path(os.environ["HASS_TOKEN_FILE"]).is_file()
+        )
+        or (root / ".agent-state/home-assistant/token").is_file(),
+        "ssh-agent": bool(os.environ.get("SSH_AUTH_SOCK")),
+    }
+    return {
+        "hostname": socket.gethostname(),
+        "tools": tools,
+        "credential_hints": credentials,
+    }
+
+
 def context_payload(
     cwd: Path | None = None, task_id: str | None = None
 ) -> dict[str, Any]:
@@ -47,6 +81,7 @@ def context_payload(
     return {
         "schema_version": 1,
         "command": "context",
+        "environment": environment_payload(state.root),
         "repository": {
             "root": str(state.root),
             "branch": state.branch,
@@ -91,7 +126,26 @@ def render_context(payload: dict[str, Any]) -> str:
     repository = payload["repository"]
     summary = repository["dirty_summary"]
     task = payload["task"]
+    environment = payload["environment"]
     lines = [
+        "Environment (local observations; connectivity and permissions unverified)",
+        f"  hostname: {environment['hostname']}",
+        "  tools on PATH: "
+        + ", ".join(name for name, present in environment["tools"].items() if present),
+        "  credential hints present: "
+        + (
+            ", ".join(
+                name
+                for name, present in environment["credential_hints"].items()
+                if present
+            )
+            or "none"
+        ),
+        "  access routes and credential discovery: docs/runbooks/agent-environment.md",
+        "  VM private-network access is selective; direct HA access may be blocked.",
+        "  HA fallback: Kubernetes port-forward; see access runbook before probing.",
+        "  verify access when needed: just doctor --live; just status cluster",
+        "",
         "Repository",
         f"  root: {repository['root']}",
         f"  revision: {repository['branch'] or 'detached HEAD'} at {repository['head']}",
