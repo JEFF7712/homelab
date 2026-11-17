@@ -460,11 +460,23 @@ def toolchain_version(archive: Path) -> str:
     return "v" + match[1]
 
 
+def major(version: str) -> str:
+    """The major of a `vX.Y.Z` node version."""
+    match = re.fullmatch(r"v(\d+)\.\d+\.\d+", version)
+    if not match:
+        raise ValueError(f"Unexpected node version: {version}")
+    return match[1]
+
+
 def nix_toolchain(work: Path, expected: str) -> Path:
     """Expose the flake-pinned nodejs in pack's toolchain layout.
 
     The retained glibc toolchain needs an FHS loader the Nix CI image lacks,
-    so pack runs nixpkgs' build of the same node release instead.
+    so pack runs nixpkgs' build of the same node major instead. Only the
+    major must match: the snapshot is an npm cache that releases consume with
+    `npm ci --offline` under the retained toolchain, and nixpkgs moves the
+    patch release with every lock update (24.22.2 against a retained 24.21.0
+    stopped every supply refresh on 2026-11-17).
     """
     store = subprocess.run(
         [
@@ -483,10 +495,12 @@ def nix_toolchain(work: Path, expected: str) -> Path:
     version = subprocess.run(
         [f"{store}/bin/node", "--version"], capture_output=True, text=True, check=True
     ).stdout.strip()
-    if version != expected:
+    if major(version) != major(expected):
         raise ValueError(
-            f"Flake nodejs {version} differs from the retained toolchain {expected}"
+            f"Flake nodejs {version} is not the retained toolchain's major {expected}"
         )
+    if version != expected:
+        print(f"packing with flake nodejs {version} for retained toolchain {expected}")
     toolchain = work / "toolchain"
     toolchain.mkdir()
     (toolchain / "node").symlink_to(store)
