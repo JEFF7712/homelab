@@ -274,7 +274,7 @@ class RebuildMirrorTest(unittest.TestCase):
         def fake_mirror(root: Path, base: str) -> list[str]:
             # The real mirror resolves what the commit added since base.
             added = subprocess.run(
-                ["git", "diff", f"{base}...HEAD"],
+                ["git", "diff", "--no-ext-diff", f"{base}...HEAD"],
                 cwd=root,
                 check=True,
                 capture_output=True,
@@ -559,6 +559,40 @@ class BaseImageTest(unittest.TestCase):
             [(registry_advance.CONTRACTS, contracts)], {NODE: {NEW}}, lock, POLICY
         )
         self.assertEqual([c[0] for c in candidates], [NODE])
+
+    def test_untagged_consumer_record_does_not_hide_declared_tag(self) -> None:
+        lock = {
+            "images": [
+                {
+                    "kind": "upstream",
+                    "id": "app-new",
+                    "digest": NEW,
+                    "destination_repository": REPOSITORY,
+                    "source": {"tag": "v3.5.2"},
+                },
+                {
+                    "kind": "upstream",
+                    "id": "app-old-declared",
+                    "digest": OLD,
+                    "destination_repository": REPOSITORY,
+                    "source": {"tag": "v3.5.0"},
+                },
+                {
+                    "kind": "upstream",
+                    "id": "app-old-consumer",
+                    "digest": OLD,
+                    "destination_repository": REPOSITORY,
+                    "source": {"tag": None},
+                },
+            ]
+        }
+        candidates = adopt_candidates(
+            [("gitops/media/arr.yaml", deployment())],
+            {REPOSITORY: {NEW}},
+            lock,
+            POLICY,
+        )
+        self.assertEqual([c[0] for c in candidates], [REPOSITORY])
 
     def test_the_rebuild_finds_a_base_image_declaration(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

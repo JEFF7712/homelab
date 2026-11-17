@@ -115,6 +115,43 @@ def pod_problems(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return problems
 
 
+def job_problems(
+    cronjobs: list[dict[str, Any]], jobs: list[dict[str, Any]]
+) -> list[dict[str, str]]:
+    """CronJobs whose newest owned Job failed, matching CronJobLastRunFailed."""
+    by_cron: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for job in jobs:
+        ns = job.get("metadata", {}).get("namespace", "")
+        for owner in job.get("metadata", {}).get("ownerReferences") or []:
+            if owner.get("kind") == "CronJob" and owner.get("name"):
+                by_cron.setdefault((ns, owner["name"]), []).append(job)
+    failures: list[dict[str, str]] = []
+    for cron in cronjobs:
+        if cron.get("spec", {}).get("suspend"):
+            continue
+        ns = cron["metadata"]["namespace"]
+        name = cron["metadata"]["name"]
+        owned = by_cron.get((ns, name), [])
+        if not owned:
+            continue
+        latest = max(
+            owned,
+            key=lambda j: j.get("metadata", {}).get("creationTimestamp", ""),
+        )
+        failed_cond = condition(latest, "Failed")
+        if failed_cond.get("status") == "True":
+            failures.append(
+                {
+                    "namespace": ns,
+                    "cronjob": name,
+                    "job": latest["metadata"]["name"],
+                    "reason": failed_cond.get("reason", "Failed"),
+                    "message": failed_cond.get("message", "")[:200],
+                }
+            )
+    return failures
+
+
 def running_images(items: list[dict[str, Any]]) -> dict[str, set[str]]:
     images: dict[str, set[str]] = {}
     for pod in items:
@@ -175,7 +212,7 @@ def diagnose(name: str, run: Kubectl = kubectl, root: Path = ROOT) -> dict[str, 
         report["flux"] = None
         namespaces = [name]
     report["namespaces"] = namespaces
-    workloads, problems, warnings = [], [], []
+    workloads, problems, warnings, cron_failures = [], [], [], []
     images: dict[str, set[str]] = {}
     for namespace in namespaces:
         code, output = run(["-n", namespace, "get", "deploy,sts,ds", "-o", "json"])
@@ -184,6 +221,12 @@ def diagnose(name: str, run: Kubectl = kubectl, root: Path = ROOT) -> dict[str, 
         else:
             report["errors"].append(output.strip()[-200:])
             continue
+        code_cj, out_cj = run(["-n", namespace, "get", "cronjobs", "-o", "json"])
+        code_j, out_j = run(["-n", namespace, "get", "jobs", "-o", "json"])
+        if code_cj == 0 and code_j == 0:
+            cron_failures.extend(
+                job_problems(json.loads(out_cj)["items"], json.loads(out_j)["items"])
+            )
         code, output = run(["-n", namespace, "get", "pods", "-o", "json"])
         if code == 0:
             pods = json.loads(output)["items"]
@@ -237,6 +280,7 @@ def diagnose(name: str, run: Kubectl = kubectl, root: Path = ROOT) -> dict[str, 
     report.update(
         workloads=workloads,
         problems=problems,
+        job_problems=cron_failures,
         warnings=warnings,
         digest_mismatches=digest_mismatches(images, lock),
         runbooks=runbooks(root, name),
@@ -245,6 +289,7 @@ def diagnose(name: str, run: Kubectl = kubectl, root: Path = ROOT) -> dict[str, 
         (report["flux"] is None or report["flux"]["ready"])
         and all(row["healthy"] for row in workloads)
         and not [p for p in problems if not p["ready"]]
+        and not report["job_problems"]
         and not report["digest_mismatches"]
     )
     return report
@@ -267,6 +312,12 @@ def render(report: dict[str, Any]) -> str:
     for row in report["workloads"]:
         mark = "" if row["healthy"] else "  <-"
         lines.append(f"{row['namespace']}/{row['workload']}: {row['ready']}{mark}")
+    for failure in report.get("job_problems", []):
+        lines.append(
+            f"cronjob {failure['namespace']}/{failure['cronjob']} "
+            f"(latest {failure['job']}): {failure['reason']} {failure['message']}".rstrip()
+            + "  <-"
+        )
     for problem in report["problems"]:
         lines.append(
             f"pod {problem['namespace']}/{problem['pod']} [{problem['container']}]: "

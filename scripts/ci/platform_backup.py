@@ -610,6 +610,13 @@ def run_backup(
                         else persist_root / directory
                     )
                     shutil.copytree(src, stage / directory, symlinks=True)
+                niks3_src = (
+                    persist_snap / "niks3"
+                    if persist_snap.is_dir()
+                    else persist_root / "niks3"
+                )
+                if niks3_src.is_dir():
+                    shutil.copytree(niks3_src, stage / "niks3", symlinks=True)
 
                 for dataset in ["tank/forgejo", "tank/s3"]:
                     datasets.append("/" + dataset + "/.zfs/snapshot/" + suffix)

@@ -107,6 +107,31 @@ else
   check_change "pods" "ok" "Pod runtime issue" "Pod runtime issues recovered" "No pods are in critical waiting states."
 fi
 
+cronjob_bad="$(
+  kubectl get cronjobs,jobs -A -o json | jq -r '
+    (.items | map(select(.kind == "CronJob" and ((.spec.suspend // false) | not)))) as $cjs
+    | (.items | map(select(.kind == "Job"))) as $jobs
+    | $cjs[]
+    | . as $cj
+    | [
+        $jobs[]
+        | select(
+            .metadata.namespace == $cj.metadata.namespace
+            and ((.metadata.ownerReferences // []) | any(.kind == "CronJob" and .name == $cj.metadata.name))
+          )
+      ]
+    | sort_by(.metadata.creationTimestamp // "")
+    | last // empty
+    | select((.status.conditions // [] | map(select(.type == "Failed" and .status == "True")) | length) > 0)
+    | "\(.metadata.namespace)/\($cj.metadata.name) (\(.metadata.name)): \((.status.conditions // [] | map(select(.type == "Failed" and .status == "True"))[0].reason) // "Failed")"
+  ' | sort -u
+)"
+if [ -n "${cronjob_bad}" ]; then
+  check_change "cronjobs" "bad" "CronJob failure" "CronJobs recovered" "${cronjob_bad}"
+else
+  check_change "cronjobs" "ok" "CronJob failure" "CronJobs recovered" "Every active CronJob succeeded on its latest run."
+fi
+
 cloudflare_bad="$(kubectl -n cloudflare get deployment cloudflared -o json | jq -r '
   (.spec.replicas // 0) as $desired
   | (.status.availableReplicas // 0) as $available

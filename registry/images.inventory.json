@@ -1500,24 +1500,6 @@
     },
     {
       "consumers": [
-        "gitops/voice/piper.yaml:26",
-        "observed:voice/wyoming-piper-dc4d7cb55-w7pzn/piper"
-      ],
-      "destination_repository": "upstream/registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-piper",
-      "id": "upstream-upstream-docker-io-rhasspy-wyoming-piper-432550c2710a",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a",
-        "reference": "registry.rupan.dev/upstream/docker.io/rhasspy/wyoming-piper@sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a",
-        "registry": "registry.rupan.dev",
-        "repository": "upstream/docker.io/rhasspy/wyoming-piper",
-        "tag": null
-      }
-    },
-    {
-      "consumers": [
         "gitops/voice/whisper.yaml:27",
         "gitops/voice/whisper.yaml:76",
         "observed:voice/wyoming-whisper-747d784788-tdz2b/voice-id",
@@ -3298,23 +3280,6 @@
         "registry": "docker.io",
         "repository": "qmcgaw/gluetun",
         "tag": "latest"
-      }
-    },
-    {
-      "consumers": [
-        "gitops/voice/registry-sources.yaml:19"
-      ],
-      "destination_repository": "upstream/docker.io/rhasspy/wyoming-piper",
-      "id": "upstream-rhasspy-wyoming-piper-8dba3ab055fc",
-      "kind": "upstream",
-      "producer": null,
-      "retention_class": "deployed",
-      "source": {
-        "digest": "sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a",
-        "reference": "docker.io/rhasspy/wyoming-piper:2.5.2@sha256:7d39aafac409c2b6b09d999ed04d84c311d632e558b35baa60fad6aac722af7a",
-        "registry": "docker.io",
-        "repository": "rhasspy/wyoming-piper",
-        "tag": "2.5.2"
       }
     },
     {
