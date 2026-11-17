@@ -169,7 +169,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: beets
-              image: registry.rupan.dev/upstream/lscr.io/linuxserver/beets@sha256:90b1404e962dfc09c1926f4d8dca8920fc90d71369df5398340a12eb8ce7328c  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/upstream/lscr.io/linuxserver/beets@sha256:01e4d6177968a8312843f0b1b19d766ee2f07eb08b327ef2ae9422a5dcd2364a  # yamllint disable-line rule:line-length
               command: ["python3", "/config/nightly.py"]
               securityContext:
                 allowPrivilegeEscalation: false
