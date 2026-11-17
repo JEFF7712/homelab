@@ -92,9 +92,12 @@ A node release can set `"node_test": true` in `config/ci/applications.json`
 installs with `npm ci --offline` and runs `npm test` with no secret. A failing
 test turns `ci/woodpecker/application-validation` red and, on main, blocks the
 release. The application repository's `supply_read_password` secret must allow
-the `pull_request` event as well as `push`. A lockfile change the pinned cache
-does not cover fails with `ENOTCACHED`; refresh it through
-[node supply](node-supply.md).
+the `pull_request` and `manual` events as well as `push`; Woodpecker refuses
+the whole pipeline otherwise. A lockfile change the pinned cache does not
+cover fails with `ENOTCACHED`; a missing optional native fails later, because
+npm skips optional packages it cannot fetch (a musl `@rolldown/binding-*`
+absent from uwagent-supply v1 stopped vitest at startup). Refresh the cache
+through [node supply](node-supply.md).
 
 Branch protection must require `ci/woodpecker/application-validation` after
 live webhook delivery is verified. Existing homelab protection continues to
