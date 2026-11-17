@@ -299,6 +299,31 @@ class StreamingTests(unittest.TestCase):
             finally:
                 streamer.close()
 
+    def test_r565_clamps_keepalive_below_circuitpython_half_second_timeout(
+        self,
+    ) -> None:
+        streamer = TCPMatrixStreamer("unused", max_in_flight=4, keepalive_interval=4.0)
+        sender, receiver = socket.socketpair()
+        with sender, receiver:
+            sender.settimeout(1)
+            receiver.settimeout(1)
+            streamer.sock = sender
+            streamer.protocol = "R565"
+            red = Image.new("RGB", (64, 64), "red")
+            try:
+                self.assertTrue(streamer.send_frame(red))
+                receiver.recv(8192)
+                receiver.sendall(b"A")
+                self.assertTrue(streamer.send_frame(red))
+                self.assertEqual(streamer.skipped_frames, 1)
+
+                # After 0.36s (< 0.5s CircuitPython recv timeout), R565 sends keepalive
+                time.sleep(0.36)
+                self.assertTrue(streamer.send_frame(red))
+                self.assertEqual(len(receiver.recv(8192)), 8192)
+            finally:
+                streamer.close()
+
 
 if __name__ == "__main__":
     unittest.main()
