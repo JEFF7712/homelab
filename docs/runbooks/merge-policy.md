@@ -45,6 +45,12 @@ applies.
 - In `config/ci/operations.json`, unmarking a mutation needs the operator,
   because an unmarked operation skips the deployment gate. New agent
   operations and granting existing ones to agents are recorded notices.
+- Across non-website `gitops/` manifests (`scripts/verifier/gitops.py`), new or
+  newly added host-level pod access (`privileged`, `hostNetwork`, `hostPID`,
+  `hostIPC`, `hostPort`, `hostPath`, or widening a Namespace to `privileged`
+  Pod Security) escalates as a ratchet against `main`, as does deleting a
+  `PersistentVolumeClaim`, `PersistentVolume`, CloudNativePG `Cluster`, or
+  dropping `kustomize.toolkit.fluxcd.io/prune: disabled` / `Retain`.
 - Website findings: hardening regressions are repairs; network exposure of a
   hardened site (wider ingress, a non-ClusterIP Service), helper kinds
   (CiliumNetworkPolicy, HPA, monitors) and removing a stateless site are
@@ -86,7 +92,7 @@ link and the policy comment point at it; `just ship` prints it and waits.
 - The policy asks `GET /api/merges/<pr>` on every judgement and passes a head
   the operator approved, or a later head that builds on an approved one with
   the same diff of the gated files: enforcement paths, the operation catalog
-  and `websites/`, the only files that can need an operator. The comparison
+  and `gitops/`, the files that can need an operator. The comparison
   is the patch-id of that partial diff from the merge base. Updating from
   main or adding commits that touch only other files keeps the approval. Any
   new or different gated change, including in a conflict resolution, files a

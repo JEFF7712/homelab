@@ -181,7 +181,7 @@ in
   services.agent-workspace-network = {
     enable = true;
     # Rupan's personal VM is a full development environment: Forgejo Git and
-    # API, the signed caches (niks3, then Attic), Woodpecker and approvals, the Kubernetes API
+    # API, the signed niks3 cache, Woodpecker and approvals, the Kubernetes API
     # (kubernetes_api below), and SSH to every fleet host, as
     # `just doctor --live` and `just ship` require.
     tcpEgress.rupan = [
@@ -191,7 +191,6 @@ in
           22
           2222
           3000
-          8080
           8090
         ];
       }

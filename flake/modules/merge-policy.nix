@@ -13,6 +13,7 @@ let
   source = pkgs.runCommand "merge-policy-source" { } ''
     mkdir -p $out/scripts/verifier $out/scripts/ci
     cp ${../../scripts/verifier/websites.py} $out/scripts/verifier/websites.py
+    cp ${../../scripts/verifier/gitops.py} $out/scripts/verifier/gitops.py
     cp ${../../scripts/verifier/service.py} $out/scripts/verifier/service.py
     cp ${../../scripts/verifier/freshness.py} $out/scripts/verifier/freshness.py
     cp ${../../scripts/verifier/enforcement.py} $out/scripts/verifier/enforcement.py

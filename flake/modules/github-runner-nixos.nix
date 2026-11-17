@@ -7,7 +7,7 @@
 #
 # Why a NixOS host instead of the k8s actions-runner pods: CI is Nix
 # evaluation and builds. Here the daemon, a warm /nix/store on NVMe, and the
-# LAN Attic cache are already present, so jobs start in seconds with no Nix
+# LAN niks3 cache are already present, so jobs start in seconds with no Nix
 # installer step. Resource caps keep two concurrent jobs from crowding out
 # GPU and k3s duties on this 14C/20T, 32G box.
 #
@@ -41,10 +41,9 @@ let
     # so the two instances must not share one.
     workDir = "${baseDir}/work-${toString n}";
     # git/nix/bash/coreutils/tar come from the module defaults; these are the
-    # CI-specific extras (attic for the ISO push step, plus the standard
-    # script userland the checks assume: Ubuntu runners had all of these).
+    # standard script userland extras the checks assume (Ubuntu runners had all
+    # of these).
     extraPackages = with pkgs; [
-      attic-client
       bc
       curl
       diffutils
