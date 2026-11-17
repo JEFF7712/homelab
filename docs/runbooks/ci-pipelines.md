@@ -386,7 +386,7 @@ watchdog, registry lock import, drift, retention, resolve, auth consistency,
 the VIP data-plane watch, GitHub sync, and cache publication. The VIP watch
 (`vip-dataplane-watch`) probes the LoadBalancer VIPs through OPNsense and posts
 to the ntfy `homelab-alerts` topic when one stops answering; it reads the
-Woodpecker secret `ntfy_token` (cron events; the ntfy publish token, the same
+Woodpecker secret `ntfy_token` (cron and deployment events; the ntfy publish token, the same
 value as `NTFY_TOKEN` in `gitops/secrets/homelab-values.sops.yaml`). `promote` runs every 15 minutes with
 first-party and nix-agent promotion only; it is the application release
 path. Promotion opens a PR and, when the diff only moves first-party digests
@@ -438,7 +438,7 @@ It repairs either case once per commit: when Woodpecker has no active
 pipeline for the head and no manual one has run, it starts a manual
 pipeline on the branch, whose validation-v2 posts the missing status, and
 passes. It authenticates with the `woodpecker_token` secret (cron events
-only), a copy of the homelab-agent Woodpecker token, which has push but not
+only, kept by `CRON_ONLY` in `scripts/ci/prepare_platform.py`), a copy of the homelab-agent Woodpecker token, which has push but not
 admin permission; after regenerating that token, update the secret. A ref
 it cannot redeliver still fails the run with the reason.
 Branch protection applies: no direct pushes to main; merges require the
@@ -524,16 +524,13 @@ Application repositories' secrets are not derived. uwagent (Woodpecker repo 36)
 node test steps need ([application CI](application-ci.md)); restore that list
 by hand after a rebuild.
 
-On 2026-11-17 these live homelab secrets differed from the derived lists and
-await an operator decision (a rebuild would apply the derived column):
-
-| Secret | Live | Derived |
-| --- | --- | --- |
-| `attic_token` | `cron`, `deployment`, `push` | none (Attic retired; decommission pending) |
-| `github_token` | `cron`, `deployment`, `push` | `cron`, `deployment` |
-| `service_release_ssh_key` | `cron`, `deployment` | `deployment` |
-| `ntfy_token` | `cron` | `cron`, `deployment` |
-| `woodpecker_token` | `cron` | `cron`, `deployment` |
+On 2026-11-17 the live events were reconciled with these lists (operator
+approved): `github_token` lost `push` (`sync-to-github` moved from main pushes
+to `maintenance` on 2026-10-18), `service_release_ssh_key` lost `cron` (its
+publish operations are never scheduled) and `ntfy_token` gained `deployment`
+(so `fleet-reboot`, `vip-dataplane-watch` and `switches-drift-nightly` can run
+by hand). `woodpecker_token` stays `cron` only through `CRON_ONLY`. The
+unused `attic_token` is deleted with the Attic stage-2 decommission.
 
 ### Pipeline retention
 

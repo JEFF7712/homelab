@@ -36,6 +36,11 @@ PUSH_OPERATIONS = (
     "registry-lock-import",
 )
 
+# Secrets only scheduled runs may read, never deployments. woodpecker_token is
+# a copy of the homelab-agent Woodpecker token that only webhook-watchdog's
+# scheduled run needs.
+CRON_ONLY = frozenset({"woodpecker_token"})
+
 
 def secret_events(
     catalog: dict[str, Any],
@@ -46,7 +51,7 @@ def secret_events(
     This is the source of the live secret events: a platform rebuild creates
     every secret with these lists. Each allows `deployment`; a secret read by
     a scheduled operation also allows `cron`, and one read by a push-triggered
-    operation also allows `push`. docs/runbooks/ci-pipelines.md lists the
+    operation also allows `push`. A CRON_ONLY secret allows only `cron`. docs/runbooks/ci-pipelines.md lists the
     resulting events for secrets whose access was granted deliberately.
     """
     events: dict[str, set[str]] = {}
@@ -60,6 +65,8 @@ def secret_events(
             for value in catalog[target]["environment"].values():
                 if isinstance(value, dict):
                     events[value["from_secret"]].add(event)
+    for name in CRON_ONLY & events.keys():
+        events[name] = {"cron"}
     return {name: sorted(allowed) for name, allowed in sorted(events.items())}
 
 
