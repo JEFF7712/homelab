@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-11-17T07:48:34+00:00",
+  "generated_at": "2026-11-17T08:18:54+00:00",
   "images": [
     {
       "authenticity": {
@@ -258,10 +258,10 @@
       ],
       "destination_repository": "apps/uwagent",
       "destination_tags": [
-        "0.0.1000063",
-        "retention-deployed-b874e8b8d328a975"
+        "0.0.1000080",
+        "retention-deployed-001693c3bfd18fc2"
       ],
-      "digest": "sha256:b874e8b8d328a9753cccd58d0e886a69e00e5d5200232bd3aea907b59bee1ab7",
+      "digest": "sha256:001693c3bfd18fc22b3de9f12ae9195e7ec371a310c57905af6e070fb0fc734c",
       "id": "first-party-apps-uwagent-9af52aa77c22",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -281,11 +281,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:b874e8b8d328a9753cccd58d0e886a69e00e5d5200232bd3aea907b59bee1ab7",
-        "reference": "registry.rupan.dev/apps/uwagent:0.0.1000063@sha256:b874e8b8d328a9753cccd58d0e886a69e00e5d5200232bd3aea907b59bee1ab7",
+        "digest": "sha256:001693c3bfd18fc22b3de9f12ae9195e7ec371a310c57905af6e070fb0fc734c",
+        "reference": "registry.rupan.dev/apps/uwagent:0.0.1000080@sha256:001693c3bfd18fc22b3de9f12ae9195e7ec371a310c57905af6e070fb0fc734c",
         "registry": "registry.rupan.dev",
         "repository": "apps/uwagent",
-        "tag": "0.0.1000063"
+        "tag": "0.0.1000080"
       }
     },
     {
