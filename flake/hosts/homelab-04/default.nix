@@ -138,6 +138,9 @@ in
 
   homelab.monero.enable = true;
   homelab.monero.tor.enable = true;
+  # The building's upstream router never forwards WAN 18080, so clearnet
+  # inbound cannot arrive; peers reach the node through the onion listener.
+  homelab.monero.openP2P = false;
   environment.persistence."/persist".directories = [ "/var/lib/tor" ];
   # monerod peaked at about 1 GiB, mostly reclaimable LMDB pages; the 8G
   # default left that room to CI. Tor runs in its own unit.
@@ -155,6 +158,15 @@ in
     primaryInterface = "enp0s31f6";
     nodeIp = fleetInventory.hosts.homelab-04.address;
     serverAddress = fleetInventory.k3sEndpoint;
+    # The image filesystem is the shared 953 GiB /persist (Monero, agent
+    # workspaces, Woodpecker), above 70% for reasons image GC cannot fix: the
+    # kubelet owns only about 10 GiB of images. Start image GC at 95% (about
+    # 48 GiB free), before the Nix store's 32 GiB min-free and the 15 GiB
+    # imagefs eviction threshold (98.4%).
+    imageGc = {
+      highThreshold = 95;
+      lowThreshold = 90;
+    };
   };
 
   services.k3s.extraFlags = [

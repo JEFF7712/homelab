@@ -2,6 +2,20 @@
   pkgs,
   ...
 }:
+let
+  # Local dumps kept on homelab-04. The hourly platform backup ships the live
+  # database off-host and the nightly external backup keeps restic history of
+  # this directory, so three local copies only cover a quick local restore.
+  retainedDumps = 3;
+  pruneDumps = pkgs.writeShellApplication {
+    name = "woodpecker-dump-prune";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.findutils
+    ];
+    text = builtins.readFile ./woodpecker_dump_prune.sh;
+  };
+in
 {
   users.users.backup-reader = {
     isSystemUser = true;
@@ -28,6 +42,7 @@
     description = "Create consistent SQLite dump of Woodpecker CI for backups";
     after = [ "woodpecker-server.service" ];
     unitConfig.RequiresMountsFor = [ "/persist/woodpecker" ];
+    environment.RETAINED_DUMPS = toString retainedDumps;
     serviceConfig = {
       Type = "oneshot";
       ExecStart = pkgs.writeShellScript "woodpecker-backup-dump" ''
@@ -44,7 +59,7 @@
                           ${pkgs.coreutils}/bin/chown root:backup-reader "$TEMP_FILE"
                           ${pkgs.coreutils}/bin/mv -f "$TEMP_FILE" "$DUMP_FILE"
                           ${pkgs.coreutils}/bin/ln -sf "woodpecker-$STAMP.sqlite" "$BACKUP_DIR/woodpecker-latest.sqlite"
-                          ${pkgs.findutils}/bin/find "$BACKUP_DIR" -name 'woodpecker-*.sqlite' -mtime +14 -delete
+                          ${pruneDumps}/bin/woodpecker-dump-prune "$BACKUP_DIR" "$RETAINED_DUMPS"
                         fi
 
                         for name in signature-public.pem cloudflare-access-credentials.sops.json; do

@@ -101,10 +101,17 @@ on another infrastructure machine cannot authenticate with this key. The key
 still executes noninteractive deployment commands from the trusted sources;
 this is source containment, not a forced-command deployment interface.
 
-The operator's two original keys and the personal `developer@agent-rupan`
-workstation key remain unrestricted. The development VM intentionally has the
-same operator authority as the laptop; see [agent workspaces](agent-workspaces.md).
-Do not revoke these operator identities to restrict an automation workflow.
+The operator's two original keys remain unrestricted on `rupan`. Do not revoke
+these operator identities to restrict an automation workflow.
+
+The agent workspace VM's key (`developer@agent-rupan`) is not on `rupan`. It
+is authorized only for the `agent-observer` account: a normal login outside
+`wheel`, with its own primary group plus `systemd-journal` and no sudo rule,
+and `restrict,pty,from=` limited to the observed VM source (`172.31.10.2` on
+homelab-04, `10.0.30.14` elsewhere). Agents therefore cannot activate or
+mutate a host directly; they use CI operations. `tests/test_fleet_ssh_access.py`
+checks both accounts on every host's evaluated configuration. See
+[agent workspaces](agent-workspaces.md).
 
 On 2026-11-04 the CI host's SSH journal showed current CI container connections
 using the first operator key, not the legacy `homelab-nas-deploy` key. Restricting
@@ -176,13 +183,20 @@ a later host failed. Follow the affected host or service runbook for recovery.
 homelab-04, the CI host, deploys last. Its switch restarts Docker and kills the
 deploy job driving it. The switch itself finishes in the transient
 `homelab-fleet-switch` unit (`journalctl -u homelab-fleet-switch`), but the job
-never verifies or uncordons the node, and the pipeline fails. The deployer
-annotates every cordon it places with `homelab.fleet/deploy-cordon`. A later
-run that finds such a node already on the desired system, Ready and without
-failed units uncordons it. Recover with
-`just ship --resume <main sha> --deploy deploy-fleet` after the fleet Lease
-expires (5 minutes). A failed host recovery or reboot keeps its cordon without
-the mark, and only a person releases it.
+never verifies or uncordons the node, and the pipeline may stay "running" in
+Woodpecker until someone cancels it (#16028 on 2026-11-16). The deployer
+annotates every cordon it places with `homelab.fleet/deploy-cordon`. The
+`fleet-cordon-heal` operation in the `maintenance` schedule (every 30 minutes)
+runs `just deploy-fleet --heal-cordons`: with no marked cordon it exits without
+taking the fleet Lease; otherwise it takes the Lease (a live deployment keeps
+its own cordons) and uncordons a marked node that already runs the desired
+system, is Ready and has no failed units. A marked node on any other system, or
+unhealthy, stays cordoned and fails the operation for attention. Any later
+deployment applies the same release. Like a scheduled `deploy-fleet`, the heal
+is held while main carries protected changes the operator has not approved. To
+recover sooner, run `just ship --resume <main sha> --deploy fleet-cordon-heal`.
+A failed host recovery or reboot keeps its cordon without the mark, and only a
+person releases it.
 
 ## Nightly nixpkgs update
 
@@ -268,11 +282,28 @@ Growth per consumer over a day:
 topk(15, delta(homelab_path_disk_usage_bytes{job="homelab-04-node"}[1d]))
 ```
 
+Kubelet image garbage collection (`homelab.k3s.imageGc`) starts at 95% and
+collects down to 90% on homelab-04, against the fleet default of 70/60. Its
+image filesystem is the shared `/persist`, which other data keeps above 70%,
+and the kubelet can delete only its own images (about 10 GiB), so at 70% it
+failed every five minutes with `Image garbage collection failed multiple times
+in a row`. 95% (about 48 GiB free) still starts before the
+`imagefs.available<15Gi` eviction threshold. The 58 GiB disks of homelab-02
+and homelab-03 keep 70%, which is below their 74% eviction point.
+
 Persistent data is not collected by policy: the Monero chain, agent workspace
 disk images (qcow2 without discard, so they grow to their virtual size),
-Woodpecker's database and its daily dumps in `/persist/woodpecker/backups`
-(14 days of full copies), and platform backup state. Retention changes for
-those are the operator's decision.
+Woodpecker's database and platform backup state. Retention changes for those
+are the operator's decision.
+
+`woodpecker-backup-dump` (`flake/modules/woodpecker-backup-source.nix`) keeps
+the 3 newest daily dumps in `/persist/woodpecker/backups`
+(`RETAINED_DUMPS`, about 7.5 GiB each), approved by the operator on
+2026-11-16. Retention counts dumps, not days, so missed days never delete the
+last good copy; the pruning runs only after a new dump succeeded. Older copies
+remain off-host: the hourly `platform-backup` ships the live database to R2
+and the nightly external backup on `adguard-netbird-01` keeps restic history
+of this directory, reading the newest dump from `backup-manifest.json`.
 
 ## Acceptance
 
