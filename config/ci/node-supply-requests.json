@@ -1,4 +1,10 @@
 {
   "schema_version": 1,
-  "requests": []
+  "requests": [
+    {
+      "application": "uwagent",
+      "version": "2",
+      "source": "0304b826311dc273a9f0b37a153d37679273ce35"
+    }
+  ]
 }
