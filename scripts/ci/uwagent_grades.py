@@ -10,8 +10,10 @@ the build and the grade tests must pass, and the refreshed file goes up as a
 deploys it.
 
 Dependencies install offline from the release's pinned npm cache, under the
-flake's build of the same node release. The application's npm scripts see
-only PATH, HOME, the npm cache and the Madgrades token, never the CI tokens.
+flake's nodejs_24 (the release's major; npm caches are not tied to a patch
+release, unlike supply packing, which requires the exact one). The
+application's npm scripts see only PATH, HOME, the npm cache and the
+Madgrades token, never the CI tokens.
 """
 
 from __future__ import annotations
@@ -26,14 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from scripts.ci.nixos_deploy import Checkout, Forgejo
-from scripts.ci.node_supply import (
-    FORGEJO_HOST,
-    OWNER,
-    digest,
-    download,
-    nix_toolchain,
-    toolchain_version,
-)
+from scripts.ci.node_supply import FORGEJO_HOST, OWNER, digest, download
 
 ROOT = Path(__file__).resolve().parents[2]
 APPLICATION = "uwagent"
@@ -43,7 +38,6 @@ GRADES = "data/grades.json"
 BRANCH_PREFIX = "chore/grades-"
 # The rest of the suite reads a local, git-ignored plan.json.
 TESTS = ("tests/grades.test.ts", "tests/recommend.test.ts")
-TOOLCHAIN = "node.tar.gz"
 CACHE = "npm-cache.tar.gz"
 
 
@@ -101,10 +95,24 @@ class Node:
     """The flake's node with the release's npm cache, run with a bare environment."""
 
     def __init__(self, catalog: dict[str, Any], work: Path) -> None:
-        archive = retained(supply(catalog, TOOLCHAIN), work / TOOLCHAIN)
-        toolchain = nix_toolchain(work, toolchain_version(archive))
-        self.bin = toolchain / "node" / "bin"
-        self.npm = toolchain / "node/lib/node_modules/npm/bin/npm-cli.js"
+        store = Path(
+            subprocess.run(
+                [
+                    "nix",
+                    "build",
+                    "--no-link",
+                    "--print-out-paths",
+                    "--inputs-from",
+                    "./flake",
+                    "nixpkgs#nodejs_24",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+        )
+        self.bin = store / "bin"
+        self.npm = store / "lib/node_modules/npm/bin/npm-cli.js"
         self.cache = work / "npm-cache"
         self.cache.mkdir()
         with tarfile.open(retained(supply(catalog, CACHE), work / CACHE)) as tar:

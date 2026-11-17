@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-11-16T21:51:40+00:00",
+  "generated_at": "2026-11-17T06:19:26+00:00",
   "images": [
     {
       "authenticity": {
@@ -258,10 +258,10 @@
       ],
       "destination_repository": "apps/uwagent",
       "destination_tags": [
-        "0.0.1000024",
-        "retention-deployed-b8de0a46eff806b7"
+        "0.0.1000036",
+        "retention-deployed-a58e00b152292548"
       ],
-      "digest": "sha256:b8de0a46eff806b7fcc211a77a93db900afe215a13eab2915315d00c66b84dd2",
+      "digest": "sha256:a58e00b152292548ca80bcb075f0ec5408deb732db651a052bcf2fed6e6fd449",
       "id": "first-party-apps-uwagent-9af52aa77c22",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -281,11 +281,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:b8de0a46eff806b7fcc211a77a93db900afe215a13eab2915315d00c66b84dd2",
-        "reference": "registry.rupan.dev/apps/uwagent:0.0.1000024@sha256:b8de0a46eff806b7fcc211a77a93db900afe215a13eab2915315d00c66b84dd2",
+        "digest": "sha256:a58e00b152292548ca80bcb075f0ec5408deb732db651a052bcf2fed6e6fd449",
+        "reference": "registry.rupan.dev/apps/uwagent:0.0.1000036@sha256:a58e00b152292548ca80bcb075f0ec5408deb732db651a052bcf2fed6e6fd449",
         "registry": "registry.rupan.dev",
         "repository": "apps/uwagent",
-        "tag": "0.0.1000024"
+        "tag": "0.0.1000036"
       }
     },
     {
@@ -892,10 +892,10 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000034",
-        "retention-deployed-4fe57a282474a47f"
+        "0.0.1000035",
+        "retention-deployed-d0be0d8daf23712e"
       ],
-      "digest": "sha256:4fe57a282474a47f852ad760aab1a9a3785e192b57bc80033441c9953f734051",
+      "digest": "sha256:d0be0d8daf23712e5e56b19187a26fa2280aa933ab3fd662345e7f3468ec4754",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -915,11 +915,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:4fe57a282474a47f852ad760aab1a9a3785e192b57bc80033441c9953f734051",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000034@sha256:4fe57a282474a47f852ad760aab1a9a3785e192b57bc80033441c9953f734051",
+        "digest": "sha256:d0be0d8daf23712e5e56b19187a26fa2280aa933ab3fd662345e7f3468ec4754",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000035@sha256:d0be0d8daf23712e5e56b19187a26fa2280aa933ab3fd662345e7f3468ec4754",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000034"
+        "tag": "0.0.1000035"
       }
     },
     {
@@ -933,10 +933,10 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000034",
-        "retention-deployed-4fe57a282474a47f"
+        "0.0.1000035",
+        "retention-deployed-d0be0d8daf23712e"
       ],
-      "digest": "sha256:4fe57a282474a47f852ad760aab1a9a3785e192b57bc80033441c9953f734051",
+      "digest": "sha256:d0be0d8daf23712e5e56b19187a26fa2280aa933ab3fd662345e7f3468ec4754",
       "id": "first-party-jeff7712-quartz-21f9999c8e03-previous",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -956,11 +956,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:4fe57a282474a47f852ad760aab1a9a3785e192b57bc80033441c9953f734051",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000034@sha256:4fe57a282474a47f852ad760aab1a9a3785e192b57bc80033441c9953f734051",
+        "digest": "sha256:d0be0d8daf23712e5e56b19187a26fa2280aa933ab3fd662345e7f3468ec4754",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000035@sha256:d0be0d8daf23712e5e56b19187a26fa2280aa933ab3fd662345e7f3468ec4754",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000034"
+        "tag": "0.0.1000035"
       }
     },
     {

@@ -1,0 +1,30 @@
+{
+  "organization": "JEFF7712",
+  "teams": {
+    "agents": {
+      "description": "Agent identity: writes to and creates every repository.",
+      "permission": "write",
+      "can_create_org_repo": true,
+      "members": ["homelab-agent"]
+    },
+    "publishers": {
+      "description": "CI publisher: pushes branches and opens PRs on every repository.",
+      "permission": "write",
+      "can_create_org_repo": false,
+      "members": ["homelab-publisher"]
+    },
+    "ci-readers": {
+      "description": "CI clone identity: reads every repository.",
+      "permission": "read",
+      "can_create_org_repo": false,
+      "members": ["homelab-ci-source"]
+    },
+    "monitors": {
+      "description": "Repository health monitor: reads every repository.",
+      "permission": "read",
+      "can_create_org_repo": false,
+      "members": ["repo-monitor"]
+    }
+  },
+  "units": ["repo.code", "repo.issues", "repo.pulls", "repo.releases"]
+}

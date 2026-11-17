@@ -41,6 +41,8 @@ class Application:
     node_outputs: list[Any]
     node_seeds: list[Any]
     node_runtime: str
+    # Runs `npm test` offline in application validation (PRs and pushes).
+    node_test: bool
 
 
 def load_catalog(path: Path) -> tuple[Application, ...]:
@@ -85,10 +87,17 @@ def load_catalog(path: Path) -> tuple[Application, ...]:
                 "node_outputs",
                 "node_seeds",
                 "node_runtime",
+                "node_test",
             }
         ):
             raise ValueError("Application catalog values must be nonempty strings")
         app = Application(**item)
+        if type(app.node_test) is not bool:
+            raise ValueError("node_test must be a boolean")
+        if app.node_test and (app.release_kind != "node" or app.node_seeds):
+            raise ValueError(
+                "node_test needs a node release with retained supply and no seeds"
+            )
         enrollment = app.woodpecker_repository_id
         if enrollment is not None and (type(enrollment) is not int or enrollment <= 1):
             raise ValueError(
@@ -482,6 +491,45 @@ def configuration(
             }
         ],
     }
+    if app.node_test and not lifecycle:
+        # The suite runs the checkout's code, so it gets no secret: a
+        # server-owned step fetches the pinned toolchain and npm cache with
+        # the read-only supply token, and a separate step installs offline
+        # and runs `npm test` in the same workflow, so a failing test turns
+        # application-validation red.
+        test_source = Path(__file__).with_name("node_release.py").read_bytes()
+        test_stub = (
+            'python -I -c "import base64,gzip; exec(compile(gzip.decompress('
+            "base64.b64decode('"
+            + base64.b64encode(gzip.compress(test_source, mtime=0)).decode()
+            + "')), '<server-owned-node-test>', 'exec'))\""
+        )
+        test_args = " ".join(
+            shlex.quote(value)
+            for value in [
+                "--supply",
+                json.dumps(app.release_supply),
+                "--dir",
+                app.node_dir,
+                "--forgejo-owner",
+                app.repository.split("/")[0],
+            ]
+        )
+        workflow["steps"] += [
+            {
+                "name": "prepare-test-inputs",
+                "image": app.validation_image,
+                "environment": {
+                    "FORGEJO_TOKEN": {"from_secret": "supply_read_password"}
+                },
+                "commands": [f"{test_stub} prepare-test {test_args}"],
+            },
+            {
+                "name": "application-tests",
+                "image": app.validation_image,
+                "commands": [f"{test_stub} test {test_args}"],
+            },
+        ]
     name = "application-lifecycle" if lifecycle else "application-validation"
     configs = [
         {"name": name + ".yaml", "data": yaml.safe_dump(workflow, sort_keys=False)}

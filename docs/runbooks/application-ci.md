@@ -82,6 +82,20 @@ Run the application and homelab policy tests in the pinned environment:
 nix develop ./flake -c python -m unittest tests.test_application_ci tests.test_forgejo_ci
 ```
 
+### Node test suites
+
+A node release can set `"node_test": true` in `config/ci/applications.json`
+(uwagent does; it needs retained supply and no seeds). Its
+`application-validation` workflow then gains two steps on PRs and pushes:
+`prepare-test-inputs` downloads the pinned toolchains and npm cache with
+`supply_read_password` and runs no repository code, and `application-tests`
+installs with `npm ci --offline` and runs `npm test` with no secret. A failing
+test turns `ci/woodpecker/application-validation` red and, on main, blocks the
+release. The application repository's `supply_read_password` secret must allow
+the `pull_request` event as well as `push`. A lockfile change the pinned cache
+does not cover fails with `ENOTCACHED`; refresh it through
+[node supply](node-supply.md).
+
 Branch protection must require `ci/woodpecker/application-validation` after
 live webhook delivery is verified. Existing homelab protection continues to
 require both validation-v2 and `policy/merge`. Do not change protection until the matching workflow
@@ -89,7 +103,8 @@ actually reports status.
 
 ## Implementation boundary
 
-PRs, forks, manual runs and feature pushes validate source only. A main push also
+PRs, forks, manual runs and feature pushes validate source only (plus the
+opt-in node test suite above). A main push also
 runs `application-release` after validation. The server-owned static image
 contract does not execute the repository Dockerfile, Python modules, package
 scripts or build commands. It needs no host socket, privileged container or

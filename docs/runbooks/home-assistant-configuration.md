@@ -1,5 +1,8 @@
 # Home Assistant Configuration and UI Adoption Runbook
 
+For VM access, including the Kubernetes tunnel when the direct HA address is blocked,
+see [agent environment and access](agent-environment.md).
+
 This runbook defines operational procedures for managing Home Assistant (HA) configuration in this repository. It provides procedures for both human operators and autonomous agents.
 
 ## 1. Core Principles and Ownership Model

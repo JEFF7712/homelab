@@ -176,11 +176,10 @@ class NodeTest(unittest.TestCase):
 
 
 class CatalogTest(unittest.TestCase):
-    def test_the_release_supply_pins_are_found(self) -> None:
+    def test_the_release_npm_cache_pin_is_found(self) -> None:
         catalog = json.loads((ROOT / "config/ci/applications.json").read_text())
-        for filename in (uwagent_grades.TOOLCHAIN, uwagent_grades.CACHE):
-            item = uwagent_grades.supply(catalog, filename)
-            self.assertRegex(item["sha256"], r"^sha256:[0-9a-f]{64}$")
+        item = uwagent_grades.supply(catalog, uwagent_grades.CACHE)
+        self.assertRegex(item["sha256"], r"^sha256:[0-9a-f]{64}$")
 
     def test_the_operation_mutates_with_only_its_credentials(self) -> None:
         catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
