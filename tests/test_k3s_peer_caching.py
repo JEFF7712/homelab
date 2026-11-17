@@ -21,6 +21,7 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
             flake = builtins.getFlake (toString {json.dumps(str(ROOT / "flake"))});
             evalWith = extraConfig: (flake.inputs.nixpkgs.lib.nixosSystem {{
               system = "x86_64-linux";
+              specialArgs.fleetInventory = import {json.dumps(str(ROOT / "inventory"))} {{ inherit (flake.inputs.nixpkgs) lib; }};
               modules = [
                 flake.inputs.impermanence.nixosModules.impermanence
                 flake.inputs.sops-nix.nixosModules.sops
@@ -40,9 +41,7 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
             }}).config;
           in {{
             defaultFlags = (evalWith {{}}).services.k3s.extraFlags;
-            withRegistry = (evalWith {{ homelab.k3s.registry.enable = true; }}).services.k3s.extraFlags;
-            withRegistryDisabledSpegel = (evalWith {{
-              homelab.k3s.registry.enable = true;
+            disabledSpegel = (evalWith {{
               homelab.k3s.registry.embeddedRegistry = false;
             }}).services.k3s.extraFlags;
             agentFlags = (evalWith {{
@@ -50,9 +49,22 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
               homelab.k3s.clusterInit = false;
               homelab.k3s.serverAddress = "https://10.0.30.11:6443";
               homelab.k3s.tokenFile = "/tmp/token";
-              homelab.k3s.registry.enable = true;
             }}).services.k3s.extraFlags;
+            k3sUnit = let unit = (evalWith {{}}).systemd.services.k3s; in {{
+              conditions = unit.unitConfig.ConditionPathExists;
+              credential = unit.serviceConfig.LoadCredential;
+            }};
             firewallRules = (evalWith {{}}).networking.firewall.extraInputRules;
+            agentFirewallRules = (evalWith {{
+              homelab.k3s.role = "agent";
+              homelab.k3s.clusterInit = false;
+              homelab.k3s.serverAddress = "https://10.0.30.11:6443";
+              homelab.k3s.tokenFile = "/tmp/token";
+            }}).networking.firewall.extraInputRules;
+            prometheusHost = (import {json.dumps(str(ROOT / "inventory"))} {{
+              inherit (flake.inputs.nixpkgs) lib;
+            }}).hosts.homelab-05.address;
+            auditPolicy = builtins.fromJSON (evalWith {{}}).environment.etc."rancher/k3s/audit-policy.json".text;
           }}
         """
         proc = subprocess.run(
@@ -71,15 +83,22 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
         )
         cls.evaluated = json.loads(proc.stdout)
 
-    def test_embedded_registry_flag_present_on_server_with_registry(self) -> None:
-        self.assertIn("--embedded-registry", self.evaluated["withRegistry"])
-
-    def test_embedded_registry_flag_absent_by_default(self) -> None:
-        self.assertNotIn("--embedded-registry", self.evaluated["defaultFlags"])
+    def test_embedded_registry_flag_present_on_servers_by_default(self) -> None:
+        self.assertIn("--embedded-registry", self.evaluated["defaultFlags"])
 
     def test_embedded_registry_flag_absent_when_explicitly_disabled(self) -> None:
-        self.assertNotIn(
-            "--embedded-registry", self.evaluated["withRegistryDisabledSpegel"]
+        self.assertNotIn("--embedded-registry", self.evaluated["disabledSpegel"])
+
+    def test_every_node_pulls_only_through_the_local_registry(self) -> None:
+        for key in ("defaultFlags", "disabledSpegel", "agentFlags"):
+            self.assertIn(
+                "--disable-default-registry-endpoint", self.evaluated[key], key
+            )
+        unit = self.evaluated["k3sUnit"]
+        self.assertIn("/persist/secrets/k3s-registries.yaml", unit["conditions"])
+        self.assertEqual(
+            unit["credential"],
+            "registries.yaml:/persist/secrets/k3s-registries.yaml",
         )
 
     def test_embedded_registry_flag_absent_on_agent_nodes(self) -> None:
@@ -88,6 +107,37 @@ class K3sPeerCachingModuleTests(unittest.TestCase):
     def test_firewall_allows_tcp_5001_for_spegel_p2p_gossip(self) -> None:
         rules = self.evaluated["firewallRules"]
         self.assertIn("10.0.30.0/24 tcp dport { 22, 179, 2379, 2380, 5001,", rules)
+
+    def test_only_servers_expose_etcd_metrics(self) -> None:
+        self.assertIn("--etcd-expose-metrics", self.evaluated["defaultFlags"])
+        self.assertNotIn("--etcd-expose-metrics", self.evaluated["agentFlags"])
+
+    def test_etcd_metrics_port_admits_only_the_prometheus_node(self) -> None:
+        # Prometheus is pinned to homelab-05 by its local PV, and Cilium
+        # masquerades its scrapes of other nodes as homelab-05's address.
+        rules = [
+            line.strip()
+            for line in self.evaluated["firewallRules"].splitlines()
+            if "2381" in line
+        ]
+        self.assertEqual(
+            rules,
+            [f"ip saddr {self.evaluated['prometheusHost']} tcp dport 2381 accept"],
+        )
+        self.assertNotIn("2381", self.evaluated["agentFirewallRules"])
+
+    def test_only_servers_encrypt_secrets_and_record_bounded_audit_logs(self) -> None:
+        for key in ("defaultFlags", "disabledSpegel"):
+            flags = self.evaluated[key]
+            self.assertIn("--secrets-encryption", flags)
+            self.assertIn("--kube-apiserver-arg=audit-log-maxsize=50", flags)
+            self.assertIn("--kube-apiserver-arg=audit-log-maxbackup=5", flags)
+            self.assertIn("--kube-apiserver-arg=audit-log-maxage=7", flags)
+            content = self.evaluated["auditPolicy"]
+            self.assertEqual(content["omitStages"], ["RequestReceived"])
+            self.assertEqual(content["rules"][-1], {"level": "Metadata"})
+        self.assertNotIn("--secrets-encryption", self.evaluated["agentFlags"])
+        self.assertFalse(any("audit-" in f for f in self.evaluated["agentFlags"]))
 
 
 if __name__ == "__main__":

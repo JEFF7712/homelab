@@ -19,6 +19,7 @@ def evaluate(extra_config: str) -> dict:
         flake = builtins.getFlake (toString {json.dumps(str(ROOT / "flake"))});
         system = flake.inputs.nixpkgs.lib.nixosSystem {{
           system = "x86_64-linux";
+          specialArgs.fleetInventory = import {json.dumps(str(ROOT / "inventory"))} {{ inherit (flake.inputs.nixpkgs) lib; }};
           modules = [
             {json.dumps(str(MODULE))}
             ({{ ... }}: {{
@@ -41,9 +42,16 @@ def evaluate(extra_config: str) -> dict:
         prune = cfg.services.monero.prune;
         rpcAddress = cfg.services.monero.rpc.address;
         extraConfig = cfg.services.monero.extraConfig;
+        environmentFile = cfg.services.monero.environmentFile;
+        torEnabled = cfg.services.tor.enable;
+        onionMap = if cfg.homelab.monero.tor.enable then cfg.services.tor.relay.onionServices.monero.map else [];
+        onionEnv = if cfg.homelab.monero.tor.enable then cfg.systemd.services.monero-onion-env.script else "";
         requiredAvailGiB = cfg.homelab.monero.requiredAvailGiB;
         minFreeGiB = cfg.homelab.monero.minFreeGiB;
         firewall = cfg.networking.firewall.extraInputRules;
+        egress = cfg.networking.nftables.tables.monero-egress.content;
+        egressPreCheck = cfg.networking.nftables.preCheckRuleset;
+        torUid = cfg.ids.uids.tor;
         preStart = cfg.systemd.services.monero.preStart;
         serviceConfig = cfg.systemd.services.monero.serviceConfig;
         diskCheck = toString cfg.systemd.services.monero-disk-check.serviceConfig.ExecStart;
@@ -66,6 +74,21 @@ def evaluate(extra_config: str) -> dict:
     return json.loads(proc.stdout)
 
 
+def _chains(content: str) -> dict[str, list[str]]:
+    """Map each nftables chain name to its non-empty, stripped rule lines."""
+    chains: dict[str, list[str]] = {}
+    current: list[str] | None = None
+    for raw in content.splitlines():
+        line = raw.strip()
+        if line.startswith("chain ") and line.endswith("{"):
+            current = chains.setdefault(line.split()[1], [])
+        elif line == "}":
+            current = None
+        elif line and current is not None:
+            current.append(line)
+    return chains
+
+
 class MoneroModuleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -83,6 +106,17 @@ class MoneroModuleTests(unittest.TestCase):
         self.assertEqual(result["timer"], "daily")
         self.assertTrue(any("/persist/monero" in rule for rule in result["tmpfiles"]))
         self.assertIn("p2p-bind-port=18080", result["extraConfig"])
+
+    def test_tor_onion_listener_uses_runtime_address(self) -> None:
+        result = evaluate("homelab.monero.tor.enable = true;")
+        self.assertTrue(result["torEnabled"])
+        self.assertEqual(result["environmentFile"], "/run/monero-onion.env")
+        self.assertEqual(result["onionMap"][0]["port"], 18084)
+        self.assertEqual(result["onionMap"][0]["target"]["addr"], "127.0.0.1")
+        self.assertIn(
+            "anonymous-inbound=${MONERO_ONION_ADDRESS}:18084", result["extraConfig"]
+        )
+        self.assertIn("/var/lib/tor/onion/monero/hostname", result["onionEnv"])
 
     def test_restricted_rpc_serves_lan_wallets_only(self) -> None:
         result = evaluate("")
@@ -137,12 +171,23 @@ class MoneroModuleTests(unittest.TestCase):
             f"{IO_DEVICE} 150M",
         )
 
+    def test_memory_limits_are_host_tunable(self) -> None:
+        defaults = evaluate("")["serviceConfig"]
+        self.assertEqual(defaults["MemoryHigh"], "6G")
+        self.assertEqual(defaults["MemoryMax"], "8G")
+        tuned = evaluate(
+            'homelab.monero.memoryHigh = "1536M"; homelab.monero.memoryMax = "2G";'
+        )["serviceConfig"]
+        self.assertEqual(tuned["MemoryHigh"], "1536M")
+        self.assertEqual(tuned["MemoryMax"], "2G")
+
     def test_requires_io_device(self) -> None:
         expression = f"""
           let
             flake = builtins.getFlake (toString {json.dumps(str(ROOT / "flake"))});
             system = flake.inputs.nixpkgs.lib.nixosSystem {{
               system = "x86_64-linux";
+              specialArgs.fleetInventory = import {json.dumps(str(ROOT / "inventory"))} {{ inherit (flake.inputs.nixpkgs) lib; }};
               modules = [
                 {json.dumps(str(MODULE))}
                 ({{ ... }}: {{
@@ -172,12 +217,113 @@ class MoneroModuleTests(unittest.TestCase):
         self.assertFalse(result["exporter"]["openFirewall"])
         self.assertIn("tcp dport 9101 accept", result["firewall"])
 
+    def test_closed_p2p_binds_loopback_and_hides_port(self) -> None:
+        result = evaluate("homelab.monero.openP2P = false;")
+        self.assertNotIn("dport 18080", result["firewall"])
+        self.assertIn("p2p-bind-ip=127.0.0.1", result["extraConfig"])
+        self.assertIn("hide-my-port=1", result["extraConfig"])
+        # The default keeps the clearnet listener open and advertised.
+        default = evaluate("")["extraConfig"]
+        self.assertNotIn("p2p-bind-ip", default)
+        self.assertNotIn("hide-my-port", default)
+
+    def test_block_additions_are_logged(self) -> None:
+        # Per-block HEIGHT lines are the Loki evidence that the node
+        # follows the chain tip.
+        self.assertIn("log-level=0,blockchain:INFO", evaluate("")["extraConfig"])
+
+    def test_sandbox_additions(self) -> None:
+        service = evaluate("")["serviceConfig"]
+        self.assertEqual(service["SystemCallArchitectures"], "native")
+        self.assertEqual(
+            service["SystemCallFilter"], ["@system-service", "~@privileged"]
+        )
+        # ZMQ RPC aborts monerod without netlink.
+        self.assertIn("AF_NETLINK", service["RestrictAddressFamilies"])
+        self.assertEqual(service["ProtectProc"], "invisible")
+        self.assertEqual(service["CapabilityBoundingSet"], "")
+        self.assertTrue(service["NoNewPrivileges"])
+        # RandomX JIT-compiles into W+X pages.
+        self.assertNotIn("MemoryDenyWriteExecute", service)
+
+    def test_egress_filter_with_resolved_stub(self) -> None:
+        result = evaluate(
+            "homelab.monero.tor.enable = true; services.resolved.enable = true;"
+        )
+        chains = _chains(result["egress"])
+        self.assertIn("type filter hook output", chains["output"][0])
+        self.assertIn("meta skuid monero jump monero", chains["output"])
+        self.assertIn(f"meta skuid {result['torUid']} jump tor", chains["output"])
+
+        monero = chains["monero"]
+        self.assertEqual(monero[0], "ct state established,related accept")
+        allowances = [line for line in monero if line.endswith("accept")]
+        self.assertEqual(
+            allowances,
+            [
+                "ct state established,related accept",
+                "ip daddr 127.0.0.1 tcp dport 9050 accept",
+                "ip daddr { 127.0.0.53 } meta l4proto { tcp, udp } th dport 53 accept",
+            ],
+        )
+        tor = chains["tor"]
+        self.assertEqual(
+            [line for line in tor if line.endswith("accept")],
+            [
+                "ct state established,related accept",
+                "ip daddr 127.0.0.1 tcp dport 18084 accept",
+            ],
+        )
+        # Each restricted chain logs (rate-limited) and drops every
+        # non-public destination for both families after its allowances.
+        for name, chain in (("monero", monero), ("tor", tor)):
+            tail = chain[len([rule for rule in chain if rule.endswith("accept")]) :]
+            self.assertEqual(
+                tail,
+                [
+                    "ip daddr @non-public4 limit rate 6/minute burst 5 packets "
+                    f'log prefix "{name}-egress-drop: " level warn',
+                    "ip daddr @non-public4 drop",
+                    "ip6 daddr @non-public6 limit rate 6/minute burst 5 packets "
+                    f'log prefix "{name}-egress-drop: " level warn',
+                    "ip6 daddr @non-public6 drop",
+                ],
+            )
+        for cidr in (
+            "10.0.0.0/8",
+            "100.64.0.0/10",
+            "127.0.0.0/8",
+            "169.254.0.0/16",
+            "172.16.0.0/12",
+            "192.168.0.0/16",
+        ):
+            self.assertIn(cidr, result["egress"])
+        for cidr in ("::/127", "fc00::/7", "fe80::/10"):
+            self.assertIn(cidr, result["egress"])
+        # The build sandbox has no monero user for `nft --check`.
+        self.assertIn("skuid nobody", result["egressPreCheck"])
+
+    def test_egress_filter_uses_nameservers_without_resolved(self) -> None:
+        result = evaluate(
+            "services.resolved.enable = false;"
+            ' networking.nameservers = [ "10.0.30.10" "10.0.30.1" "fd00::1" ];'
+        )
+        chains = _chains(result["egress"])
+        self.assertIn(
+            "ip daddr { 10.0.30.10, 10.0.30.1 } meta l4proto { tcp, udp } th dport 53 accept",
+            chains["monero"],
+        )
+        # Without Tor there is no SOCKS allowance and no tor chain.
+        self.assertNotIn("tor", chains)
+        self.assertFalse(any("9050" in line for line in chains["monero"]))
+
     def test_rejects_non_persist_datadir(self) -> None:
         expression = f"""
           let
             flake = builtins.getFlake (toString {json.dumps(str(ROOT / "flake"))});
             system = flake.inputs.nixpkgs.lib.nixosSystem {{
               system = "x86_64-linux";
+              specialArgs.fleetInventory = import {json.dumps(str(ROOT / "inventory"))} {{ inherit (flake.inputs.nixpkgs) lib; }};
               modules = [
                 {json.dumps(str(MODULE))}
                 ({{ ... }}: {{
@@ -199,6 +345,47 @@ class MoneroModuleTests(unittest.TestCase):
         )
         self.assertNotEqual(proc.returncode, 0)
         self.assertIn("/persist", proc.stderr)
+
+
+class MoneroHostTests(unittest.TestCase):
+    """The deployed host: homelab-04 runs monerod behind the onion only."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        if shutil.which("nix") is None:
+            raise unittest.SkipTest("nix is required for host evaluation")
+        proc = subprocess.run(
+            [
+                "nix",
+                "eval",
+                "--json",
+                f"path:{ROOT}?dir=flake#nixosConfigurations.homelab-04.config",
+                "--apply",
+                "c: { egress = c.networking.nftables.tables.monero-egress.content;"
+                " firewall = c.networking.firewall.extraInputRules;"
+                " extra = c.services.monero.extraConfig;"
+                " resolved = c.services.resolved.enable; }",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=600,
+            check=True,
+        )
+        cls.host = json.loads(proc.stdout)
+
+    def test_clearnet_inbound_is_closed(self) -> None:
+        self.assertNotIn("dport 18080", self.host["firewall"])
+        self.assertIn("p2p-bind-ip=127.0.0.1", self.host["extra"])
+        self.assertIn("anonymous-inbound=", self.host["extra"])
+
+    def test_egress_filter_covers_monerod_and_tor(self) -> None:
+        chains = _chains(self.host["egress"])
+        self.assertIn("monero", chains)
+        self.assertIn("tor", chains)
+        # The host resolves through the systemd-resolved stub, so monerod
+        # needs no LAN resolver allowance.
+        self.assertTrue(self.host["resolved"])
+        self.assertFalse(any("10.0.30." in line for line in chains["monero"]))
 
 
 class MoneroPreflightBehaviorTests(unittest.TestCase):

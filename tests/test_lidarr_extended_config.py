@@ -15,8 +15,9 @@ from pathlib import Path
 
 import yaml
 
+from tests.gitops_render import config_map
+
 ROOT = Path(__file__).resolve().parent.parent
-CONFIGS_MANIFEST = ROOT / "gitops" / "media" / "configs.yaml"
 ARR_MANIFEST = ROOT / "gitops" / "media" / "arr.yaml"
 
 REQUIRED_ASSIGNMENTS = {
@@ -35,12 +36,7 @@ def load_docs(path):
 
 
 def extended_configmap():
-    for doc in load_docs(CONFIGS_MANIFEST):
-        if doc.get("kind") == "ConfigMap" and doc["metadata"]["name"] == (
-            "lidarr-extended-config"
-        ):
-            return doc
-    raise AssertionError("lidarr-extended-config ConfigMap not found")
+    return config_map("media", "lidarr-extended-config")
 
 
 def lidarr_container():

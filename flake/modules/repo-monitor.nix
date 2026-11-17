@@ -43,6 +43,12 @@ in
       description = "Application catalog used to classify expected CI status contexts.";
     };
 
+    approvalsUrl = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "Approvals dashboard base URL for the operator-load metrics; empty skips them.";
+    };
+
     environmentFile = lib.mkOption {
       type = lib.types.str;
       default = config.sops.secrets."repo-monitor.env".path;
@@ -130,6 +136,9 @@ in
         CI_GRACE_SECONDS = toString cfg.ciGraceSeconds;
         CI_STUCK_SECONDS = toString cfg.ciStuckSeconds;
         CI_LOOKBACK_SECONDS = toString cfg.ciLookbackSeconds;
+      }
+      // lib.optionalAttrs (cfg.approvalsUrl != "") {
+        APPROVALS_URL = cfg.approvalsUrl;
       };
       serviceConfig = {
         ExecStart =

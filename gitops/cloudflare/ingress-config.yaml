@@ -52,12 +52,23 @@ data:
         service: http://music-assistant.music-assistant:8095
       - hostname: ledfx.rupan.dev
         service: http://ledfx.music-assistant:8888
+      - hostname: ledfx-bedroom.rupan.dev
+        service: http://ledfx-bedroom.music-assistant:8888
+      - hostname: rupan.dev
+        path: ^/feeds/chatgpt[.]csv[.]gz$
+        service: http://pod-agent-feed.pod-agent:80
       - hostname: rupan.dev
         service: http://rupan-dev-svc.rupan-dev:80
       - hostname: www.rupan.dev
         service: http://rupan-dev-svc.rupan-dev:80
       - hostname: grafana.rupan.dev
         service: http://kube-prometheus-stack-grafana.observability.svc.cluster.local:80
+      - hostname: distrojeff.com
+        path: ^/feeds/chatgpt[.]csv[.]gz$
+        service: http://pod-agent-feed.pod-agent:80
+      - hostname: distrojeff.com
+        path: ^/products/etsy-63304540-[1-9][0-9]*-[1-9][0-9]*/?$
+        service: http://pod-agent-feed.pod-agent:80
       - hostname: distrojeff.com
         service: http://distrojeff-site-svc.distrojeff:80
       - hostname: apollinestore.com

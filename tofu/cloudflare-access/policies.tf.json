@@ -1,0 +1,124 @@
+{
+  "resource": {
+    "cloudflare_zero_trust_access_policy": {
+      "bypass": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "decision": "bypass",
+        "include": [
+          {
+            "everyone": {}
+          }
+        ],
+        "name": "Bypass",
+        "session_duration": "24h",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "friends": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "connection_rules": {
+          "rdp": {}
+        },
+        "decision": "allow",
+        "include": [
+          {
+            "email": {
+              "email": "AdityaParekh944@gmail.com"
+            }
+          },
+          {
+            "email": {
+              "email": "blueeyedsharp@gmail.com"
+            }
+          },
+          {
+            "email": {
+              "email": "rupanpandyan@gmail.com"
+            }
+          }
+        ],
+        "name": "Friends",
+        "session_duration": "730h",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "main_rupan": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "decision": "allow",
+        "include": [
+          {
+            "email": {
+              "email": "rupanpandyan@gmail.com"
+            }
+          }
+        ],
+        "name": "Main - Rupan",
+        "session_duration": "24h",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "roommates": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "connection_rules": {
+          "rdp": {}
+        },
+        "decision": "allow",
+        "include": [
+          {
+            "email": {
+              "email": "blueeyedsharp@gmail.com"
+            }
+          },
+          {
+            "email": {
+              "email": "jaybalu06@gmail.com"
+            }
+          },
+          {
+            "email": {
+              "email": "rupanpandyan@gmail.com"
+            }
+          }
+        ],
+        "name": "Roommates",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "approvals_owner": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "decision": "allow",
+        "include": [
+          {
+            "email": {
+              "email": "rupanpandyan@gmail.com"
+            }
+          }
+        ],
+        "name": "Allow Rupan",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      },
+      "sovereign_owner": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "decision": "allow",
+        "include": [
+          {
+            "email": {
+              "email": "rupanpandyan@gmail.com"
+            }
+          }
+        ],
+        "name": "Allow owner",
+        "session_duration": "24h",
+        "lifecycle": {
+          "prevent_destroy": true
+        }
+      }
+    }
+  }
+}

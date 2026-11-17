@@ -276,6 +276,32 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(root.findall(".//channel"), [])
         self.assertEqual(root.findall(".//graphics"), [])
 
+    def test_render_passes_guest_discard_to_every_qcow2_disk(self) -> None:
+        root = ET.fromstring(render_domain(self.load([enabled_workspace()])[0]))
+        drivers = [
+            node.find("driver").attrib
+            for node in root.findall("./devices/disk")
+            if node.attrib["device"] == "disk"
+        ]
+        self.assertEqual(len(drivers), 2)
+        for driver in drivers:
+            self.assertEqual(driver["discard"], "unmap")
+            self.assertEqual(driver["detect_zeroes"], "unmap")
+            self.assertEqual(driver["type"], "qcow2")
+
+    def test_rupan_nixos_domain_passes_guest_discard(self) -> None:
+        path = (
+            pathlib.Path(__file__).resolve().parents[1]
+            / "config/agent-workspaces/rupan-nixos.xml"
+        )
+        root = ET.parse(path).getroot()
+        disks = root.findall("./devices/disk")
+        self.assertEqual(len(disks), 1)
+        self.assertEqual(disks[0].find("target").attrib["bus"], "virtio")
+        driver = disks[0].find("driver").attrib
+        self.assertEqual(driver["discard"], "unmap")
+        self.assertEqual(driver["detect_zeroes"], "unmap")
+
     def test_render_passes_pinned_libvirt_domain_schema(self) -> None:
         validator = shutil.which("virt-xml-validate")
         if validator is None:

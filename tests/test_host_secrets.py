@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-# scripts/deploy_fleet.py activates the registry variant on k3s nodes.
+# scripts/deploy_fleet.py activates nixosConfigurations.<host> on every node.
 K3S_NODES = {"homelab-01", "homelab-02", "homelab-03", "homelab-04", "homelab-05"}
 HOSTS = ["adguard-netbird-01", "nas-01", *sorted(K3S_NODES)]
 # Registry pull credentials are rendered from the image lock by the registry
@@ -78,15 +78,12 @@ class HostSecretsTest(unittest.TestCase):
                 unitConfig = s.unitConfig;
               }) cfg.systemd.services;
             };
-            attribute = host: if builtins.elem host K3S_NODES then "${host}-registry" else host;
-          in lib.genAttrs HOSTS (host: describe flake.nixosConfigurations.${attribute host}.config)
+          in lib.genAttrs HOSTS (host: describe flake.nixosConfigurations.${host}.config)
         """
         expression = expression.replace(
             "ROOT_FLAKE", json.dumps(f"git+file://{ROOT}?dir=flake")
         )
-        expression = expression.replace(
-            "K3S_NODES", json.dumps(sorted(K3S_NODES)).replace(",", " ")
-        ).replace("HOSTS", json.dumps(HOSTS).replace(",", " "))
+        expression = expression.replace("HOSTS", json.dumps(HOSTS).replace(",", " "))
         result = subprocess.run(
             ["nix", "eval", "--impure", "--json", "--expr", expression],
             cwd=ROOT,
@@ -197,11 +194,16 @@ class HostSecretsTest(unittest.TestCase):
             ("roku-bridge-mqtt.env", "roku-bridge.service"),
             ("roku-cloud-bridge-mqtt.env", "roku-cloud-bridge.service"),
             ("ledfx-roku-bridge-mqtt.env", "ledfx-roku-bridge.service"),
-            ("ledfx-zigbee-bridge-mqtt.env", "ledfx-zigbee-bridge.service"),
             ("zigbee2mqtt-secret.yaml", "zigbee2mqtt-secrets.service"),
         ):
             with self.subTest(template=template):
                 self.assertEqual(config["templates"][template]["restartUnits"], [unit])
+
+    def test_retired_shared_light_writer_has_no_unit_or_credential(self) -> None:
+        config = self.evaluated["adguard-netbird-01"]
+        self.assertNotIn("ledfx-zigbee-bridge", config["units"])
+        self.assertNotIn("ledfx-zigbee-bridge-mqtt.env", config["templates"])
+        self.assertIn("ledfx-roku-bridge", config["units"])
 
     def test_bridges_read_owned_secrets_directly(self) -> None:
         config = self.evaluated["adguard-netbird-01"]
@@ -224,16 +226,24 @@ class HostSecretsTest(unittest.TestCase):
             self.assertEqual(
                 ci_host["secrets"][name]["restartUnits"], ["approvals.service"]
             )
+        # The workshop display replaced kiosk-rotate as the token's consumer.
         self.assertIn(
-            "kiosk-ha-token:/run/secrets/kiosk-ha-token",
-            ci_host["units"]["kiosk-rotate"],
+            "ha-token:/run/secrets/kiosk-ha-token",
+            ci_host["units"]["workshop-display"],
+        )
+        self.assertEqual(
+            ci_host["secrets"]["kiosk-ha-token"]["restartUnits"],
+            ["workshop-display.service"],
         )
         voice_host = self.evaluated["homelab-05"]
         self.assertEqual(
-            voice_host["secrets"]["mosquitto-roku-bridge-password"]["restartUnits"],
+            sorted(
+                voice_host["secrets"]["mosquitto-roku-bridge-password"]["restartUnits"]
+            ),
             [
                 "apollo-ble-bridge-kitchen.service",
                 "apollo-ble-bridge-living-room.service",
+                "controller-pairer.service",
             ],
         )
         for host in ("homelab-04", "nas-01"):

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Workshop clock preview</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#202522;color:#eaf0eb}*{box-sizing:border-box}body{margin:0;padding:24px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;max-width:1600px;margin:auto}h1{font-size:20px;font-weight:500;margin:0}p{font-size:14px;color:#a6b4aa;line-height:1.5}nav{display:flex;gap:8px}button{font:inherit;background:#303c33;color:inherit;border:1px solid #536656;border-radius:8px;padding:10px 18px;cursor:pointer}button[aria-pressed=true]{background:#c8edaf;color:#162014}#stage{position:relative;width:100%;aspect-ratio:3440/1440;overflow:hidden;background:#101315;box-shadow:0 16px 60px #0006;margin:28px auto;border-radius:8px}iframe{border:0;width:3440px;height:1440px;transform-origin:top left;position:absolute;inset:0}footer{max-width:1600px;margin:auto;color:#a6b4aa;font-size:13px}
+</style>
+<header><div><h1>Workshop clock preview</h1><p>Same clock layout as the monitor · 3440 × 1440 · preview only</p></div><nav aria-label="Clock mode"><button id="day" aria-pressed="true">Day</button><button id="night" aria-pressed="false">Night</button><button id="refresh">Refresh</button></nav></header>
+<div id="stage"><iframe title="Workshop monitor preview" src="/preview/clock?mode=clock"></iframe></div>
+<footer>Changes to the shared clock layout appear here after deployment. Refresh to load the latest version. This preview uses placeholder pairing details and does not control the workshop monitor.</footer>
+<script>
+const frame=document.querySelector('iframe'),stage=document.querySelector('#stage');let mode=new URLSearchParams(location.search).get('mode')==='night'?'night':'clock';function resize(){frame.style.transform='scale('+(stage.clientWidth/3440)+')';}function show(){frame.src='/preview/clock?mode='+mode;document.querySelector('#day').setAttribute('aria-pressed',String(mode==='clock'));document.querySelector('#night').setAttribute('aria-pressed',String(mode==='night'));history.replaceState(null,'','/preview?mode='+mode);}document.querySelector('#day').onclick=()=>{mode='clock';show();};document.querySelector('#night').onclick=()=>{mode='night';show();};document.querySelector('#refresh').onclick=()=>frame.contentWindow.location.reload();new ResizeObserver(resize).observe(stage);show();resize();
+</script>
+</html>

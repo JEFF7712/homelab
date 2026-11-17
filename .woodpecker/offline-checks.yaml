@@ -7,7 +7,7 @@ labels:
 
 steps:
   - name: validation-v2
-    image: nixos/nix:latest@sha256:f159a58f390677f41e8e900a74b6e2f9c7f27b364122ae6acf7a652ce6c551c0
+    image: nixos/nix:latest@sha256:b49cb33f3a7e5cf3933ad8774529de0e3807ec5cf54987aa7ccdfb49f2fc55ed
     environment:
       CI_LINT_EXTERNAL: "1"
       TF_PLUGIN_CACHE_DIR: "/tmp/tofu-plugin-cache"
@@ -20,8 +20,8 @@ steps:
         cores = 2
         connect-timeout = 5
         download-attempts = 3
-        extra-substituters = http://10.0.30.20:8080/homelab?priority=30
-        extra-trusted-public-keys = homelab:J+OVQOCG2sNT2KoVbWGPikoWcIbBanHnY2NOcMF3vwk=
+        extra-substituters = http://10.0.30.20:8090?priority=30
+        extra-trusted-public-keys = homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec=
     commands:
       - >-
         nix develop ./flake#ci -c bash -e -c 'python -m scripts.ci.run fmt -- just

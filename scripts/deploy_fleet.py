@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import fcntl
 import json
 import logging
@@ -11,6 +12,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -31,6 +33,31 @@ Notifier = Callable[[str, str, str, list[str] | None], bool]
 
 
 APPLIANCE_SETTLE_ATTEMPTS = 20
+# Evictions are throttled client-side on a busy node, and a pod evicted while
+# it is still starting can take minutes to stop: on 2026-11-10 Home Assistant,
+# rescheduled from the previous node a minute earlier, stopped 128s after its
+# eviction and failed a 120s drain of homelab-03.
+DRAIN_TIMEOUT = 300.0
+# Marks a cordon the deployer placed. The CI host's switch kills the deploy
+# job before it can uncordon, so the next run releases a marked cordon once
+# the node runs the desired system healthily. Operator cordons carry no mark.
+CORDON_MARK = "homelab.fleet/deploy-cordon"
+K3S_TYPES = ("k3s-worker", "k3s-stateful")
+# Embedded etcd members carry this k3s node label. Restarting k3s on one
+# restarts its member, so every member must answer healthy before one is
+# taken down and again after it returns: two members down loses quorum.
+ETCD_MEMBER_SELECTOR = "node-role.kubernetes.io/etcd=true"
+# The loopback metrics listener exists with or without --etcd-expose-metrics.
+# /health answers true only when the member has a leader and serves a
+# quorum read.
+ETCD_HEALTH = "curl -fsS --max-time 3 http://127.0.0.1:2381/health"
+# Every CloudNativePG cluster, as (namespace, name); test_deploy_fleet checks
+# this against gitops so a new cluster is not left out of the post-switch wait.
+POSTGRES_CLUSTERS = (
+    ("home-assistant", "home-assistant-cluster"),
+    ("immich", "immich-cluster"),
+    ("analytics", "umami-cluster"),
+)
 
 
 class FleetDeploymentError(Exception):
@@ -47,14 +74,6 @@ class HostConfig:
     ip: str
     host_type: str  # "k3s-worker", "k3s-stateful", "appliance-dns", "appliance-nas"
     order: int
-
-    @property
-    def flake_attr(self) -> str:
-        # The plain k3s configuration has no registries.yaml, and /etc is tmpfs,
-        # so the next restart leaves containerd without registry credentials.
-        if self.host_type in ("k3s-worker", "k3s-stateful"):
-            return f"{self.name}-registry"
-        return self.name
 
 
 FLEET_HOSTS: dict[str, HostConfig] = {
@@ -124,6 +143,182 @@ class FleetLock:
                     self.lock_path.unlink()
             except OSError:
                 pass
+
+
+class ClusterLease:
+    """Holds the fleet-wide Kubernetes Lease while hosts are changed.
+
+    FleetLock is a file in the job's own container, and the CI deploy agent
+    runs two jobs at once without enforcing the policy's per-resource limit,
+    so on 2026-11-10 three fleet deployments of one commit switched hosts
+    concurrently. Every run that changes hosts (deploy and reboot, not dry
+    runs) takes this Lease first. A heartbeat renews it; a job killed
+    mid-run (the CI host restarting its own agent) stops renewing, and the
+    next run takes the Lease over once it has expired.
+    """
+
+    NAMESPACE = "kube-system"
+    NAME = "homelab-fleet"
+
+    def __init__(
+        self,
+        holder: str,
+        *,
+        runner: Runner = subprocess.run,
+        duration_seconds: int = 300,
+        renew_seconds: float = 60.0,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ) -> None:
+        self.holder = holder
+        self.runner = runner
+        self.duration_seconds = duration_seconds
+        self.renew_seconds = renew_seconds
+        self.clock = clock
+        self._stop = threading.Event()
+        self._heartbeat: threading.Thread | None = None
+
+    def __enter__(self) -> ClusterLease:
+        self.acquire()
+        self._heartbeat = threading.Thread(target=self._renew_loop, daemon=True)
+        self._heartbeat.start()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> None:
+        self._stop.set()
+        if self._heartbeat is not None:
+            self._heartbeat.join(timeout=5.0)
+        self.release()
+
+    @staticmethod
+    def timestamp(moment: datetime) -> str:
+        return moment.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+
+    def manifest(self, resource_version: str | None = None) -> dict[str, Any]:
+        now = self.timestamp(self.clock())
+        metadata: dict[str, Any] = {"name": self.NAME, "namespace": self.NAMESPACE}
+        if resource_version is not None:
+            metadata["resourceVersion"] = resource_version
+        return {
+            "apiVersion": "coordination.k8s.io/v1",
+            "kind": "Lease",
+            "metadata": metadata,
+            "spec": {
+                "holderIdentity": self.holder,
+                "leaseDurationSeconds": self.duration_seconds,
+                "acquireTime": now,
+                "renewTime": now,
+            },
+        }
+
+    def kubectl(self, *args: str, body: dict[str, Any] | None = None):
+        if body is None:
+            return run_command(
+                ["kubectl", *args], runner=self.runner, timeout=30.0, check=False
+            )
+        with tempfile.NamedTemporaryFile("w", suffix=".json") as handle:
+            json.dump(body, handle)
+            handle.flush()
+            return run_command(
+                ["kubectl", *args, "-f", handle.name],
+                runner=self.runner,
+                timeout=30.0,
+                check=False,
+            )
+
+    def acquire(self) -> None:
+        created = self.kubectl("create", body=self.manifest())
+        if created.returncode == 0:
+            logger.info("Acquired fleet lease %s as %s", self.NAME, self.holder)
+            return
+        if "AlreadyExists" not in created.stderr:
+            raise FleetDeploymentError(
+                f"Cannot create fleet lease: {created.stderr.strip()}"
+            )
+        current = self.kubectl(
+            "-n", self.NAMESPACE, "get", "lease", self.NAME, "-o", "json"
+        )
+        if current.returncode != 0:
+            raise FleetDeploymentError(
+                f"Cannot read fleet lease: {current.stderr.strip()}"
+            )
+        lease = json.loads(current.stdout)
+        spec = lease.get("spec", {})
+        holder = spec.get("holderIdentity", "unknown")
+        try:
+            renewed = datetime.strptime(
+                spec["renewTime"], "%Y-%m-%dT%H:%M:%S.%fZ"
+            ).replace(tzinfo=UTC)
+            age = (self.clock() - renewed).total_seconds()
+            expired = age > int(spec.get("leaseDurationSeconds", 0))
+        except (KeyError, ValueError):
+            age, expired = float("nan"), True
+        if not expired:
+            raise LockContentionError(
+                f"Fleet lease is held by {holder} (renewed {age:.0f}s ago)"
+            )
+        # resourceVersion makes the takeover fail if another run renewed or
+        # took the Lease since it was read.
+        replaced = self.kubectl(
+            "replace",
+            body=self.manifest(lease["metadata"]["resourceVersion"]),
+        )
+        if replaced.returncode != 0:
+            raise LockContentionError(
+                f"Fleet lease changed while taking it over from {holder}: "
+                + replaced.stderr.strip()
+            )
+        logger.warning(
+            "Took over the fleet lease from %s, expired %.0fs ago",
+            holder,
+            age - int(spec.get("leaseDurationSeconds", 0)),
+        )
+
+    def renew(self) -> None:
+        patch = json.dumps({"spec": {"renewTime": self.timestamp(self.clock())}})
+        result = self.kubectl(
+            "-n",
+            self.NAMESPACE,
+            "patch",
+            "lease",
+            self.NAME,
+            "--type",
+            "merge",
+            "-p",
+            patch,
+        )
+        if result.returncode != 0:
+            logger.warning("Could not renew the fleet lease: %s", result.stderr.strip())
+
+    def _renew_loop(self) -> None:
+        while not self._stop.wait(self.renew_seconds):
+            self.renew()
+
+    def release(self) -> None:
+        current = self.kubectl(
+            "-n", self.NAMESPACE, "get", "lease", self.NAME, "-o", "json"
+        )
+        if current.returncode != 0:
+            return
+        if (
+            json.loads(current.stdout).get("spec", {}).get("holderIdentity")
+            != self.holder
+        ):
+            logger.warning(
+                "Fleet lease is no longer held by %s; leaving it", self.holder
+            )
+            return
+        self.kubectl("-n", self.NAMESPACE, "delete", "lease", self.NAME)
+
+
+def lease_holder(operation: str) -> str:
+    pipeline = os.getenv("CI_PIPELINE_NUMBER")
+    origin = f"pipeline {pipeline}" if pipeline else socket.gethostname()
+    return f"{operation} {origin} pid {os.getpid()}"
 
 
 def run_command(
@@ -377,7 +572,7 @@ class FleetDeployer:
         skip_drain: bool = False,
         skip_cooldown: bool = False,
         cooldown_seconds: float = 0.0,
-        drain_timeout: float = 120.0,
+        drain_timeout: float = DRAIN_TIMEOUT,
         ready_timeout: float = 180.0,
         ssh_user: str = "rupan",
         flake_path: str = "./flake",
@@ -482,6 +677,7 @@ class FleetDeployer:
         if self.dry_run:
             cmd.append("--dry-run=client")
         run_command(cmd, runner=self.runner, timeout=30.0)
+        self.mark_cordon(node_name, True)
 
     def uncordon_node(self, node_name: str) -> None:
         logger.info("[%s] Uncordoning node...", node_name)
@@ -489,6 +685,93 @@ class FleetDeployer:
         if self.dry_run:
             cmd.append("--dry-run=client")
         run_command(cmd, runner=self.runner, timeout=30.0)
+        self.mark_cordon(node_name, False)
+
+    def mark_cordon(self, node_name: str, marked: bool) -> None:
+        cmd = ["kubectl", "annotate", "--overwrite", "node", node_name]
+        cmd.append(f"{CORDON_MARK}=true" if marked else f"{CORDON_MARK}-")
+        if self.dry_run:
+            cmd.append("--dry-run=client")
+        run_command(cmd, runner=self.runner, timeout=30.0)
+
+    def hold_cordon(self, node_name: str) -> None:
+        """Keep a failed host cordoned for the operator; runs never release it."""
+        try:
+            self.mark_cordon(node_name, False)
+        except FleetDeploymentError as error:
+            logger.error("[%s] Could not clear the cordon mark: %s", node_name, error)
+
+    def release_stale_cordon(self, host: HostConfig) -> bool:
+        """Uncordon a node a killed run left cordoned, once it is healthy.
+
+        Only called for hosts already running the desired system. Returns
+        whether the cordon was released.
+        """
+        result = run_command(
+            ["kubectl", "get", "node", host.name, "-o", "json"],
+            runner=self.runner,
+            timeout=30.0,
+            check=False,
+        )
+        try:
+            node = json.loads(result.stdout) if result.returncode == 0 else {}
+        except ValueError:
+            node = {}
+        if not isinstance(node, dict) or not node.get("spec", {}).get("unschedulable"):
+            return False
+        if node.get("metadata", {}).get("annotations", {}).get(CORDON_MARK) != "true":
+            return False
+        ready = any(
+            c.get("type") == "Ready" and c.get("status") == "True"
+            for c in node.get("status", {}).get("conditions", [])
+        )
+        failed = self.failed_units(host)
+        if not ready or failed:
+            logger.warning(
+                "[%s] Left cordoned by an earlier deployment but not healthy "
+                "(ready=%s, failed units: %s); leaving it cordoned",
+                host.name,
+                ready,
+                ", ".join(sorted(failed)) or "none",
+            )
+            return False
+        logger.info(
+            "[%s] Releasing the cordon an interrupted deployment left", host.name
+        )
+        self.uncordon_node(host.name)
+        return True
+
+    def heal_cordons(self) -> dict[str, Any]:
+        """Release cordons a killed deployment left, without deploying anything.
+
+        The CI host's switch restarts Docker and kills the deploy job driving
+        it, so nothing uncordons the host until the next deployment (two hours
+        on 2026-11-16). A scheduled run of this releases such a cordon once the
+        host runs the desired system healthily; a host on any other system
+        stays cordoned for the next deployment or the operator.
+        """
+        marked = marked_cordons(self.runner)
+        healed: list[str] = []
+        kept: list[str] = []
+        for host in self.targets:
+            if host.name not in marked or host.host_type not in K3S_TYPES:
+                continue
+            desired = self.desired_system(host)
+            running = self.running_system(host)
+            if running != desired:
+                logger.warning(
+                    "[%s] Left cordoned while running %s, not %s; leaving it "
+                    "for the next deployment",
+                    host.name,
+                    running,
+                    desired,
+                )
+                kept.append(host.name)
+            elif self.release_stale_cordon(host):
+                healed.append(host.name)
+            else:
+                kept.append(host.name)
+        return {"healed": healed, "kept": kept}
 
     def drain_node(self, node_name: str) -> None:
         logger.info(
@@ -522,20 +805,23 @@ class FleetDeployer:
         )
         return self.system_path(result.stdout)
 
-    def prepare_host(self, host: HostConfig) -> bool:
-        """Realize changed systems before any workload is disrupted."""
+    def desired_system(self, host: HostConfig) -> str:
         result = run_command(
             [
                 "nix",
                 "eval",
                 "--raw",
                 "--no-write-lock-file",
-                f"{self.flake_path}#nixosConfigurations.{host.flake_attr}.config.system.build.toplevel.outPath",
+                f"{self.flake_path}#nixosConfigurations.{host.name}.config.system.build.toplevel.outPath",
             ],
             runner=self.runner,
             timeout=120.0,
         )
-        desired = self.system_path(result.stdout)
+        return self.system_path(result.stdout)
+
+    def prepare_host(self, host: HostConfig) -> bool:
+        """Realize changed systems before any workload is disrupted."""
+        desired = self.desired_system(host)
         previous = self.running_system(host)
         self.prepared[host.name] = (previous, desired)
         if desired == previous:
@@ -579,7 +865,7 @@ class FleetDeployer:
                     "build",
                     "--no-write-lock-file",
                     "--flake",
-                    f"{flake}#{host.flake_attr}",
+                    f"{flake}#{host.name}",
                     "--target-host",
                     f"{self.ssh_user}@{host.ip}",
                     "--build-host",
@@ -638,9 +924,28 @@ class FleetDeployer:
                     ]
                 )
             )
-        commands.append(
-            shlex.join(["sudo", "-n", path + "/bin/switch-to-configuration", action])
-        )
+        switch = [path + "/bin/switch-to-configuration", action]
+        if not dry_run:
+            # Run the switch as its own transient unit, as nixos-rebuild does.
+            # A switch that restarts Docker kills the CI job driving it (the
+            # CI host deploys itself); in the SSH session the switch would die
+            # with it and leave units such as k3s stopped. The fixed unit name
+            # also refuses a second concurrent switch. No --pipe: the switch
+            # writes to the journal, because with its output tied to the SSH
+            # session it panicked on the broken pipe (exit 101) when the job
+            # died, stranding homelab-04 again on 2026-11-03. Read the output
+            # with `journalctl -u homelab-fleet-switch`.
+            switch = [
+                "systemd-run",
+                "--unit=homelab-fleet-switch",
+                "--collect",
+                "--no-ask-password",
+                "--quiet",
+                "--service-type=exec",
+                "--wait",
+                *switch,
+            ]
+        commands.append(shlex.join(["sudo", "-n", *switch]))
         run_command(
             self.ssh_command(host.ip, " && ".join(commands)),
             runner=self.runner,
@@ -763,29 +1068,27 @@ class FleetDeployer:
     def wait_postgres_ready(self) -> None:
         if self.dry_run:
             logger.info(
-                "[homelab-01] [DRY RUN] Would wait for PostgreSQL deployments to be Ready"
+                "[homelab-01] [DRY RUN] Would wait for PostgreSQL clusters to be Ready"
             )
             return
 
         logger.info(
-            "[homelab-01] Waiting for PostgreSQL workloads to report Ready (timeout=%.0fs)...",
+            "[homelab-01] Waiting for PostgreSQL clusters to report Ready (timeout=%.0fs)...",
             self.ready_timeout,
         )
-        pg_deployments = [
-            ("home-assistant-postgres", "home-assistant"),
-            ("immich-postgres", "immich"),
-        ]
-        for dep, ns in pg_deployments:
+        for namespace, cluster in POSTGRES_CLUSTERS:
             logger.info(
-                "[homelab-01] Waiting for rollout status of %s in %s...", dep, ns
+                "[homelab-01] Waiting for PostgreSQL cluster %s in %s...",
+                cluster,
+                namespace,
             )
             cmd = [
                 "kubectl",
-                "rollout",
-                "status",
-                f"deployment/{dep}",
+                "wait",
+                "--for=condition=Ready",
+                f"clusters.postgresql.cnpg.io/{cluster}",
                 "-n",
-                ns,
+                namespace,
                 f"--timeout={int(self.ready_timeout)}s",
             ]
             run_command(cmd, runner=self.runner, timeout=self.ready_timeout + 5.0)
@@ -796,22 +1099,29 @@ class FleetDeployer:
             return
 
         logger.info("Verifying DNS responsiveness on %s:53...", ip)
+        # AdGuard Home takes seconds to listen again after the switch restarts
+        # it; one immediate probe rolled back healthy deploys of the appliance
+        # (pipeline #12632, 2026-11-10).
+        if not self.settled(lambda: self.dns_answers(ip)):
+            raise FleetDeploymentError(
+                f"DNS verification failed on {ip}: port 53 not reachable"
+            )
+
+    def dns_answers(self, ip: str) -> bool:
         cmd = ["dig", f"@{ip}", "homelab.internal", "+short", "+timeout=2"]
         try:
             res = run_command(cmd, runner=self.runner, timeout=5.0, check=False)
             if res.returncode == 0 and res.stdout.strip():
                 logger.info("DNS verification passed via dig for %s", ip)
-                return
+                return True
         except FleetDeploymentError as err:
             logger.warning(
                 "DNS verification via dig failed, falling back to socket check: %s", err
             )
-
-        if not self.socket_checker(ip, 53, 3.0):
-            raise FleetDeploymentError(
-                f"DNS verification failed on {ip}: port 53 not reachable"
-            )
-        logger.info("DNS verification passed via port 53 socket check for %s", ip)
+        if self.socket_checker(ip, 53, 3.0):
+            logger.info("DNS verification passed via port 53 socket check for %s", ip)
+            return True
+        return False
 
     def settled(self, check: Callable[[], bool]) -> bool:
         """Retry a post-switch probe while activation restarts its services.
@@ -825,6 +1135,71 @@ class FleetDeployer:
             if attempt + 1 < APPLIANCE_SETTLE_ATTEMPTS:
                 self.sleeper(3.0)
         return False
+
+    def etcd_members(self) -> list[HostConfig]:
+        result = run_command(
+            [
+                "kubectl",
+                "get",
+                "nodes",
+                "-l",
+                ETCD_MEMBER_SELECTOR,
+                "-o",
+                "jsonpath={.items[*].metadata.name}",
+            ],
+            runner=self.runner,
+            timeout=15.0,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise FleetDeploymentError(
+                f"Cannot list etcd members: {result.stderr.strip()}"
+            )
+        names = result.stdout.split()
+        unknown = sorted(set(names) - set(FLEET_HOSTS))
+        if unknown:
+            raise FleetDeploymentError(
+                f"etcd members outside the fleet inventory: {', '.join(unknown)}"
+            )
+        return [FLEET_HOSTS[name] for name in names]
+
+    def etcd_healthy(self, member: HostConfig) -> bool:
+        result = run_command(
+            self.ssh_command(member.ip, ETCD_HEALTH),
+            runner=self.runner,
+            timeout=15.0,
+            check=False,
+        )
+        if result.returncode != 0:
+            return False
+        try:
+            return json.loads(result.stdout).get("health") == "true"
+        except (ValueError, AttributeError):
+            return False
+
+    def wait_etcd_quorum(self, host: HostConfig) -> None:
+        """Hold an etcd member's deployment until every member is healthy."""
+        members = self.etcd_members()
+        if host.name not in {member.name for member in members}:
+            return
+        if self.dry_run:
+            logger.info("[%s] [DRY RUN] Would wait for etcd member health", host.name)
+            return
+        started = time.monotonic()
+        while True:
+            unhealthy = [m.name for m in members if not self.etcd_healthy(m)]
+            if not unhealthy:
+                logger.info(
+                    "[%s] etcd healthy on all %d members", host.name, len(members)
+                )
+                return
+            if time.monotonic() - started >= self.ready_timeout:
+                raise FleetDeploymentError(
+                    f"etcd members not healthy within {self.ready_timeout:.0f}s: "
+                    + ", ".join(unhealthy)
+                )
+            logger.info("[%s] Waiting for etcd health on %s", host.name, unhealthy)
+            self.sleeper(5.0)
 
     def ssh_command(self, ip: str, remote: str) -> list[str]:
         cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
@@ -854,7 +1229,7 @@ class FleetDeployer:
     def verify_nas_appliance(self, ip: str) -> None:
         if self.dry_run:
             logger.info(
-                "[%s] [DRY RUN] Would verify the NFS server and Attic (port 8080)",
+                "[%s] [DRY RUN] Would verify the NFS server and niks3 (port 8090)",
                 ip,
             )
             return
@@ -866,12 +1241,13 @@ class FleetDeployer:
             )
         logger.info("NFS server check passed for %s", ip)
 
-        logger.info("Verifying Attic binary cache on http://%s:8080/...", ip)
-        if not self.settled(lambda: self.http_checker(f"http://{ip}:8080/", 5.0)):
+        cache = f"http://{ip}:8090/nix-cache-info"
+        logger.info("Verifying niks3 binary cache on %s...", cache)
+        if not self.settled(lambda: self.http_checker(cache, 5.0)):
             raise FleetDeploymentError(
-                f"NAS verification failed: Attic HTTP endpoint on http://{ip}:8080/ not responding"
+                f"NAS verification failed: niks3 cache on {cache} not responding"
             )
-        logger.info("Attic binary cache check passed for %s", ip)
+        logger.info("niks3 binary cache check passed for %s", ip)
 
     def cooldown(self, host_name: str) -> None:
         if self.dry_run or self.skip_cooldown or self.cooldown_seconds <= 0:
@@ -909,6 +1285,9 @@ class FleetDeployer:
                 raise FleetDeploymentError(
                     f"{host.name} changed since preparation; retry deployment"
                 )
+            # A member may go down only while the other two are healthy.
+            if is_k3s:
+                self.wait_etcd_quorum(host)
             # 1. Cordon & Drain if K3s node and not skipped
             if is_k3s and not self.skip_drain:
                 self.cordon_node(host.name)
@@ -919,6 +1298,8 @@ class FleetDeployer:
             activation_attempted = True
             self.rebuild_host(host)
             self.verify_host(host)
+            if is_k3s:
+                self.wait_etcd_quorum(host)
 
             # 3. Post-switch actions
             if is_k3s:
@@ -965,6 +1346,8 @@ class FleetDeployer:
                     if is_k3s and not cordoned:
                         self.cordon_node(host.name)
                         cordoned = True
+                    if is_k3s:
+                        self.hold_cordon(host.name)
                     raise FleetDeploymentError(
                         f"Deployment failed on {host.name}: {err}; recovery failed: {recovery_error}. "
                         f"Host remains cordoned when applicable; restore {previous} before continuing."
@@ -1000,6 +1383,8 @@ class FleetDeployer:
                 if self.prepare_host(host):
                     changed.append(host)
                 else:
+                    if not self.dry_run and host.host_type in K3S_TYPES:
+                        self.release_stale_cordon(host)
                     results.append(
                         {
                             "host": host.name,
@@ -1063,6 +1448,23 @@ class FleetDeployer:
                     )
 
 
+def marked_cordons(runner: Runner) -> set[str]:
+    """Nodes still cordoned with the deployer's mark."""
+    result = run_command(
+        ["kubectl", "get", "nodes", "-o", "json"], runner=runner, timeout=30.0
+    )
+    try:
+        nodes = json.loads(result.stdout).get("items", [])
+    except (ValueError, AttributeError) as error:
+        raise FleetDeploymentError(f"Cannot read nodes: {error}") from error
+    return {
+        node["metadata"]["name"]
+        for node in nodes
+        if node.get("spec", {}).get("unschedulable")
+        and node["metadata"].get("annotations", {}).get(CORDON_MARK) == "true"
+    }
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Automated rolling fleet deployment orchestrator for homelab hosts."
@@ -1102,8 +1504,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--drain-timeout",
         type=float,
-        default=120.0,
-        help="Timeout in seconds for kubectl drain (default: 120.0).",
+        default=DRAIN_TIMEOUT,
+        help=f"Timeout in seconds for kubectl drain (default: {DRAIN_TIMEOUT}).",
     )
     parser.add_argument(
         "--ready-timeout",
@@ -1156,6 +1558,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Output structured JSON results upon completion.",
     )
+    parser.add_argument(
+        "--heal-cordons",
+        action="store_true",
+        help="Deploy nothing; release cordons a killed deployment left on "
+        "healthy hosts already running the desired system.",
+    )
     return parser
 
 
@@ -1192,8 +1600,15 @@ def main(
         },
     )
 
+    if args.heal_cordons:
+        return heal(args, targets, runner, ssh_opts)
+
     try:
-        with lock:
+        with lock, contextlib.ExitStack() as held:
+            if not args.dry_run:
+                held.enter_context(
+                    ClusterLease(lease_holder("deploy-fleet"), runner=runner)
+                )
             deployer = FleetDeployer(
                 targets,
                 dry_run=args.dry_run,
@@ -1229,6 +1644,40 @@ def main(
     except Exception as err:
         logger.exception("Unexpected error during fleet deployment: %s", err)
         return 1
+
+
+def heal(
+    args: argparse.Namespace,
+    targets: list[HostConfig],
+    runner: Runner,
+    ssh_opts: list[str] | None,
+) -> int:
+    """--heal-cordons: a no-op unless a marked cordon exists and no run is live."""
+    try:
+        if not marked_cordons(runner):
+            logger.info("No cordon left by a deployment")
+            return 0
+        with ClusterLease(lease_holder("deploy-fleet heal"), runner=runner):
+            result = FleetDeployer(
+                targets,
+                skip_preflight=True,
+                ssh_user=args.ssh_user,
+                flake_path=args.flake_path,
+                runner=runner,
+                enable_notifications=False,
+                ssh_opts=ssh_opts,
+            ).heal_cordons()
+    except LockContentionError as err:
+        # A live deployment owns its cordons and releases them itself.
+        logger.info("Deployment in progress, not healing: %s", err)
+        return 0
+    except FleetDeploymentError as err:
+        logger.error("Cannot heal cordons: %s", err)
+        return 1
+    if args.json:
+        print(json.dumps(result, indent=2))
+    # A cordon kept on a host that is not healthy needs attention.
+    return 1 if result["kept"] else 0
 
 
 if __name__ == "__main__":

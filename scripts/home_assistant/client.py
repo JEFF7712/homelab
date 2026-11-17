@@ -7,6 +7,7 @@ import socket
 import ssl
 import struct
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -15,6 +16,11 @@ from typing import Any
 
 from .canonical import SecretTag
 from .models import LockError
+
+# Home Assistant restarts whenever its configuration rolls out, often while a
+# deploy is starting; health checks wait this long for it to come back.
+READY_TIMEOUT_SECONDS = float(os.environ.get("HA_READY_TIMEOUT", "600"))
+READY_POLL_SECONDS = 10.0
 
 
 class HomeAssistantClientError(Exception):
@@ -264,14 +270,32 @@ class HomeAssistantClient:
                 f"Network error accessing {path}: {exc}"
             ) from exc
 
-    def check_health(self) -> dict[str, Any]:
-        """Verify connectivity and read basic configuration."""
-        data = self.http_request("GET", "/api/config")
-        return {
-            "version": data.get("version"),
-            "location_name": data.get("location_name"),
-            "status": "ok",
-        }
+    def check_health(self, wait: float | None = None) -> dict[str, Any]:
+        """Verify connectivity and read basic configuration. Connection
+        failures and a core that is still starting are retried for up to
+        `wait` seconds (READY_TIMEOUT_SECONDS by default), so a deploy that
+        starts during a restart waits instead of failing. Authentication
+        failures are not retried."""
+        deadline = time.monotonic() + (READY_TIMEOUT_SECONDS if wait is None else wait)
+        while True:
+            try:
+                data = self.http_request("GET", "/api/config")
+                state = data.get("state", "RUNNING")
+                if state == "RUNNING":
+                    return {
+                        "version": data.get("version"),
+                        "location_name": data.get("location_name"),
+                        "status": "ok",
+                    }
+                reason = f"core is {state}"
+            except HomeAssistantAuthError:
+                raise
+            except HomeAssistantClientError as exc:
+                reason = str(exc)
+            if time.monotonic() >= deadline:
+                raise HomeAssistantClientError(f"Home Assistant is not ready: {reason}")
+            print(f"Waiting for Home Assistant: {reason}", file=sys.stderr, flush=True)
+            time.sleep(READY_POLL_SECONDS)
 
     def get_core_configuration(self) -> dict[str, Any]:
         """Read live core configuration.yaml from cluster pod."""
@@ -979,7 +1003,7 @@ class MockHomeAssistantClient(HomeAssistantClient):
             "recorder": {"db_url": SecretTag("recorder_db_url")},
         }
 
-    def check_health(self) -> dict[str, Any]:
+    def check_health(self, wait: float | None = None) -> dict[str, Any]:
         return {"version": "2026.9.1", "location_name": "Mock Home", "status": "ok"}
 
     def get_core_configuration(self) -> dict[str, Any]:

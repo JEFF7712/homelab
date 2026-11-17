@@ -1,0 +1,249 @@
+"""Track metadata parsing and merging for music_director.
+
+Pure functions over the JSON bodies of the local library lookup, ReccoBeats
+and Last.fm, so the precedence rules can be tested without the network.
+"""
+
+from __future__ import annotations
+
+import re
+import unicodedata
+from dataclasses import dataclass, field
+from typing import Any
+
+from .rules import Features
+
+LASTFM_MIN_TAG_COUNT = 10
+LASTFM_MAX_TAGS = 5
+SPOTIFY_TRACK_URI = re.compile(r"^spotify:track:([A-Za-z0-9]{22})$")
+# Tags that describe listening habits or eras rather than a genre.
+LASTFM_NOISE = re.compile(
+    r"^(seen live|favou?rites?|my favou?rites?|love|loved|awesome|beautiful|"
+    r"cool|best|amazing|\d{2,4}s?|under \d+ listeners)$"
+)
+
+
+def normalize(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value)
+    ascii_only = decomposed.encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"[^a-z0-9]", "", ascii_only.lower())
+
+
+def same_track(title: str, artist: str, other_title: str, other_artist: str) -> bool:
+    """True when two players report the same song; Spotify Connect titles can
+    differ from the account entity only in punctuation and featuring."""
+    if not title or not other_title:
+        return False
+    first, second = normalize(title), normalize(other_title)
+    if first != second and not (first.startswith(second) or second.startswith(first)):
+        return False
+    a, b = normalize(artist), normalize(other_artist)
+    return not a or not b or a in b or b in a
+
+
+@dataclass(frozen=True)
+class SongOverride:
+    """A configured colour and/or effect for matching tracks. Every given
+    field must match; album and artist match by prefix after normalising,
+    so "channel ORANGE" also matches a deluxe edition."""
+
+    artist: str | None = None
+    album: str | None = None
+    title: str | None = None
+    color: str | None = None
+    effect: str | None = None
+
+    def matches(self, title: str, artist: str, album: str) -> bool:
+        pairs = [
+            (self.title, title, False),
+            (self.artist, artist, True),
+            (self.album, album, True),
+        ]
+        given = [(want, have, prefix) for want, have, prefix in pairs if want]
+        if not given:
+            return False
+        for want, have, prefix in given:
+            w, h = normalize(want or ""), normalize(have)
+            if not w or not (h == w or (prefix and h.startswith(w))):
+                return False
+        return True
+
+
+def find_override(
+    overrides: tuple[SongOverride, ...], title: str, artist: str, album: str
+) -> SongOverride | None:
+    """The first override matching the track, or None."""
+    return next((o for o in overrides if o.matches(title, artist, album)), None)
+
+
+def spotify_track_id(content_id: str | None) -> str | None:
+    match = SPOTIFY_TRACK_URI.match(content_id or "")
+    return match.group(1) if match else None
+
+
+@dataclass
+class TrackInfo:
+    """Everything known about the playing track, with where it came from."""
+
+    genres: tuple[str, ...] = ()
+    bpm: float | None = None
+    energy: float | None = None
+    danceability: float | None = None
+    acousticness: float | None = None
+    valence: float | None = None
+    isrc: str | None = None
+    sources: list[str] = field(default_factory=list)
+
+    def features(self) -> Features:
+        return Features(
+            genres=self.genres,
+            bpm=self.bpm,
+            energy=self.energy,
+            danceability=self.danceability,
+            acousticness=self.acousticness,
+            valence=self.valence,
+        )
+
+
+def _number(value: Any) -> float | None:
+    return float(value) if isinstance(value, (int, float)) and value > 0 else None
+
+
+def apply_reccobeats(info: TrackInfo, body: Any) -> None:
+    content = body.get("content") if isinstance(body, dict) else None
+    if not content or not isinstance(content[0], dict):
+        return
+    item = content[0]
+    info.bpm = _number(item.get("tempo")) or info.bpm
+    info.energy = _number(item.get("energy"))
+    info.danceability = _number(item.get("danceability"))
+    info.acousticness = _number(item.get("acousticness"))
+    info.valence = _number(item.get("valence"))
+    isrc = item.get("isrc")
+    if isinstance(isrc, str) and isrc:
+        info.isrc = isrc.upper()
+    info.sources.append("reccobeats")
+
+
+def apply_library(info: TrackInfo, body: Any) -> None:
+    match = body.get("match") if isinstance(body, dict) else None
+    if not isinstance(match, dict):
+        return
+    genres = tuple(g for g in match.get("genres") or () if isinstance(g, str) and g)
+    if genres:
+        info.genres = genres
+    if info.bpm is None:
+        info.bpm = _number(match.get("bpm"))
+    info.sources.append(f"library:{body.get('matched_by') or 'match'}")
+
+
+def lastfm_genres(body: Any, artist: str = "") -> tuple[str, ...]:
+    tags = (
+        (body or {}).get("toptags", {}).get("tag", []) if isinstance(body, dict) else []
+    )
+    if isinstance(tags, dict):
+        tags = [tags]
+    artist_key = normalize(artist)
+    genres: list[str] = []
+    for tag in tags:
+        name = str(tag.get("name", "")).strip().lower()
+        try:
+            count = int(tag.get("count", 0))
+        except (TypeError, ValueError):
+            count = 0
+        if count < LASTFM_MIN_TAG_COUNT or not name or LASTFM_NOISE.match(name):
+            continue
+        if artist_key and normalize(name) == artist_key:
+            continue
+        if name not in genres:
+            genres.append(name)
+        if len(genres) == LASTFM_MAX_TAGS:
+            break
+    return tuple(genres)
+
+
+def apply_lastfm(info: TrackInfo, body: Any, artist: str) -> None:
+    genres = lastfm_genres(body, artist)
+    if genres and not info.genres:
+        info.genres = genres
+        info.sources.append("lastfm")
+
+
+# Spotify art width closest to this is used for the next track's cover.
+ART_WIDTH = 300
+
+
+@dataclass(frozen=True)
+class QueuedTrack:
+    """The song Spotify will play next."""
+
+    title: str
+    artist: str
+    album: str
+    spotify_id: str | None
+    duration: float | None
+    art_url: str | None
+
+
+def next_in_queue(body: Any, title: str, artist: str) -> QueuedTrack | None:
+    """The next song from Spotify's queue endpoint, if the queue belongs to
+    the track playing now (title and artist) and its head is a song."""
+    if not isinstance(body, dict):
+        return None
+    playing = body.get("currently_playing")
+    if not isinstance(playing, dict) or not same_track(
+        title, artist, playing.get("name") or "", _artists(playing)
+    ):
+        return None
+    queue = body.get("queue")
+    if not isinstance(queue, list) or not queue or not isinstance(queue[0], dict):
+        return None
+    item = queue[0]
+    if item.get("type") != "track" or not item.get("name"):
+        return None
+    album = item.get("album") if isinstance(item.get("album"), dict) else {}
+    images = [
+        image
+        for image in album.get("images") or ()
+        if isinstance(image, dict) and image.get("url")
+    ]
+    art = min(
+        images,
+        key=lambda image: abs((image.get("width") or ART_WIDTH) - ART_WIDTH),
+        default=None,
+    )
+    duration = item.get("duration_ms")
+    return QueuedTrack(
+        title=item["name"],
+        artist=_artists(item),
+        album=album.get("name") or "",
+        spotify_id=item.get("id") if isinstance(item.get("id"), str) else None,
+        duration=duration / 1000 if isinstance(duration, (int, float)) else None,
+        art_url=art["url"] if art else None,
+    )
+
+
+def _artists(item: dict[str, Any]) -> str:
+    """Artist names joined the way Home Assistant's Spotify player shows them."""
+    return ", ".join(
+        a["name"]
+        for a in item.get("artists") or ()
+        if isinstance(a, dict) and a.get("name")
+    )
+
+
+RECCOBEATS_TRACK = re.compile(r"track/([A-Za-z0-9]{22})")
+
+
+def reccobeats_by_id(body: Any) -> dict[str, dict[str, Any]]:
+    """A batch ReccoBeats audio-features body split per Spotify ID, each in
+    the shape apply_reccobeats takes."""
+    content = body.get("content") if isinstance(body, dict) else None
+    found: dict[str, dict[str, Any]] = {}
+    for item in content or ():
+        if not isinstance(item, dict):
+            continue
+        match = RECCOBEATS_TRACK.search(str(item.get("href") or ""))
+        if match:
+            found[match.group(1)] = {"content": [item]}
+    return found

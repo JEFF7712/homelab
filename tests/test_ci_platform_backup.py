@@ -1,3 +1,6 @@
+import datetime
+import json
+import shutil
 import sqlite3
 import subprocess
 import tempfile
@@ -9,7 +12,9 @@ from unittest.mock import patch
 from scripts.ci.platform_backup import (
     rotate_check_partition,
     run_backup,
+    run_drill,
     run_maintenance,
+    snapshot_couchdb,
     snapshot_home_assistant_config,
     snapshot_sqlite_tree,
     stop_active_services,
@@ -289,3 +294,357 @@ class PlatformBackupVerifyRestoreTests(unittest.TestCase):
             corrupt_db.write_bytes(b"NOT A SQLITE DATABASE FILE HEADER")
             with self.assertRaises(ValueError):
                 verify_restored_backup(root)
+
+
+class CouchDbBackupTests(unittest.TestCase):
+    def test_copies_databases_and_drops_compaction_and_deleted(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            shard = source / "shards/00000000-7fffffff"
+            shard.mkdir(parents=True)
+            (source / "_dbs.couch").write_bytes(b"dbs")
+            (shard / "main.1788762313.couch").write_bytes(b"notes")
+            (shard / "main.1788762313.couch.compact.data").write_bytes(b"partial")
+            (source / ".delete").mkdir()
+            (source / ".delete/old.couch").write_bytes(b"gone")
+            target = root / "stage"
+            snapshot_couchdb(source, target)
+            self.assertEqual(
+                (
+                    target / "shards/00000000-7fffffff/main.1788762313.couch"
+                ).read_bytes(),
+                b"notes",
+            )
+            self.assertTrue((target / "_dbs.couch").is_file())
+            self.assertFalse(any(target.rglob("*.compact*")))
+            self.assertFalse((target / ".delete").exists())
+
+    def test_symlinks_and_missing_metadata_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaisesRegex(ValueError, "_dbs.couch"):
+                snapshot_couchdb(root, root / "stage")
+            (root / "_dbs.couch").write_bytes(b"dbs")
+            (root / "escape").symlink_to("/etc")
+            with self.assertRaisesRegex(ValueError, "symlinks"):
+                snapshot_couchdb(root, root / "stage")
+
+    def test_rejects_wrong_host_or_escaping_path(self) -> None:
+        with self.assertRaisesRegex(ValueError, "nas-01"):
+            run_backup("homelab-04", couchdb_data=Path("/tank/cluster/couch"))
+        for path in ("/tank/cluster/../persist", "/persist/couch", "/tank/cluster"):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                run_backup("nas-01", couchdb_data=Path(path))
+
+
+class PlatformRestoreDrillTests(unittest.TestCase):
+    """The weekly drill restores a sample per host and publishes evidence."""
+
+    NOW = datetime.datetime(2026, 11, 8, 17, 0, tzinfo=datetime.UTC)
+
+    def fake_restic(
+        self, snapshots: dict[str, list[dict]], broken: set[str], couch: bool = False
+    ):
+        real = subprocess.run
+
+        def run(command, **kwargs):
+            if command[0] != "restic":
+                return real(command, **kwargs)
+            if "snapshots" in command:
+                host = command[command.index("--host") + 1]
+                return subprocess.CompletedProcess(
+                    command, 0, stdout=json.dumps(snapshots.get(host, []))
+                )
+            target = Path(command[command.index("--target") + 1])
+            host = target.name
+            database = target / "persist/tofu-state/state.sqlite"
+            database.parent.mkdir(parents=True)
+            if host in broken:
+                database.write_bytes(b"NOT A SQLITE DATABASE FILE HEADER")
+            else:
+                with closing(sqlite3.connect(database)) as connection:
+                    connection.execute("CREATE TABLE t(x)")
+            if host == "nas-01":
+                repository = target / "tank/forgejo/repositories/jeff7712/homelab.git"
+                real(["git", "init", "-q", "--bare", str(repository)], check=True)
+                if couch:
+                    data = target / "persist/platform-backup/x/applications/couchdb"
+                    data.mkdir(parents=True)
+                    (data / "_dbs.couch").write_bytes(b"dbs")
+            return subprocess.CompletedProcess(command, 0)
+
+        return run
+
+    def snapshot(self, time: str) -> list[dict]:
+        return [{"id": "a" * 64, "short_id": "aaaaaaaa", "time": time}]
+
+    def drill(self, snapshots, broken=(), state=None, couch=False, couchdb=None):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state_file = root / "state/drill.json"
+            if state is not None:
+                state_file.parent.mkdir()
+                state_file.write_text(json.dumps(state))
+            metrics = root / "metrics/drill.prom"
+            with patch(
+                "scripts.ci.platform_backup.subprocess.run",
+                side_effect=self.fake_restic(snapshots, set(broken), couch),
+            ):
+                # Never raises: a failed unit would fail nas-01 activation.
+                failed = run_drill(
+                    "nas-01",
+                    root / "scratch",
+                    state_file,
+                    metrics,
+                    self.NOW,
+                    couchdb=couchdb,
+                )
+            error = failed or None
+            self.assertEqual(list((root / "scratch").iterdir()), [], "scratch kept")
+            self.assertEqual(metrics.stat().st_mode & 0o777, 0o644)
+            return error, json.loads(state_file.read_text()), metrics.read_text()
+
+    def test_fresh_restorable_snapshots_pass_on_both_hosts(self) -> None:
+        recent = self.snapshot("2026-11-08T09:05:03.123456789-06:00")
+        error, state, metrics = self.drill({"nas-01": recent, "homelab-04": recent})
+        self.assertIsNone(error)
+        stamp = int(self.NOW.timestamp())
+        for host in ("nas-01", "homelab-04"):
+            self.assertEqual(state[f"platform-{host}"]["passed"], stamp)
+            self.assertIn(
+                f'homelab_restore_drill_last_result{{dataset="platform-{host}"}} 1',
+                metrics,
+            )
+
+    def test_stale_missing_or_corrupt_backups_fail_and_keep_the_last_pass(
+        self,
+    ) -> None:
+        recent = self.snapshot("2026-11-08T09:05:03Z")
+        stale = self.snapshot("2026-11-04T09:05:03Z")
+        previous = {"platform-homelab-04": {"passed": 1, "result": "pass: old"}}
+        for snapshots, broken, reason in (
+            ({"nas-01": recent, "homelab-04": stale}, (), "days old"),
+            ({"nas-01": recent}, (), "no snapshot"),
+            ({"nas-01": recent, "homelab-04": recent}, ("homelab-04",), "Database"),
+        ):
+            with self.subTest(reason=reason):
+                error, state, metrics = self.drill(snapshots, broken, previous)
+                self.assertIn("platform-homelab-04", str(error))
+                entry = state["platform-homelab-04"]
+                self.assertEqual(entry["passed"], 1)
+                self.assertIn(reason, entry["result"])
+                self.assertIn(
+                    'homelab_restore_drill_last_result{dataset="platform-homelab-04"} 0',
+                    metrics,
+                )
+                self.assertIn(
+                    'last_success_timestamp_seconds{dataset="platform-homelab-04"} 1',
+                    metrics,
+                )
+
+    def test_fsck_trusts_a_repository_restored_under_another_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            repository = Path(directory) / "repositories/jeff7712/homelab.git"
+            repository.mkdir(parents=True)
+            with patch(
+                "scripts.ci.platform_backup.subprocess.run",
+                return_value=subprocess.CompletedProcess([], 0, "", ""),
+            ) as run:
+                verify_restored_backup(Path(directory))
+            command = run.call_args.args[0]
+            self.assertEqual(command[1:3], ["-c", f"safe.directory={repository}"])
+            self.assertEqual(command[3:5], ["-c", "core.commitGraph=false"])
+            self.assertEqual(command[-2:], ["fsck", "--full"])
+
+    def test_fsck_ignores_a_stale_commit_graph_but_not_missing_objects(
+        self,
+    ) -> None:
+        # A prune leaves the commit-graph listing removed commits; fsck --full
+        # reads it and fails although every reachable object is present.
+        def git(repository: Path, *command: str) -> str:
+            return subprocess.run(
+                ["git", "-c", "user.name=t", "-c", "user.email=t@t", *command],
+                cwd=repository,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory) / "work"
+            work.mkdir()
+            git(work, "init", "-q", "-b", "main")
+            (work / "a").write_text("a\\n")
+            git(work, "add", "a")
+            git(work, "commit", "-q", "-m", "kept")
+            git(work, "checkout", "-q", "-b", "superseded")
+            (work / "b").write_text("b\\n")
+            git(work, "add", "b")
+            git(work, "commit", "-q", "-m", "pruned later")
+            pruned = git(work, "rev-parse", "HEAD")
+            git(work, "checkout", "-q", "main")
+            git(work, "commit-graph", "write", "--reachable", "--split")
+            git(work, "branch", "-q", "-D", "superseded")
+            (work / ".git/objects" / pruned[:2] / pruned[2:]).unlink()
+            restore = Path(directory) / "restore"
+            (restore / "repositories").mkdir(parents=True)
+            repository = restore / "repositories/homelab.git"
+            (work / ".git").rename(repository)
+            # Forgejo's bare repositories keep no reflog of the pruned head.
+            shutil.rmtree(repository / "logs")
+            verify_restored_backup(restore)
+
+            kept = git(repository, "rev-parse", "main:a")
+            (repository / "objects" / kept[:2] / kept[2:]).unlink()
+            with self.assertRaisesRegex(ValueError, "git fsck failed"):
+                verify_restored_backup(restore)
+
+    def test_failure_reason_is_published_as_a_safe_label(self) -> None:
+        recent = self.snapshot("2026-11-08T09:05:03Z")
+        error, _, metrics = self.drill(
+            {"nas-01": recent, "homelab-04": recent}, ("homelab-04",)
+        )
+        self.assertIsNotNone(error)
+        line = next(
+            line
+            for line in metrics.splitlines()
+            if line.startswith(
+                'homelab_restore_drill_result_info{dataset="platform-homelab-04"'
+            )
+        )
+        self.assertIn('result="fail: Database error', line)
+        self.assertEqual(line.count('"'), 4, line)
+
+    def couch_drill(self, couch, state=None, broken=(), verdict="pass: 1 databases"):
+        recent = self.snapshot("2026-11-08T09:05:03Z")
+        with patch(
+            "scripts.ci.platform_backup.verify_couchdb", return_value=verdict
+        ) as verify:
+            result = self.drill(
+                {"nas-01": recent, "homelab-04": recent},
+                broken,
+                state,
+                couch=couch,
+                couchdb=Path("/run/couchdb"),
+            )
+        return (*result, verify)
+
+    def test_couchdb_copy_is_opened_and_published_as_its_own_dataset(self) -> None:
+        error, state, metrics, verify = self.couch_drill(couch=True)
+        self.assertIsNone(error)
+        self.assertEqual(state["couchdb-obsidian"]["passed"], int(self.NOW.timestamp()))
+        self.assertIn(
+            'homelab_restore_drill_last_result{dataset="couchdb-obsidian"} 1', metrics
+        )
+        data, binary, _ = verify.call_args.args
+        self.assertEqual(data.name, "couchdb")
+        self.assertEqual(binary, Path("/run/couchdb"))
+
+    def test_couchdb_not_yet_backed_up_is_pending_and_unpublished(self) -> None:
+        error, state, metrics, verify = self.couch_drill(couch=False)
+        verify.assert_not_called()
+        self.assertIn("couchdb-obsidian", str(error))
+        self.assertTrue(state["couchdb-obsidian"]["result"].startswith("pending"))
+        self.assertNotIn('dataset="couchdb-obsidian"', metrics)
+        self.assertIn(
+            'homelab_restore_drill_last_result{dataset="platform-nas-01"} 1', metrics
+        )
+
+    def test_couchdb_missing_after_a_pass_is_a_failure(self) -> None:
+        previous = {"couchdb-obsidian": {"passed": 1, "result": "pass: old"}}
+        error, state, metrics, _ = self.couch_drill(couch=False, state=previous)
+        self.assertIn("couchdb-obsidian", str(error))
+        self.assertIn("not restored", state["couchdb-obsidian"]["result"])
+        self.assertIn(
+            'homelab_restore_drill_last_result{dataset="couchdb-obsidian"} 0', metrics
+        )
+        self.assertIn(
+            'last_success_timestamp_seconds{dataset="couchdb-obsidian"} 1', metrics
+        )
+
+    def test_couchdb_that_will_not_open_fails(self) -> None:
+        recent = self.snapshot("2026-11-08T09:05:03Z")
+        with patch(
+            "scripts.ci.platform_backup.verify_couchdb",
+            side_effect=ValueError("CouchDB database main has no documents"),
+        ):
+            error, state, _ = self.drill(
+                {"nas-01": recent, "homelab-04": recent},
+                couch=True,
+                couchdb=Path("/run/couchdb"),
+            )
+        self.assertIn("couchdb-obsidian", str(error))
+        self.assertIn("no documents", state["couchdb-obsidian"]["result"])
+
+    def test_platform_restore_failure_fails_couchdb_too(self) -> None:
+        error, state, _, verify = self.couch_drill(couch=True, broken=("nas-01",))
+        verify.assert_not_called()
+        self.assertIn("couchdb-obsidian", str(error))
+        self.assertTrue(state["couchdb-obsidian"]["result"].startswith("fail"))
+
+    def test_recent_passes_skip_the_drill_but_keep_publishing(self) -> None:
+        from scripts.ci.platform_backup import DRILL_CODE
+
+        passed = int(self.NOW.timestamp()) - 86400
+        state = {
+            dataset: {"passed": passed, "result": "pass: earlier", "code": DRILL_CODE}
+            for dataset in ("platform-nas-01", "platform-homelab-04")
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state_file = root / "drill.json"
+            state_file.write_text(json.dumps(state))
+            metrics = root / "drill.prom"
+            with patch("scripts.ci.platform_backup.subprocess.run") as run:
+                self.assertEqual(
+                    run_drill(
+                        "nas-01", root / "scratch", state_file, metrics, self.NOW
+                    ),
+                    [],
+                )
+            run.assert_not_called()
+            self.assertIn(
+                'homelab_restore_drill_last_result{dataset="platform-nas-01"} 1',
+                metrics.read_text(),
+            )
+
+    def test_a_failure_pending_or_week_old_pass_makes_the_drill_due(self) -> None:
+        from scripts.ci.platform_backup import drill_due
+
+        fresh = int(self.NOW.timestamp()) - 3600
+        week_old = int(self.NOW.timestamp()) - 7 * 86400
+        from scripts.ci.platform_backup import DRILL_CODE
+
+        passing = {
+            "platform-nas-01": {
+                "passed": fresh,
+                "result": "pass: x",
+                "code": DRILL_CODE,
+            },
+            "platform-homelab-04": {
+                "passed": fresh,
+                "result": "pass: x",
+                "code": DRILL_CODE,
+            },
+        }
+        self.assertFalse(drill_due(passing, self.NOW, couchdb=False))
+        self.assertTrue(drill_due(passing, self.NOW, couchdb=True))
+        for result, stamp, code in (
+            ("fail: x", fresh, DRILL_CODE),
+            ("pending: x", 0, DRILL_CODE),
+            ("pass: x", week_old, DRILL_CODE),
+            ("pass: x", fresh, "older-drill-code"),
+        ):
+            with self.subTest(result=result, code=code):
+                state = dict(passing)
+                state["platform-homelab-04"] = {
+                    "passed": stamp,
+                    "result": result,
+                    "code": code,
+                }
+                self.assertTrue(drill_due(state, self.NOW, couchdb=False))
+
+    def test_only_nas_01_runs_drills(self) -> None:
+        with self.assertRaises(ValueError):
+            run_drill("homelab-04")

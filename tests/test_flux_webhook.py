@@ -17,26 +17,6 @@ def load_single(path: pathlib.Path) -> dict:
 
 
 class FluxWebhookContract(unittest.TestCase):
-    def test_receiver_reconciles_root_sources(self) -> None:
-        receiver = load_single(WEBHOOK_DIR / "receiver.yaml")
-        self.assertEqual(receiver["apiVersion"], "notification.toolkit.fluxcd.io/v1")
-        self.assertEqual(receiver["kind"], "Receiver")
-        self.assertEqual(receiver["metadata"]["name"], "gitlab-push")
-        self.assertEqual(receiver["metadata"]["namespace"], "flux-system")
-        spec = receiver["spec"]
-        self.assertEqual(spec["type"], "gitlab")
-        # Flux matches GitLab's raw X-Gitlab-Event names, not generic kinds.
-        self.assertEqual(sorted(spec["events"]), ["Push Hook", "Tag Push Hook"])
-        self.assertEqual(spec["secretRef"], {"name": "receiver-token"})
-        resources = {(r["kind"], r["name"], r["namespace"]) for r in spec["resources"]}
-        self.assertEqual(
-            resources,
-            {
-                ("GitRepository", "flux-system", "flux-system"),
-                ("Kustomization", "flux-system", "flux-system"),
-            },
-        )
-
     def test_token_comes_from_local_store_not_plaintext(self) -> None:
         token = load_single(WEBHOOK_DIR / "receiver-token.yaml")
         self.assertEqual(token["kind"], "ExternalSecret")
@@ -44,7 +24,8 @@ class FluxWebhookContract(unittest.TestCase):
         self.assertEqual(token["spec"]["target"]["name"], "receiver-token")
         store = token["spec"]["secretStoreRef"]
         self.assertEqual(
-            (store["kind"], store["name"]), ("ClusterSecretStore", "homelab-secrets")
+            (store["kind"], store["name"]),
+            ("ClusterSecretStore", "homelab-flux-system"),
         )
         keys = [entry["secretKey"] for entry in token["spec"]["data"]]
         self.assertIn("token", keys)
@@ -84,7 +65,7 @@ class FluxWebhookContract(unittest.TestCase):
         bundle = load_single(WEBHOOK_DIR / "kustomization.yaml")
         self.assertEqual(
             sorted(bundle["resources"]),
-            ["forgejo-receiver.yaml", "receiver-token.yaml", "receiver.yaml"],
+            ["forgejo-receiver.yaml", "receiver-token.yaml"],
         )
 
 

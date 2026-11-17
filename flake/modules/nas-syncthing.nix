@@ -2,10 +2,12 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
   cfg = config.homelab.syncthing;
+  inherit (fleetInventory) networks;
 in
 {
   options.homelab.syncthing = {
@@ -26,9 +28,9 @@ in
     # Restrict Syncthing sync ports (22000 TCP/UDP) and discovery (21027 UDP) to LAN and NetBird subnets.
     # Note: nas-01 receives NetBird traffic (100.64.0.0/10) routed via adguard-netbird-01 into 10.0.30.0/24.
     networking.firewall.extraInputRules = ''
-      ip saddr { 10.0.10.0/24, 10.0.30.0/24, 100.64.0.0/10 } tcp dport 22000 accept
-      ip saddr { 10.0.10.0/24, 10.0.30.0/24, 100.64.0.0/10 } udp dport 22000 accept
-      ip saddr { 10.0.10.0/24, 10.0.30.0/24, 100.64.0.0/10 } udp dport 21027 accept
+      ip saddr { ${networks.management.cidr}, ${networks.infrastructure.cidr}, 100.64.0.0/10 } tcp dport 22000 accept
+      ip saddr { ${networks.management.cidr}, ${networks.infrastructure.cidr}, 100.64.0.0/10 } udp dport 22000 accept
+      ip saddr { ${networks.management.cidr}, ${networks.infrastructure.cidr}, 100.64.0.0/10 } udp dport 21027 accept
     '';
     # Web GUI is bound strictly to loopback (127.0.0.1:8384). No external firewall port is opened.
 

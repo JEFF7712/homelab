@@ -599,7 +599,8 @@ async def main() -> None:
                 pass
 
     try:
-        health_server = await asyncio.start_server(
+        # Held for the life of main() so the listener is never collected.
+        _health_server = await asyncio.start_server(
             handle_health, host="127.0.0.1", port=health_port
         )
         _LOGGER.info("Dedicated health endpoint listening on 127.0.0.1:%s", health_port)

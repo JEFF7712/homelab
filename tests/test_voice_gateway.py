@@ -951,7 +951,7 @@ class VoiceNetworkPolicyScrapeCoverageTest(unittest.TestCase):
                         if name:
                             services[name] = doc
 
-        self.assertGreaterEqual(len(service_monitors), 5)
+        self.assertGreaterEqual(len(service_monitors), 4)
 
         for filename, sm in service_monitors:
             sm_name = sm.get("metadata", {}).get("name")

@@ -54,6 +54,11 @@ class AgentSessionTest(unittest.TestCase):
                     "PATH": environment["PATH"],
                     "PYTHONPATH": str(source),
                     "AGENT_HOUSEKEEPING": "0",
+                    # The 0.5 s and 5 s defaults fall open on a loaded CI
+                    # runner (4 test workers), losing the receipt and context
+                    # this test asserts.
+                    "AGENT_HOOK_STEP_TIMEOUT": "30",
+                    "AGENT_HOOK_CONTEXT_TIMEOUT": "60",
                 }
                 result = subprocess.run(
                     ["bash", str(root / "hooks/session-start")],

@@ -28,6 +28,14 @@ in
 
   networking.hostName = "homelab-05";
 
+  # Retained local Prometheus TSDB and Loki store; their PVs bind only on this
+  # host. Loki runs as 10001:10001 (chart pod security context).
+  systemd.tmpfiles.rules = [
+    "d /persist/prometheus 0750 1000 2000 -"
+    "d /persist/prometheus/prometheus-db 0750 1000 2000 -"
+    "d /persist/loki 0750 10001 10001 -"
+  ];
+
   # The e1000e transmit queue hung on 2026-10-16 and never recovered.
   systemd.network.links."10-onboard-ethernet" = {
     matchConfig = {
@@ -83,6 +91,13 @@ in
     "/var/lib/bluetooth"
   ];
 
+  # The root filesystem is ephemeral. Keep the optical sink gain and default
+  # route across boots; WirePlumber otherwise starts sinks at 40% volume,
+  # independently of the satellite's Home Assistant / Music Assistant slider.
+  environment.persistence."/persist".users.${config.homelab.kiosk.user}.directories = [
+    ".local/state/wireplumber"
+  ];
+
   environment.systemPackages = [
     pkgs.bluez
     pkgs.bluez-tools
@@ -94,9 +109,12 @@ in
     # Apollo publishes as the roku-bridge broker user on adguard-netbird-01.
     mosquitto-roku-bridge-password = {
       sopsFile = ../../../secrets/shared/mqtt-roku-bridge.sops.yaml;
-      restartUnits = map (device: "apollo-ble-bridge-${device}.service") (
+      restartUnits = [
+        "controller-pairer.service"
+      ]
+      ++ (map (device: "apollo-ble-bridge-${device}.service") (
         builtins.attrNames config.homelab.apollo-ble-bridge.devices
-      );
+      ));
     };
   };
 
@@ -185,15 +203,18 @@ in
           # alsa_output.usb-Generic_USB_SPDIF_Adapter_202110200032-00.analog-stereo,
           # USB 0bda:4e27). The usb-*SPDIF* substring survives USB bus-path
           # renames. Placed after the generic onboard rule so it wins the
-          # priority for this one node.
+          # priority for this one node. Keep session.suspend-timeout-seconds at 0
+          # so the optical transmitter carrier stays active 24/7 and does not
+          # trigger the soundbar's auto-sleep timer.
           {
             matches = [
-              { "node.name" = "~alsa_output.usb-*SPDIF*"; }
+              { "node.name" = "~alsa_output.usb-.*SPDIF.*"; }
             ];
             actions = {
               update-props = {
                 "priority.driver" = 3000;
                 "priority.session" = 3000;
+                "session.suspend-timeout-seconds" = 0;
               };
             };
           }
@@ -233,7 +254,13 @@ in
       "rupan"
     ];
     autostart = true;
+    autostartHost = "10.0.20.135";
+    autostartApp = "Steam Big Picture";
     output = "HDMI-A-1";
+    controllerPairer = {
+      enable = true;
+      passwordFile = config.sops.secrets.mosquitto-roku-bridge-password.path;
+    };
   };
 
   # Re-apply ALSA unmute whenever the QuadCast USB microphone is connected/re-enumerated
@@ -245,8 +272,11 @@ in
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport 6053 accept
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport { 8095, 8097, 38801, 38802, 38803, 38804, 38805, 38806, 38807, 38808, 38809, 38810, 38901, 38902, 38903, 38904, 38905, 38906, 38907, 38908, 38909, 38910 } accept
     ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } udp dport 5353 accept
-    # Allow inbound UDP from internal subnets for Music Assistant AirPlay/RAOP timing and streaming
-    meta l4proto udp ip saddr { 10.0.0.0/16, 10.42.0.0/16 } accept
+    # Music Assistant AirPlay/RAOP timing and control use dynamically negotiated
+    # UDP ports, so this rule is port-agnostic and narrowed by source instead:
+    # speakers and players on the clients and infrastructure VLANs, plus pods.
+    # The guest/IoT VLAN only gets the TCP party view and LedFx ports above.
+    meta l4proto udp ip saddr { ${fleetInventory.networks.clients.cidr}, ${fleetInventory.networks.infrastructure.cidr}, 10.42.0.0/16 } accept
   '';
 
   systemd.services.satellite-alsa-restore = {

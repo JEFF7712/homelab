@@ -150,6 +150,8 @@ class GitopsCheckTest(unittest.TestCase):
         skipped: int = 0,
         directory: str = "application",
         websites: int = 0,
+        shellcheck: int = 0,
+        script: str | None = None,
     ) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temporary:
             repo = Path(temporary)
@@ -162,6 +164,9 @@ class GitopsCheckTest(unittest.TestCase):
             target = repo / "gitops" / directory
             target.mkdir(parents=True)
             (target / "kustomization.yaml").write_text("resources: []\n")
+            if script is not None:
+                (repo / "gitops" / script).parent.mkdir(parents=True, exist_ok=True)
+                (repo / "gitops" / script).write_text("#!/bin/sh\n")
             binaries = repo / "bin"
             binaries.mkdir()
             commands = {
@@ -169,6 +174,7 @@ class GitopsCheckTest(unittest.TestCase):
                 "kubectl": f"printf 'rendered\\n'; exit {render}",
                 "kubeconform": f"cat >/dev/null; printf 'Skipped: {skipped}\\n'; exit {validate}",
                 "python": f"printf 'python %s\\n' \"$*\" >&2; exit {websites}",
+                "shellcheck": f"printf 'shellcheck %s\\n' \"$*\" >&2; exit {shellcheck}",
             }
             for name, body in commands.items():
                 path = binaries / name
@@ -189,6 +195,15 @@ class GitopsCheckTest(unittest.TestCase):
     def test_success(self) -> None:
         result = self.run_check()
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_deployed_shell_scripts_are_shellchecked(self) -> None:
+        result = self.run_check(script="automation/job/run.sh")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("shellcheck gitops/automation/job/run.sh", result.stderr)
+
+    def test_shellcheck_finding_fails_the_gate(self) -> None:
+        result = self.run_check(script="automation/job/run.sh", shellcheck=1)
+        self.assertNotEqual(result.returncode, 0)
 
     def test_stale_website_render_fails_the_gate(self) -> None:
         result = self.run_check(websites=1)

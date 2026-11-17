@@ -1,4 +1,7 @@
 { pkgs, fleetInventory, ... }:
+let
+  inherit (fleetInventory) networks;
+in
 {
   boot = {
     loader = {
@@ -35,11 +38,11 @@
     firewall = {
       enable = true;
       extraInputRules = ''
-        ip saddr 10.0.10.0/24 tcp dport 22 accept
-        ip saddr 10.0.30.0/24 tcp dport 22 accept
+        ip saddr ${networks.management.cidr} tcp dport 22 accept
+        ip saddr ${networks.infrastructure.cidr} tcp dport 22 accept
         ip saddr 100.64.0.0/10 tcp dport 22 accept
-        ip saddr 10.0.10.0/24 tcp dport 9633 accept
-        ip saddr 10.0.30.0/24 tcp dport 9633 accept
+        ip saddr ${networks.management.cidr} tcp dport 9633 accept
+        ip saddr ${networks.infrastructure.cidr} tcp dport 9633 accept
         ip saddr 10.42.0.0/16 tcp dport 9633 accept
       '';
     };
@@ -108,10 +111,16 @@
     };
   };
 
+  # A tank scrub takes about two days of the single disk's bandwidth;
+  # weekly kept it busy a third of the time.
   services.zfs.autoScrub = {
     enable = true;
-    interval = "weekly";
+    interval = "monthly";
   };
+  # zfs-scrub.service stays active for the whole scrub (about two days on
+  # tank). Restarting it on a switch reruns `zpool scrub`, which fails while
+  # one is in progress and rolls the deployment back (2026-11-16).
+  systemd.services.zfs-scrub.restartIfChanged = false;
   services.zfs.trim = {
     enable = true;
     interval = "weekly";

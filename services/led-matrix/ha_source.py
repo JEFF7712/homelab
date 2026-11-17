@@ -34,6 +34,9 @@ class HomeAssistantSource:
         brightness_entity: str | None = None,
         weather_entity: str | None = None,
         music_mode_entity: str | None = None,
+        cycle_entity: str | None = None,
+        contrast_entity: str | None = None,
+        saturation_entity: str | None = None,
         stale_after: float = 120,
         on_update: Callable[[PlaybackState], None] | None = None,
         on_hub_update: Callable[[HAState], None] | None = None,
@@ -83,6 +86,9 @@ class HomeAssistantSource:
         self.brightness_entity = brightness_entity
         self.weather_entity = weather_entity
         self.music_mode_entity = music_mode_entity
+        self.cycle_entity = cycle_entity
+        self.contrast_entity = contrast_entity
+        self.saturation_entity = saturation_entity
         self.stale_after = stale_after
         self.on_update = on_update
         self.on_hub_update = on_hub_update
@@ -219,6 +225,9 @@ class HomeAssistantSource:
             weather_condition = self._hub_state.weather_condition
             weather_unit = self._hub_state.weather_unit
             music_mode = self._hub_state.music_mode
+            cycle = self._hub_state.cycle
+            vinyl_contrast = self._hub_state.vinyl_contrast
+            vinyl_saturation = self._hub_state.vinyl_saturation
 
             if entity_id == self.power_entity:
                 power = (state_val != "off") if state_val is not None else True
@@ -230,6 +239,22 @@ class HomeAssistantSource:
                 )
             elif entity_id == self.music_mode_entity:
                 music_mode = state_val == "on"
+            elif entity_id == self.cycle_entity:
+                cycle = (state_val != "off") if state_val is not None else True
+            elif entity_id == self.contrast_entity:
+                if state_val is not None:
+                    try:
+                        c = float(state_val)
+                        vinyl_contrast = max(0.1, min(3.0, c))
+                    except (ValueError, TypeError):
+                        pass
+            elif entity_id == self.saturation_entity:
+                if state_val is not None:
+                    try:
+                        s = float(state_val)
+                        vinyl_saturation = max(0.1, min(3.0, s))
+                    except (ValueError, TypeError):
+                        pass
             elif entity_id == self.brightness_entity:
                 if state_val is not None:
                     try:
@@ -260,6 +285,9 @@ class HomeAssistantSource:
                 weather_condition=weather_condition,
                 weather_unit=weather_unit,
                 music_mode=music_mode,
+                cycle=cycle,
+                vinyl_contrast=vinyl_contrast,
+                vinyl_saturation=vinyl_saturation,
             )
             changed = new_hub_state != self._hub_state
             self._hub_state = new_hub_state
@@ -281,6 +309,9 @@ class HomeAssistantSource:
                     self.brightness_entity,
                     self.weather_entity,
                     self.music_mode_entity,
+                    self.cycle_entity,
+                    self.contrast_entity,
+                    self.saturation_entity,
                 ]
                 if e
             }
@@ -372,6 +403,9 @@ class HomeAssistantSource:
                 self.brightness_entity,
                 self.weather_entity,
                 self.music_mode_entity,
+                self.cycle_entity,
+                self.contrast_entity,
+                self.saturation_entity,
             ]
             if e
         ]
@@ -690,6 +724,11 @@ class HybridPlaybackSource:
         return self.ha_source.fetch_artwork(picture)
 
     def _should_poll_spotify(self) -> bool:
+        """Poll Spotify only for a music mode, and only while Home Assistant
+        shows something playing or playback stopped within active_window.
+        The Spotify app's Web API quota is shared with Home Assistant's
+        Spotify integration and music_director; idle polling exhausted it.
+        Home Assistant still wakes the poller when playback starts."""
         hub = self.hub_state()
         if (
             hub is None
@@ -697,17 +736,23 @@ class HybridPlaybackSource:
             or getattr(hub, "mode", "Auto") == "Off"
         ):
             return False
-        mode = getattr(hub, "mode", "Auto")
-        if mode == "Spotify":
+        if getattr(hub, "mode", "Auto") not in ("Spotify", "Auto"):
+            return False
+        ha_snap = self.ha_source.snapshot()
+        if ha_snap and getattr(ha_snap, "playing", False):
             return True
-        if mode == "Auto":
-            ha_snap = self.ha_source.snapshot()
-            if ha_snap and getattr(ha_snap, "playing", False):
-                return True
-            if time.monotonic() - self._last_active_at < self.active_window:
-                return True
-            return True
-        return False
+        return time.monotonic() - self._last_active_at < self.active_window
+
+    def _ha_signature(self) -> tuple[str, str, bool]:
+        """What an early poll reacts to: the track and play state in HA."""
+        snap = self.ha_source.snapshot()
+        if snap is None:
+            return ("", "", False)
+        return (
+            str(getattr(snap, "title", "") or ""),
+            str(getattr(snap, "artist", "") or ""),
+            bool(getattr(snap, "playing", False)),
+        )
 
     def _poll_once(self) -> float:
         """Poll Spotify once and return the delay until the next poll."""
@@ -767,6 +812,8 @@ class HybridPlaybackSource:
             return self.error_cooldown
 
     def _poll_loop(self) -> None:
+        next_poll = 0.0
+        polled_signature: tuple[str, str, bool] | None = None
         while not self._stop.is_set():
             now = time.monotonic()
             with self._lock:
@@ -777,10 +824,16 @@ class HybridPlaybackSource:
                 continue
 
             if not self._should_poll_spotify():
+                next_poll = 0.0
                 self._wake_event.wait(timeout=30.0)
                 self._wake_event.clear()
                 continue
 
-            delay = self._poll_once()
-            self._wake_event.wait(timeout=delay)
+            # Wakes come with every HA update (positions, weather, hub
+            # entities): poll early only when the track or play state moved.
+            signature = self._ha_signature()
+            if now >= next_poll or signature != polled_signature:
+                polled_signature = signature
+                next_poll = now + self._poll_once()
+            self._wake_event.wait(timeout=max(0.0, next_poll - time.monotonic()))
             self._wake_event.clear()

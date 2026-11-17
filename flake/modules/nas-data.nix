@@ -2,6 +2,7 @@
   config,
   pkgs,
   lib,
+  fleetInventory,
   ...
 }:
 {
@@ -82,11 +83,20 @@
 
   services.nfs.server = {
     enable = true;
-    exports = ''
-      /tank/media     10.0.30.0/24(rw,sync,no_subtree_check,no_root_squash,mountpoint) 10.0.10.0/24(ro,sync,no_subtree_check,mountpoint)
-      /tank/backups   10.0.30.0/24(rw,sync,no_subtree_check,mountpoint)
-      /tank/cluster   10.0.30.0/24(rw,sync,no_subtree_check,no_root_squash,mountpoint)
-    '';
+    exports =
+      let
+        # Only Kubernetes nodes mount shared application state. AUTH_SYS still
+        # trusts those nodes: the provisioner and existing root-owned service
+        # data require UID 0. Do not broaden this exception to the whole VLAN.
+        nodes = lib.filter (host: host.k3s or false) (lib.attrValues fleetInventory.hosts);
+        nodeExports = lib.concatMapStringsSep " " (
+          host: "${host.address}(rw,sync,no_subtree_check,no_root_squash,mountpoint)"
+        ) nodes;
+      in
+      ''
+        /tank/media ${nodeExports} 10.0.10.0/24(ro,sync,no_subtree_check,root_squash,mountpoint)
+        /tank/cluster ${nodeExports}
+      '';
   };
 
   systemd.services.nfs-server = {
@@ -116,6 +126,17 @@
       autosnap = true;
       autoprune = true;
     };
+    # Bulk media is replaceable; snapshots only cover recent mistakes. Unset
+    # periods fall back to sanoid's defaults (48 hourly, 6 monthly), which
+    # pinned months of replaced files and, with a full-library beets retag,
+    # nearly filled tank on 2026-11-15.
+    templates.media = {
+      hourly = 0;
+      daily = 7;
+      monthly = 0;
+      autosnap = true;
+      autoprune = true;
+    };
     templates.weekly = {
       daily = 7;
       autosnap = true;
@@ -127,7 +148,8 @@
       "tank/backups".useTemplate = [ "operational" ];
       "tank/backups/syncthing".useTemplate = [ "operational" ];
       "tank/cluster".useTemplate = [ "operational" ];
-      "tank/media".useTemplate = [ "weekly" ];
+      "tank/forgejo".useTemplate = [ "operational" ];
+      "tank/media".useTemplate = [ "media" ];
       "tank/attic".useTemplate = [ "weekly" ];
       "tank/registry".useTemplate = [ "operational" ];
     };
@@ -283,8 +305,12 @@
       }
       trap cleanup EXIT
 
-      restic backup "/tank/registry/.zfs/snapshot/''${snapshot#*@}" /persist/zot /var/lib/acme
-      restic forget --prune --keep-daily 7 --keep-weekly 5 --keep-monthly 6
+      # Timestamped snapshot paths are not a stable retention identity. Tag new
+      # backups and leave legacy snapshots outside this policy for audited cleanup.
+      restic backup --host nas-01 --tag registry-v2 --group-by host,tags \
+        "/tank/registry/.zfs/snapshot/''${snapshot#*@}" /persist/zot /var/lib/acme
+      restic forget --host nas-01 --tag registry-v2 --group-by host,tags \
+        --prune --keep-daily 7 --keep-weekly 5 --keep-monthly 6
       restic check --read-data-subset=5%
       date +%s > /persist/zot/status/backup-last-success.tmp
       sync -f /persist/zot/status/backup-last-success.tmp

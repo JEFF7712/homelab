@@ -1,0 +1,83 @@
+# Continuous WAL archiving and base backups of umami-cluster to the Garage
+# S3 service on nas-01 (bucket cnpg-wal), through the Barman Cloud plugin
+# in cnpg-system. The archive shares the NAS disk; the logical dumps to R2
+# remain the offsite copy. Restore path and outage limits:
+# docs/runbooks/postgres-disaster-recovery.md#wal-archive-on-garage.
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: cnpg-wal-archive
+  namespace: analytics
+spec:
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: homelab-analytics
+  target:
+    name: cnpg-wal-archive
+    creationPolicy: Owner
+  data:
+    - secretKey: ACCESS_KEY_ID
+      remoteRef:
+        key: homelab-analytics-values
+        property: CNPG_WAL_ACCESS_KEY_ID
+    - secretKey: ACCESS_SECRET_KEY
+      remoteRef:
+        key: homelab-analytics-values
+        property: CNPG_WAL_ACCESS_SECRET_KEY
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: umami-garage
+  namespace: analytics
+spec:
+  # Recovery window: base backups older than the newest one that still
+  # covers 14 days are deleted together with the WAL they no longer need.
+  retentionPolicy: 14d
+  configuration:
+    destinationPath: s3://cnpg-wal/analytics
+    # Garage serves plain HTTP on the LAN only; SigV4 never sends the
+    # secret key. Path style because bucket subdomains are not resolvable.
+    endpointURL: http://10.0.30.20:3900
+    s3AddressingStyle: path
+    s3Credentials:
+      accessKeyId:
+        name: cnpg-wal-archive
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: cnpg-wal-archive
+        key: ACCESS_SECRET_KEY
+    wal:
+      compression: gzip
+      maxParallel: 2
+    data:
+      compression: gzip
+      jobs: 1
+  instanceSidecarConfiguration:
+    env:
+      # Garage signs and checks the "homelab" region (flake/modules/nas-s3.nix).
+      - name: AWS_DEFAULT_REGION
+        value: homelab
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+      limits:
+        memory: 512Mi
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: umami-cluster-weekly
+  namespace: analytics
+spec:
+  # Sunday 04:00 UTC (six-field cron), after the nightly logical dumps.
+  schedule: "0 0 4 * * 0"
+  immediate: true
+  backupOwnerReference: self
+  cluster:
+    name: umami-cluster
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

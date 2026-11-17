@@ -20,7 +20,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 
 from scripts.ci.authority import select
-from scripts.ci.migrate_secrets import ROOT, variables
+from scripts.ci.migrate_secrets import ROOT
 from scripts.ci.policy import SCHEDULES
 from scripts.ci.state import Store
 
@@ -97,26 +97,18 @@ def main() -> None:
         "--overrides",
         type=Path,
         required=True,
-        help="JSON credential overrides, including freshly provisioned Forgejo bot tokens",
+        help="JSON object of every catalog credential, including freshly provisioned Forgejo bot tokens",
     )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         raise ValueError("Refusing to overwrite a prepared recovery bundle")
-    source = variables()
-    source.update(json.loads(args.overrides.read_text()))
+    source = json.loads(args.overrides.read_text())
     catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
     cert, key = certificate()
-    passwords = {
-        name: secrets.token_urlsafe(48)
-        for name in ["plan", "deploy", "gitlab-plan", "gitlab-deploy"]
-    }
+    passwords = {name: secrets.token_urlsafe(48) for name in ["plan", "deploy"]}
     credentials = {
-        name: {
-            "password": password,
-            "role": name.removeprefix("gitlab-"),
-            "authority": "gitlab" if name.startswith("gitlab-") else "woodpecker",
-        }
+        name: {"password": password, "role": name, "authority": "woodpecker"}
         for name, password in passwords.items()
     }
     available = {key.lower(): value for key, value in source.items()}
@@ -133,7 +125,12 @@ def main() -> None:
     }
     automatic_events: dict[str, set[str]] = {}
     for event, targets in {
-        "push": ["opnsense-plan", "cloudflare-plan", "registry-lock-import"],
+        "push": [
+            "opnsense-plan",
+            "cloudflare-plan",
+            "cloudflare-access-plan",
+            "registry-lock-import",
+        ],
         "cron": sorted({target for names in SCHEDULES.values() for target in names}),
     }.items():
         for target in targets:
@@ -184,12 +181,6 @@ def main() -> None:
                     }
                     for name in sorted(required)
                 ]
-            ).encode(),
-            "gitlab-state-passwords.json": json.dumps(
-                {
-                    "DR_STATE_PLAN_PASSWORD": passwords["gitlab-plan"],
-                    "DR_STATE_DEPLOY_PASSWORD": passwords["gitlab-deploy"],
-                }
             ).encode(),
             "state-fingerprints.json": json.dumps(fingerprints).encode(),
         }

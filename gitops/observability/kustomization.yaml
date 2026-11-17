@@ -5,8 +5,10 @@ resources:
   - kube-prometheus-stack/repository.yaml
   - kube-prometheus-stack/secret.yaml
   - kube-prometheus-stack/release.yaml
+  - kube-prometheus-stack/local-storage.yaml
   - kube-prometheus-stack/registry-rules.yaml
   - kube-prometheus-stack/cluster-rules.yaml
+  - kube-prometheus-stack/etcd-rules.yaml
   - kube-prometheus-stack/gpu-rules.yaml
   - kube-prometheus-stack/jarvis-rules.yaml
   - kube-prometheus-stack/monero-rules.yaml
@@ -15,7 +17,10 @@ resources:
   - kube-prometheus-stack/repo-monitor-rules.yaml
   - loki/repository.yaml
   - loki/rules-configmap.yaml
+  - loki/local-storage.yaml
   - loki/release.yaml
+  - loki/push-service.yaml
+  - loki/push-policy.yaml
   - alloy/release.yaml
   - grafana/service.yaml
   - grafana/cloudflare-oidc.yaml
@@ -24,6 +29,7 @@ resources:
   - grafana/dashboard-gpu.yaml
   - grafana/dashboard-hosts.yaml
   - grafana/dashboard-repository-health.yaml
+  - grafana/dashboard-autonomy.yaml
   - grafana/dashboard-zfs.yaml
   - grafana/dashboard-omarchy-vm.yaml
   - ntfy/repository.yaml

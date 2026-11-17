@@ -7,25 +7,30 @@
 let
   workspaces = config.services.agent-workspaces;
   reservedCpu = 1 + workspaces.aggregateCpuPercent / 100;
-  reservedMemoryMiB = 2048 + workspaces.aggregateMemoryMaxMiB;
+  # Typical concurrent CI (one validation and one operation) in the ci.slice
+  # from woodpecker.nix, so GPU pods are not scheduled into CI memory.
+  ciReservedMemoryMiB = 8192;
+  reservedMemoryMiB = 2048 + workspaces.aggregateMemoryMaxMiB + ciReservedMemoryMiB;
 in
 {
   imports = [
     ./hardware-configuration.nix
     ../../modules/common-base.nix
+    ../../modules/kubernetes-ci-credentials.nix
     ../../modules/disko-single-disk.nix
     ../../modules/k3s-server.nix
-    ../../modules/k3s-registry-client.nix
     ../../modules/kiosk.nix
+    ../../modules/workshop-display.nix
     ../../modules/monero.nix
+    ../../modules/persist-capacity.nix
     ../../modules/moonlight-client.nix
     ../../modules/nvidia.nix
     ../../modules/github-runner-nixos.nix
     ../../modules/woodpecker.nix
+    ../../modules/woodpecker-backup-source.nix
     ../../modules/approvals.nix
     ../../modules/merge-policy.nix
     ../../profiles/projectctl-pilot.nix
-    ../../modules/gitlab-dr.nix
     ../../modules/platform-backup.nix
     ../../modules/repo-monitor.nix
     ../../modules/release-mirror.nix
@@ -34,6 +39,8 @@ in
   ];
 
   networking.hostName = "homelab-04";
+
+  homelab.kubernetesCiCredentials.client = true;
 
   # A boot service avoids restarting networkd and its dependent guests.
   systemd.services.onboard-ethernet-offloads = {
@@ -61,7 +68,7 @@ in
   };
 
   sops.defaultSopsFile = ../../../secrets/hosts/homelab-04.sops.yaml;
-  sops.secrets.kiosk-ha-token.restartUnits = [ "kiosk-rotate.service" ];
+  sops.secrets.kiosk-ha-token.restartUnits = [ "workshop-display.service" ];
 
   security.rtkit.enable = true;
   services.pipewire = {
@@ -71,33 +78,13 @@ in
     pulse.enable = true;
   };
 
+  homelab.workshopDisplay.enable = true;
+
   homelab.kiosk = {
     enable = true;
     compositor = "sway";
-    url = "http://10.0.40.12/d/homelab-fleet-overview?kiosk";
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
-    views = [
-      {
-        url = "http://10.0.40.12/d/homelab-fleet-overview?kiosk";
-        duration = 60;
-      }
-      {
-        url = "http://10.0.40.13:8123/3d-printing";
-        duration = 60;
-        # Home Assistant renders its own sidebar and top bar; strip them so the
-        # dashboard fills the panel like the Grafana view does.
-        css = ''
-          ha-sidebar, .header, ha-top-app-bar, ha-menu-button { display: none !important; }
-          #view { padding-top: 0 !important; margin-left: 0 !important; }
-        '';
-      }
-    ];
-    # Home Assistant is behind a trusted-proxy config, so the dashboard cannot
-    # borrow the Jarvis trusted-network bypass. Instead seed the browser's own
-    # session from a long-lived access token, re-applied after each boot.
-    haDashboardTokenFile = config.sops.secrets.kiosk-ha-token.path;
-    haDashboardUrl = "http://10.0.40.13:8123";
     swayExtraConfig = ''
       # Keybinding: Mod4 (Super) + m toggles or launches moonlight-session
       bindsym Mod4+m exec ${pkgs.writeShellScript "toggle-moonlight" ''
@@ -134,6 +121,8 @@ in
   # so only ancestry of the Forgejo head is verified, not SHA equality.
   homelab.repoMonitor = {
     enable = true;
+    # The approvals dashboard runs on this host (port 8020).
+    approvalsUrl = "http://127.0.0.1:8020";
     specialMirrors = [
       {
         repository = "JEFF7712/homelab";
@@ -143,7 +132,20 @@ in
     ];
   };
 
+  # /persist is shared by Monero, CI, agent VMs and the Nix store; see
+  # docs/runbooks/nixos-host-deployment.md (Disk capacity on homelab-04).
+  homelab.persistCapacity.enable = true;
+
   homelab.monero.enable = true;
+  homelab.monero.tor.enable = true;
+  # The building's upstream router never forwards WAN 18080, so clearnet
+  # inbound cannot arrive; peers reach the node through the onion listener.
+  homelab.monero.openP2P = false;
+  environment.persistence."/persist".directories = [ "/var/lib/tor" ];
+  # monerod peaked at about 1 GiB, mostly reclaimable LMDB pages; the 8G
+  # default left that room to CI. Tor runs in its own unit.
+  homelab.monero.memoryHigh = "1536M";
+  homelab.monero.memoryMax = "2G";
 
   # System partition (ESP is part1) holding the btrfs /persist subvolume.
   homelab.monero.ioDevice = "/dev/disk/by-id/nvme-PC_SN810_NVMe_WDC_1024GB_230907801780-part2";
@@ -156,6 +158,15 @@ in
     primaryInterface = "enp0s31f6";
     nodeIp = fleetInventory.hosts.homelab-04.address;
     serverAddress = fleetInventory.k3sEndpoint;
+    # The image filesystem is the shared 953 GiB /persist (Monero, agent
+    # workspaces, Woodpecker), above 70% for reasons image GC cannot fix: the
+    # kubelet owns only about 10 GiB of images. Start image GC at 95% (about
+    # 48 GiB free), before the Nix store's 32 GiB min-free and the 15 GiB
+    # imagefs eviction threshold (98.4%).
+    imageGc = {
+      highThreshold = 95;
+      lowThreshold = 90;
+    };
   };
 
   services.k3s.extraFlags = [
@@ -170,7 +181,7 @@ in
   services.agent-workspace-network = {
     enable = true;
     # Rupan's personal VM is a full development environment: Forgejo Git and
-    # API, the signed cache, Woodpecker and approvals, the Kubernetes API
+    # API, the signed caches (niks3, then Attic), Woodpecker and approvals, the Kubernetes API
     # (kubernetes_api below), and SSH to every fleet host, as
     # `just doctor --live` and `just ship` require.
     tcpEgress.rupan = [
@@ -181,6 +192,7 @@ in
           2222
           3000
           8080
+          8090
         ];
       }
       {
@@ -230,9 +242,9 @@ in
             dns = [ "1.1.1.1" ];
             ntp = [ ];
             ingress_sources = [
-              "10.0.10.0/24"
-              "10.0.20.0/24"
-              "10.0.30.10/32"
+              fleetInventory.networks.management.cidr
+              fleetInventory.networks.clients.cidr
+              "${fleetInventory.hosts.adguard-netbird-01.address}/32"
               "100.94.191.33/32"
             ];
           };
@@ -254,9 +266,9 @@ in
             dns = [ "1.1.1.1" ];
             ntp = [ ];
             ingress_sources = [
-              "10.0.10.0/24"
-              "10.0.20.0/24"
-              "10.0.30.10/32"
+              fleetInventory.networks.management.cidr
+              fleetInventory.networks.clients.cidr
+              "${fleetInventory.hosts.adguard-netbird-01.address}/32"
               "100.94.191.33/32"
             ];
           };

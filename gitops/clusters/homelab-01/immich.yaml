@@ -18,7 +18,3 @@ spec:
       kind: Deployment
       name: immich-server
       namespace: immich
-    - apiVersion: apps/v1
-      kind: Deployment
-      name: immich-postgres
-      namespace: immich

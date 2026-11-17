@@ -25,17 +25,7 @@ data:
     frontend:
       themes: !include_dir_merge_named themes
     rest_command:
-      # Shared-spaces LedFx (homelab-05) drives the shared music mode only.
-      ledfx_activate_scene:
-        url: "http://10.0.30.15:8888/api/scenes"
-        method: put
-        content_type: "application/json"
-        payload: '{"id": "{{ scene_id }}", "action": "activate"}'
-      ledfx_deactivate_scene:
-        url: "http://10.0.30.15:8888/api/scenes"
-        method: put
-        content_type: "application/json"
-        payload: '{"id": "{{ scene_id }}", "action": "deactivate"}'
+      # Shared-spaces LedFx (homelab-05) is driven by music_director.
       # Bedroom LedFx (nas-01) is a separate instance with its own audio tap. Kept
       # deliberately separate so nothing in shared spaces can reach bedroom state.
       ledfx_bedroom_activate_scene:
@@ -53,6 +43,55 @@ data:
         method: post
         content_type: "application/json"
         payload: '{"type": "{{ effect_type }}", "config": {{ effect_config | default("{}") }}}'
+      bose_speaker_connect:
+        url: "http://10.0.30.20:8889/connect"
+        method: post
+      bose_speaker_disconnect:
+        url: "http://10.0.30.20:8889/disconnect"
+        method: post
+    shell_command:
+      set_music_assistant_spotify_connect: |-
+        python3 -c '
+        import json
+        import sys
+        import urllib.error
+        import urllib.request
+
+        try:
+            with open("/config/.storage/core.config_entries") as source:
+                entries = json.load(source)["data"]["entries"]
+            connection = next(e["data"] for e in entries if e.get("domain") == "music_assistant")
+            flags = [value.lower() in ("true", "on", "1") for value in sys.argv[1:3]]
+            players = [player for player, enabled in zip(
+                ("media_player.homelab_05_satellite_media_player", "up4f07df12"), flags
+            ) if enabled]
+
+            def rpc(command, args):
+                body = json.dumps({"command": command, "args": args,
+                                   "message_id": "ha_spotify_connect"}).encode()
+                request = urllib.request.Request(connection["url"].rstrip("/") + "/api", data=body,
+                    headers={"Authorization": "Bearer " + connection["token"],
+                             "Content-Type": "application/json"})
+                with urllib.request.urlopen(request, timeout=15) as response:
+                    return json.load(response)
+
+            def matches(config):
+                actual = config.get("values", {}).get("connected_players", {}).get("value", [])
+                return config.get("enabled") is True and set(actual) == set(players)
+
+            config = rpc("config/providers/get", {"instance_id": "spotify_connect"})
+            if not matches(config):
+                rpc("config/providers/save", {"provider_domain": "spotify_connect",
+                    "instance_id": "spotify_connect",
+                    "values": {"enabled": True, "connected_players": players}})
+                if not matches(rpc("config/providers/get", {"instance_id": "spotify_connect"})):
+                    raise RuntimeError("Spotify Connect player settings did not match after saving")
+            print("Spotify Connect speaker settings verified")
+        except urllib.error.HTTPError as error:
+            raise SystemExit("Music Assistant API returned HTTP " + str(error.code))
+        except Exception as error:
+            raise SystemExit("Spotify Connect sync failed: " + type(error).__name__)
+        ' "{{ living_room | default('false') }}" "{{ bedroom | default('false') }}"
     automation: !include automations.yaml
     script: !include scripts.yaml
     scene: !include scenes.yaml
@@ -102,8 +141,21 @@ data:
                   brightness_step_pct: 30
         speech:
           text: "Done."
+      # Bare on/off hands the shared bulbs back to Adaptive Lighting, matching
+      # script.shared_lights_off. Otherwise a stale manual-control flag (from music
+      # mode or a colour command) survives the cycle and bulbs come back in the old
+      # colour instead of being adapted.
       JarvisDefaultLightsOn:
         action:
+          - service: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_all_dimmable_lights
+              lights:
+                - light.kitchen_ceiling_light_1
+                - light.kitchen_ceiling_light_2
+                - light.living_room_floor_lamp
+                - light.living_room_tulip_lamp
+              manual_control: false
           - service: light.turn_on
             target:
               entity_id: light.downstairs_lights
@@ -114,6 +166,15 @@ data:
           - service: light.turn_off
             target:
               entity_id: light.downstairs_lights
+          - service: adaptive_lighting.set_manual_control
+            data:
+              entity_id: switch.adaptive_lighting_all_dimmable_lights
+              lights:
+                - light.kitchen_ceiling_light_1
+                - light.kitchen_ceiling_light_2
+                - light.living_room_floor_lamp
+                - light.living_room_tulip_lamp
+              manual_control: false
         speech:
           text: "Done."
       JarvisDefaultLightsColor:
@@ -215,13 +276,130 @@ data:
               color_name: "{{ jarvis_general_color }}"
         speech:
           text: "Done."
+    # One dashboard toggle per Adaptive Lighting setting for the shared spaces.
+    # The Govee dining bulbs have their own entry (2700K floor), so each switch
+    # drives both entries and reads on only when both are on.
+    template:
+      - switch:
+          - name: Shared Spaces Sleep Mode
+            unique_id: shared_spaces_sleep_mode
+            icon: mdi:sleep
+            state: >-
+              {{ is_state('switch.adaptive_lighting_all_dimmable_lights_sleep_mode', 'on')
+              and is_state('switch.adaptive_lighting_govee_dining_bulbs_sleep_mode', 'on') }}
+            turn_on:
+              - action: switch.turn_on
+                target:
+                  entity_id:
+                    - switch.adaptive_lighting_all_dimmable_lights_sleep_mode
+                    - switch.adaptive_lighting_govee_dining_bulbs_sleep_mode
+            turn_off:
+              - action: switch.turn_off
+                target:
+                  entity_id:
+                    - switch.adaptive_lighting_all_dimmable_lights_sleep_mode
+                    - switch.adaptive_lighting_govee_dining_bulbs_sleep_mode
+          - name: Shared Spaces Adapt Brightness
+            unique_id: shared_spaces_adapt_brightness
+            icon: mdi:brightness-auto
+            state: >-
+              {{ is_state('switch.adaptive_lighting_all_dimmable_lights_adapt_brightness', 'on')
+              and is_state('switch.adaptive_lighting_govee_dining_bulbs_adapt_brightness', 'on') }}
+            turn_on:
+              - action: switch.turn_on
+                target:
+                  entity_id:
+                    - switch.adaptive_lighting_all_dimmable_lights_adapt_brightness
+                    - switch.adaptive_lighting_govee_dining_bulbs_adapt_brightness
+            turn_off:
+              - action: switch.turn_off
+                target:
+                  entity_id:
+                    - switch.adaptive_lighting_all_dimmable_lights_adapt_brightness
+                    - switch.adaptive_lighting_govee_dining_bulbs_adapt_brightness
+          - name: Shared Spaces Adapt Color
+            unique_id: shared_spaces_adapt_color
+            icon: mdi:palette
+            state: >-
+              {{ is_state('switch.adaptive_lighting_all_dimmable_lights_adapt_color', 'on')
+              and is_state('switch.adaptive_lighting_govee_dining_bulbs_adapt_color', 'on') }}
+            turn_on:
+              - action: switch.turn_on
+                target:
+                  entity_id:
+                    - switch.adaptive_lighting_all_dimmable_lights_adapt_color
+                    - switch.adaptive_lighting_govee_dining_bulbs_adapt_color
+            turn_off:
+              - action: switch.turn_off
+                target:
+                  entity_id:
+                    - switch.adaptive_lighting_all_dimmable_lights_adapt_color
+                    - switch.adaptive_lighting_govee_dining_bulbs_adapt_color
+    # Shared music mode: per-track album-art palette and LedFx effect for the
+    # living room strip; the shared_music_mode automation paints bulb areas from
+    # sensor.music_director. Area order sets which shade each area gets.
+    # input_select.music_mode_effect overrides the automatic effect until set
+    # back to Auto; the integration's light.music_mode_colour (on = chosen colour,
+    # off = Auto) and number.music_mode_brightness set colour and brightness;
+    # transition_time is the strip's crossfade in seconds. overrides pin a colour and/or effect for
+    # matching tracks (artist/album by prefix, title exactly, case ignored).
+    music_director:
+      player: media_player.homelab_05_satellite_media_player_2
+      spotify: media_player.spotify_rupan
+      enabled: input_boolean.shared_music_mode
+      strip: input_boolean.music_mode_led_strip
+      ledfx_url: http://10.0.30.15:8888
+      ledfx_virtual: living-room-led-strip
+      library_url: http://navidrome-lookup.media.svc.cluster.local:4534
+      areas:
+        - kitchen_ceiling
+        - dining_table
+        - floor_lamp
+        - tulip_lamp
+        - ceiling_strip
+      effect_select: input_select.music_mode_effect
+      transition_time: 1.5
+      overrides:
+        - artist: The Weeknd
+          album: Dawn FM
+          color: deep blue
+        - artist: The Weeknd
+          album: After Hours
+          color: deep blue
+        - artist: Drake
+          album: More Life
+          color: blue
+        - artist: Playboi Carti
+          album: Whole Lotta Red
+          color: red
+        - artist: Lil Uzi Vert
+          album: Watch This
+          color: "#00ddff"
+
     input_boolean:
       bedroom_matrix_power:
         name: Bedroom Matrix Display
         icon: mdi:led-strip-variant
         initial: true
+      bedroom_matrix_cycle:
+        name: Bedroom Matrix Auto-Cycle
+        icon: mdi:sync
+        initial: true
 
     input_select:
+      music_mode_effect:
+        name: "Music Mode: Effect"
+        icon: mdi:auto-fix
+        options:
+          - Auto
+          - Energy
+          - Power
+          - Melt
+          - Lava Lamp
+          - Scroll
+          - Bands
+          - Wavelength
+          - Strobe
       bedroom_matrix_mode:
         name: Bedroom Matrix Mode
         icon: mdi:view-dashboard-outline
@@ -236,31 +414,25 @@ data:
           - "LedFx"
           - "Physics"
           - "Homelab Dashboards"
+          - "Laptop"
         initial: "Auto"
-      bedroom_ledfx_effect:
-        name: Bedroom LedFx Effect
-        icon: mdi:music-note-outline
-        options:
-          - "equalizer2d"
-          - "plasma2d"
-          - "bands_matrix"
-          - "digitalrain2d"
-          - "fire"
-          - "spectrum"
-          - "energy"
-          - "wavelength"
-          - "keybeat2d"
-        initial: "equalizer2d"
 
     input_number:
-      bedroom_matrix_brightness:
-        name: Bedroom Matrix Brightness
-        icon: mdi:brightness-6
-        min: 5
-        max: 100
-        step: 5
-        unit_of_measurement: "%"
-        initial: 70
+      bedroom_matrix_vinyl_contrast:
+        name: Bedroom Matrix Vinyl Contrast
+        icon: mdi:contrast-circle
+        min: 0.5
+        max: 2.0
+        step: 0.05
+        initial: 1.12
+
+      bedroom_matrix_vinyl_saturation:
+        name: Bedroom Matrix Vinyl Saturation
+        icon: mdi:palette
+        min: 0.5
+        max: 2.0
+        step: 0.05
+        initial: 1.25
 
     light:
       - platform: group
@@ -277,6 +449,7 @@ data:
         entities:
           - light.living_room_floor_lamp
           - light.living_room_tulip_lamp
+          - light.living_room_led_strip
       - platform: group
         name: Shared Zigbee Lights
         entities:
@@ -303,6 +476,7 @@ data:
           - light.living_room_tulip_lamp
           - light.kitchen_dining_table_ceiling_light_1
           - light.kitchen_dining_table_ceiling_light_2
+          - light.living_room_led_strip
       - platform: switch
         name: Bedroom Window Plug
         entity_id: switch.bedroom_window_plug
@@ -379,6 +553,12 @@ data:
           - sensor.sm_s948u1_app_*
           - sensor.*_linkquality
     rest:
+      - resource: http://10.0.30.20:8889/status
+        scan_interval: 10
+        binary_sensor:
+          - name: Bedroom Speaker Bluetooth
+            value_template: "{{ value_json.connected | default(false) }}"
+            device_class: connectivity
       - resource: https://version.home-assistant.io/stable.json
         scan_interval: 21600
         sensor:
@@ -2313,3 +2493,4213 @@ data:
         }
       }
     }
+  component.music_director.__init__.py: |
+    """music_director: album-art colours and genre-aware LedFx effects per track."""
+
+    from __future__ import annotations
+
+    import os
+
+    import homeassistant.helpers.config_validation as cv
+    import voluptuous as vol
+    from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, Platform
+    from homeassistant.core import Event, HomeAssistant, ServiceCall
+    from homeassistant.helpers.discovery import async_load_platform
+    from homeassistant.helpers.typing import ConfigType
+
+    from .director import DOMAIN, Director, DirectorConfig
+    from .metadata import SongOverride
+    from .palette import NAMED_HUES, hex_rgb
+    from .panel import async_setup_panel
+    from .rules import EFFECTS
+    from .trackcache import code_version
+
+
+    def _colour_name(value: object) -> str:
+        """A NAMED_HUES colour name, or a #RRGGBB colour."""
+        if hex_rgb(str(value)) is not None:
+            return str(value).strip().lower()
+        name = " ".join(str(value).lower().replace("_", " ").split())
+        if name not in NAMED_HUES:
+            raise vol.Invalid(
+                f"unknown colour {value!r}; use #RRGGBB or one of {sorted(NAMED_HUES)}"
+            )
+        return name
+
+
+    def _effect_name(value: object) -> str:
+        name = str(value).strip().lower().replace(" ", "_")
+        if name not in EFFECTS:
+            raise vol.Invalid(f"unknown effect {value!r}; use one of {list(EFFECTS)}")
+        return name
+
+
+    OVERRIDE_SCHEMA = vol.All(
+        vol.Schema(
+            {
+                vol.Optional("artist"): cv.string,
+                vol.Optional("album"): cv.string,
+                vol.Optional("title"): cv.string,
+                vol.Optional("color"): _colour_name,
+                vol.Optional("effect"): _effect_name,
+            }
+        ),
+        cv.has_at_least_one_key("artist", "album", "title"),
+        cv.has_at_least_one_key("color", "effect"),
+    )
+
+    CONFIG_SCHEMA = vol.Schema(
+        {
+            DOMAIN: vol.Schema(
+                {
+                    vol.Required("player"): cv.entity_id,
+                    vol.Required("spotify"): cv.entity_id,
+                    vol.Required("enabled"): cv.entity_id,
+                    vol.Required("strip"): cv.entity_id,
+                    vol.Required("ledfx_url"): cv.url,
+                    vol.Required("ledfx_virtual"): cv.string,
+                    vol.Required("library_url"): cv.url,
+                    vol.Required("areas"): vol.All(cv.ensure_list, [cv.slug]),
+                    vol.Required("effect_select"): cv.entity_id,
+                    vol.Optional("overrides", default=[]): vol.All(
+                        cv.ensure_list, [OVERRIDE_SCHEMA]
+                    ),
+                    vol.Optional("transition_time", default=1.5): vol.All(
+                        vol.Coerce(float), vol.Range(min=0, max=5)
+                    ),
+                }
+            )
+        },
+        extra=vol.ALLOW_EXTRA,
+    )
+
+
+    async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+        conf = config[DOMAIN]
+        director = Director(
+            hass,
+            DirectorConfig(
+                player=conf["player"],
+                spotify=conf["spotify"],
+                enabled=conf["enabled"],
+                strip=conf["strip"],
+                ledfx_url=conf["ledfx_url"].rstrip("/"),
+                ledfx_virtual=conf["ledfx_virtual"],
+                library_url=conf["library_url"].rstrip("/"),
+                areas=tuple(conf["areas"]),
+                effect_select=conf["effect_select"],
+                overrides=tuple(SongOverride(**item) for item in conf["overrides"]),
+                transition_time=conf["transition_time"],
+                lastfm_key=os.environ.get("LASTFM_API_KEY") or None,
+            ),
+        )
+        hass.data[DOMAIN] = director
+        await director.pins.async_load(director.config.overrides)
+        await director.tracks.async_load(await hass.async_add_executor_job(code_version))
+        await director.playlists.async_load()
+        # Music Colours sidebar panel (panel.py, panel.js).
+        await async_setup_panel(hass)
+
+        async def refresh(_call: ServiceCall) -> None:
+            director.schedule(force=True)
+
+        hass.services.async_register(DOMAIN, "refresh", refresh)
+
+        async def prepare_playlists(call: ServiceCall) -> None:
+            await director.prepare_playlists(
+                call.data.get("playlists"), call.data["notify"]
+            )
+
+        hass.services.async_register(
+            DOMAIN,
+            "prepare_playlists",
+            prepare_playlists,
+            schema=vol.Schema(
+                {
+                    vol.Optional("playlists"): vol.All(cv.ensure_list, [cv.string]),
+                    vol.Optional("notify", default=True): cv.boolean,
+                }
+            ),
+        )
+        # Music Mode Colour and Pin (lights), Brightness (number), Strip Colours
+        # and Effect Pin (selects), Drop Flash (switch).
+        for platform in (
+            Platform.LIGHT,
+            Platform.NUMBER,
+            Platform.SELECT,
+            Platform.SWITCH,
+        ):
+            hass.async_create_task(async_load_platform(hass, platform, DOMAIN, {}, config))
+
+        if hass.is_running:
+            director.async_start()
+        else:
+
+            async def start(_event: Event) -> None:
+                director.async_start()
+
+            hass.bus.async_listen_once(EVENT_HOMEASSISTANT_STARTED, start)
+        return True
+  component.music_director.director.py: |
+    """Home Assistant side of music_director: watch the player, gather metadata,
+    decide a palette and LedFx effect once per track, and publish the result.
+
+    The LED strip is driven here through the LedFx API. Bulb areas are painted
+    by the shared music mode automation from sensor.music_director, so all
+    snapshot and Adaptive Lighting handling stays in Home Assistant YAML.
+
+    The manual colour, album colour pins and the music brightness live here
+    and are set by the integration's lights (Music Mode Colour, Music Mode Pin)
+    and number (Music Mode Brightness).
+
+    Looked-up tracks are cached across restarts (trackcache.py). While a song
+    plays, the next song in Spotify's queue is looked up ahead, so the switch to
+    it only has to update LedFx.
+    """
+
+    from __future__ import annotations
+
+    import asyncio
+    import io
+    import logging
+    import time
+    from dataclasses import dataclass, field
+    from typing import Any
+
+    import aiohttp
+    from homeassistant.const import STATE_ON
+    from homeassistant.core import (
+        Event,
+        EventStateChangedData,
+        HomeAssistant,
+        State,
+        callback,
+    )
+    from homeassistant.helpers import config_entry_oauth2_flow
+    from homeassistant.helpers import entity_registry as er
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+    from homeassistant.helpers.dispatcher import async_dispatcher_send
+    from homeassistant.helpers.event import async_track_state_change_event
+    from homeassistant.helpers.storage import Store
+
+    from .metadata import (
+        QueuedTrack,
+        SongOverride,
+        TrackInfo,
+        apply_lastfm,
+        apply_library,
+        apply_reccobeats,
+        find_override,
+        next_in_queue,
+        normalize,
+        reccobeats_by_id,
+        same_track,
+        spotify_track_id,
+    )
+    from .palette import (
+        Palette,
+        area_colors,
+        chosen_palette,
+        extract_palette,
+        gradient,
+        named_palette,
+        solid_colour,
+        solid_gradient,
+        spread_label,
+        to_hex,
+        vibe_palette,
+        with_intensity,
+    )
+    from .pins import KEEP, STORAGE_KEY, STORAGE_VERSION, PinStore, Keep
+    from .rules import (
+        EFFECTS,
+        choose_effect,
+        classify,
+        effect_config,
+        intensity,
+        tempo_level,
+    )
+    from .sections import (
+        NORMAL,
+        DropDetector,
+        SECTION_BRIGHTNESS,
+        SECTION_DRIVE,
+        SECTION_INTENSITY,
+        SectionTracker,
+    )
+    from .trackcache import (
+        CACHE_STORAGE_KEY,
+        CACHE_STORAGE_VERSION,
+        PLAYLIST_STORAGE_KEY,
+        Entry,
+        PlaylistSong,
+        PlaylistStore,
+        TrackCacheStore,
+        track_key,
+    )
+
+    _LOGGER = logging.getLogger(__name__)
+
+    DOMAIN = "music_director"
+    SENSOR = "sensor.music_director"
+    # Dispatcher signal for the light and number entities to refresh their state.
+    CONTROLS_UPDATED = f"{DOMAIN}_controls_updated"
+    MIN_BRIGHTNESS = 10
+    MAX_BRIGHTNESS = 100
+    DEFAULT_BRIGHTNESS = 70
+    RECCOBEATS_URL = "https://api.reccobeats.com/v1/audio-features"
+    LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
+    HTTP_TIMEOUT = aiohttp.ClientTimeout(total=8)
+    # The Spotify Web API quota is shared with Home Assistant's own polling: when
+    # Spotify lags the speaker, ask for at most one refresh per track change, and
+    # none within SPOTIFY_REFRESH_GAP seconds of the last or while Spotify is
+    # unavailable (it goes unavailable when rate limited).
+    SPOTIFY_RETRY_SECONDS = 1.5
+    SPOTIFY_REFRESH_GAP = 30.0
+    # The player's art can lag its title on a track change; try again before
+    # falling back to the vibe palette.
+    COVER_ATTEMPTS = 3
+    COVER_RETRY_SECONDS = 2.0
+    # A track that fell back to the vibe palette checks its cover again this
+    # long into the song, in case the art arrived late.
+    COVER_RECHECK_SECONDS = (8.0, 25.0)
+    ART_SIZE = 48
+    MAX_ART_BYTES = 5_000_000
+    SPOTIFY_QUEUE_URL = "https://api.spotify.com/v1/me/player/queue"
+    # How far into a song the next one is looked up: late enough to skip songs
+    # that are skipped straight away, early enough to finish before it ends.
+    PREPARE_DELAY_SECONDS = 15.0
+    # The drop flash: the strip's background lights up in the song's colour
+    # under the running effect, then fades out, as (background brightness,
+    # seconds) steps. The effect keeps running, so nothing restarts.
+    FLASH_STEPS = ((1.0, 0.3), (0.6, 0.2), (0.35, 0.2), (0.15, 0.2))
+    NO_BACKGROUND = "#000000"
+    # Playlist preparation: ReccoBeats takes up to 40 IDs a call, and a short
+    # pause per song keeps Last.fm and the library well under their limits.
+    PREPARE_BATCH = 40
+    PREPARE_PAUSE_SECONDS = 0.2
+
+
+    @dataclass(frozen=True)
+    class DirectorConfig:
+        player: str
+        spotify: str
+        enabled: str
+        strip: str
+        ledfx_url: str
+        ledfx_virtual: str
+        library_url: str
+        areas: tuple[str, ...]
+        effect_select: str
+        transition_time: float
+        overrides: tuple[SongOverride, ...] = ()
+        lastfm_key: str | None = field(default=None, repr=False)
+
+
+    @dataclass(frozen=True)
+    class Decision:
+        title: str
+        artist: str
+        album: str
+        info: TrackInfo
+        # The cover or vibe palette, before any pin.
+        natural: Palette
+        # natural, or the album's pin.
+        auto_palette: Palette
+        # auto_palette, or the manual colour.
+        palette: Palette
+        family: str
+        # natural_effect, or the album's pinned effect.
+        auto_effect: str
+        # auto_effect, or the dashboard's manual effect.
+        effect: str
+        config: dict[str, Any]
+        # The track's intensity, 0 (calm) to 1 (intense), whatever the colour.
+        level: float = 0.5
+        # The effect chosen from the genre family (or a configured override).
+        natural_effect: str = ""
+
+        @property
+        def manual(self) -> bool:
+            return self.effect != self.auto_effect
+
+
+    def _track_key(state: State | None) -> str | None:
+        if state is None or state.state != "playing":
+            return None
+        title = state.attributes.get("media_title")
+        if not title:
+            return None
+        artist = state.attributes.get("media_artist") or ""
+        album = state.attributes.get("media_album_name") or ""
+        return track_key(artist, title, album)
+
+
+    def _playlist_track(track: Any) -> QueuedTrack:
+        """A Music Assistant playlist track as the director looks it up."""
+        album = getattr(track, "album", None)
+        image = getattr(track, "image", None) or getattr(album, "image", None)
+        spotify_id = next(
+            (
+                m.item_id
+                for m in getattr(track, "provider_mappings", ())
+                if m.provider_domain == "spotify"
+            ),
+            None,
+        )
+        return QueuedTrack(
+            title=track.name,
+            artist=", ".join(a.name for a in getattr(track, "artists", ()) or ()),
+            album=getattr(album, "name", "") or "",
+            spotify_id=spotify_id,
+            duration=getattr(track, "duration", None) or None,
+            art_url=getattr(image, "path", None)
+            if image is not None and getattr(image, "remotely_accessible", False)
+            else None,
+        )
+
+
+    def _natural(entry: Entry) -> tuple[Palette, str, float]:
+        """A cached track's automatic palette (its cover's, else genre and
+        mood), effect family and intensity, before any pin."""
+        info = entry.info
+        features = info.features()
+        family = classify(features)
+        level = intensity(features, family)
+        if entry.cover:
+            return with_intensity(entry.cover, level), family, level
+        palette = vibe_palette(
+            info.genres, info.energy, info.valence, tempo_level(info.bpm), level
+        )
+        return palette, family, level
+
+
+    def _decode_pixels(data: bytes) -> list[tuple[int, int, int]]:
+        from PIL import Image  # Home Assistant ships Pillow; import off the event loop.
+
+        with Image.open(io.BytesIO(data)) as image:
+            raw = image.convert("RGB").resize((ART_SIZE, ART_SIZE)).tobytes()
+        return [(raw[i], raw[i + 1], raw[i + 2]) for i in range(0, len(raw), 3)]
+
+
+    def _cover_palette(data: bytes) -> Palette | None:
+        return extract_palette(_decode_pixels(data))
+
+
+    class Director:
+        def __init__(self, hass: HomeAssistant, config: DirectorConfig) -> None:
+            self.hass = hass
+            self.config = config
+            self._session = async_get_clientsession(hass)
+            self.tracks = TrackCacheStore(
+                Store(hass, CACHE_STORAGE_VERSION, CACHE_STORAGE_KEY)
+            )
+            self.playlists = PlaylistStore(
+                Store(hass, CACHE_STORAGE_VERSION, PLAYLIST_STORAGE_KEY)
+            )
+            self._prepare_task: asyncio.Task[None] | None = None
+            self._prepare_run: asyncio.Task[None] | None = None
+            # The next song, looked up ahead ("Artist - Title"), for the dashboard.
+            self.next_ready: str | None = None
+            self._task: asyncio.Task[None] | None = None
+            self._track_key: str | None = None
+            self._last_effect: str | None = None
+            self._decision: Decision | None = None
+            self._transition_set = False
+            self._spotify_refreshed = 0.0
+            # Why the last track had no Spotify ID, for the dashboard.
+            self.spotify_status = "ok"
+            # ok, unreachable or error: LedFx's API and audio feed, for the
+            # Music Mode device alert.
+            self.ledfx_status = "ok"
+            # Chosen colour (Music Mode Colour light on), or None for Auto.
+            self.manual_rgb: tuple[int, int, int] | None = None
+            self.brightness_pct = DEFAULT_BRIGHTNESS
+            self.pins = PinStore(Store(hass, STORAGE_VERSION, STORAGE_KEY))
+            # Live song sections from LedFx's audio (sections.py).
+            self.sections = SectionTracker()
+            # Drops in the live audio flash the strip (Music Mode Drop Flash).
+            self.drops = DropDetector()
+            self.drop_flash = True
+            self._flash_task: asyncio.Task[None] | None = None
+            self.section = NORMAL
+            self._audio_task: asyncio.Task[None] | None = None
+            # Music Mode Strip Colours: one solid colour instead of a gradient.
+            self.strip_solid = False
+
+        @callback
+        def async_start(self) -> None:
+            async_track_state_change_event(
+                self.hass,
+                [
+                    self.config.player,
+                    self.config.enabled,
+                    self.config.strip,
+                    self.config.effect_select,
+                ],
+                self._on_change,
+            )
+            if self._is_on(self.config.enabled):
+                self.schedule(force=True)
+                self._start_audio()
+
+        def _start_audio(self) -> None:
+            if self._audio_task is None or self._audio_task.done():
+                self._audio_task = self.hass.async_create_background_task(
+                    self._listen_audio(), "music_director audio sections"
+                )
+
+        def _stop_audio(self) -> None:
+            if self._audio_task is not None and not self._audio_task.done():
+                self._audio_task.cancel()
+            self._audio_task = None
+
+        async def _listen_audio(self) -> None:
+            """Follow LedFx's live melbank loudness and turn sustained changes
+            into song sections. Reconnects while Music Mode is on."""
+            url = self.config.ledfx_url.replace("http", "ws", 1) + "/api/websocket"
+            while True:
+                try:
+                    async with self._session.ws_connect(url, heartbeat=30) as ws:
+                        self._set_ledfx_status("ok")
+                        await ws.send_json(
+                            {
+                                "id": 1,
+                                "type": "subscribe_event",
+                                "event_type": "graph_update",
+                            }
+                        )
+                        graph = None
+                        async for msg in ws:
+                            if msg.type != aiohttp.WSMsgType.TEXT:
+                                continue
+                            data = msg.json()
+                            if data.get("event_type") != "graph_update":
+                                continue
+                            graph = graph or data.get("graph_id")
+                            if data.get("graph_id") != graph:
+                                continue
+                            level = sum(float(v) for v in data.get("melbank") or ())
+                            now = time.monotonic()
+                            changed = self.sections.add(level, now)
+                            if changed is not None:
+                                self._set_section(changed)
+                            if self.drops.add(level, now):
+                                self._flash()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as error:  # noqa: BLE001 - keep listening
+                    _LOGGER.debug("LedFx audio feed: %s", type(error).__name__)
+                    self._set_ledfx_status("unreachable")
+                await asyncio.sleep(10)
+
+        @callback
+        def set_drop_flash(self, enabled: bool) -> None:
+            self.drop_flash = enabled
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+
+        @callback
+        def _flash(self) -> None:
+            decision = self._decision
+            if (
+                not self.drop_flash
+                or decision is None
+                or not decision.title
+                or not self._is_on(self.config.enabled)
+                or not self._is_on(self.config.strip)
+                or (self._flash_task is not None and not self._flash_task.done())
+            ):
+                return
+            _LOGGER.debug("Drop: flashing the strip")
+            self._flash_task = self.hass.async_create_task(self._run_flash(decision))
+
+        async def _run_flash(self, start: Decision) -> None:
+            """Light the strip's background in the song's colour and fade it
+            out. Strip updates wait meanwhile; the latest decision is sent at the
+            end."""
+            colour = to_hex(solid_colour(start.palette))
+            try:
+                for share, seconds in FLASH_STEPS:
+                    decision = self._decision
+                    if decision is None or decision.title != start.title:
+                        break
+                    await self._ledfx(
+                        "PUT",
+                        {
+                            "type": decision.effect,
+                            "config": {
+                                **decision.config,
+                                "brightness": 1.0,
+                                "background_color": colour,
+                                "background_brightness": share,
+                            },
+                        },
+                    )
+                    await asyncio.sleep(seconds)
+            finally:
+                self._flash_task = None
+                decision = self._decision
+                if (
+                    decision is not None
+                    and self._is_on(self.config.enabled)
+                    and self._is_on(self.config.strip)
+                ):
+                    if decision.title == start.title and decision.effect == start.effect:
+                        await self._ledfx(
+                            "PUT",
+                            {
+                                "type": decision.effect,
+                                "config": {
+                                    **decision.config,
+                                    "background_color": NO_BACKGROUND,
+                                },
+                            },
+                        )
+                    else:
+                        await self._push_strip(decision)
+
+        @callback
+        def _set_ledfx_status(self, status: str) -> None:
+            if status == self.ledfx_status:
+                return
+            self.ledfx_status = status
+            if status == "ok":
+                _LOGGER.info("LedFx is back")
+            else:
+                _LOGGER.warning("LedFx is %s", status)
+            if self._decision is not None and self._is_on(self.config.enabled):
+                self._publish(self._decision)
+
+        @callback
+        def _set_section(self, section: str) -> None:
+            self.section = section
+            _LOGGER.debug("Song section: %s", section)
+            self._reapply()
+
+        def _is_on(self, entity_id: str) -> bool:
+            state = self.hass.states.get(entity_id)
+            return state is not None and state.state == STATE_ON
+
+        @callback
+        def _on_change(self, event: Event[EventStateChangedData]) -> None:
+            entity_id = event.data["entity_id"]
+            new_state = event.data["new_state"]
+            if entity_id == self.config.enabled:
+                if new_state is not None and new_state.state == STATE_ON:
+                    self.schedule(force=True)
+                    self._start_audio()
+                else:
+                    self._stop_audio()
+                    self._cancel()
+                    self._cancel_prepare()
+                    if self._flash_task is not None:
+                        self._flash_task.cancel()
+                    self.hass.async_create_task(self._stop())
+                return
+            if not self._is_on(self.config.enabled):
+                return
+            if entity_id == self.config.effect_select:
+                self._reapply()
+                return
+            if entity_id == self.config.strip:
+                if new_state is not None and new_state.state == STATE_ON:
+                    if self._decision is not None:
+                        self.hass.async_create_task(self._push_strip(self._decision))
+                else:
+                    self.hass.async_create_task(self._clear_strip())
+                return
+            key = _track_key(new_state)
+            if key is not None and key != self._track_key:
+                self.schedule(force=False)
+
+        @callback
+        def _reapply(self) -> None:
+            """Recompose the current track's decision after a manual control
+            changed, without fetching anything again."""
+            if self._decision is not None and self._is_on(self.config.enabled):
+                self.hass.async_create_task(self._apply(self._recompose(self._decision)))
+
+        @callback
+        def set_colour(self, rgb: tuple[int, int, int] | None) -> None:
+            """Hold a chosen colour on every light, or None to go back to Auto."""
+            self.manual_rgb = rgb
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            self._reapply()
+
+        @property
+        def current_track(self) -> Decision | None:
+            """The playing track's decision, or None when idle."""
+            decision = self._decision
+            return decision if decision is not None and decision.title else None
+
+        def current_pin(self) -> str | None:
+            """The current track's pinned colour (a name or #rrggbb), or None."""
+            track = self.current_track
+            if track is None:
+                return None
+            pin = self.pins.pins.find(track.title, track.artist, track.album)
+            return pin.color if pin else None
+
+        def current_pinned_effect(self) -> str | None:
+            """The current track's pinned effect, or None."""
+            track = self.current_track
+            if track is None:
+                return None
+            pin = self.pins.pins.find(track.title, track.artist, track.album)
+            return pin.effect if pin and pin.effect in EFFECTS else None
+
+        @callback
+        def set_effect_pin(self, effect: str | None) -> None:
+            """Pin an effect to the current track's album, or None to unpin it so
+            the album goes back to the automatic effect."""
+            track = self.current_track
+            if track is None:
+                return
+            self.pin_song(track.title, track.artist, track.album, effect=effect)
+
+        def showing_rgb(self) -> tuple[int, int, int] | None:
+            """The colour the strip shows for the current track."""
+            track = self.current_track
+            return solid_colour(track.palette) if track else None
+
+        @callback
+        def set_pin(self, rgb: tuple[int, int, int] | None) -> None:
+            """Pin a colour to the current track's album, or None to unpin it so
+            the album goes back to automatic colours."""
+            track = self.current_track
+            if track is None:
+                return
+            self.pin_song(
+                track.title,
+                track.artist,
+                track.album,
+                colour=None if rgb is None else to_hex(rgb),
+            )
+
+        @callback
+        def set_strip_solid(self, solid: bool) -> None:
+            self.strip_solid = solid
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            self._reapply()
+
+        @callback
+        def set_brightness(self, pct: int) -> None:
+            self.brightness_pct = min(MAX_BRIGHTNESS, max(MIN_BRIGHTNESS, pct))
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            self._reapply()
+
+        def _cancel(self) -> None:
+            if self._task is not None and not self._task.done():
+                self._task.cancel()
+            self._task = None
+
+        def _cancel_prepare(self) -> None:
+            if self._prepare_task is not None and not self._prepare_task.done():
+                self._prepare_task.cancel()
+            self._prepare_task = None
+
+        @callback
+        def schedule(self, force: bool) -> None:
+            self._cancel()
+            self._task = self.hass.async_create_task(self._run(force))
+
+        def _override(self) -> str | None:
+            """The dropdown's effect, or None for Auto or an unknown option."""
+            state = self.hass.states.get(self.config.effect_select)
+            option = (state.state if state else "").strip().lower().replace(" ", "_")
+            return option if option in EFFECTS else None
+
+        def _colour_override(self) -> Palette | None:
+            """The Music Mode Colour light's palette, or None for Auto."""
+            return chosen_palette(self.manual_rgb) if self.manual_rgb else None
+
+        def _compose(
+            self,
+            title: str,
+            artist: str,
+            album: str,
+            info: TrackInfo,
+            natural: Palette,
+            family: str,
+            natural_effect: str,
+            level: float,
+        ) -> Decision:
+            # Sections nudge the automatic colours' vividness; chosen colours
+            # (pins, the manual colour) stay as picked.
+            natural = with_intensity(
+                natural, natural.intensity + SECTION_INTENSITY[self.section]
+            )
+            pin = self.pins.pins.find(title, artist, album) if title else None
+            pinned = named_palette(pin.color, "override") if pin and pin.color else None
+            auto_palette = pinned or natural
+            palette = self._colour_override() or auto_palette
+            auto_effect = (
+                pin.effect if pin and pin.effect in EFFECTS else None
+            ) or natural_effect
+            effect = self._override() or auto_effect
+            config = {
+                **effect_config(
+                    effect,
+                    palette,
+                    info.features(),
+                    self.strip_solid,
+                    SECTION_DRIVE[self.section],
+                ),
+                "brightness": round(
+                    self.brightness_pct / 100 * SECTION_BRIGHTNESS[self.section], 2
+                ),
+            }
+            return Decision(
+                title,
+                artist,
+                album,
+                info,
+                natural,
+                auto_palette,
+                palette,
+                family,
+                auto_effect,
+                effect,
+                config,
+                level,
+                natural_effect,
+            )
+
+        def _recompose(self, decision: Decision) -> Decision:
+            return self._compose(
+                decision.title,
+                decision.artist,
+                decision.album,
+                decision.info,
+                decision.natural,
+                decision.family,
+                decision.natural_effect,
+                decision.level,
+            )
+
+        async def _apply(self, decision: Decision) -> None:
+            previous = self._decision
+            self._decision = decision
+            self._publish(decision)
+            # The pin light follows the playing track.
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            if self._flash_task is not None:
+                # The flash sends the latest decision when it ends.
+                return
+            if self._is_on(self.config.strip):
+                if (
+                    previous is not None
+                    and previous.effect == decision.effect
+                    and previous.title == decision.title
+                ):
+                    # Same effect, new colours or brightness: update in place
+                    # instead of restarting the effect.
+                    await self._ledfx(
+                        "PUT", {"type": decision.effect, "config": decision.config}
+                    )
+                else:
+                    await self._push_strip(decision)
+
+        async def _run(self, force: bool) -> None:
+            if not self._transition_set:
+                self._transition_set = await self._ensure_transition()
+            player = self.hass.states.get(self.config.player)
+            key = _track_key(player)
+            if key is None:
+                if self._decision is not None and not force:
+                    return
+                decision = self._idle_decision()
+                self._track_key = None
+            else:
+                if key == self._track_key and not force:
+                    return
+                new_track = key != self._track_key
+                if new_track:
+                    # A new song: a new loudness baseline.
+                    self.sections.reset(time.monotonic())
+                    self.drops.reset(time.monotonic())
+                    self.section = NORMAL
+                    self.next_ready = None
+                self._track_key = key
+                assert player is not None
+                decision = await self._decide(player, key)
+            # Repeat avoidance follows the automatic choice, not the override.
+            self._last_effect = decision.natural_effect
+            await self._apply(decision)
+            if key is not None and decision.natural.source != "cover":
+                self.hass.async_create_task(self._recheck_cover(key))
+            if key is not None and new_track:
+                self._cancel_prepare()
+                self._prepare_task = self.hass.async_create_background_task(
+                    self._prepare_next(key), "music_director next track"
+                )
+
+        async def _recheck_cover(self, key: str) -> None:
+            """Use the cover after all if its art arrives while the track plays."""
+            for delay in COVER_RECHECK_SECONDS:
+                await asyncio.sleep(delay)
+                decision = self._decision
+                if (
+                    self._track_key != key
+                    or decision is None
+                    or decision.natural.source == "cover"
+                ):
+                    return
+                cover = await self._cover_for(key)
+                if cover is None:
+                    continue
+                self.tracks.put(key, Entry(decision.info, cover))
+                _LOGGER.info("Late cover colour for %s", key.replace("\n", " - "))
+                await self._apply(
+                    self._compose(
+                        decision.title,
+                        decision.artist,
+                        decision.album,
+                        decision.info,
+                        with_intensity(cover, decision.level),
+                        decision.family,
+                        decision.natural_effect,
+                        decision.level,
+                    )
+                )
+                return
+
+        async def _prepare_next(self, key: str) -> None:
+            """Look up the next song in Spotify's queue while this one plays,
+            so its info and cover colours are cached when it starts."""
+            await asyncio.sleep(PREPARE_DELAY_SECONDS)
+            if self._track_key != key or not self._is_on(self.config.enabled):
+                return
+            artist, title, _ = key.split("\n", 2)
+            queued = next_in_queue(await self._spotify_queue(), title, artist)
+            if queued is None:
+                return
+            next_key = track_key(queued.artist, queued.title, queued.album)
+            label = f"{queued.artist} - {queued.title}"
+            entry = self.tracks.cache.find(next_key)
+            if entry is None or (entry.cover is None and not entry.checked):
+                info, (cover, checked) = await asyncio.gather(
+                    self._gather_info(
+                        queued.title, queued.artist, queued.duration, queued.spotify_id
+                    ),
+                    self._queued_cover(queued),
+                )
+                if self._track_key != key:
+                    return
+                self.tracks.put(next_key, Entry(info, cover, checked))
+                _LOGGER.info("Prepared next track %s", label)
+            self.next_ready = label
+            if self._decision is not None:
+                self._publish(self._decision)
+
+        async def prepare_playlists(
+            self, names: list[str] | None, notify: bool = True
+        ) -> None:
+            """Look up every song in the library's Spotify playlists (or the
+            named ones) through Music Assistant, so they play from the cache.
+            Songs already cached are skipped. One run at a time."""
+            if self._prepare_run is not None and not self._prepare_run.done():
+                _LOGGER.info("Playlist preparation is already running")
+                return
+            self._prepare_run = self.hass.async_create_background_task(
+                self._prepare_playlists(names, notify), "music_director prepare playlists"
+            )
+
+        async def _prepare_playlists(self, names: list[str] | None, notify: bool) -> None:
+            mass = self._music_assistant()
+            if mass is None:
+                self._notify(
+                    notify, "Music Assistant is not set up: no playlists to prepare."
+                )
+                return
+            wanted = {normalize(name) for name in names or ()}
+            tracks: dict[str, QueuedTrack] = {}
+            membership: dict[str, list[PlaylistSong]] = {}
+            for playlist in await mass.music.get_library_playlists(limit=1000):
+                if not any(
+                    m.provider_domain == "spotify" for m in playlist.provider_mappings
+                ):
+                    continue
+                if wanted and normalize(playlist.name) not in wanted:
+                    continue
+                songs = membership.setdefault(playlist.name, [])
+                for track in await mass.music.get_playlist_tracks(
+                    playlist.item_id, playlist.provider
+                ):
+                    queued = _playlist_track(track)
+                    key = track_key(queued.artist, queued.title, queued.album)
+                    songs.append(PlaylistSong(key, queued.art_url))
+                    tracks.setdefault(key, queued)
+            # The colour review panel lists songs by playlist.
+            await self.playlists.async_replace(membership, partial=bool(wanted))
+            chosen = list(membership)
+            todo = []
+            for key, queued in tracks.items():
+                entry = self.tracks.cache.find(key)
+                if entry is None or (entry.cover is None and not entry.checked):
+                    todo.append((key, queued))
+            self._notify(
+                notify,
+                f"Preparing {len(todo)} of {len(tracks)} songs from "
+                f"{len(chosen)} playlists ({len(tracks) - len(todo)} already cached).",
+            )
+            artist_tags: dict[str, Any] = {}
+            done = 0
+            for start in range(0, len(todo), PREPARE_BATCH):
+                batch = todo[start : start + PREPARE_BATCH]
+                ids = [q.spotify_id for _, q in batch if q.spotify_id]
+                recco = reccobeats_by_id(
+                    await self._get_json(
+                        RECCOBEATS_URL, {"ids": ",".join(ids)}, "ReccoBeats"
+                    )
+                    if ids
+                    else None
+                )
+                for key, queued in batch:
+                    info, (cover, checked) = await asyncio.gather(
+                        self._gather_info(
+                            queued.title,
+                            queued.artist,
+                            queued.duration,
+                            queued.spotify_id,
+                            recco=recco.get(queued.spotify_id or "", {}),
+                            artist_tags=artist_tags,
+                        ),
+                        self._art_palette(queued.art_url),
+                    )
+                    self.tracks.put(key, Entry(info, cover, checked))
+                    done += 1
+                    await asyncio.sleep(PREPARE_PAUSE_SECONDS)
+                _LOGGER.info("Prepared %d of %d playlist songs", done, len(todo))
+                # Keep the progress if Home Assistant restarts mid-run.
+                await self.tracks.async_save()
+            self._notify(notify, f"Prepared {done} songs from {len(chosen)} playlists.")
+
+        def playlist_names(self) -> list[dict[str, Any]]:
+            return [
+                {"name": name, "songs": len(songs)}
+                for name, songs in sorted(
+                    self.playlists.playlists.items(), key=lambda item: item[0].lower()
+                )
+            ]
+
+        def playlist_colours(self, name: str) -> list[dict[str, Any]] | None:
+            """What the lights would show for each song in a prepared playlist:
+            the strip gradient, the area colours and where the colour comes from."""
+            songs = self.playlists.playlists.get(name)
+            if songs is None:
+                return None
+            rows = []
+            for song in songs:
+                artist, title, album = song.key.split("\n", 2)
+                row: dict[str, Any] = {
+                    "key": song.key,
+                    "title": title,
+                    "artist": artist,
+                    "album": album,
+                    "art": song.art,
+                }
+                entry = self.tracks.cache.find(song.key)
+                pin = self.pins.pins.find(title, artist, album)
+                if entry is None and not (pin and (pin.color or pin.effect)):
+                    row["source"] = "pending"
+                    rows.append(row)
+                    continue
+                if entry is not None:
+                    natural, family, level = _natural(entry)
+                    row["family"] = family
+                    row["intensity"] = round(level, 2)
+                    row["genres"] = list(entry.info.genres[:3])
+                    configured = find_override(
+                        tuple(o for o in self.config.overrides if o.effect),
+                        title,
+                        artist,
+                        album,
+                    )
+                    row["auto_effect"] = (
+                        configured.effect
+                        if configured and configured.effect
+                        else choose_effect(family, song.key, None)
+                    )
+                else:
+                    natural = vibe_palette()
+                pinned = named_palette(pin.color, "override") if pin and pin.color else None
+                palette = pinned or natural
+                row["source"] = (
+                    "pinned" if pinned else "cover" if natural.source == "cover" else "vibe"
+                )
+                row["pin"] = pin.color if pinned and pin else None
+                row["effect_pin"] = pin.effect if pin and pin.effect in EFFECTS else None
+                row["auto"] = to_hex(solid_colour(natural))
+                row["colour"] = to_hex(solid_colour(palette))
+                row["gradient"] = gradient(palette)
+                row["areas"] = [
+                    to_hex(rgb) for rgb in area_colors(palette, len(self.config.areas))
+                ]
+                rows.append(row)
+            return rows
+
+        @callback
+        def pin_song(
+            self,
+            title: str,
+            artist: str,
+            album: str,
+            *,
+            colour: str | None | Keep = KEEP,
+            effect: str | None | Keep = KEEP,
+        ) -> None:
+            """Pin a colour and/or effect to a song's album (or the song, without
+            an album); None unpins that one, KEEP leaves it."""
+            self.pins.pins.update(title, artist, album, color=colour, effect=effect)
+            self.pins.save()
+            async_dispatcher_send(self.hass, CONTROLS_UPDATED)
+            self._reapply()
+
+        def _music_assistant(self) -> Any:
+            for entry in self.hass.config_entries.async_entries("music_assistant"):
+                data = getattr(entry, "runtime_data", None)
+                if data is not None and getattr(data, "mass", None) is not None:
+                    return data.mass
+            return None
+
+        def _notify(self, notify: bool, message: str) -> None:
+            _LOGGER.info(message)
+            if not notify:
+                return
+            self.hass.async_create_task(
+                self.hass.services.async_call(
+                    "persistent_notification",
+                    "create",
+                    {
+                        "title": "Music Director",
+                        "message": message,
+                        "notification_id": "music_director_prepare",
+                    },
+                )
+            )
+
+        async def _queued_cover(self, queued: QueuedTrack) -> tuple[Palette | None, bool]:
+            return await self._art_palette(queued.art_url)
+
+        async def _art_palette(self, url: str | None) -> tuple[Palette | None, bool]:
+            """The cover palette at url, and whether the art was decoded (so a
+            None palette means the cover has no usable colour)."""
+            if not url:
+                return None, False
+            data = await self._download(url)
+            if data is None:
+                return None, False
+            try:
+                return await self.hass.async_add_executor_job(_cover_palette, data), True
+            except (OSError, ValueError) as error:
+                _LOGGER.debug("Cover unreadable: %s", type(error).__name__)
+                return None, False
+
+        async def _spotify_queue(self) -> Any:
+            """Spotify's queue for the account behind the Spotify player, with
+            the Spotify integration's own sign-in. None when unavailable."""
+            entity = er.async_get(self.hass).async_get(self.config.spotify)
+            entry = (
+                self.hass.config_entries.async_get_entry(entity.config_entry_id)
+                if entity is not None and entity.config_entry_id
+                else None
+            )
+            if entry is None:
+                return None
+            try:
+                implementation = (
+                    await config_entry_oauth2_flow.async_get_config_entry_implementation(
+                        self.hass, entry
+                    )
+                )
+                session = config_entry_oauth2_flow.OAuth2Session(
+                    self.hass, entry, implementation
+                )
+                await session.async_ensure_token_valid()
+                token = session.token["access_token"]
+            except Exception as error:  # noqa: BLE001 - lookahead is best effort
+                _LOGGER.debug("Spotify sign-in unavailable: %s", type(error).__name__)
+                return None
+            try:
+                async with self._session.get(
+                    SPOTIFY_QUEUE_URL,
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=HTTP_TIMEOUT,
+                ) as response:
+                    if response.status != 200:
+                        _LOGGER.debug("Spotify queue returned HTTP %s", response.status)
+                        return None
+                    return await response.json(content_type=None)
+            except (aiohttp.ClientError, TimeoutError, ValueError) as error:
+                _LOGGER.debug("Spotify queue failed: %s", type(error).__name__)
+                return None
+
+        def _idle_decision(self) -> Decision:
+            idle = vibe_palette()
+            return self._compose(
+                "", "", "", TrackInfo(), idle, "default", "energy", idle.intensity
+            )
+
+        async def _decide(self, player: State, key: str) -> Decision:
+            title = player.attributes.get("media_title") or ""
+            artist = player.attributes.get("media_artist") or ""
+            album = player.attributes.get("media_album_name") or ""
+            entry = self.tracks.cache.find(key)
+            if entry is None:
+                info, cover = await asyncio.gather(
+                    self._player_info(player), self._cover_for(key)
+                )
+                entry = Entry(info, cover)
+                self.tracks.put(key, entry)
+            elif entry.cover is None and not entry.checked:
+                # A missed cover is not remembered: try again on replay.
+                entry = Entry(entry.info, await self._cover_for(key))
+                self.tracks.put(key, entry)
+            else:
+                _LOGGER.debug("Cached: %s", key.replace("\n", " - "))
+                if key not in self.tracks.cache.entries:
+                    # Found under another spelling: remember this one too.
+                    self.tracks.put(key, entry)
+            info = entry.info
+            palette, family, level = _natural(entry)
+            # Colours come from pins (seeded from configured overrides); the
+            # configured overrides still set effects.
+            song = find_override(
+                tuple(o for o in self.config.overrides if o.effect), title, artist, album
+            )
+            if song and song.effect:
+                effect = song.effect
+            else:
+                effect = choose_effect(family, key, self._last_effect)
+            decision = self._compose(
+                title, artist, album, info, palette, family, effect, level
+            )
+            _LOGGER.info(
+                "%s - %s: %s/%s%s, intensity %.2f, palette %s (hue %.0f), sources %s",
+                artist,
+                title,
+                family,
+                decision.effect,
+                " (manual)" if decision.manual else "",
+                level,
+                decision.palette.source,
+                decision.palette.hue,
+                ",".join(info.sources) or "none",
+            )
+            return decision
+
+        async def _get_json(self, url: str, params: dict[str, str], label: str) -> Any:
+            try:
+                async with self._session.get(
+                    url, params=params, timeout=HTTP_TIMEOUT
+                ) as response:
+                    if response.status != 200:
+                        _LOGGER.debug("%s lookup returned HTTP %s", label, response.status)
+                        return None
+                    return await response.json(content_type=None)
+            except (aiohttp.ClientError, TimeoutError, ValueError) as error:
+                # The exception text can carry request URLs, and Last.fm's has the key.
+                _LOGGER.debug("%s lookup failed: %s", label, type(error).__name__)
+                return None
+
+        def _spotify_match(self, title: str, artist: str) -> str | None:
+            state = self.hass.states.get(self.config.spotify)
+            if state is None or state.state in ("unavailable", "unknown"):
+                self.spotify_status = "unavailable"
+                return None
+            if same_track(
+                title,
+                artist,
+                state.attributes.get("media_title") or "",
+                state.attributes.get("media_artist") or "",
+            ):
+                self.spotify_status = "ok"
+                return spotify_track_id(state.attributes.get("media_content_id"))
+            self.spotify_status = "other track"
+            return None
+
+        async def _spotify_id(self, title: str, artist: str) -> str | None:
+            """The track's Spotify ID from Spotify's media player. The speaker
+            plays through Spotify Connect into Music Assistant and reports no
+            ID, so this is the only source."""
+            found = self._spotify_match(title, artist)
+            if found or self.spotify_status == "unavailable":
+                return found
+            now = time.monotonic()
+            if now - self._spotify_refreshed < SPOTIFY_REFRESH_GAP:
+                return None
+            self._spotify_refreshed = now
+            try:
+                await self.hass.services.async_call(
+                    "homeassistant",
+                    "update_entity",
+                    {"entity_id": self.config.spotify},
+                    blocking=True,
+                )
+            except Exception as error:  # noqa: BLE001 - polling is best effort
+                _LOGGER.debug("Spotify refresh failed: %s", type(error).__name__)
+            await asyncio.sleep(SPOTIFY_RETRY_SECONDS)
+            return self._spotify_match(title, artist)
+
+        async def _player_info(self, player: State) -> TrackInfo:
+            title = player.attributes.get("media_title") or ""
+            artist = player.attributes.get("media_artist") or ""
+            return await self._gather_info(
+                title,
+                artist,
+                player.attributes.get("media_duration"),
+                await self._spotify_id(title, artist),
+            )
+
+        async def _gather_info(
+            self,
+            title: str,
+            artist: str,
+            duration: Any,
+            spotify_id: str | None,
+            recco: Any = None,
+            artist_tags: dict[str, Any] | None = None,
+        ) -> TrackInfo:
+            """Look the track up. recco is an already fetched ReccoBeats body,
+            and artist_tags remembers Last.fm artist tags, for batch runs."""
+            info = TrackInfo()
+            if recco is not None:
+                apply_reccobeats(info, recco)
+            elif spotify_id:
+                apply_reccobeats(
+                    info,
+                    await self._get_json(RECCOBEATS_URL, {"ids": spotify_id}, "ReccoBeats"),
+                )
+            params = {"artist": artist, "title": title, "isrc": info.isrc or ""}
+            if isinstance(duration, (int, float)) and duration > 0:
+                params["duration"] = str(duration)
+            apply_library(
+                info,
+                await self._get_json(
+                    f"{self.config.library_url}/lookup", params, "Library"
+                ),
+            )
+            if not info.genres and self.config.lastfm_key:
+                for method, extra in (
+                    ("track.gettoptags", {"track": title}),
+                    ("artist.gettoptags", {}),
+                ):
+                    if method == "artist.gettoptags" and artist_tags is not None:
+                        if artist not in artist_tags:
+                            artist_tags[artist] = await self._lastfm(method, artist, extra)
+                        body = artist_tags[artist]
+                    else:
+                        body = await self._lastfm(method, artist, extra)
+                    apply_lastfm(info, body, artist)
+                    if info.genres:
+                        break
+            return info
+
+        async def _lastfm(self, method: str, artist: str, extra: dict[str, str]) -> Any:
+            assert self.config.lastfm_key
+            return await self._get_json(
+                LASTFM_URL,
+                {
+                    "method": method,
+                    "artist": artist,
+                    "autocorrect": "1",
+                    "api_key": self.config.lastfm_key,
+                    "format": "json",
+                    **extra,
+                },
+                "Last.fm",
+            )
+
+        async def _cover_for(self, key: str) -> Palette | None:
+            """The cover palette for the track in key. Spotify's art is used
+            when Spotify reports the same track, since it changes with the
+            title; otherwise the player's. Retries only while no art can be
+            downloaded, and gives up if the track changes."""
+            for attempt in range(COVER_ATTEMPTS):
+                player = self.hass.states.get(self.config.player)
+                if _track_key(player) != key:
+                    return None
+                assert player is not None
+                title = player.attributes.get("media_title") or ""
+                artist = player.attributes.get("media_artist") or ""
+                spotify = self.hass.states.get(self.config.spotify)
+                sources = [player]
+                if spotify is not None and same_track(
+                    title,
+                    artist,
+                    spotify.attributes.get("media_title") or "",
+                    spotify.attributes.get("media_artist") or "",
+                ):
+                    sources.insert(0, spotify)
+                for source in sources:
+                    data = await self._fetch_art(source)
+                    if data is None:
+                        continue
+                    try:
+                        cover = await self.hass.async_add_executor_job(_cover_palette, data)
+                    except (OSError, ValueError) as error:
+                        _LOGGER.debug("Cover art unreadable: %s", type(error).__name__)
+                        continue
+                    if cover is None:
+                        _LOGGER.info(
+                            "No usable cover colour for %s", key.replace("\n", " - ")
+                        )
+                    return cover
+                if attempt < COVER_ATTEMPTS - 1:
+                    await asyncio.sleep(COVER_RETRY_SECONDS)
+            _LOGGER.info("No cover art for %s", key.replace("\n", " - "))
+            return None
+
+        async def _fetch_art(self, state: State) -> bytes | None:
+            picture = state.attributes.get("entity_picture")
+            if not picture:
+                return None
+            if not picture.startswith("http"):
+                picture = f"http://127.0.0.1:{self.hass.http.server_port}{picture}"
+            return await self._download(picture)
+
+        async def _download(self, picture: str) -> bytes | None:
+            try:
+                async with self._session.get(picture, timeout=HTTP_TIMEOUT) as response:
+                    if response.status != 200:
+                        return None
+                    # content.read(n) returns only what has arrived so far, which
+                    # truncated larger covers: read every chunk, up to the limit.
+                    data = bytearray()
+                    async for chunk in response.content.iter_chunked(64 * 1024):
+                        data += chunk
+                        if len(data) > MAX_ART_BYTES:
+                            _LOGGER.debug("Cover art over %d bytes", MAX_ART_BYTES)
+                            return None
+                    return bytes(data)
+            except (aiohttp.ClientError, TimeoutError) as error:
+                _LOGGER.debug("Cover art unavailable: %s", type(error).__name__)
+                return None
+
+        def _publish(self, decision: Decision) -> None:
+            colours = area_colors(decision.palette, len(self.config.areas))
+            info = decision.info
+            self.hass.states.async_set(
+                SENSOR,
+                decision.effect,
+                {
+                    "friendly_name": "Music Director",
+                    "icon": "mdi:palette",
+                    "title": decision.title,
+                    "artist": decision.artist,
+                    "genres": list(info.genres),
+                    "bpm": round(info.bpm) if info.bpm else None,
+                    "energy": info.energy,
+                    "valence": info.valence,
+                    "family": decision.family,
+                    "effect": decision.effect,
+                    "auto_effect": decision.auto_effect,
+                    "effect_mode": "manual"
+                    if decision.manual
+                    else "pinned"
+                    if decision.auto_effect != decision.natural_effect
+                    else "auto",
+                    "effect_config": {
+                        k: v for k, v in decision.config.items() if k != "gradient"
+                    },
+                    "palette_source": decision.palette.source,
+                    "palette_spread": spread_label(decision.palette),
+                    "colour_mode": "manual" if self.manual_rgb else "auto",
+                    "album": decision.album,
+                    "pinned_colour": self.current_pin(),
+                    "pinned_effect": self.current_pinned_effect(),
+                    "natural_palette_source": decision.natural.source,
+                    "spotify_status": self.spotify_status,
+                    "ledfx_status": self.ledfx_status,
+                    "section": self.section,
+                    "brightness_pct": self.brightness_pct,
+                    "auto_palette_source": decision.auto_palette.source,
+                    "intensity": round(decision.level, 3),
+                    "next_ready": self.next_ready,
+                    "metadata_sources": list(info.sources),
+                    "area_colors": {
+                        area: list(colour)
+                        for area, colour in zip(self.config.areas, colours, strict=True)
+                    },
+                    "strip_style": "solid" if self.strip_solid else "gradient",
+                    "gradient": (
+                        solid_gradient(decision.palette)
+                        if self.strip_solid
+                        else gradient(decision.palette)
+                    ),
+                },
+            )
+
+        async def _ledfx(self, method: str, payload: dict[str, Any] | None = None) -> None:
+            url = (
+                f"{self.config.ledfx_url}/api/virtuals/{self.config.ledfx_virtual}/effects"
+            )
+            try:
+                async with self._session.request(
+                    method, url, json=payload, timeout=HTTP_TIMEOUT
+                ) as response:
+                    if response.status >= 400:
+                        _LOGGER.warning(
+                            "LedFx %s returned HTTP %s: %s",
+                            method,
+                            response.status,
+                            (await response.text())[:200],
+                        )
+                        self._set_ledfx_status("error")
+                    else:
+                        self._set_ledfx_status("ok")
+            except (aiohttp.ClientError, TimeoutError) as error:
+                _LOGGER.warning("LedFx %s failed: %s", method, error)
+                self._set_ledfx_status("unreachable")
+
+        async def _ensure_transition(self) -> bool:
+            """Set the strip's crossfade between effects. LedFx keeps virtual
+            config on POST /api/virtuals with an id, so send the full config back
+            with only transition_time changed. Returns True once it is in place."""
+            base = f"{self.config.ledfx_url}/api/virtuals"
+            virtual = self.config.ledfx_virtual
+            try:
+                async with self._session.get(
+                    f"{base}/{virtual}", timeout=HTTP_TIMEOUT
+                ) as response:
+                    body = await response.json(content_type=None)
+                config = dict(body[virtual]["config"])
+                if config.get("transition_time") == self.config.transition_time:
+                    return True
+                config["transition_time"] = self.config.transition_time
+                async with self._session.post(
+                    base, json={"id": virtual, "config": config}, timeout=HTTP_TIMEOUT
+                ) as response:
+                    if response.status >= 400:
+                        _LOGGER.warning(
+                            "LedFx transition update returned %s", response.status
+                        )
+                        return False
+                return True
+            except (
+                aiohttp.ClientError,
+                TimeoutError,
+                ValueError,
+                KeyError,
+                TypeError,
+            ) as error:
+                _LOGGER.warning("LedFx transition update failed: %s", type(error).__name__)
+                return False
+
+        async def _push_strip(self, decision: Decision) -> None:
+            await self._ledfx("POST", {"type": decision.effect, "config": decision.config})
+
+        async def _clear_strip(self) -> None:
+            await self._ledfx("DELETE")
+
+        async def _stop(self) -> None:
+            self._track_key = None
+            self._decision = None
+            self.hass.states.async_set(
+                SENSOR, "off", {"friendly_name": "Music Director", "icon": "mdi:palette"}
+            )
+            await self._clear_strip()
+  component.music_director.light.py: |
+    """Virtual lights whose colour wheels set the music colour.
+
+    Music Mode Colour: off means Auto (cover, vibe or pinned colours); on applies
+    the chosen colour to the strip and every taking-part area until it is
+    switched off.
+
+    Music Mode Pin: on means the playing album has a pinned colour, shown each
+    time it plays; its colour wheel edits the pin and switching it off removes
+    the pin, so the album goes back to automatic colours. Unavailable while
+    nothing plays.
+
+    Both lights' brightness is the music lights' brightness, shared with
+    number.music_mode_brightness.
+    """
+
+    from __future__ import annotations
+
+    from typing import Any
+
+    from homeassistant.components.light import (
+        ATTR_BRIGHTNESS,
+        ATTR_HS_COLOR,
+        ColorMode,
+        LightEntity,
+    )
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.restore_state import RestoreEntity
+    from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+    from homeassistant.util.color import color_hs_to_RGB, color_RGB_to_hs
+
+    from .director import CONTROLS_UPDATED, DOMAIN, Director
+    from .palette import hex_rgb, named_palette, solid_colour
+
+    # Red, the colour the light offers before anything has been picked.
+    DEFAULT_HS = (0.0, 100.0)
+
+
+    async def async_setup_platform(
+        hass: HomeAssistant,
+        config: ConfigType,
+        async_add_entities: AddEntitiesCallback,
+        discovery_info: DiscoveryInfoType | None = None,
+    ) -> None:
+        if discovery_info is None:
+            return
+        director = hass.data[DOMAIN]
+        async_add_entities([MusicColourLight(director), MusicPinLight(director)])
+
+
+    class MusicColourLight(LightEntity, RestoreEntity):
+        _attr_name = "Music Mode Colour"
+        _attr_unique_id = "music_director_colour"
+        _attr_icon = "mdi:palette"
+        _attr_should_poll = False
+        _attr_color_mode = ColorMode.HS
+
+        def __init__(self, director: Director) -> None:
+            self._attr_supported_color_modes = {ColorMode.HS}
+            self._director = director
+            self._hs: tuple[float, float] = DEFAULT_HS
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            last = await self.async_get_last_state()
+            if last is not None:
+                hs = last.attributes.get(ATTR_HS_COLOR)
+                if isinstance(hs, (list, tuple)) and len(hs) == 2:
+                    self._hs = (float(hs[0]), float(hs[1]))
+                if last.state == "on":
+                    self._director.set_colour(self._rgb())
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        def _rgb(self) -> tuple[int, int, int]:
+            r, g, b = color_hs_to_RGB(*self._hs)
+            return (r, g, b)
+
+        @property
+        def is_on(self) -> bool:
+            return self._director.manual_rgb is not None
+
+        @property
+        def hs_color(self) -> tuple[float, float]:
+            return self._hs
+
+        @property
+        def brightness(self) -> int:
+            return round(self._director.brightness_pct * 255 / 100)
+
+        async def async_turn_on(self, **kwargs: Any) -> None:
+            if ATTR_HS_COLOR in kwargs:
+                hue, saturation = kwargs[ATTR_HS_COLOR]
+                self._hs = (float(hue), float(saturation))
+            if ATTR_BRIGHTNESS in kwargs:
+                self._director.set_brightness(round(kwargs[ATTR_BRIGHTNESS] * 100 / 255))
+            self._director.set_colour(self._rgb())
+
+        async def async_turn_off(self, **kwargs: Any) -> None:
+            self._director.set_colour(None)
+
+
+    def _colour_rgb(colour: str) -> tuple[int, int, int] | None:
+        """RGB for a pinned colour: #rrggbb as is, a colour name as shown."""
+        rgb = hex_rgb(colour)
+        if rgb is not None:
+            return rgb
+        palette = named_palette(colour, "override")
+        return solid_colour(palette) if palette else None
+
+
+    class MusicPinLight(LightEntity):
+        _attr_name = "Music Mode Pin"
+        _attr_unique_id = "music_director_pin"
+        _attr_icon = "mdi:pin"
+        _attr_should_poll = False
+        _attr_color_mode = ColorMode.HS
+
+        def __init__(self, director: Director) -> None:
+            self._attr_supported_color_modes = {ColorMode.HS}
+            self._director = director
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        @property
+        def available(self) -> bool:
+            return self._director.current_track is not None
+
+        @property
+        def is_on(self) -> bool:
+            return self._director.current_pin() is not None
+
+        def _rgb(self) -> tuple[int, int, int] | None:
+            pin = self._director.current_pin()
+            if pin is not None:
+                return _colour_rgb(pin)
+            return self._director.showing_rgb()
+
+        @property
+        def hs_color(self) -> tuple[float, float] | None:
+            rgb = self._rgb()
+            return color_RGB_to_hs(*rgb) if rgb else None
+
+        @property
+        def brightness(self) -> int:
+            return round(self._director.brightness_pct * 255 / 100)
+
+        @property
+        def extra_state_attributes(self) -> dict[str, Any]:
+            track = self._director.current_track
+            return {
+                "album": track.album if track else None,
+                "pinned_colour": self._director.current_pin(),
+            }
+
+        async def async_turn_on(self, **kwargs: Any) -> None:
+            if ATTR_BRIGHTNESS in kwargs:
+                self._director.set_brightness(round(kwargs[ATTR_BRIGHTNESS] * 100 / 255))
+            if ATTR_HS_COLOR in kwargs:
+                hue, saturation = kwargs[ATTR_HS_COLOR]
+                rgb: tuple[int, int, int] | None = color_hs_to_RGB(
+                    float(hue), float(saturation)
+                )
+            elif self._director.current_pin() is not None:
+                # Already pinned: a brightness change only.
+                return
+            else:
+                # Pin what is showing: the held manual colour, else the auto one.
+                rgb = self._director.manual_rgb or self._director.showing_rgb()
+            if rgb is None:
+                return
+            self._director.set_pin(rgb)
+            # The pin now shows for this album; other songs go back to Auto.
+            if self._director.manual_rgb is not None:
+                self._director.set_colour(None)
+
+        async def async_turn_off(self, **kwargs: Any) -> None:
+            self._director.set_pin(None)
+  component.music_director.manifest.json: |
+    {
+      "domain": "music_director",
+      "name": "Music Director",
+      "codeowners": ["@JEFF7712"],
+      "dependencies": ["frontend", "http", "panel_custom", "websocket_api"],
+      "after_dependencies": ["spotify"],
+      "documentation": "https://gitlab.com/JEFF7712/homelab",
+      "integration_type": "service",
+      "iot_class": "local_push",
+      "requirements": [],
+      "version": "0.1.0"
+    }
+  component.music_director.metadata.py: |
+    """Track metadata parsing and merging for music_director.
+
+    Pure functions over the JSON bodies of the local library lookup, ReccoBeats
+    and Last.fm, so the precedence rules can be tested without the network.
+    """
+
+    from __future__ import annotations
+
+    import re
+    import unicodedata
+    from dataclasses import dataclass, field
+    from typing import Any
+
+    from .rules import Features
+
+    LASTFM_MIN_TAG_COUNT = 10
+    LASTFM_MAX_TAGS = 5
+    SPOTIFY_TRACK_URI = re.compile(r"^spotify:track:([A-Za-z0-9]{22})$")
+    # Tags that describe listening habits or eras rather than a genre.
+    LASTFM_NOISE = re.compile(
+        r"^(seen live|favou?rites?|my favou?rites?|love|loved|awesome|beautiful|"
+        r"cool|best|amazing|\d{2,4}s?|under \d+ listeners)$"
+    )
+
+
+    def normalize(value: str) -> str:
+        decomposed = unicodedata.normalize("NFKD", value)
+        ascii_only = decomposed.encode("ascii", "ignore").decode("ascii")
+        return re.sub(r"[^a-z0-9]", "", ascii_only.lower())
+
+
+    def same_track(title: str, artist: str, other_title: str, other_artist: str) -> bool:
+        """True when two players report the same song; Spotify Connect titles can
+        differ from the account entity only in punctuation and featuring."""
+        if not title or not other_title:
+            return False
+        first, second = normalize(title), normalize(other_title)
+        if first != second and not (first.startswith(second) or second.startswith(first)):
+            return False
+        a, b = normalize(artist), normalize(other_artist)
+        return not a or not b or a in b or b in a
+
+
+    @dataclass(frozen=True)
+    class SongOverride:
+        """A configured colour and/or effect for matching tracks. Every given
+        field must match; album and artist match by prefix after normalising,
+        so "channel ORANGE" also matches a deluxe edition."""
+
+        artist: str | None = None
+        album: str | None = None
+        title: str | None = None
+        color: str | None = None
+        effect: str | None = None
+
+        def matches(self, title: str, artist: str, album: str) -> bool:
+            pairs = [
+                (self.title, title, False),
+                (self.artist, artist, True),
+                (self.album, album, True),
+            ]
+            given = [(want, have, prefix) for want, have, prefix in pairs if want]
+            if not given:
+                return False
+            for want, have, prefix in given:
+                w, h = normalize(want or ""), normalize(have)
+                if not w or not (h == w or (prefix and h.startswith(w))):
+                    return False
+            return True
+
+
+    def find_override(
+        overrides: tuple[SongOverride, ...], title: str, artist: str, album: str
+    ) -> SongOverride | None:
+        """The first override matching the track, or None."""
+        return next((o for o in overrides if o.matches(title, artist, album)), None)
+
+
+    def spotify_track_id(content_id: str | None) -> str | None:
+        match = SPOTIFY_TRACK_URI.match(content_id or "")
+        return match.group(1) if match else None
+
+
+    @dataclass
+    class TrackInfo:
+        """Everything known about the playing track, with where it came from."""
+
+        genres: tuple[str, ...] = ()
+        bpm: float | None = None
+        energy: float | None = None
+        danceability: float | None = None
+        acousticness: float | None = None
+        valence: float | None = None
+        isrc: str | None = None
+        sources: list[str] = field(default_factory=list)
+
+        def features(self) -> Features:
+            return Features(
+                genres=self.genres,
+                bpm=self.bpm,
+                energy=self.energy,
+                danceability=self.danceability,
+                acousticness=self.acousticness,
+                valence=self.valence,
+            )
+
+
+    def _number(value: Any) -> float | None:
+        return float(value) if isinstance(value, (int, float)) and value > 0 else None
+
+
+    def apply_reccobeats(info: TrackInfo, body: Any) -> None:
+        content = body.get("content") if isinstance(body, dict) else None
+        if not content or not isinstance(content[0], dict):
+            return
+        item = content[0]
+        info.bpm = _number(item.get("tempo")) or info.bpm
+        info.energy = _number(item.get("energy"))
+        info.danceability = _number(item.get("danceability"))
+        info.acousticness = _number(item.get("acousticness"))
+        info.valence = _number(item.get("valence"))
+        isrc = item.get("isrc")
+        if isinstance(isrc, str) and isrc:
+            info.isrc = isrc.upper()
+        info.sources.append("reccobeats")
+
+
+    def apply_library(info: TrackInfo, body: Any) -> None:
+        match = body.get("match") if isinstance(body, dict) else None
+        if not isinstance(match, dict):
+            return
+        genres = tuple(g for g in match.get("genres") or () if isinstance(g, str) and g)
+        if genres:
+            info.genres = genres
+        if info.bpm is None:
+            info.bpm = _number(match.get("bpm"))
+        info.sources.append(f"library:{body.get('matched_by') or 'match'}")
+
+
+    def lastfm_genres(body: Any, artist: str = "") -> tuple[str, ...]:
+        tags = (
+            (body or {}).get("toptags", {}).get("tag", []) if isinstance(body, dict) else []
+        )
+        if isinstance(tags, dict):
+            tags = [tags]
+        artist_key = normalize(artist)
+        genres: list[str] = []
+        for tag in tags:
+            name = str(tag.get("name", "")).strip().lower()
+            try:
+                count = int(tag.get("count", 0))
+            except (TypeError, ValueError):
+                count = 0
+            if count < LASTFM_MIN_TAG_COUNT or not name or LASTFM_NOISE.match(name):
+                continue
+            if artist_key and normalize(name) == artist_key:
+                continue
+            if name not in genres:
+                genres.append(name)
+            if len(genres) == LASTFM_MAX_TAGS:
+                break
+        return tuple(genres)
+
+
+    def apply_lastfm(info: TrackInfo, body: Any, artist: str) -> None:
+        genres = lastfm_genres(body, artist)
+        if genres and not info.genres:
+            info.genres = genres
+            info.sources.append("lastfm")
+
+
+    # Spotify art width closest to this is used for the next track's cover.
+    ART_WIDTH = 300
+
+
+    @dataclass(frozen=True)
+    class QueuedTrack:
+        """The song Spotify will play next."""
+
+        title: str
+        artist: str
+        album: str
+        spotify_id: str | None
+        duration: float | None
+        art_url: str | None
+
+
+    def next_in_queue(body: Any, title: str, artist: str) -> QueuedTrack | None:
+        """The next song from Spotify's queue endpoint, if the queue belongs to
+        the track playing now (title and artist) and its head is a song."""
+        if not isinstance(body, dict):
+            return None
+        playing = body.get("currently_playing")
+        if not isinstance(playing, dict) or not same_track(
+            title, artist, playing.get("name") or "", _artists(playing)
+        ):
+            return None
+        queue = body.get("queue")
+        if not isinstance(queue, list) or not queue or not isinstance(queue[0], dict):
+            return None
+        item = queue[0]
+        if item.get("type") != "track" or not item.get("name"):
+            return None
+        album = item.get("album") if isinstance(item.get("album"), dict) else {}
+        images = [
+            image
+            for image in album.get("images") or ()
+            if isinstance(image, dict) and image.get("url")
+        ]
+        art = min(
+            images,
+            key=lambda image: abs((image.get("width") or ART_WIDTH) - ART_WIDTH),
+            default=None,
+        )
+        duration = item.get("duration_ms")
+        return QueuedTrack(
+            title=item["name"],
+            artist=_artists(item),
+            album=album.get("name") or "",
+            spotify_id=item.get("id") if isinstance(item.get("id"), str) else None,
+            duration=duration / 1000 if isinstance(duration, (int, float)) else None,
+            art_url=art["url"] if art else None,
+        )
+
+
+    def _artists(item: dict[str, Any]) -> str:
+        """Artist names joined the way Home Assistant's Spotify player shows them."""
+        return ", ".join(
+            a["name"]
+            for a in item.get("artists") or ()
+            if isinstance(a, dict) and a.get("name")
+        )
+
+
+    RECCOBEATS_TRACK = re.compile(r"track/([A-Za-z0-9]{22})")
+
+
+    def reccobeats_by_id(body: Any) -> dict[str, dict[str, Any]]:
+        """A batch ReccoBeats audio-features body split per Spotify ID, each in
+        the shape apply_reccobeats takes."""
+        content = body.get("content") if isinstance(body, dict) else None
+        found: dict[str, dict[str, Any]] = {}
+        for item in content or ():
+            if not isinstance(item, dict):
+                continue
+            match = RECCOBEATS_TRACK.search(str(item.get("href") or ""))
+            if match:
+                found[match.group(1)] = {"content": [item]}
+        return found
+  component.music_director.number.py: |
+    """Music Mode Brightness: brightness of the strip and painted areas, in %."""
+
+    from __future__ import annotations
+
+    from homeassistant.components.number import NumberMode, RestoreNumber
+    from homeassistant.const import PERCENTAGE
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+
+    from .director import (
+        CONTROLS_UPDATED,
+        DOMAIN,
+        MAX_BRIGHTNESS,
+        MIN_BRIGHTNESS,
+        Director,
+    )
+
+
+    async def async_setup_platform(
+        hass: HomeAssistant,
+        config: ConfigType,
+        async_add_entities: AddEntitiesCallback,
+        discovery_info: DiscoveryInfoType | None = None,
+    ) -> None:
+        if discovery_info is None:
+            return
+        async_add_entities([MusicBrightness(hass.data[DOMAIN])])
+
+
+    class MusicBrightness(RestoreNumber):
+        _attr_name = "Music Mode Brightness"
+        _attr_unique_id = "music_director_brightness"
+        _attr_icon = "mdi:brightness-6"
+        _attr_should_poll = False
+        _attr_mode = NumberMode.SLIDER
+        _attr_native_min_value = MIN_BRIGHTNESS
+        _attr_native_max_value = MAX_BRIGHTNESS
+        _attr_native_step = 5
+        _attr_native_unit_of_measurement = PERCENTAGE
+
+        def __init__(self, director: Director) -> None:
+            self._director = director
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            last = await self.async_get_last_number_data()
+            if last is not None and last.native_value is not None:
+                self._director.set_brightness(round(last.native_value))
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        @property
+        def native_value(self) -> float:
+            return self._director.brightness_pct
+
+        async def async_set_native_value(self, value: float) -> None:
+            self._director.set_brightness(round(value))
+  component.music_director.palette.py: |
+    """Album-art palettes for music lighting.
+
+    Pure functions only: callers decode the image and pass RGB pixels. Colours
+    are clustered and shaded in OKLab/OKLCH so hue shifts and lightness ramps
+    look even on LEDs.
+
+    Clusters of similar hue are scored together, so a cover-wide tint (a
+    muted blue across a dark cover) counts as one colour. Groups that read as
+    skin, brown or olive count for much less, so a portrait cover does not turn
+    the room amber. When no cover colour scores well enough, the caller falls
+    back to vibe_palette: a mood axis from deep blue (sad) through purple to
+    deep red (happy), nudged by genre, after music-colour association research
+    (Palmer et al., PNAS 2013).
+
+    Output vividness follows the track's intensity (0-1, from genre family,
+    energy and tempo; see rules.intensity). Intense tracks are steered toward
+    vivid reds and deep blues (oranges and yellows into reds, yellow-greens into
+    green, sky blues into deep blue) with boosted saturation; calm tracks keep
+    their cover's own hue and saturation. At every intensity, blues and reds
+    stay deep and the yellow-green band keeps a lightness floor so nothing
+    renders as mustard or olive (as Material's DislikeAnalyzer does).
+
+    How far the lights spread in hue follows the cover. A one-colour cover
+    gives every light that colour; a cover of related colours (within
+    RELATED_HUE_WIDTH) gives the lights those colours; a cover of unrelated
+    colours, and the vibe fallback, spread DEFAULT_SPREAD either side of the
+    primary. Intensity narrows any spread, so intense tracks show one sharp
+    colour.
+
+    Named colours (NAMED_HUES) serve the manual colour dropdown and per-song
+    overrides; they keep their hue at any intensity.
+    """
+
+    from __future__ import annotations
+
+    import colorsys
+    import math
+    import random
+    from dataclasses import dataclass, replace
+
+    RGB = tuple[int, int, int]
+    Lab = tuple[float, float, float]
+
+    CLUSTERS = 6
+    ITERATIONS = 12
+    VIVID_CHROMA = 0.03
+    # Clusters at least this colourful join hue groups; greys and blacks do not.
+    TINT_CHROMA = 0.025
+    GROUP_HUE_WIDTH = 20.0
+    # A colour group counts toward the cover's spread when it holds at least this
+    # share of the cover's clean colour; the primary alone at SINGLE_SHARE or more
+    # makes it a one-colour cover.
+    SIGNIFICANT_SHARE = 0.10
+    SINGLE_SHARE = 0.75
+    # Significant groups all within this of the primary are a related palette.
+    RELATED_HUE_WIDTH = 60.0
+    # Hue offset either side of the primary for unrelated covers and vibes.
+    DEFAULT_SPREAD = 10.0
+    LED_LIGHTNESS = 0.70
+    # Calm tracks keep the cover's hue, saturated at least this much: softer
+    # colours read as white or pastel on bulbs.
+    CALM_MIN_CHROMA = 0.17
+    # Fully intense tracks ask for this, past sRGB for most hues, so the light
+    # shows the most saturated version of its colour.
+    LED_MAX_CHROMA = 0.25
+    # A cover colour must score at least this (sqrt(share) * chroma * penalty) to
+    # beat the vibe fallback: about 1% of the cover in a vivid colour, or a tenth
+    # of it in a muted one.
+    MIN_COVER_SCORE = 0.015
+    # Weight for skin, brown and olive clusters.
+    MUDDY_WEIGHT = 0.15
+
+    # Hues (OKLCH degrees) for covers without a usable colour.
+    # Within one genre string the first match wins, so synthpop is synth, not pop.
+    GENRE_HUES: tuple[tuple[tuple[str, ...], float], ...] = (
+        (("synth", "new wave", "retrowave", "outrun", "80s"), 262.0),
+        (("hip hop", "hip-hop", "rap", "trap", "drill", "grime"), 18.0),
+        (("r&b", "rnb", "soul", "neo soul", "funk"), 55.0),
+        (("house", "techno", "edm", "electro", "electronic", "dance", "trance"), 235.0),
+        (("metal", "rock", "punk", "grunge"), 18.0),
+        (("pop",), 350.0),
+        (("jazz", "blues", "swing", "big band"), 255.0),
+        (("reggae", "reggaeton", "latin", "dancehall", "afro"), 145.0),
+        (("ambient", "classical", "acoustic", "folk", "soundtrack", "score"), 210.0),
+    )
+    DEFAULT_HUE = 265.0
+    # The vibe mood axis runs from deep blue (sad) through purple to deep red (happy).
+    BLUE_HUE = 258.0
+    RED_HUE = 20.0
+    # How far the vibe hue moves toward the genre hue: most for calm tracks.
+    GENRE_PULL_CALM = 0.95
+    GENRE_PULL_INTENSE = 0.3
+
+    # Manual dropdown and per-song override colours (OKLCH hue degrees).
+    NAMED_HUES: dict[str, float] = {
+        "red": 25.0,
+        "orange": 55.0,
+        "amber": 72.0,
+        "pink": 350.0,
+        "magenta": 330.0,
+        "purple": 305.0,
+        "violet": 285.0,
+        "deep blue": 262.0,
+        "blue": 245.0,
+        "teal": 195.0,
+        "green": 145.0,
+    }
+
+
+    @dataclass(frozen=True)
+    class Palette:
+        """A primary hue and how far the lights spread from it, in OKLCH degrees."""
+
+        hue: float
+        chroma: float
+        source: str
+        # Other cover hues the lights take, most common first (related palettes).
+        related: tuple[float, ...] = ()
+        # Added to every output lightness: brighter for energetic songs.
+        lift: float = 0.0
+        # 0 keeps the cover's own look, 1 steers to vivid reds and deep blues.
+        intensity: float = 0.5
+        # Hue offset either side of the primary when there are no related hues.
+        spread: float = 0.0
+        # An exact colour (a #RRGGBB override) every light shows unchanged.
+        rgb: RGB | None = None
+
+
+    def _to_linear(channel: float) -> float:
+        c = channel / 255.0
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+
+    def _to_srgb(channel: float) -> float:
+        if channel <= 0.0031308:
+            return 12.92 * channel
+        return 1.055 * channel ** (1 / 2.4) - 0.055
+
+
+    def rgb_to_oklab(rgb: RGB) -> Lab:
+        r, g, b = (_to_linear(c) for c in rgb)
+        l_ = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b
+        m_ = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b
+        s_ = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b
+        l_, m_, s_ = (math.copysign(abs(v) ** (1 / 3), v) for v in (l_, m_, s_))
+        return (
+            0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+            1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+            0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+        )
+
+
+    def _oklab_to_linear(lab: Lab) -> tuple[float, float, float]:
+        lightness, a, b = lab
+        l_ = (lightness + 0.3963377774 * a + 0.2158037573 * b) ** 3
+        m_ = (lightness - 0.1055613458 * a - 0.0638541728 * b) ** 3
+        s_ = (lightness - 0.0894841775 * a - 1.2914855480 * b) ** 3
+        return (
+            4.0767416621 * l_ - 3.3077115913 * m_ + 0.2309699292 * s_,
+            -1.2684380046 * l_ + 2.6097574011 * m_ - 0.3413193965 * s_,
+            -0.0041960863 * l_ - 0.7034186147 * m_ + 1.7076147010 * s_,
+        )
+
+
+    def oklch_to_rgb(lightness: float, chroma: float, hue: float) -> RGB:
+        """Convert OKLCH to sRGB, lowering chroma until the colour is in gamut."""
+        radians = math.radians(hue)
+        linear = _oklab_to_linear((lightness, 0.0, 0.0))
+        for _ in range(40):
+            candidate = _oklab_to_linear(
+                (lightness, chroma * math.cos(radians), chroma * math.sin(radians))
+            )
+            if all(-1e-4 <= c <= 1.0001 for c in candidate):
+                linear = candidate
+                break
+            chroma *= 0.92
+        channels = (min(1.0, max(0.0, _to_srgb(max(0.0, c)))) for c in linear)
+        r, g, b = (round(c * 255) for c in channels)
+        return (r, g, b)
+
+
+    def _hue(lab: Lab) -> float:
+        return math.degrees(math.atan2(lab[2], lab[1])) % 360.0
+
+
+    def _chroma(lab: Lab) -> float:
+        return math.hypot(lab[1], lab[2])
+
+
+    def hue_distance(first: float, second: float) -> float:
+        delta = abs(first - second) % 360.0
+        return min(delta, 360.0 - delta)
+
+
+    def _distance(first: Lab, second: Lab) -> float:
+        return sum((x - y) ** 2 for x, y in zip(first, second, strict=True))
+
+
+    def kmeans(points: list[Lab], k: int = CLUSTERS) -> list[tuple[Lab, int]]:
+        """Deterministic k-means++; returns (centroid, member count) pairs."""
+        if not points:
+            return []
+        rng = random.Random(0)
+        centroids = [points[rng.randrange(len(points))]]
+        while len(centroids) < min(k, len(points)):
+            weights = [min(_distance(p, c) for c in centroids) for p in points]
+            total = sum(weights)
+            if total <= 0:
+                break
+            centroids.append(rng.choices(points, weights=weights)[0])
+        counts = [0] * len(centroids)
+        for _ in range(ITERATIONS):
+            sums = [[0.0, 0.0, 0.0] for _ in centroids]
+            counts = [0] * len(centroids)
+            for point in points:
+                index = min(
+                    range(len(centroids)), key=lambda i: _distance(point, centroids[i])
+                )
+                counts[index] += 1
+                for axis in range(3):
+                    sums[index][axis] += point[axis]
+            updated = [
+                (s[0] / n, s[1] / n, s[2] / n) if n else centroids[i]
+                for i, (s, n) in enumerate(zip(sums, counts, strict=True))
+            ]
+            if updated == centroids:
+                break
+            centroids = updated
+        return [(c, n) for c, n in zip(centroids, counts, strict=True) if n]
+
+
+    def muddy(lightness: float, chroma: float, hue: float) -> bool:
+        """Skin tones, browns and olives: colours that look dull or dirty as light."""
+        skin = 40.0 <= hue <= 85.0 and chroma <= 0.13 and 0.45 <= lightness <= 0.9
+        brown = 20.0 <= hue <= 90.0 and lightness < 0.55 and chroma < 0.12
+        olive = 90.0 < hue <= 125.0 and lightness < 0.72
+        return skin or brown or olive
+
+
+    def _hue_groups(
+        clusters: list[tuple[Lab, int]],
+    ) -> list[tuple[float, float, float, float, bool]]:
+        """Merge colourful clusters of similar hue. Returns (share, lightness,
+        chroma, hue, muddy) per group, weighted by member share. Clusters are
+        judged muddy one by one and only merge with their own kind, so dark red
+        drips cannot drag a bright red into brown."""
+        total = sum(n for _, n in clusters)
+        members = [
+            (n / total, c[0], _chroma(c), _hue(c), muddy(c[0], _chroma(c), _hue(c)))
+            for c, n in clusters
+            if _chroma(c) >= TINT_CHROMA and 0.15 <= c[0] <= 0.96
+        ]
+        # Seed groups from the most colourful-and-common clusters first.
+        members.sort(key=lambda m: m[0] * m[2], reverse=True)
+        groups: list[list[tuple[float, float, float, float, bool]]] = []
+        for member in members:
+            for group in groups:
+                if (
+                    member[4] == group[0][4]
+                    and hue_distance(member[3], group[0][3]) <= GROUP_HUE_WIDTH
+                ):
+                    group.append(member)
+                    break
+            else:
+                groups.append([member])
+        merged = []
+        for group in groups:
+            share = sum(m[0] for m in group)
+            x = sum(m[0] * math.cos(math.radians(m[3])) for m in group)
+            y = sum(m[0] * math.sin(math.radians(m[3])) for m in group)
+            merged.append(
+                (
+                    share,
+                    sum(m[0] * m[1] for m in group) / share,
+                    sum(m[0] * m[2] for m in group) / share,
+                    math.degrees(math.atan2(y, x)) % 360.0,
+                    group[0][4],
+                )
+            )
+        return merged
+
+
+    # Light, soft coral and salmon read as pink on a cover, but saturating their
+    # hue for LEDs gives red-orange; such groups take a hot pink hue instead.
+    PASTEL_CORAL_HUES = (15.0, 45.0)
+    PASTEL_MIN_LIGHTNESS = 0.68
+    PASTEL_MAX_CHROMA = 0.16
+    PINK_HUE = 355.0
+
+
+    def pastel_pink(hue: float, lightness: float, chroma: float) -> float:
+        if (
+            PASTEL_CORAL_HUES[0] <= hue <= PASTEL_CORAL_HUES[1]
+            and lightness >= PASTEL_MIN_LIGHTNESS
+            and chroma < PASTEL_MAX_CHROMA
+        ):
+            return PINK_HUE
+        return hue
+
+
+    def extract_palette(pixels: list[RGB]) -> Palette | None:
+        """Pick the most vivid well-represented colour group and read the cover's
+        spread from the other clean groups (see the module docstring). Returns
+        None when nothing on the cover is vivid and clean enough."""
+        if not pixels:
+            return None
+        vivid = []
+        for share, lightness, chroma, hue, dirty in _hue_groups(
+            kmeans([rgb_to_oklab(p) for p in pixels])
+        ):
+            if chroma < VIVID_CHROMA:
+                continue
+            hue = pastel_pink(hue, lightness, chroma)
+            weight = MUDDY_WEIGHT if dirty else 1.0
+            score = math.sqrt(share) * min(chroma, 0.25) * weight
+            vivid.append((score, hue, chroma, share, dirty))
+        vivid.sort(reverse=True)
+        if not vivid or vivid[0][0] < MIN_COVER_SCORE:
+            return None
+        _, hue, chroma, share, _ = vivid[0]
+        # Skin, brown and olive never light up, so they do not count as spread.
+        clean = sum(g[3] for g in vivid if not g[4]) or share
+        others = sorted(
+            (g for g in vivid[1:] if not g[4] and g[3] >= clean * SIGNIFICANT_SHARE),
+            key=lambda g: g[3],
+            reverse=True,
+        )
+        if share >= clean * SINGLE_SHARE or not others:
+            return Palette(hue=hue, chroma=chroma, source="cover")
+        if all(hue_distance(g[1], hue) <= RELATED_HUE_WIDTH for g in others):
+            related = tuple(g[1] for g in others)
+            return Palette(hue=hue, chroma=chroma, source="cover", related=related)
+        return Palette(hue=hue, chroma=chroma, source="cover", spread=DEFAULT_SPREAD)
+
+
+    def genre_hue(genres: tuple[str, ...]) -> float | None:
+        for genre in genres:
+            lowered = genre.lower()
+            for keywords, hue in GENRE_HUES:
+                if any(keyword in lowered for keyword in keywords):
+                    return hue
+        return None
+
+
+    def _toward(hue: float, target: float, fraction: float) -> float:
+        """Move hue a fraction of the shortest arc toward target."""
+        delta = (target - hue + 180.0) % 360.0 - 180.0
+        return (hue + delta * fraction) % 360.0
+
+
+    def polarize(hue: float, intensity: float) -> float:
+        """Move hue toward the nearer of RED_HUE and BLUE_HUE by boost(intensity):
+        the vibe fallback's purples and magentas become deep blue or red on
+        intense tracks."""
+        target = min((RED_HUE, BLUE_HUE), key=lambda end: hue_distance(hue, end))
+        return _toward(hue, target, boost(intensity))
+
+
+    def vibe_palette(
+        genres: tuple[str, ...] = (),
+        energy: float | None = None,
+        valence: float | None = None,
+        tempo: float | None = None,
+        intensity: float = 0.5,
+    ) -> Palette:
+        """Colour from the song instead of the cover. Valence picks a point on
+        the mood axis (deep blue, purple, magenta, deep red) and the genre pulls
+        it toward its own hue: strongly for calm tracks, so R&B stays warm
+        orange, and weakly for intense ones, so mood decides. Without valence
+        the genre hue is used as is. Intense tracks are then pulled toward the
+        nearer of deep red and deep blue (by boost(intensity)), so intense rap
+        is red or blue rather than the magenta between them. Energy (or tempo,
+        0-1) raises saturation and brightness. Lights spread DEFAULT_SPREAD
+        around the hue."""
+        base = genre_hue(genres)
+        drive = energy if energy is not None else tempo
+        drive = 0.5 if drive is None else min(1.0, max(0.0, drive))
+        intensity = min(1.0, max(0.0, intensity))
+        if valence is not None:
+            mood = min(1.0, max(0.0, valence))
+            hue = (BLUE_HUE + mood * (RED_HUE + 360.0 - BLUE_HUE)) % 360.0
+            if base is not None:
+                pull = GENRE_PULL_CALM + (GENRE_PULL_INTENSE - GENRE_PULL_CALM) * intensity
+                hue = _toward(hue, base, pull)
+            hue = polarize(hue, intensity)
+        else:
+            hue = DEFAULT_HUE if base is None else base
+        known = base is not None or energy is not None or valence is not None
+        return Palette(
+            hue=hue,
+            chroma=0.13 + 0.08 * drive,
+            source="vibe" if known else "default",
+            lift=round((drive - 0.5) * 0.08, 3),
+            intensity=intensity,
+            spread=DEFAULT_SPREAD,
+        )
+
+
+    def hex_rgb(value: str) -> RGB | None:
+        """(r, g, b) for a #RRGGBB colour, else None."""
+        text = value.strip()
+        if len(text) != 7 or not text.startswith("#"):
+            return None
+        try:
+            return (int(text[1:3], 16), int(text[3:5], 16), int(text[5:7], 16))
+        except ValueError:
+            return None
+
+
+    def named_palette(name: str, source: str = "manual") -> Palette | None:
+        """A vivid single-colour palette for a NAMED_HUES colour (case, spaces
+        and underscores ignored) or a #RRGGBB colour: every light shows that
+        colour."""
+        rgb = hex_rgb(name)
+        if rgb is not None:
+            return chosen_palette(rgb, source)
+        hue = NAMED_HUES.get(" ".join(name.lower().replace("_", " ").split()))
+        if hue is None:
+            return None
+        return Palette(hue=hue, chroma=0.18, source=source, intensity=0.0)
+
+
+    def chosen_palette(rgb: RGB, source: str = "manual") -> Palette:
+        """A single-colour palette for a colour picked on a colour wheel or
+        pinned: every light shows exactly that colour."""
+        lab = rgb_to_oklab(rgb)
+        return Palette(
+            hue=_hue(lab), chroma=_chroma(lab), source=source, intensity=0.0, rgb=rgb
+        )
+
+
+    def with_intensity(palette: Palette, intensity: float) -> Palette:
+        return replace(palette, intensity=min(1.0, max(0.0, intensity)))
+
+
+    def lightness_floor(hue: float) -> float:
+        """Minimum output lightness by hue. Yellows and yellow-greens look
+        mustard or olive unless bright, and oranges look brown when dark; the
+        floor peaks at yellow (100) and fades out by 45 and 150 degrees."""
+        if not 45.0 <= hue <= 150.0:
+            return 0.0
+        if hue <= 100.0:
+            return 0.66 + 0.20 * (hue - 45.0) / 55.0
+        return 0.86 - 0.20 * (hue - 100.0) / 50.0
+
+
+    def steer(hue: float) -> float:
+        """Output hue preference: oranges and yellows (30-105) become reds and
+        corals (22-40), yellow-greens (105-135) become green (135-140), and
+        azure and sky blues (200-255) become deep blue (240-262)."""
+        if 30.0 < hue <= 105.0:
+            return 22.0 + (hue - 30.0) * 18.0 / 75.0
+        if 105.0 < hue < 135.0:
+            return 135.0 + (hue - 105.0) * 5.0 / 30.0
+        if 200.0 <= hue <= 255.0:
+            return 240.0 + (hue - 200.0) * 22.0 / 55.0
+        return hue
+
+
+    def lightness_ceiling(hue: float) -> float:
+        """Blues and reds stay deep: pale blue reads as lavender and pale red as
+        pink on LEDs."""
+        if 220.0 <= hue <= 290.0:
+            return 0.60
+        if hue <= 30.0 or hue >= 350.0:
+            return 0.64
+        return 0.9
+
+
+    def boost(intensity: float) -> float:
+        """0 below intensity 0.35 (cover look), rising to 1 at 0.8 (full boost)."""
+        return min(1.0, max(0.0, (intensity - 0.35) / 0.45))
+
+
+    # Yellows are steered at least this much even on calm tracks, toward orange;
+    # chosen colours (manual dropdown, song overrides) are never steered.
+    YELLOW_BAND = (70.0, 110.0)
+    YELLOW_MIN_STEER = 0.6
+    CHOSEN_SOURCES = frozenset({"manual", "override"})
+
+
+    def _steer_amount(palette: Palette, hue: float) -> float:
+        k = boost(palette.intensity)
+        if palette.source not in CHOSEN_SOURCES and YELLOW_BAND[0] < hue < YELLOW_BAND[1]:
+            k = max(k, YELLOW_MIN_STEER)
+        return k
+
+
+    # Bulbs take a colour's hue and saturation and set brightness separately, so
+    # a mid-lightness colour shows paler on a bulb than on screen. Light colours
+    # go out at full value with at least this saturation, rising to 100% for
+    # fully intense tracks; what is sent is what the dashboard shows.
+    LED_MIN_SATURATION = 0.82
+
+
+    def led_native(rgb: RGB, intensity: float = 0.0) -> RGB:
+        """rgb at full value, saturated at least LED_MIN_SATURATION (more for
+        intense tracks), keeping its hue."""
+        h, s, _ = colorsys.rgb_to_hsv(*(c / 255 for c in rgb))
+        floor = LED_MIN_SATURATION + (1.0 - LED_MIN_SATURATION) * boost(intensity)
+        r, g, b = colorsys.hsv_to_rgb(h, max(s, floor), 1.0)
+        return (round(r * 255), round(g * 255), round(b * 255))
+
+
+    def _led(
+        palette: Palette,
+        hue: float,
+        lightness: float = LED_LIGHTNESS,
+        output_hue: float | None = None,
+    ) -> RGB:
+        """An LED colour for hue: steered and saturated by intensity, then sent
+        as the bulbs show it (led_native). output_hue, when given, replaces the
+        steered hue (the strip steers its primary once). An exact palette colour
+        is returned as is."""
+        if palette.rgb is not None:
+            return palette.rgb
+        hue = hue % 360.0
+        k = _steer_amount(palette, hue)
+        hue = _toward(hue, steer(hue), k) if output_hue is None else output_hue % 360.0
+        faithful = max(palette.chroma * 1.15, CALM_MIN_CHROMA)
+        chroma = min(LED_MAX_CHROMA, faithful + (LED_MAX_CHROMA - faithful) * k)
+        lightness = max(lightness + palette.lift, lightness_floor(hue))
+        lightness = min(lightness, lightness_ceiling(hue))
+        return led_native(oklch_to_rgb(lightness, chroma, hue), palette.intensity)
+
+
+    def spread_label(palette: Palette) -> str:
+        """How the lights spread around the primary, for the dashboard."""
+        width = 1.0 - boost(palette.intensity)
+        if palette.source in CHOSEN_SOURCES:
+            return "one chosen colour"
+        if width == 0.0 and (palette.related or palette.spread):
+            return "one sharp colour (intense)"
+        if palette.related:
+            return "the cover's colours"
+        if palette.spread * width < 1.0:
+            return "one colour"
+        return f"±{round(palette.spread * width)}° around one colour"
+
+
+    def shade_hues(palette: Palette, count: int) -> list[float]:
+        """One hue per slot: the primary alternating with the cover's related
+        hues, or steps across the spread. Intensity narrows both toward the
+        primary, down to one colour at full boost."""
+        width = 1.0 - boost(palette.intensity)
+        if palette.related:
+            cycle = (palette.hue, *palette.related)
+            return [
+                _toward(palette.hue, cycle[i % len(cycle)], width) for i in range(count)
+            ]
+        step = 2.0 * palette.spread * width / max(1, count - 1)
+        return [(palette.hue + (i - (count - 1) / 2) * step) % 360.0 for i in range(count)]
+
+
+    def area_colors(palette: Palette, count: int) -> list[RGB]:
+        """Shades for neighbouring areas; lightness varies so areas sharing one
+        hue still read apart."""
+        return [
+            _led(palette, hue, (0.62, 0.68, 0.65)[index % 3])
+            for index, hue in enumerate(shade_hues(palette, count))
+        ]
+
+
+    # The strip shows whites and pastels badly, so its colours stay saturated,
+    # mid-lightness and within a few degrees of the primary: a slight gradient.
+    STRIP_HUE_SPREAD = 8.0
+    STRIP_MIN_CHROMA = 0.20
+    STRIP_LIGHTNESS = 0.64
+
+
+    def _strip_hues(palette: Palette, count: int) -> list[float]:
+        hues = []
+        for hue in shade_hues(palette, count):
+            distance = hue_distance(hue, palette.hue)
+            fraction = 1.0 if distance <= STRIP_HUE_SPREAD else STRIP_HUE_SPREAD / distance
+            hues.append(_toward(palette.hue, hue, fraction))
+        return hues
+
+
+    def _strip(palette: Palette, hue: float, lightness: float = STRIP_LIGHTNESS) -> RGB:
+        """A strip colour: the primary is steered once and hue keeps its small
+        offset from it, so a steering boundary cannot split the gradient."""
+        vivid = replace(palette, chroma=max(palette.chroma, STRIP_MIN_CHROMA / 1.15))
+        primary = palette.hue % 360.0
+        base = _toward(primary, steer(primary), _steer_amount(vivid, primary))
+        offset = (hue - primary + 180.0) % 360.0 - 180.0
+        return _led(vivid, primary, lightness, output_hue=base + offset)
+
+
+    def triad(palette: Palette) -> tuple[RGB, RGB, RGB]:
+        """Low, mid and high colours for three-colour LedFx effects."""
+        low, mid, high = _strip_hues(palette, 3)
+        return (
+            _strip(palette, low, 0.58),
+            _strip(palette, mid, 0.64),
+            _strip(palette, high, 0.68),
+        )
+
+
+    def solid_colour(palette: Palette) -> RGB:
+        """The one colour the strip shows when set to solid."""
+        return _strip(palette, palette.hue)
+
+
+    def _css(stops: list[tuple[RGB, int]]) -> str:
+        parts = ", ".join(f"rgb({r}, {g}, {b}) {pos}%" for (r, g, b), pos in stops)
+        return f"linear-gradient(90deg, {parts})"
+
+
+    def solid_gradient(palette: Palette) -> str:
+        """A single-colour gradient, for gradient effects on a solid strip."""
+        colour = solid_colour(palette)
+        return _css([(colour, 0), (colour, 100)])
+
+
+    def gradient(palette: Palette) -> str:
+        """A CSS linear-gradient in the format LedFx gradient effects accept: a
+        slight shift of saturated colour, never toward white."""
+        hues = _strip_hues(palette, 4)
+        return _css(
+            [
+                (_strip(palette, hues[0], 0.60), 0),
+                (_strip(palette, hues[1], 0.64), 35),
+                (_strip(palette, hues[2], 0.66), 70),
+                (_strip(palette, hues[3], 0.62), 100),
+            ]
+        )
+
+
+    def to_hex(rgb: RGB) -> str:
+        return "#{:02x}{:02x}{:02x}".format(*rgb)
+  component.music_director.panel.js: |
+    // Music Colours: review the colour and effect each playlist song gets in Music
+    // Mode, and pin or unpin them per album. Served by music_director (panel.py).
+
+    const SOURCES = {
+      cover: "Cover",
+      vibe: "Genre & mood",
+      pinned: "Pinned",
+      pending: "Not prepared",
+    };
+    const FILTERS = ["all", "cover", "vibe", "pinned", "pending"];
+    const STORAGE_KEY = "music-colours-playlist";
+
+    function effectLabel(effect) {
+      return effect
+        .split("_")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    }
+
+    function remembered() {
+      try {
+        return window.localStorage.getItem(STORAGE_KEY);
+      } catch (_error) {
+        return null;
+      }
+    }
+
+    function remember(name) {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, name);
+      } catch (_error) {
+        // Private windows and blocked storage: the choice is not kept.
+      }
+    }
+
+    function el(tag, attrs = {}, children = []) {
+      const node = document.createElement(tag);
+      for (const [key, value] of Object.entries(attrs)) {
+        if (key === "class") node.className = value;
+        else if (key === "text") node.textContent = value;
+        else if (key === "style") node.setAttribute("style", value);
+        else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+        else node.setAttribute(key, value);
+      }
+      for (const child of children) if (child) node.append(child);
+      return node;
+    }
+
+    const STYLE = `
+      :host {
+        display: block;
+        min-height: 100vh;
+        background: var(--primary-background-color);
+        color: var(--primary-text-color);
+        font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif);
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 56px;
+        padding: 0 12px;
+        background: var(--app-header-background-color, var(--primary-color));
+        color: var(--app-header-text-color, #fff);
+        font-size: 20px;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 8px;
+      }
+      .controls select, input[type="search"] {
+        flex: 1 1 220px;
+        min-width: 0;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font-size: 15px;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 8px 0 4px;
+      }
+      .chip {
+        padding: 6px 12px;
+        border-radius: 16px;
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font-size: 13px;
+        cursor: pointer;
+      }
+      .chip.on {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        color: var(--text-primary-color, #fff);
+      }
+      .note {
+        color: var(--secondary-text-color);
+        font-size: 13px;
+        margin: 8px 0 12px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 52px minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        padding: 10px;
+        margin-bottom: 8px;
+        border-radius: 12px;
+        background: var(--card-background-color);
+        box-shadow: var(--ha-card-box-shadow, none);
+      }
+      .art {
+        width: 52px;
+        height: 52px;
+        border-radius: 6px;
+        object-fit: cover;
+        background: var(--divider-color);
+      }
+      .text { min-width: 0; }
+      .title, .sub {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .title { font-weight: 500; }
+      .sub { color: var(--secondary-text-color); font-size: 13px; }
+      .strip {
+        height: 10px;
+        border-radius: 5px;
+        margin-top: 6px;
+        background: var(--divider-color);
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--secondary-text-color);
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 1px solid rgba(127, 127, 127, 0.4);
+      }
+      .badge {
+        padding: 1px 8px;
+        border-radius: 10px;
+        border: 1px solid var(--divider-color);
+      }
+      .badge.pinned { border-color: var(--primary-color); color: var(--primary-color); }
+      .actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 6px;
+      }
+      .pick {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        cursor: pointer;
+      }
+      input[type="color"] {
+        width: 36px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        background: none;
+        cursor: pointer;
+      }
+      select.effect {
+        max-width: 150px;
+        padding: 5px 6px;
+        border-radius: 8px;
+        border: 1px solid var(--divider-color);
+        background: var(--card-background-color);
+        color: var(--primary-text-color);
+        font-size: 13px;
+      }
+      select.effect.pinned { border-color: var(--primary-color); }
+      button.unpin {
+        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        border: 1px solid var(--divider-color);
+        background: transparent;
+        color: var(--primary-text-color);
+        cursor: pointer;
+      }
+      .empty { padding: 32px 0; text-align: center; color: var(--secondary-text-color); }
+      @media (max-width: 600px) {
+        main { padding: 12px 16px; }
+        .row { grid-template-columns: 44px minmax(0, 1fr); }
+        .art { width: 44px; height: 44px; }
+        .actions {
+          grid-column: 1 / -1;
+          flex-direction: row;
+          justify-content: flex-end;
+        }
+      }
+    `;
+
+    class MusicColoursPanel extends HTMLElement {
+      constructor() {
+        super();
+        this.attachShadow({ mode: "open" });
+        this._playlists = [];
+        this._effects = [];
+        this._playlist = null;
+        this._songs = [];
+        this._filter = "all";
+        this._query = "";
+        this._status = "Loading playlists…";
+        this._started = false;
+      }
+
+      set hass(hass) {
+        this._hass = hass;
+        if (this._menu) this._menu.hass = hass;
+        if (!this._started) {
+          this._started = true;
+          this._build();
+          this._loadPlaylists();
+        }
+      }
+
+      set narrow(narrow) {
+        this._narrow = narrow;
+        if (this._menu) this._menu.narrow = narrow;
+      }
+
+      _build() {
+        const root = this.shadowRoot;
+        root.append(el("style", { text: STYLE }));
+        this._menu = document.createElement("ha-menu-button");
+        this._menu.hass = this._hass;
+        this._menu.narrow = this._narrow;
+        root.append(el("div", { class: "toolbar" }, [this._menu, el("span", { text: "Music Colours" })]));
+        this._select = el("select", {
+          "aria-label": "Playlist",
+          onchange: (event) => this._loadPlaylist(event.target.value),
+        });
+        this._search = el("input", {
+          type: "search",
+          placeholder: "Search songs, artists, albums",
+          "aria-label": "Search",
+          oninput: (event) => {
+            this._query = event.target.value.trim().toLowerCase();
+            this._renderSongs();
+          },
+        });
+        this._chips = el("div", { class: "chips" });
+        this._summary = el("div", { class: "note" });
+        this._list = el("div");
+        root.append(
+          el("main", {}, [
+            el("div", { class: "controls" }, [this._select, this._search]),
+            this._chips,
+            this._summary,
+            this._list,
+          ]),
+        );
+        this._renderSongs();
+      }
+
+      async _loadPlaylists() {
+        try {
+          const result = await this._hass.callWS({ type: "music_director/playlists" });
+          this._playlists = result.playlists;
+          this._effects = result.effects;
+        } catch (error) {
+          this._status = `Could not load playlists: ${error.message || error}`;
+          this._renderSongs();
+          return;
+        }
+        this._select.replaceChildren(
+          ...this._playlists.map((p) => el("option", { value: p.name, text: `${p.name} (${p.songs})` })),
+        );
+        if (!this._playlists.length) {
+          this._status = "No playlists prepared yet. Run music_director.prepare_playlists.";
+          this._renderSongs();
+          return;
+        }
+        const saved = remembered();
+        const first = this._playlists.some((p) => p.name === saved) ? saved : this._playlists[0].name;
+        this._select.value = first;
+        this._loadPlaylist(first);
+      }
+
+      async _loadPlaylist(name) {
+        this._playlist = name;
+        remember(name);
+        this._status = "Loading songs…";
+        this._songs = [];
+        this._renderSongs();
+        try {
+          this._songs = await this._hass.callWS({ type: "music_director/playlist", name });
+          this._status = "";
+        } catch (error) {
+          this._status = `Could not load ${name}: ${error.message || error}`;
+        }
+        this._renderSongs();
+      }
+
+      // changes: { colour } and/or { effect }; null unpins that one.
+      async _pin(song, changes) {
+        try {
+          await this._hass.callWS({
+            type: "music_director/pin",
+            title: song.title,
+            artist: song.artist,
+            album: song.album,
+            ...changes,
+          });
+        } catch (error) {
+          window.alert(`Could not change the pin: ${error.message || error}`);
+          return;
+        }
+        // A pin covers the whole album, so other rows can change too.
+        const scroll = window.scrollY;
+        await this._loadPlaylist(this._playlist);
+        window.scrollTo(0, scroll);
+      }
+
+      _counts() {
+        const counts = { all: this._songs.length, cover: 0, vibe: 0, pinned: 0, pending: 0 };
+        for (const song of this._songs) counts[song.source] = (counts[song.source] || 0) + 1;
+        return counts;
+      }
+
+      _renderSongs() {
+        if (!this._list) return;
+        const counts = this._counts();
+        this._chips.replaceChildren(
+          ...FILTERS.filter((f) => f === "all" || counts[f]).map((f) =>
+            el("button", {
+              class: `chip${this._filter === f ? " on" : ""}`,
+              text: `${f === "all" ? "All" : SOURCES[f]} ${counts[f] || 0}`,
+              onclick: () => {
+                this._filter = f;
+                this._renderSongs();
+              },
+            }),
+          ),
+        );
+        this._summary.textContent = this._songs.length
+          ? "The bar is the LED strip; the dots are the room lights. Colour and effect pins " +
+            "apply to the whole album; unpin or choose Auto to go back to automatic."
+          : "";
+        if (this._status) {
+          this._list.replaceChildren(el("div", { class: "empty", text: this._status }));
+          return;
+        }
+        const query = this._query;
+        const shown = this._songs.filter(
+          (song) =>
+            (this._filter === "all" || song.source === this._filter) &&
+            (!query || `${song.title} ${song.artist} ${song.album}`.toLowerCase().includes(query)),
+        );
+        if (!shown.length) {
+          this._list.replaceChildren(el("div", { class: "empty", text: "No matching songs." }));
+          return;
+        }
+        this._list.replaceChildren(...shown.map((song) => this._row(song)));
+      }
+
+      _row(song) {
+        const art = song.art
+          ? el("img", {
+              class: "art",
+              src: song.art,
+              alt: "",
+              loading: "lazy",
+              referrerpolicy: "no-referrer",
+            })
+          : el("div", { class: "art" });
+        const meta = el("div", { class: "meta" }, [
+          el("span", { class: `badge ${song.source}`, text: SOURCES[song.source] || song.source }),
+          song.effect_pin ? el("span", { class: "badge pinned", text: "Effect pinned" }) : null,
+          ...(song.areas || []).map((hex) => el("span", { class: "dot", style: `background:${hex}`, title: hex })),
+          song.genres && song.genres.length ? el("span", { text: song.genres.join(", ") }) : null,
+          song.intensity !== undefined
+            ? el("span", { text: `intensity ${Math.round(song.intensity * 100)}%` })
+            : null,
+        ]);
+        const text = el("div", { class: "text" }, [
+          el("div", { class: "title", text: song.title }),
+          el("div", { class: "sub", text: `${song.artist} · ${song.album}` }),
+          el("div", { class: "strip", style: song.gradient ? `background:${song.gradient}` : "" }),
+          meta,
+        ]);
+        const picker = el("input", {
+          type: "color",
+          value: song.colour || "#ff0000",
+          "aria-label": `Pin a colour for ${song.album || song.title}`,
+          onchange: (event) => this._pin(song, { colour: event.target.value }),
+        });
+        const auto = song.auto_effect ? `Auto (${effectLabel(song.auto_effect)})` : "Auto";
+        const effect = el(
+          "select",
+          {
+            class: `effect${song.effect_pin ? " pinned" : ""}`,
+            "aria-label": `Effect for ${song.album || song.title}`,
+            onchange: (event) => this._pin(song, { effect: event.target.value || null }),
+          },
+          [
+            el("option", { value: "", text: auto }),
+            ...this._effects.map((name) => el("option", { value: name, text: effectLabel(name) })),
+          ],
+        );
+        effect.value = song.effect_pin || "";
+        const actions = el("div", { class: "actions" }, [
+          el("label", { class: "pick" }, [el("span", { text: song.pin ? "Pinned" : "Pin" }), picker]),
+          song.pin
+            ? el("button", {
+                class: "unpin",
+                text: "Unpin colour",
+                onclick: () => this._pin(song, { colour: null }),
+              })
+            : null,
+          effect,
+        ]);
+        return el("div", { class: "row" }, [art, text, actions]);
+      }
+    }
+
+    if (!customElements.get("music-colours-panel")) {
+      customElements.define("music-colours-panel", MusicColoursPanel);
+    }
+  component.music_director.panel.py: |
+    """Music Colours: a sidebar panel to review and pin playlist song colours.
+
+    The panel (panel.js, served from this directory) talks to the director over
+    three websocket commands: list the prepared playlists, list one playlist's
+    songs with the colours and effect the lights would show, and pin or unpin a
+    colour or an effect.
+    """
+
+    from __future__ import annotations
+
+    import hashlib
+    from pathlib import Path
+    from typing import Any
+
+    import voluptuous as vol
+    from homeassistant.components import panel_custom, websocket_api
+    from homeassistant.components.http import StaticPathConfig
+    from homeassistant.core import HomeAssistant, callback
+
+    from .director import DOMAIN, Director
+    from .palette import hex_rgb
+    from .pins import KEEP
+    from .rules import EFFECTS
+
+    PANEL_FILE = Path(__file__).parent / "panel.js"
+    STATIC_URL = "/music_director_static/panel.js"
+    PANEL_PATH = "music-colours"
+    ELEMENT = "music-colours-panel"
+
+
+    def _director(hass: HomeAssistant) -> Director:
+        return hass.data[DOMAIN]
+
+
+    def _hex(value: Any) -> str:
+        if hex_rgb(str(value)) is None:
+            raise vol.Invalid(f"not a #RRGGBB colour: {value!r}")
+        return str(value).lower()
+
+
+    @websocket_api.websocket_command({vol.Required("type"): "music_director/playlists"})
+    @callback
+    def ws_playlists(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+    ) -> None:
+        connection.send_result(
+            msg["id"],
+            {"playlists": _director(hass).playlist_names(), "effects": list(EFFECTS)},
+        )
+
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): "music_director/playlist",
+            vol.Required("name"): str,
+        }
+    )
+    @callback
+    def ws_playlist(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+    ) -> None:
+        rows = _director(hass).playlist_colours(msg["name"])
+        if rows is None:
+            connection.send_error(msg["id"], "not_found", "No such prepared playlist")
+            return
+        connection.send_result(msg["id"], rows)
+
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): "music_director/pin",
+            vol.Required("title"): str,
+            vol.Required("artist"): str,
+            vol.Required("album"): str,
+            # A #RRGGBB colour or an effect name; null unpins it, and a missing
+            # key leaves it as it is.
+            vol.Optional("colour"): vol.Any(None, _hex),
+            vol.Optional("effect"): vol.Any(None, vol.In(EFFECTS)),
+        }
+    )
+    @callback
+    def ws_pin(
+        hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+    ) -> None:
+        _director(hass).pin_song(
+            msg["title"],
+            msg["artist"],
+            msg["album"],
+            colour=msg.get("colour", KEEP),
+            effect=msg.get("effect", KEEP),
+        )
+        connection.send_result(msg["id"])
+
+
+    async def async_setup_panel(hass: HomeAssistant) -> None:
+        for command in (ws_playlists, ws_playlist, ws_pin):
+            websocket_api.async_register_command(hass, command)
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(STATIC_URL, str(PANEL_FILE), False)]
+        )
+        # The version busts the browser cache when the panel changes.
+        version = hashlib.sha256(
+            await hass.async_add_executor_job(PANEL_FILE.read_bytes)
+        ).hexdigest()[:12]
+        await panel_custom.async_register_panel(
+            hass,
+            frontend_url_path=PANEL_PATH,
+            webcomponent_name=ELEMENT,
+            sidebar_title="Music Colours",
+            sidebar_icon="mdi:palette-swatch",
+            module_url=f"{STATIC_URL}?v={version}",
+            require_admin=False,
+        )
+  component.music_director.pins.py: |
+    """Album colour and effect pins: song overrides set from the dashboard.
+
+    Pins live in Home Assistant storage, so they survive restarts and can be
+    changed or removed without a deploy. Colour overrides in
+    music_director.overrides seed the pins once each: after that the pin is the
+    source of truth, so removing a seeded pin from the dashboard sticks.
+    A pin holds a colour, an effect or both; each is set and cleared on its own.
+    """
+
+    from __future__ import annotations
+
+    from dataclasses import asdict, dataclass, field
+    from typing import Any, Protocol
+
+    from .metadata import SongOverride, find_override, normalize
+
+    STORAGE_KEY = "music_director.pins"
+    STORAGE_VERSION = 1
+
+
+    class PinStorage(Protocol):
+        async def async_load(self) -> Any: ...
+
+        def async_delay_save(self, data_func: Any, delay: float = 0) -> None: ...
+
+
+    def pin_key(pin: SongOverride) -> str:
+        return "|".join(
+            normalize(part or "") for part in (pin.artist, pin.album, pin.title)
+        )
+
+
+    def primary_artist(artist: str) -> str:
+        """The first credited artist: pins match the artist by prefix, so
+        features and remixers on other tracks still match."""
+        return artist.split(",")[0].strip()
+
+
+    class Keep:
+        """Leave a pin field as it is."""
+
+
+    KEEP = Keep()
+
+
+    @dataclass
+    class Pins:
+        """Colour pins, plus the configured overrides already seeded."""
+
+        pins: list[SongOverride] = field(default_factory=list)
+        seeded: set[str] = field(default_factory=set)
+
+        @classmethod
+        def from_data(cls, data: Any) -> Pins:
+            data = data if isinstance(data, dict) else {}
+            pins = [
+                SongOverride(**{k: v for k, v in item.items() if k in _FIELDS})
+                for item in data.get("pins", [])
+                if isinstance(item, dict) and (item.get("color") or item.get("effect"))
+            ]
+            return cls(pins, set(data.get("seeded", [])))
+
+        def to_data(self) -> dict[str, Any]:
+            return {
+                "pins": [
+                    {k: v for k, v in asdict(pin).items() if v is not None}
+                    for pin in self.pins
+                ],
+                "seeded": sorted(self.seeded),
+            }
+
+        def seed(self, overrides: tuple[SongOverride, ...]) -> bool:
+            """Add each configured colour override once. Returns True if any
+            were added."""
+            added = False
+            for override in overrides:
+                if not override.color:
+                    continue
+                key = pin_key(override)
+                if key in self.seeded:
+                    continue
+                self.seeded.add(key)
+                self.pins.append(
+                    SongOverride(
+                        artist=override.artist,
+                        album=override.album,
+                        title=override.title,
+                        color=override.color,
+                    )
+                )
+                added = True
+            return added
+
+        def find(self, title: str, artist: str, album: str) -> SongOverride | None:
+            return find_override(tuple(self.pins), title, artist, album)
+
+        def pin(self, title: str, artist: str, album: str, color: str) -> SongOverride:
+            """Pin colour for the track's album (or the track, without an album),
+            keeping any pinned effect."""
+            return self.update(title, artist, album, color=color)
+
+        def unpin(self, title: str, artist: str, album: str) -> bool:
+            """Clear the colour pin for the track, keeping any pinned effect."""
+            before = self.find(title, artist, album)
+            self.update(title, artist, album, color=None)
+            return before is not None and bool(before.color)
+
+        def update(
+            self,
+            title: str,
+            artist: str,
+            album: str,
+            *,
+            color: str | None | Keep = KEEP,
+            effect: str | None | Keep = KEEP,
+        ) -> SongOverride | None:
+            """Set or clear (None) the colour and/or effect pinned to the track's
+            album (or the track, without an album); KEEP leaves one as it is.
+            Matching pins are replaced by one; a pin with neither is removed."""
+            current = self.find(title, artist, album)
+            new_color = (current.color if current else None) if color is KEEP else color
+            new_effect = (current.effect if current else None) if effect is KEEP else effect
+            self.pins = [p for p in self.pins if not p.matches(title, artist, album)]
+            if not new_color and not new_effect:
+                return None
+            pin = SongOverride(
+                artist=primary_artist(artist) or None,
+                album=album or None,
+                title=None if album else title,
+                color=new_color or None,
+                effect=new_effect or None,
+            )
+            self.pins.append(pin)
+            return pin
+
+
+    _FIELDS = frozenset(("artist", "album", "title", "color", "effect"))
+
+
+    class PinStore:
+        """Pins persisted through a Home Assistant Store."""
+
+        def __init__(self, storage: PinStorage) -> None:
+            self._storage = storage
+            self.pins = Pins()
+
+        async def async_load(self, overrides: tuple[SongOverride, ...]) -> None:
+            self.pins = Pins.from_data(await self._storage.async_load())
+            if self.pins.seed(overrides):
+                self.save()
+
+        def save(self) -> None:
+            self._storage.async_delay_save(self.pins.to_data, 1)
+  component.music_director.rules.py: |
+    """Choose a LedFx effect for a track from its genre and audio features.
+
+    Each track maps to a family of effects; the effect within a family is a
+    stable hash of the track, so a replay gets the same look, and consecutive
+    tracks never repeat the same effect when the family has an alternative.
+    """
+
+    from __future__ import annotations
+
+    import zlib
+    from dataclasses import dataclass
+    from typing import Any
+
+    from .palette import Palette, gradient, solid_colour, solid_gradient, to_hex, triad
+
+    FAMILIES: dict[str, tuple[str, ...]] = {
+        "calm": ("melt", "lava_lamp"),
+        # R&B, soul and mellow hip-hop always melt.
+        "smooth": ("melt",),
+        "bass": ("power", "energy"),
+        "drive": ("scroll", "bands", "strobe"),
+        "rock": ("wavelength", "bands"),
+        "default": ("energy",),
+    }
+
+    # Every effect the director can set, in family order; the manual override
+    # dropdown offers exactly these.
+    EFFECTS: tuple[str, ...] = tuple(
+        dict.fromkeys(effect for effects in FAMILIES.values() for effect in effects)
+    )
+
+    # BPM mapped onto each effect's speed range: 70 BPM is slowest, 160 fastest.
+    SLOW_BPM = 70.0
+    FAST_BPM = 160.0
+
+    # Ordered: within one genre string the first matching family wins.
+    GENRE_FAMILIES: tuple[tuple[tuple[str, ...], str], ...] = (
+        (
+            (
+                "ambient",
+                "classical",
+                "acoustic",
+                "folk",
+                "soundtrack",
+                "film score",
+                "lo-fi",
+                "lofi",
+                "chill",
+                "new age",
+                "piano",
+            ),
+            "calm",
+        ),
+        (
+            (
+                "house",
+                "techno",
+                "edm",
+                "electronic",
+                "electro",
+                "dance",
+                "trance",
+                "dubstep",
+                "drum and bass",
+                "garage",
+                "disco",
+            ),
+            "drive",
+        ),
+        (("metal", "rock", "punk", "grunge", "hardcore"), "rock"),
+        (
+            (
+                "hip hop",
+                "hip-hop",
+                "rap",
+                "trap",
+                "drill",
+                "grime",
+                "reggaeton",
+                "dancehall",
+            ),
+            "bass",
+        ),
+        (("r&b", "rnb", "soul", "funk", "jazz", "reggae", "blues"), "smooth"),
+    )
+
+    GRADIENT_EFFECTS = frozenset(
+        {"melt", "lava_lamp", "power", "bands", "wavelength", "strobe"}
+    )
+    TRIAD_EFFECTS = frozenset({"energy", "scroll"})
+
+
+    @dataclass(frozen=True)
+    class Features:
+        genres: tuple[str, ...] = ()
+        bpm: float | None = None
+        energy: float | None = None
+        danceability: float | None = None
+        acousticness: float | None = None
+        valence: float | None = None
+
+
+    def genre_family(genres: tuple[str, ...]) -> str | None:
+        """Family of the first genre that maps to one; sources list the primary
+        genre first, and the keyword table breaks ties within one genre."""
+        for genre in genres:
+            lowered = genre.lower()
+            for keywords, family in GENRE_FAMILIES:
+                if any(keyword in lowered for keyword in keywords):
+                    return family
+        return None
+
+
+    def classify(features: Features) -> str:
+        family = genre_family(features.genres)
+        energy = features.energy
+        if energy is not None:
+            acoustic = features.acousticness or 0.0
+            if energy < 0.35 or (acoustic > 0.7 and energy < 0.5):
+                return "calm"
+            if family == "bass" and energy < 0.5:
+                return "smooth"
+            danceable = (features.danceability or 0.0) >= 0.6
+            in_club_tempo = features.bpm is not None and 110 <= features.bpm <= 140
+            if family in (None, "smooth") and energy > 0.75 and in_club_tempo and danceable:
+                return "drive"
+        if family is not None:
+            return family
+        if energy is not None and energy > 0.7:
+            return "drive"
+        if features.bpm is not None and features.bpm < 85 and energy is not None:
+            return "calm"
+        return "default"
+
+
+    # How intense each family is before audio features: drives colour vividness.
+    FAMILY_INTENSITY: dict[str, float] = {
+        "calm": 0.15,
+        "smooth": 0.3,
+        "default": 0.5,
+        "bass": 0.75,
+        "rock": 0.8,
+        "drive": 0.85,
+    }
+
+
+    def intensity(features: Features, family: str) -> float:
+        """0 (calm) to 1 (intense): the genre's family prior (else the chosen
+        family's) blended with energy, or with tempo when ReccoBeats has no
+        features. The genre sets the prior, so mellow rap that plays a smooth
+        effect still rates as fairly intense; energy pulls it down."""
+        prior = FAMILY_INTENSITY[genre_family(features.genres) or family]
+        if features.energy is not None:
+            return round(0.5 * prior + 0.5 * _unit(features.energy), 3)
+        tempo = tempo_level(features.bpm)
+        if tempo is not None:
+            return round(0.7 * prior + 0.3 * tempo, 3)
+        return prior
+
+
+    def choose_effect(family: str, track_key: str, previous: str | None) -> str:
+        candidates = FAMILIES[family]
+        index = zlib.crc32(track_key.encode("utf-8")) % len(candidates)
+        if candidates[index] == previous and len(candidates) > 1:
+            index = (index + 1) % len(candidates)
+        return candidates[index]
+
+
+    def _unit(value: float) -> float:
+        return min(1.0, max(0.0, value))
+
+
+    def tempo_level(bpm: float | None) -> float | None:
+        """0 at SLOW_BPM or below, 1 at FAST_BPM or above."""
+        if bpm is None:
+            return None
+        return _unit((bpm - SLOW_BPM) / (FAST_BPM - SLOW_BPM))
+
+
+    def dynamics(effect: str, features: Features, drive: float = 0.0) -> dict[str, Any]:
+        """Speed from tempo and responsiveness from energy, inside each LedFx
+        schema range; unknown inputs leave the LedFx default in place. Drive
+        (the song section) pushes both up or down from there; with a drive,
+        unknown inputs start from the middle so sections still show."""
+        config: dict[str, Any] = {}
+        tempo = tempo_level(features.bpm)
+        energy = None if features.energy is None else _unit(features.energy)
+        if drive:
+            tempo = _unit((0.5 if tempo is None else tempo) + drive)
+            energy = _unit((0.5 if energy is None else energy) + drive)
+        if tempo is not None:
+            if effect == "melt":
+                config["speed"] = round(0.2 + 0.6 * tempo, 3)  # schema 0.001-1
+            elif effect == "lava_lamp":
+                config["speed"] = round(3.0 + 9.0 * tempo, 2)  # schema 0.1-15
+            elif effect == "scroll":
+                config["speed"] = round(2 + 6 * tempo)  # integer, schema 1-10
+        if energy is not None:
+            if effect == "melt":
+                config["reactivity"] = round(0.3 + 0.6 * energy, 3)  # 0.0001-1
+            elif effect == "lava_lamp":
+                config["reactivity"] = round(0.15 + 0.6 * energy, 3)  # 0.00001-0.9
+            elif effect == "energy":
+                config["sensitivity"] = round(0.45 + 0.45 * energy, 3)  # 0.3-0.99
+            elif effect == "power":
+                config["bass_decay_rate"] = round(0.03 + 0.12 * energy, 3)  # 0-1
+            elif effect == "scroll":
+                config["decay"] = round(0.99 - 0.06 * energy, 3)  # 0.8-1
+        return config
+
+
+    def effect_config(
+        effect: str,
+        palette: Palette,
+        features: Features | None = None,
+        solid: bool = False,
+        drive: float = 0.0,
+    ) -> dict[str, Any]:
+        """Colours plus tempo and energy dynamics for the effect; LedFx fills
+        every other key with its schema default. Solid gives every colour slot
+        the same one colour; drive is the song section's push on the dynamics."""
+        colours = (solid_colour(palette),) * 3 if solid else triad(palette)
+        if effect in GRADIENT_EFFECTS:
+            config: dict[str, Any] = {
+                "gradient": solid_gradient(palette) if solid else gradient(palette)
+            }
+            if effect == "power":
+                config["sparks_color"] = to_hex(colours[2])
+        elif effect in TRIAD_EFFECTS:
+            lows, mids, high = colours
+            config = {
+                "color_lows": to_hex(lows),
+                "color_mids": to_hex(mids),
+                "color_high": to_hex(high),
+            }
+        else:
+            raise ValueError(f"no colour mapping for LedFx effect {effect!r}")
+        if features is not None:
+            config.update(dynamics(effect, features, drive))
+        return config
+  component.music_director.sections.py: |
+    """Song sections from live loudness: quiet, normal and loud stretches.
+
+    The director feeds LedFx's live melbank level (about 60 times a second).
+    A fast average (a few seconds) is compared with a slow one (the song's
+    recent baseline, half a minute or so); sustained departures become sections.
+    Hysteresis and a minimum dwell keep single beats and fills from flipping
+    the lights. Pure logic: the caller supplies the clock.
+    """
+
+    from __future__ import annotations
+
+    import math
+    from dataclasses import dataclass
+
+    QUIET, NORMAL, LOUD = "quiet", "normal", "loud"
+
+    FAST_SECONDS = 6.0
+    SLOW_SECONDS = 40.0
+    # Ignore the first seconds of a track while the baseline settles.
+    WARMUP_SECONDS = 20.0
+    # A section must last this long before the next change.
+    MIN_DWELL_SECONDS = 16.0
+    # fast / slow ratio thresholds, with hysteresis.
+    ENTER_LOUD, LEAVE_LOUD = 1.3, 1.1
+    ENTER_QUIET, LEAVE_QUIET = 0.65, 0.85
+    # Below this baseline level the music is near silent: stay normal.
+    SILENCE = 1e-6
+
+    # How sections move the lights: strip brightness as a fraction of the set
+    # Music Mode Brightness (kept high), and an intensity offset for colours.
+    SECTION_BRIGHTNESS = {QUIET: 0.8, NORMAL: 0.9, LOUD: 1.0}
+    SECTION_INTENSITY = {QUIET: -0.1, NORMAL: 0.0, LOUD: 0.15}
+    # Push on the effect's speed and reactivity (0-1 scales): punchier
+    # choruses and drops, calmer breakdowns.
+    SECTION_DRIVE = {QUIET: -0.15, NORMAL: 0.0, LOUD: 0.25}
+
+
+    @dataclass
+    class SectionTracker:
+        fast: float = 0.0
+        slow: float = 0.0
+        started: float | None = None
+        last_sample: float | None = None
+        section: str = NORMAL
+        changed: float = 0.0
+
+        def reset(self, now: float) -> None:
+            """Start a new track: forget the old baseline."""
+            self.fast = self.slow = 0.0
+            self.started = now
+            self.last_sample = None
+            self.section = NORMAL
+            self.changed = now
+
+        def add(self, level: float, now: float) -> str | None:
+            """Feed one loudness sample. Returns the new section when it
+            changes, else None."""
+            if self.started is None:
+                self.reset(now)
+            level = max(0.0, level)
+            if self.last_sample is None:
+                self.fast = self.slow = level
+            else:
+                dt = max(0.0, now - self.last_sample)
+                self.fast += (level - self.fast) * (1 - math.exp(-dt / FAST_SECONDS))
+                self.slow += (level - self.slow) * (1 - math.exp(-dt / SLOW_SECONDS))
+            self.last_sample = now
+            assert self.started is not None
+            if (
+                now - self.started < WARMUP_SECONDS
+                or now - self.changed < MIN_DWELL_SECONDS
+            ):
+                return None
+            wanted = self._wanted()
+            if wanted == self.section:
+                return None
+            self.section = wanted
+            self.changed = now
+            return wanted
+
+        def _wanted(self) -> str:
+            if self.slow <= SILENCE:
+                return NORMAL
+            ratio = self.fast / self.slow
+            if self.section == LOUD:
+                return LOUD if ratio > LEAVE_LOUD else NORMAL
+            if self.section == QUIET:
+                return QUIET if ratio < LEAVE_QUIET else NORMAL
+            if ratio >= ENTER_LOUD:
+                return LOUD
+            if ratio <= ENTER_QUIET:
+                return QUIET
+            return NORMAL
+
+
+    # Drops: a sudden, sustained jump in loudness (a drop or a chorus slamming
+    # in), as opposed to the gradual changes sections follow. The strip answers
+    # with a short flash. A one second average must rise well above the last few
+    # seconds and above the song's baseline, and stay there briefly, so single
+    # kicks and the return after a gap between phrases do not count.
+    PUNCH_SECONDS = 1.0
+    DROP_JUMP = 1.5
+    DROP_ABOVE_BASELINE = 1.25
+    DROP_HOLD_SECONDS = 0.6
+    DROP_COOLDOWN_SECONDS = 45.0
+    # Music coming back after near-silence (a pause, a gap between songs) is not
+    # a drop: none for this long after the one second average falls below a
+    # tenth of the baseline (the few-second average needs that long to catch up).
+    # Tuned on a live hip-hop recording on 2026-11-14: no drops in 90 s of verses,
+    # none when music resumed after a pause, one when a beat came in after a
+    # quiet intro.
+    SILENT_SHARE = 0.1
+    AFTER_SILENCE_SECONDS = 12.0
+
+
+    @dataclass
+    class DropDetector:
+        punch: float = 0.0
+        recent: float = 0.0
+        baseline: float = 0.0
+        started: float | None = None
+        last_sample: float | None = None
+        rising_since: float | None = None
+        last_drop: float | None = None
+        last_silent: float | None = None
+
+        def reset(self, now: float) -> None:
+            """Start a new track."""
+            self.punch = self.recent = self.baseline = 0.0
+            self.started = now
+            self.last_sample = None
+            self.rising_since = None
+            self.last_drop = None
+            self.last_silent = None
+
+        def add(self, level: float, now: float) -> bool:
+            """Feed one loudness sample. Returns True on a drop."""
+            if self.started is None:
+                self.reset(now)
+            level = max(0.0, level)
+            if self.last_sample is None:
+                self.punch = self.recent = self.baseline = level
+            else:
+                dt = max(0.0, now - self.last_sample)
+                self.punch += (level - self.punch) * (1 - math.exp(-dt / PUNCH_SECONDS))
+                self.recent += (level - self.recent) * (1 - math.exp(-dt / FAST_SECONDS))
+                self.baseline += (level - self.baseline) * (
+                    1 - math.exp(-dt / SLOW_SECONDS)
+                )
+            self.last_sample = now
+            assert self.started is not None
+            if self.punch <= SILENT_SHARE * self.baseline or self.baseline <= SILENCE:
+                self.last_silent = now
+            jumping = (
+                self.baseline > SILENCE
+                and self.punch >= DROP_JUMP * self.recent
+                and self.punch >= DROP_ABOVE_BASELINE * self.baseline
+            )
+            if not jumping:
+                self.rising_since = None
+                return False
+            if self.rising_since is None:
+                self.rising_since = now
+            if (
+                now - self.started < WARMUP_SECONDS
+                or now - self.rising_since < DROP_HOLD_SECONDS
+                or (
+                    self.last_silent is not None
+                    and now - self.last_silent < AFTER_SILENCE_SECONDS
+                )
+                or (
+                    self.last_drop is not None
+                    and now - self.last_drop < DROP_COOLDOWN_SECONDS
+                )
+            ):
+                return False
+            self.last_drop = now
+            self.rising_since = None
+            return True
+  component.music_director.select.py: |
+    """Music Mode selects: Strip Colours (a gradient or one solid colour) and
+    Effect Pin (an effect pinned to the playing album, or Auto)."""
+
+    from __future__ import annotations
+
+    from homeassistant.components.select import SelectEntity
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.restore_state import RestoreEntity
+    from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+
+    from .director import CONTROLS_UPDATED, DOMAIN, Director
+    from .rules import EFFECTS
+
+    GRADIENT = "Gradient"
+    SOLID = "Solid"
+    AUTO = "Auto"
+
+
+    def effect_label(effect: str) -> str:
+        return effect.replace("_", " ").title()
+
+
+    EFFECT_BY_LABEL = {effect_label(effect): effect for effect in EFFECTS}
+
+
+    async def async_setup_platform(
+        hass: HomeAssistant,
+        config: ConfigType,
+        async_add_entities: AddEntitiesCallback,
+        discovery_info: DiscoveryInfoType | None = None,
+    ) -> None:
+        if discovery_info is None:
+            return
+        director = hass.data[DOMAIN]
+        async_add_entities([StripColours(director), EffectPin(director)])
+
+
+    class StripColours(SelectEntity, RestoreEntity):
+        _attr_name = "Music Mode Strip Colours"
+        _attr_unique_id = "music_director_strip_colours"
+        _attr_icon = "mdi:gradient-horizontal"
+        _attr_should_poll = False
+
+        def __init__(self, director: Director) -> None:
+            self._attr_options = [GRADIENT, SOLID]
+            self._director = director
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            last = await self.async_get_last_state()
+            if last is not None and last.state in self._attr_options:
+                self._director.set_strip_solid(last.state == SOLID)
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        @property
+        def current_option(self) -> str:
+            return SOLID if self._director.strip_solid else GRADIENT
+
+        async def async_select_option(self, option: str) -> None:
+            self._director.set_strip_solid(option == SOLID)
+
+
+    class EffectPin(SelectEntity):
+        """The effect pinned to the playing track's album; Auto unpins it."""
+
+        _attr_name = "Music Mode Effect Pin"
+        _attr_unique_id = "music_director_effect_pin"
+        _attr_icon = "mdi:pin"
+        _attr_should_poll = False
+
+        def __init__(self, director: Director) -> None:
+            self._attr_options = [AUTO, *EFFECT_BY_LABEL]
+            self._director = director
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        @property
+        def available(self) -> bool:
+            return self._director.current_track is not None
+
+        @property
+        def current_option(self) -> str:
+            effect = self._director.current_pinned_effect()
+            return effect_label(effect) if effect else AUTO
+
+        async def async_select_option(self, option: str) -> None:
+            self._director.set_effect_pin(EFFECT_BY_LABEL.get(option))
+  component.music_director.services.yaml: |
+    refresh:
+      name: Refresh
+      description: >-
+        Re-decide the palette and LedFx effect for the playing track and apply
+        them again.
+    prepare_playlists:
+      name: Prepare playlists
+      description: >-
+        Look up every song in the library's Spotify playlists through Music
+        Assistant ahead of time, so they switch instantly when played. Runs in
+        the background; already prepared songs are skipped.
+      fields:
+        playlists:
+          name: Playlists
+          description: Playlist names to prepare. Leave empty for all of them.
+          example: '["Pee", "Pee 2"]'
+          selector:
+            text:
+              multiple: true
+        notify:
+          name: Notify
+          description: Show a notification when the run starts and finishes.
+          default: true
+          selector:
+            boolean:
+  component.music_director.switch.py: |
+    """Music Mode Drop Flash: flash the strip when a song drops."""
+
+    from __future__ import annotations
+
+    from typing import Any
+
+    from homeassistant.components.switch import SwitchEntity
+    from homeassistant.const import STATE_OFF
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.restore_state import RestoreEntity
+    from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+
+    from .director import CONTROLS_UPDATED, DOMAIN, Director
+
+
+    async def async_setup_platform(
+        hass: HomeAssistant,
+        config: ConfigType,
+        async_add_entities: AddEntitiesCallback,
+        discovery_info: DiscoveryInfoType | None = None,
+    ) -> None:
+        if discovery_info is None:
+            return
+        async_add_entities([DropFlash(hass.data[DOMAIN])])
+
+
+    class DropFlash(SwitchEntity, RestoreEntity):
+        _attr_name = "Music Mode Drop Flash"
+        _attr_unique_id = "music_director_drop_flash"
+        _attr_icon = "mdi:flash"
+        _attr_should_poll = False
+
+        def __init__(self, director: Director) -> None:
+            self._director = director
+
+        async def async_added_to_hass(self) -> None:
+            await super().async_added_to_hass()
+            last = await self.async_get_last_state()
+            # On by default; a switched-off flash stays off across restarts.
+            if last is not None and last.state == STATE_OFF:
+                self._director.set_drop_flash(False)
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass, CONTROLS_UPDATED, self.async_write_ha_state
+                )
+            )
+
+        @property
+        def is_on(self) -> bool:
+            return self._director.drop_flash
+
+        async def async_turn_on(self, **kwargs: Any) -> None:
+            self._director.set_drop_flash(True)
+
+        async def async_turn_off(self, **kwargs: Any) -> None:
+            self._director.set_drop_flash(False)
+  component.music_director.trackcache.py: |
+    """What the director learned about each track, kept across restarts.
+
+    Each entry is the track's looked-up info (genres, tempo, mood) and its
+    cover palette. Entries are stored in Home Assistant storage, tagged with a
+    hash of the code that produced them (palette and metadata parsing), so a
+    deploy that changes colour extraction starts from an empty cache instead of
+    replaying stale colours.
+    """
+
+    from __future__ import annotations
+
+    import hashlib
+    from collections import OrderedDict
+    from dataclasses import asdict, dataclass
+    from pathlib import Path
+    from typing import Any, Protocol
+
+    from .metadata import TrackInfo, normalize, same_track
+    from .palette import Palette
+
+    CACHE_STORAGE_KEY = "music_director.tracks"
+    PLAYLIST_STORAGE_KEY = "music_director.playlists"
+    CACHE_STORAGE_VERSION = 1
+    # Room for every song in the library's playlists (about 7,500 in 2026-11).
+    CACHE_SIZE = 10000
+    SAVE_DELAY_SECONDS = 30
+
+
+    def code_version() -> str:
+        """A hash of the modules whose output the cache holds."""
+        here = Path(__file__).parent
+        digest = hashlib.sha256()
+        for name in ("palette.py", "metadata.py"):
+            digest.update((here / name).read_bytes())
+        return digest.hexdigest()[:16]
+
+
+    def track_key(artist: str, title: str, album: str) -> str:
+        return f"{artist}\n{title}\n{album}"
+
+
+    def _album(key: str) -> str:
+        return normalize(key.rsplit("\n", 1)[-1])
+
+
+    @dataclass(frozen=True)
+    class Entry:
+        info: TrackInfo
+        cover: Palette | None
+        # The cover art was decoded: no cover means it has no usable colour,
+        # not that the download failed, so it is not looked up again.
+        checked: bool = False
+
+
+    def _info_from(data: dict[str, Any]) -> TrackInfo:
+        return TrackInfo(
+            **{
+                **data,
+                "genres": tuple(data.get("genres", ())),
+                "sources": list(data.get("sources", ())),
+            }
+        )
+
+
+    def _palette_from(data: dict[str, Any] | None) -> Palette | None:
+        if data is None:
+            return None
+        rgb = data.get("rgb")
+        return Palette(
+            **{
+                **data,
+                "related": tuple(data.get("related", ())),
+                "rgb": tuple(rgb) if rgb else None,
+            }
+        )
+
+
+    class TrackCache:
+        """Least recently used track entries, keyed by track_key."""
+
+        def __init__(self, size: int = CACHE_SIZE, version: str = "") -> None:
+            self.size = size
+            self.version = version
+            self.entries: OrderedDict[str, Entry] = OrderedDict()
+            # Keys by normalised album, so find() checks one album, not them all.
+            self._albums: dict[str, set[str]] = {}
+            # Each entry serialised once, so saving thousands stays cheap.
+            self._stored: dict[str, dict[str, Any]] = {}
+
+        def get(self, key: str) -> Entry | None:
+            entry = self.entries.get(key)
+            if entry is not None:
+                self.entries.move_to_end(key)
+            return entry
+
+        def put(self, key: str, entry: Entry, stored: dict[str, Any] | None = None) -> None:
+            """Add or refresh an entry; stored is its saved form, when known."""
+            self.entries[key] = entry
+            self.entries.move_to_end(key)
+            self._albums.setdefault(_album(key), set()).add(key)
+            self._stored[key] = stored or {
+                "info": asdict(entry.info),
+                "cover": None if entry.cover is None else asdict(entry.cover),
+                "checked": entry.checked,
+            }
+            while len(self.entries) > self.size:
+                old, _ = self.entries.popitem(last=False)
+                del self._stored[old]
+                keys = self._albums.get(_album(old))
+                if keys is not None:
+                    keys.discard(old)
+                    if not keys:
+                        del self._albums[_album(old)]
+
+        def clear(self) -> None:
+            self.entries.clear()
+            self._albums.clear()
+            self._stored.clear()
+
+        def find(self, key: str) -> Entry | None:
+            """The entry for key, else one for the same song on the same album
+            spelled another way (punctuation, featured artists)."""
+            entry = self.get(key)
+            if entry is not None:
+                return entry
+            artist, title, _ = key.split("\n", 2)
+            for other in sorted(self._albums.get(_album(key), ())):
+                other_artist, other_title, _ = other.split("\n", 2)
+                if same_track(title, artist, other_title, other_artist):
+                    return self.get(other)
+            return None
+
+        def to_data(self) -> dict[str, Any]:
+            return {
+                "version": self.version,
+                "tracks": {key: self._stored[key] for key in self.entries},
+            }
+
+        def load(self, data: Any) -> None:
+            """Replace the entries with stored ones from the same code version;
+            anything malformed is dropped."""
+            self.clear()
+            if not isinstance(data, dict) or data.get("version") != self.version:
+                return
+            tracks = data.get("tracks")
+            if not isinstance(tracks, dict):
+                return
+            for key, item in tracks.items():
+                if not isinstance(key, str) or key.count("\n") != 2:
+                    continue
+                try:
+                    entry = Entry(
+                        _info_from(item["info"]),
+                        _palette_from(item["cover"]),
+                        bool(item.get("checked")),
+                    )
+                except (KeyError, TypeError, ValueError):
+                    continue
+                self.put(key, entry, item)
+
+
+    class CacheStorage(Protocol):
+        async def async_load(self) -> Any: ...
+
+        def async_delay_save(self, data_func: Any, delay: float = 0) -> None: ...
+
+        async def async_save(self, data: Any) -> None: ...
+
+
+    class TrackCacheStore:
+        """A TrackCache persisted through a Home Assistant Store."""
+
+        def __init__(self, storage: CacheStorage) -> None:
+            self._storage = storage
+            self.cache = TrackCache()
+
+        async def async_load(self, version: str) -> None:
+            self.cache.version = version
+            self.cache.load(await self._storage.async_load())
+
+        def put(self, key: str, entry: Entry) -> None:
+            self.cache.put(key, entry)
+            self._storage.async_delay_save(self.cache.to_data, SAVE_DELAY_SECONDS)
+
+        async def async_save(self) -> None:
+            """Write now; delayed saves wait for a quiet spell, which a long
+            batch of puts never leaves."""
+            await self._storage.async_save(self.cache.to_data())
+
+
+    @dataclass(frozen=True)
+    class PlaylistSong:
+        key: str
+        art: str | None
+
+
+    class PlaylistStore:
+        """Which songs each prepared playlist holds, for the colour review panel."""
+
+        def __init__(self, storage: CacheStorage) -> None:
+            self._storage = storage
+            self.playlists: dict[str, list[PlaylistSong]] = {}
+
+        async def async_load(self) -> None:
+            data = await self._storage.async_load()
+            self.playlists = {}
+            if not isinstance(data, dict):
+                return
+            for name, songs in data.items():
+                if isinstance(name, str) and isinstance(songs, list):
+                    self.playlists[name] = [
+                        PlaylistSong(song[0], song[1])
+                        for song in songs
+                        if isinstance(song, list)
+                        and len(song) == 2
+                        and isinstance(song[0], str)
+                        and song[0].count("\n") == 2
+                    ]
+
+        async def async_replace(
+            self, playlists: dict[str, list[PlaylistSong]], partial: bool
+        ) -> None:
+            """Store a run's playlists: all of them (dropping deleted ones), or
+            with partial, only the named ones."""
+            self.playlists = {**self.playlists, **playlists} if partial else playlists
+            await self._storage.async_save(
+                {
+                    name: [[song.key, song.art] for song in songs]
+                    for name, songs in self.playlists.items()
+                }
+            )

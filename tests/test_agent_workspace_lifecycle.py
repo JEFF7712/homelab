@@ -363,6 +363,11 @@ class WorkspaceLifecycleTests(unittest.TestCase):
         self.assertFalse(interface["dhcp6"])
         self.assertIn("agent-rupan-dev", metadata)
 
+    def test_cloud_init_enables_periodic_trim(self) -> None:
+        user_data, _, _ = _cloud_init(self.workspace())
+        user = yaml.safe_load(user_data.removeprefix("#cloud-config\n"))
+        self.assertIn(["systemctl", "enable", "--now", "fstrim.timer"], user["runcmd"])
+
     def test_deprovision_preserves_disks_and_receipt(self) -> None:
         workspace = self.workspace()
         with tempfile.TemporaryDirectory() as directory:

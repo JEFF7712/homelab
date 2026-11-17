@@ -1,0 +1,22 @@
+# Only the CNPG operator calls the Barman Cloud plugin (mTLS gRPC on 9090).
+# Instance pods talk to their own injected sidecar over a local socket, so
+# no other ingress is needed. Egress stays open for the Kubernetes API.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: plugin-barman-cloud-ingress
+  namespace: cnpg-system
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: plugin-barman-cloud
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cloudnative-pg
+      ports:
+        - port: 9090
+          protocol: TCP

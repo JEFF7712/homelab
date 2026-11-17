@@ -8,6 +8,9 @@ parts list.
 
 ## Compute
 
+Across the seven NixOS hosts and router: 46 CPU cores / 72 threads, 144 GiB RAM,
+17.29 TB raw storage, and 8 GiB NVIDIA VRAM.
+
 k3s across `homelab-01` through `homelab-05`, two with NVIDIA GPUs (T1000,
 T600) for voice STT, plus Intel iGPU transcoding for Jellyfin. NAS
 holds storage, a local container registry, and a Nix binary cache; a thin client
@@ -23,7 +26,7 @@ cert-manager for internal TLS.
 - **Media**: Jellyfin plus the *arr suite, Seerr requests, an AI
   recommender, Navidrome music, Calibre ebooks, Spotify sync, and Immich
 - **Music**: Music Assistant with LedFx lighting effects
-- **Voice**: Local voice assistant (Whisper, Piper, satellite mics)
+- **Voice**: Local Nemotron recognition, satellite mics, and display-only replies
 - **Smart home**: source-first Home Assistant, all config in this repo
 - **Notes**: Obsidian LiveSync (CouchDB) with a Quartz published site
 - **Websites**: personal static sites plus live apps
@@ -33,13 +36,13 @@ cert-manager for internal TLS.
 - **Automation**: cluster sentinel, Renovate agents, website monitors
 - **Backups**: database dumps to R2
 - **Self-hosted**: git (Forgejo), CI (Woodpecker), container registry (Zot),
-  and Nix binary cache (Attic)
+  and Nix binary cache (niks3)
 
 ## How it's managed
 
 NixOS via flakes and the fleet deployer, firewall via OpenTofu plus a small
 reconciler, and Kubernetes via Flux. Protected CI owns provider changes and
-approved fleet operations; Flux reconciles Kubernetes state from Forgejo. The
+fleet operations within the task scope; Flux reconciles Kubernetes state from Forgejo. The
 repo is the source of truth; live state is verified, never hand-edited. See
 [AGENT_MAP.md](AGENT_MAP.md) for owning source, minimum checks, and runbooks
 before making or applying changes.

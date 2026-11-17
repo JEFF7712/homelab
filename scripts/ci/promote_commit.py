@@ -261,45 +261,20 @@ def main() -> None:
     # with the same promotion finds its open PR instead of opening another.
     label = scope or "review"
     branch = f"registry-promotion/{label}-{hashlib.sha256(content).hexdigest()[:12]}"
-    recovery = os.environ.get("CI_OPERATION_AUTHORITY") == "gitlab"
-    token_name = "GITLAB_PUBLISH_TOKEN" if recovery else "FORGEJO_PUBLISH_TOKEN"
-    token = os.environ[token_name]
-    base = (
-        "https://gitlab.com/api/v4/projects/85910419/merge_requests"
-        if recovery
-        else "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/pulls"
-    )
-    headers = {"Content-Type": "application/json"}
-    headers.update(
-        {"PRIVATE-TOKEN": token} if recovery else {"Authorization": f"token {token}"}
-    )
-    request = urllib.request.Request(
-        base + ("?state=opened&per_page=100" if recovery else "?state=open&limit=100"),
-        headers=headers,
-    )
+    token = os.environ["FORGEJO_PUBLISH_TOKEN"]
+    base = "https://git.rupan.dev/api/v1/repos/JEFF7712/homelab/pulls"
+    headers = {"Content-Type": "application/json", "Authorization": f"token {token}"}
+    request = urllib.request.Request(base + "?state=open&limit=100", headers=headers)
     with urllib.request.urlopen(request, timeout=30) as response:
         pulls = json.load(response)
-    existing = next(
-        (
-            pull
-            for pull in pulls
-            if (pull["source_branch"] if recovery else pull["head"]["ref"]) == branch
-        ),
-        None,
-    )
-    if not recovery:
-        for pull in superseded_pulls(pulls, label, branch):
-            _api(
-                token,
-                f"/pulls/{pull['number']}",
-                data={"state": "closed"},
-                method="PATCH",
-            )
-            print(f"Closed superseded promotion PR #{pull['number']}")
-    if existing:
-        print(
-            f"Promotion is already awaiting review: {existing['web_url' if recovery else 'html_url']}"
+    existing = next((pull for pull in pulls if pull["head"]["ref"] == branch), None)
+    for pull in superseded_pulls(pulls, label, branch):
+        _api(
+            token, f"/pulls/{pull['number']}", data={"state": "closed"}, method="PATCH"
         )
+        print(f"Closed superseded promotion PR #{pull['number']}")
+    if existing:
+        print(f"Promotion is already awaiting review: {existing['html_url']}")
         if auto_merge:
             _auto_merge_pull(token, existing)
         return
@@ -318,12 +293,6 @@ def main() -> None:
         check=True,
     )
     with tempfile.TemporaryDirectory(prefix="forgejo-publish-") as temporary:
-        remote = (
-            "https://gitlab.com/JEFF7712/homelab.git"
-            if recovery
-            else "https://git.rupan.dev/JEFF7712/homelab.git"
-        )
-        credential_host = "https://gitlab.com" if recovery else "https://git.rupan.dev"
         helper = Path(temporary) / "credential"
         helper.write_text(
             '#!/usr/bin/env bash\nif [[ $1 == get ]]; then\n  printf "%s\\n" "username=$CI_PUBLISH_USERNAME" "password=$CI_PUBLISH_TOKEN"\nfi\n'
@@ -335,27 +304,24 @@ def main() -> None:
                 "-c",
                 "credential.helper=",
                 "-c",
-                f"credential.{credential_host}.helper={helper}",
+                f"credential.https://git.rupan.dev.helper={helper}",
                 "push",
-                remote,
+                "https://git.rupan.dev/JEFF7712/homelab.git",
                 f"HEAD:refs/heads/{branch}",
             ],
             check=True,
             env=dict(
                 os.environ,
                 CI_PUBLISH_TOKEN=token,
-                CI_PUBLISH_USERNAME="oauth2" if recovery else "homelab-publisher",
+                CI_PUBLISH_USERNAME="homelab-publisher",
             ),
         )
     request = urllib.request.Request(
         base,
         data=json.dumps(
             {
-                **(
-                    {"target_branch": "main", "source_branch": branch}
-                    if recovery
-                    else {"base": "main", "head": branch}
-                ),
+                "base": "main",
+                "head": branch,
                 "title": "registry: promote first-party image digests",
             }
         ).encode(),
@@ -363,9 +329,7 @@ def main() -> None:
     )
     with urllib.request.urlopen(request, timeout=30) as response:
         pull = json.load(response)
-    print(
-        f"Promotion is ready for review: {pull['web_url' if recovery else 'html_url']}"
-    )
+    print(f"Promotion is ready for review: {pull['html_url']}")
     if auto_merge:
         _auto_merge_pull(token, pull)
 

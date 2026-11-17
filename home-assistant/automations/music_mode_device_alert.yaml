@@ -1,0 +1,74 @@
+id: music_mode_device_alert
+alias: "Music: Device Offline Alert"
+description: >-
+  While shared Music Mode is on, notify the phone when something it drives
+  stops responding: LedFx (homelab-05, which drives the strip), the WLED
+  strip, or a bulb in an area taking part. Checked again a minute after
+  Music Mode starts, so a device already offline is reported too. Lights
+  of areas not taking part are ignored.
+triggers:
+  - trigger: state
+    entity_id:
+      - light.living_room_led_strip
+      - light.kitchen_ceiling_light_1
+      - light.kitchen_ceiling_light_2
+      - light.kitchen_dining_table_ceiling_light_1
+      - light.kitchen_dining_table_ceiling_light_2
+      - light.living_room_floor_lamp
+      - light.living_room_tulip_lamp
+      - light.apollo_led_strip_apollo_led_strip
+    to: "unavailable"
+    for: "00:01:00"
+    id: light
+  - trigger: template
+    value_template: >-
+      {{ state_attr('sensor.music_director', 'ledfx_status') not in [none, 'ok'] }}
+    for: "00:01:00"
+    id: ledfx
+  - trigger: state
+    entity_id: input_boolean.shared_music_mode
+    to: "on"
+    for: "00:01:00"
+    id: start
+conditions:
+  - condition: state
+    entity_id: input_boolean.shared_music_mode
+    state: "on"
+actions:
+  - variables:
+      # Which Music Mode toggle each light belongs to.
+      owners:
+        light.living_room_led_strip: input_boolean.music_mode_led_strip
+        light.kitchen_ceiling_light_1: input_boolean.music_mode_kitchen_ceiling
+        light.kitchen_ceiling_light_2: input_boolean.music_mode_kitchen_ceiling
+        light.kitchen_dining_table_ceiling_light_1: input_boolean.music_mode_dining_table
+        light.kitchen_dining_table_ceiling_light_2: input_boolean.music_mode_dining_table
+        light.living_room_floor_lamp: input_boolean.music_mode_floor_lamp
+        light.living_room_tulip_lamp: input_boolean.music_mode_tulip_lamp
+        light.apollo_led_strip_apollo_led_strip: input_boolean.music_mode_ceiling_strip
+      candidates: >-
+        {{ [trigger.entity_id] if trigger.id == 'light' else owners.keys() | list }}
+      lights: >-
+        {% set ns = namespace(names=[]) %}
+        {% for entity in candidates
+           if is_state(entity, 'unavailable') and is_state(owners[entity], 'on') %}
+          {% set ns.names = ns.names + [state_attr(entity, 'friendly_name') or entity] %}
+        {% endfor %}
+        {{ ns.names }}
+      ledfx: >-
+        {{ trigger.id != 'light'
+           and state_attr('sensor.music_director', 'ledfx_status') not in [none, 'ok'] }}
+  - condition: template
+    value_template: "{{ lights | count > 0 or ledfx }}"
+  - action: notify.send_message
+    target:
+      entity_id: notify.rupan_phone
+    data:
+      title: "Music Mode: device offline"
+      message: >-
+        {% set status = state_attr('sensor.music_director', 'ledfx_status') %}
+        {% if ledfx %}LedFx is {{ status }}, so the LED strip is not reacting to the music. {% endif %}
+        {% if lights | count == 1 %}{{ lights[0] }} is not responding.
+        {% elif lights | count %}{{ lights | join(', ') }} are not responding.{% endif %}
+mode: queued
+max: 5

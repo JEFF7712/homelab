@@ -8,6 +8,31 @@
 let
   cfg = config.homelab.k3s;
   network = fleetInventory.networks.${fleetInventory.hosts.${config.networking.hostName}.network};
+  inherit (fleetInventory.networks)
+    management
+    clients
+    infrastructure
+    load-balancers
+    guest-iot
+    ;
+  auditPolicy = {
+    apiVersion = "audit.k8s.io/v1";
+    kind = "Policy";
+    omitStages = [ "RequestReceived" ];
+    rules = [
+      {
+        level = "None";
+        nonResourceURLs = [
+          "/healthz*"
+          "/livez*"
+          "/readyz*"
+        ];
+      }
+      # Metadata records identity and resource access without Secret bodies,
+      # TokenRequest responses, or application request contents.
+      { level = "Metadata"; }
+    ];
+  };
 in
 {
   options.homelab.k3s = {
@@ -51,6 +76,25 @@ in
       description = "Runtime file containing the k3s cluster token.";
     };
 
+    imageGc = {
+      highThreshold = lib.mkOption {
+        type = lib.types.ints.between 1 100;
+        default = 70;
+        description = ''
+          Image filesystem usage percent at which the kubelet starts deleting
+          unused images. The kubelet can free only its own images, so on a
+          filesystem shared with other data keep this below the
+          `imagefs.available<15Gi` eviction threshold but above the usage those
+          other consumers cause, or image GC fails every five minutes.
+        '';
+      };
+      lowThreshold = lib.mkOption {
+        type = lib.types.ints.between 0 99;
+        default = 60;
+        description = "Image filesystem usage percent the kubelet's image GC deletes down to.";
+      };
+    };
+
     bootstrapCilium = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -58,22 +102,10 @@ in
     };
 
     registry = {
-      enable = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Load the node's private registry configuration from a runtime secret file.";
-      };
-
       configFile = lib.mkOption {
         type = lib.types.str;
         default = "/persist/secrets/k3s-registries.yaml";
         description = "Runtime-provisioned k3s registries.yaml containing node pull credentials.";
-      };
-
-      enforceLocalImages = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Disable fallback to configured upstream registry endpoints after local content is populated.";
       };
 
       embeddedRegistry = lib.mkOption {
@@ -92,6 +124,10 @@ in
     };
 
     assertions = [
+      {
+        assertion = cfg.imageGc.lowThreshold < cfg.imageGc.highThreshold;
+        message = "homelab.k3s.imageGc.lowThreshold must be below highThreshold.";
+      }
       {
         # k3s stops parsing flags at the first bare word, so an unquoted space
         # silently drops every later flag.
@@ -115,10 +151,6 @@ in
       {
         assertion = !(cfg.role == "agent" && cfg.clusterInit);
         message = "An agent node cannot initialize a cluster.";
-      }
-      {
-        assertion = !cfg.registry.enforceLocalImages || cfg.registry.enable;
-        message = "Local-only image enforcement requires the private registry configuration.";
       }
     ];
 
@@ -148,16 +180,24 @@ in
         enable = true;
         extraReversePathFilterRules = "ip saddr 10.42.0.0/16 accept";
         extraInputRules = ''
-          ip saddr 10.0.10.0/24 tcp dport 22 accept
-          ip saddr 10.0.10.0/24 tcp dport 6443 accept
-          ip saddr 10.0.30.0/24 tcp dport { 22, 179, 2379, 2380, 5001, 6443, 6444, 9100, 10250, 4240 } accept
-          ip saddr 10.0.30.0/24 udp dport 8472 accept
+          ip saddr ${management.cidr} tcp dport 22 accept
+          ip saddr ${management.cidr} tcp dport 6443 accept
+          ip saddr ${infrastructure.cidr} tcp dport { 22, 179, 2379, 2380, 5001, 6443, 6444, 9100, 10250, 4240 } accept
+          ip saddr ${infrastructure.cidr} udp dport 8472 accept
           ip saddr 10.42.0.0/16 tcp dport { 6443, 9100, 10250 } accept
-          ip saddr { 10.0.20.0/24, 10.0.30.0/24, 10.0.40.0/24, 10.42.0.0/16 } tcp dport { 8123, 21063 } accept
-          ip saddr { 10.0.10.0/24, 10.0.20.0/24, 10.0.30.0/24, 10.0.40.0/24, 10.0.50.0/24, 10.42.0.0/16 } tcp dport 8888 accept
-          ip saddr 10.0.30.0/24 udp dport 5353 accept
-          ip saddr 10.0.20.0/24 udp dport 4002 accept
+          ip saddr { ${clients.cidr}, ${infrastructure.cidr}, ${load-balancers.cidr}, 10.42.0.0/16 } tcp dport { 8123, 21063 } accept
+          ip saddr { ${management.cidr}, ${clients.cidr}, ${infrastructure.cidr}, ${load-balancers.cidr}, ${guest-iot.cidr}, 10.42.0.0/16 } tcp dport 8888 accept
+          ip saddr ${infrastructure.cidr} udp dport 5353 accept
+          ip saddr ${clients.cidr} udp dport 4002 accept
           ip6 saddr { fd42:20::/64, fd42:30::/64 } udp dport { 5353, 5540 } accept
+        ''
+        # etcd metrics (plain HTTP, --etcd-expose-metrics) for Prometheus only.
+        # Its TSDB is a local PV pinned to homelab-05
+        # (gitops/observability/kube-prometheus-stack/local-storage.yaml), and
+        # Cilium masquerades pod traffic to another node's address as the
+        # sending node's address, so every scrape arrives from homelab-05.
+        + lib.optionalString (cfg.role == "server") ''
+          ip saddr ${fleetInventory.hosts.homelab-05.address} tcp dport 2381 accept
         '';
       };
     };
@@ -212,6 +252,12 @@ in
               "--disable=servicelb"
               "--disable=traefik"
               "--disable=local-storage"
+              "--secrets-encryption"
+              "--kube-apiserver-arg=audit-policy-file=/etc/rancher/k3s/audit-policy.json"
+              "--kube-apiserver-arg=audit-log-path=/persist/k3s-audit/audit.log"
+              "--kube-apiserver-arg=audit-log-maxage=7"
+              "--kube-apiserver-arg=audit-log-maxbackup=5"
+              "--kube-apiserver-arg=audit-log-maxsize=50"
             ]
           else
             [
@@ -221,8 +267,8 @@ in
         ++ [
           "--kubelet-arg=container-log-max-size=10Mi"
           "--kubelet-arg=container-log-max-files=5"
-          "--kubelet-arg=image-gc-high-threshold=70"
-          "--kubelet-arg=image-gc-low-threshold=60"
+          "--kubelet-arg=image-gc-high-threshold=${toString cfg.imageGc.highThreshold}"
+          "--kubelet-arg=image-gc-low-threshold=${toString cfg.imageGc.lowThreshold}"
           "--kubelet-arg=eviction-hard=memory.available<500Mi,nodefs.available<2Gi,imagefs.available<15Gi"
         ]
         ++ lib.optionals (cfg.role == "server") [
@@ -230,19 +276,26 @@ in
           "--etcd-snapshot-retention=14"
           # The unit joins flags unescaped, so quote the whole word for systemd.
           "\"--etcd-snapshot-schedule-cron=0 3 * * *\""
+          # Adds http://<node-ip>:2381 beside the loopback metrics listener.
+          "--etcd-expose-metrics"
         ]
-        ++ lib.optional cfg.registry.enforceLocalImages "--disable-default-registry-endpoint"
-        ++ lib.optional (
-          cfg.role == "server" && cfg.registry.enable && cfg.registry.embeddedRegistry
-        ) "--embedded-registry";
+        # Images come only from the local registry; registries.yaml rewrites
+        # every upstream to it, so no default endpoint is a fallback.
+        ++ [ "--disable-default-registry-endpoint" ]
+        ++ lib.optional (cfg.role == "server" && cfg.registry.embeddedRegistry) "--embedded-registry";
+    };
+
+    environment.etc."rancher/k3s/audit-policy.json" = lib.mkIf (cfg.role == "server") {
+      text = builtins.toJSON auditPolicy;
+      mode = "0600";
     };
 
     systemd.services.k3s = {
-      unitConfig.ConditionPathExists =
-        lib.optional (!cfg.clusterInit) cfg.tokenFile
-        ++ lib.optional cfg.registry.enable cfg.registry.configFile;
-      serviceConfig.LoadCredential = lib.mkIf cfg.registry.enable "registries.yaml:${cfg.registry.configFile}";
-      preStart = lib.mkIf cfg.registry.enable ''
+      unitConfig.ConditionPathExists = lib.optional (!cfg.clusterInit) cfg.tokenFile ++ [
+        cfg.registry.configFile
+      ];
+      serviceConfig.LoadCredential = "registries.yaml:${cfg.registry.configFile}";
+      preStart = ''
         install -d -m 0700 /etc/rancher/k3s
         install -m 0600 "$CREDENTIALS_DIRECTORY/registries.yaml" /etc/rancher/k3s/registries.yaml
       '';
@@ -263,41 +316,38 @@ in
           repo = "https://helm.cilium.io";
           targetNamespace = "kube-system";
           version = "1.20.1";
-          valuesContent = builtins.toJSON (
-            {
-              bgpControlPlane.enabled = true;
-              gatewayAPI.enabled = true;
-              gatewayAPI.gatewayClass.create = false;
-              ingressController.enabled = true;
-              ipam.operator.clusterPoolIPv4PodCIDRList = [ "10.42.0.0/16" ];
-              ipv4NativeRoutingCIDR = "10.42.0.0/16";
-              k8sServiceHost = "127.0.0.1";
-              k8sServicePort = 6443;
-              kubeProxyReplacement = true;
-              operator.replicas = 2;
-              securityContext.capabilities.ciliumAgent = [
-                "CHOWN"
-                "KILL"
-                "NET_ADMIN"
-                "NET_RAW"
-                "IPC_LOCK"
-                "SYS_MODULE"
-                "SYS_ADMIN"
-                "SYS_RESOURCE"
-                "DAC_OVERRIDE"
-                "FOWNER"
-                "SETGID"
-                "SETUID"
-                "SYSLOG"
-                "NET_BIND_SERVICE"
-              ];
-            }
-            // lib.optionalAttrs cfg.registry.enable {
-              image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium@sha256:ae9ea21f7427fe24bc6ea7247eb552157a1b0a431744045d3f641545ca71d11b";
-              envoy.image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium-envoy@sha256:75b8094c7127736a2ffd2dce3945e0931cb6df21b0372ff661940eca26730b91";
-              operator.image.override = "registry.rupan.dev/upstream/quay.io/cilium/operator-generic@sha256:6c3885fc7b629099fdbe2a5c87869c86feb825fa18fae299eac0f61918d16ecf";
-            }
-          );
+          # operator.replicas stays at the chart default (2): the image
+          # overrides used to replace the whole operator attribute set.
+          valuesContent = builtins.toJSON {
+            bgpControlPlane.enabled = true;
+            envoy.image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium-envoy@sha256:75b8094c7127736a2ffd2dce3945e0931cb6df21b0372ff661940eca26730b91";
+            gatewayAPI.enabled = true;
+            gatewayAPI.gatewayClass.create = false;
+            image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium@sha256:ae9ea21f7427fe24bc6ea7247eb552157a1b0a431744045d3f641545ca71d11b";
+            ingressController.enabled = true;
+            ipam.operator.clusterPoolIPv4PodCIDRList = [ "10.42.0.0/16" ];
+            ipv4NativeRoutingCIDR = "10.42.0.0/16";
+            k8sServiceHost = "127.0.0.1";
+            k8sServicePort = 6443;
+            kubeProxyReplacement = true;
+            operator.image.override = "registry.rupan.dev/upstream/quay.io/cilium/operator-generic@sha256:6c3885fc7b629099fdbe2a5c87869c86feb825fa18fae299eac0f61918d16ecf";
+            securityContext.capabilities.ciliumAgent = [
+              "CHOWN"
+              "KILL"
+              "NET_ADMIN"
+              "NET_RAW"
+              "IPC_LOCK"
+              "SYS_MODULE"
+              "SYS_ADMIN"
+              "SYS_RESOURCE"
+              "DAC_OVERRIDE"
+              "FOWNER"
+              "SETGID"
+              "SETUID"
+              "SYSLOG"
+              "NET_BIND_SERVICE"
+            ];
+          };
         };
       };
       bgp-peer.content = {
@@ -388,11 +438,7 @@ in
                 spec.containers = [
                   {
                     name = "web";
-                    image =
-                      if cfg.registry.enable then
-                        "registry.rupan.dev/upstream/docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10"
-                      else
-                        "docker.io/library/nginx:1.27-alpine";
+                    image = "registry.rupan.dev/upstream/docker.io/library/nginx@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10";
                     ports = [ { containerPort = 80; } ];
                   }
                 ];
@@ -422,7 +468,8 @@ in
       "d /persist/etc/ssh 0700 root root -"
       "d /persist/secrets 0700 root root -"
       "d /persist/etcd-snapshots 0700 root root -"
-    ];
+    ]
+    ++ lib.optional (cfg.role == "server") "d /persist/k3s-audit 0700 root root -";
 
     environment.persistence."/persist" = {
       hideMounts = true;

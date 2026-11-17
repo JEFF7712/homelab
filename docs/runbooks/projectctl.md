@@ -76,103 +76,28 @@ of merge rejection. The signed
 failing-PR probe is a separate platform qualification audit, not a per-project
 onboarding gate. Signed scopes retain their stronger request-bound proof path.
 
-## Pilot activation history
+## Deployment and credential ownership
 
-Persistent worker provisioning and identity/SSH acceptance completed on
-2026-10-19 at 05:59 UTC and were refreshed at 14:53 UTC. Those receipts are under
-.agent-state/operations/projectctl-accepted-20261019T145318Z in the primary checkout.
-Later host deployments preserve the worker. The details below describe earlier
-temporary trials and their recovery, not the current activation state. Routine
-authorization requires deployment of the implementation described above.
+`flake/hosts/homelab-04/default.nix` imports
+`flake/profiles/projectctl-pilot.nix`, enabling the worker and mapping the five
+properties in `secrets/projectctl.sops.json` through sops-nix. The observer files
+are owned by `projectctl-worker`; provisioner and registry credentials remain
+root-owned and are delivered to trusted services through `LoadCredential`.
+`flake/modules/projectctl.nix` owns the restricted SSH gateway, verifier,
+dispatch template and recurring reconciler, with state in `/persist/projectctl`.
 
-The selected pilot is JEFF7712/autocompress, private, main, python-uv-v1.
-The [pilot profile](../../flake/profiles/projectctl-pilot.nix) is enabled in the
-prepared homelab-04 source. Temporary activation and verification succeeded at
-2026-10-19 00:58 UTC. Validation 2569 and protected registry consistency/drift
-checks 2570 and 2571 passed on main
-68c75d91b14e3a5e170f2dbf97cd585ac0e412a4 before activation. The accepted system was
-/nix/store/vfyl9m609wix9ilzv8sxvvpnlr2bxdz1-nixos-system-homelab-04-26.11.20260829.d2f6794.
-All five credentials loaded through the hardened systemd verifier. Both services
-reported distinct matching nonadministrator observer and provisioner identities.
-Real SSH tests rejected shell commands, PTYs, TCP forwarding, sudo and requests
-outside the pilot scope. The gateway could read only the two observer tokens.
+Confirm the active generation, `projectctl-verify-credentials.service`,
+`projectctl-reconcile.timer`, caller scope and current request status before
+claiming readiness. A declared profile does not prove that a request enrolled
+successfully. Use the current source and [host deployment workflow](nixos-host-deployment.md)
+for changes; do not reactivate a temporary trial generation.
 
-A later persistent deployment replaced that temporary generation. At 2026-10-19
-04:08 UTC, both live and persistent systems were
-/nix/store/4281dlzi0li3n9r0qw9p86ya79ih9z5h-nixos-system-homelab-04-26.11.20260829.d2f6794,
-and the worker account and caller access were absent. Existing services were
-healthy and CI scheduling was resumed. Preserve this newer deployment; do not
-reactivate the old candidate over it. Publication as a review PR is now authorized.
-Merging and making the worker persistent remain outside that approval. Deployment
-requires a current-source build, comparison against the actual live closure,
-fresh protected registry checks and authorization for the reviewed change.
+The October 17–19 trial logs, generation paths and inactive credential directories
+are historical evidence available in Git history. They do not describe current
+installation paths or extend the task's authorization. Keep recovery credentials
+and operator keys independent of the worker host.
 
-No projectctl request, enrollment or operator dispatch has run. The successful
-trial's read-only doctor found Forgejo ID 24 and Woodpecker ID 23. Repository
-readiness passed; enrollment was degraded, validation lacked the new contract
-stamp, and observer credentials could not inspect branch protection. These are
-remaining pilot-enrollment checks, not evidence of completed onboarding.
-
-Two earlier trials restored their recorded generation after verification failed.
-Regression coverage now matches Woodpecker's omitted false administrator flags
-and systemd's root-owned, read-only credential ACL granting only the service user
-access. Ordinary credential files still require private mode bits. A real
-systemd canary and the final temporary activation verified the corrected behavior.
-The full offline gate passed 1,801 tests with 35 skips, flake checks and formatting.
-
-The supplied operator public key is pinned as projectctl-operator in
-[operators.json](../../config/projectctl/operators.json). Its private key must
-remain on an independent operator machine, outside homelab-04 and all agent
-environments. OpenSSH and PKCS8 Ed25519 keys are supported; encrypted keys prompt
-on an interactive terminal.
-
-A separate caller key was generated locally at ~/.ssh/projectctl-caller, mode
-0600. Its public key and exact pilot scope are in
-[callers.json](../../config/projectctl/callers.json). The fingerprint is
-SHA256:fUmzJ4Nku7ogGWfZnzEe5svJUaV5/jL9wjJ/9Fyuja8.
-Its temporary installation passed the restriction tests above and was subsequently
-removed by the newer persistent deployment. The local CLI and dedicated SSH alias
-remain installed; remote commands require an approved worker deployment.
-
-The dedicated Zot reader was provisioned on nas-01 with explicit operator
-approval on 2026-10-17. Its only read grants are the locked uv and Woodpecker
-clone image repositories. Live checks read and digest-verified three locked
-manifests and their Linux amd64 configuration blobs; uploads to both allowed
-repositories and reads from unrelated application/upstream repositories returned
-403. Zot is active. Existing accounts and policy rules were preserved.
-Root-only recovery files are under
-/persist/zot/projectctl-reader-backup-20261017T070738Z-nkrmqq8v on nas-01.
-The encrypted five-credential bundle is secrets/projectctl.sops.json. Credentials
-passed systemd verification during the successful trial. After the worker account
-was removed, all five files were preserved under
-/persist/projectctl-credentials.inactive-20261019T040840Z on homelab-04, with a
-root-owned 0700 parent and 0600 files. The original installation path is absent.
-Failed-trial directories ending in failed-20261018T1919 and failed-20261019T0008
-also remain root-only. Preserve these receipts and backups; the installer refuses
-an existing destination.
-
-The completed temporary activation was authorized after both protected checks.
-The first consistency check exposed an importer credential mismatch unrelated
-to the node rotation. The separately approved importer rotation and live
-permission checks passed, as did consistency check 2369. Drift check 2370 found
-an application tag mismatch against an older lock. Current main uses a newer
-application record whose digest and required tags were independently verified.
-Validation 2537 and protected consistency/drift checks 2539 and 2540 passed on
-main 9b48677c24d24f65f5139043ca82a5b35b6e5ff2 before the temporary trial.
-Fresh checks 2559 and 2560 passed on the same main commit before the second trial.
-The final successful trial used the newer main and checks recorded above.
-The separately approved
-[node credential rotation](projectctl-registry-rotation.md) replaced the exposed
-legacy password on 2026-10-17 across Zot, five K3s nodes, NAS pull auth and
-Woodpecker. Live registry checks reject the retired password; node and NAS pulls
-succeed. The encrypted replacement is secrets/registry-node.sops.json and stays
-separate from every projectctl credential.
-Deployment review must preserve the live github-release-mirror, kiosk-rotate
-and repo-monitor services. Use the current canonical branch and compare with
-the actual host generation before approving any activation.
-
-The encrypted bundle contains these five dedicated credentials, verified during
-the successful temporary activation:
+The encrypted bundle contains these five dedicated credentials:
 
 | File | Required authority |
 | --- | --- |
@@ -213,8 +138,8 @@ and [Woodpecker's API](https://woodpecker-ci.org/api).
 
 The existing homelab-ci-source remains the CI clone identity, subject to
 verifying its read-only pilot access. The worker receives no clone password.
-The projectctl-pull identity and its effective Zot ACL were verified independently
-as described above. Woodpecker's registry readonly field does not establish remote
+Inspect the projectctl-pull identity and effective Zot ACL using the
+[registry rotation runbook](projectctl-registry-rotation.md). Woodpecker's registry readonly field does not establish remote
 registry authorization. Configuring actions=["read"] is an operator assertion,
 not a substitute for examining the effective Zot policy.
 

@@ -20,11 +20,11 @@ just workspace-deprovision <id> --authorized
 
 It accepts only a domain whose UUID, manifest hash, receipt, and disks agree. It destroys and undefines the domain but preserves both disks, seed material, domain XML, and receipt. Re-provisioning a matching deprovisioned workspace reuses those verified assets.
 
-`flake/modules/agent-workspace-network.nix` derives one host-owned bridge and one interface-bound nftables policy per enabled workspace. The host must use systemd-networkd. Libvirt requires nftables and networkd. Guest IPv6, spoofed IPv4, other workspace segments, host input, private/special destinations, and unsolicited ingress are denied. Explicit HA capability API, DNS, NTP, public Internet egress, and declared SSH/HTTPS ingress sources are allowed. `services.agent-workspace-network.tcpEgress` adds typed, host-owned destination IPv4/TCP grants for named local workspaces before the private-network deny rule; a grant to one of the hypervisor's own addresses is also admitted on host input. Rupan's personal development VM is a full development environment: NAS Forgejo Git (2222) and API (3000), the signed cache (8080), Woodpecker (8000) and the approvals service (8020) on `homelab-04`, OPNsense HTTPS (443, at the address from `inventory/dns.nix`), the Kubernetes API (6443, via `kubernetes_api`), and SSH (22) to every fleet host, which `just doctor --live` and `just ship` require. The guest resolves `git.internal`, `ci.internal`, and `OPNsense.internal` from its own host entries in `nixos-config`, since its DNS is public. Sam's grants are unchanged. Filtering occurs before Internet masquerade. Stopping nftables first lowers each workspace tap interface, then destroys a running domain before removing policy.
+`flake/modules/agent-workspace-network.nix` derives one host-owned bridge and one interface-bound nftables policy per enabled workspace. The host must use systemd-networkd. Libvirt requires nftables and networkd. Guest IPv6, spoofed IPv4, other workspace segments, host input, private/special destinations, and unsolicited ingress are denied. Explicit HA capability API, DNS, NTP, public Internet egress, and declared SSH/HTTPS ingress sources are allowed. `services.agent-workspace-network.tcpEgress` adds typed, host-owned destination IPv4/TCP grants for named local workspaces before the private-network deny rule; a grant to one of the hypervisor's own addresses is also admitted on host input. Rupan's personal development VM is a full development environment: NAS Forgejo Git (2222) and API (3000), the signed cache (8080), Woodpecker (8000) and the approvals service (8020) on `homelab-04`, OPNsense HTTPS (443, at the address from `inventory/dns.nix`), the Kubernetes API (6443, via `kubernetes_api`), and SSH (22) to every fleet host as the read-only `agent-observer` account, which `just doctor --live` checks. The guest resolves `git.internal`, `ci.internal`, and `OPNsense.internal` from its own host entries in `nixos-config`, since its DNS is public. Sam's grants are unchanged. Filtering occurs before Internet masquerade. Stopping nftables first lowers each workspace tap interface, then destroys a running domain before removing policy.
 
-The host modules are enabled on `homelab-04`. On top of its usual 1 CPU and 2 GiB system reservation, Kubernetes reserves the workspace slice's CPU and memory limits (2 CPUs and 14 GiB), so the guests never compete with pod requests. The workspace slice limits all workspace VMs together to 200 percent CPU, uses a 13 GiB memory pressure threshold, and has a 14 GiB hard memory limit. The limit covers Rupan's 8 GiB guest, Sam's 4 GiB guest, and QEMU overhead. The versioned enrollment inventory remains empty; the existing guests have separately maintained libvirt registrations and network-only recovery definitions.
+The host modules are enabled on `homelab-04`. On top of its usual 1 CPU and 2 GiB system reservation, Kubernetes reserves the workspace slice's CPU and memory limits (2 CPUs and 14 GiB), so the guests never compete with pod requests. The workspace slice limits all workspace VMs together to 200 percent CPU, uses a 13 GiB memory pressure threshold, and has a 14 GiB hard memory limit. The limit covers Rupan's 10 GiB guest, Sam's 2 GiB guest, and QEMU overhead. The versioned enrollment inventory remains empty; the existing guests have separately maintained libvirt registrations and network-only recovery definitions.
 
-For the `agent-rupan` and `agent-sam` guests, `flake/hosts/homelab-04/default.nix` contains only their existing network settings under `recoveryManifest`. This input creates host bridges and filtering rules but does not provision guests, add enrollment records, or grant HA access. Sam's saved XML and disks under `/persist/agent-workspaces/sam/` remain unchanged. Rupan's NixOS guest is described below. Keep this input limited to those existing networks and remove it only after an independently accepted replacement or decommissioning; the backup restore and HA capability gates remain open.
+For the `agent-rupan` and `agent-sam` guests, `flake/hosts/homelab-04/default.nix` contains only their existing network settings under `recoveryManifest`. This input creates host bridges and filtering rules but does not provision guests, add enrollment records, or grant HA access. Sam's guest uses 2 GiB RAM, with its authoritative saved XML at `/persist/agent-workspaces/sam/control/domain.xml`; the persistent libvirt definition has the same allocation. Its disks under `/persist/agent-workspaces/sam/` are preserved. Rupan's NixOS guest is described below. Keep this input limited to those existing networks and remove it only after an independently accepted replacement or decommissioning; the backup restore and HA capability gates remain open.
 
 ## Rupan's NixOS guest
 
@@ -36,7 +36,7 @@ package definitions. Its source is `hosts/vm/configuration.nix` and
 This guest is outside the Ubuntu cloud-image provisioning lifecycle. Do not
 add a guessed enrollment record or run `workspace-provision` against its disks.
 
-The domain keeps UUID `a73b5b41-f1b1-5719-a045-94a0fd2cce92`, 2 vCPUs, 8 GiB RAM,
+The domain keeps UUID `a73b5b41-f1b1-5719-a045-94a0fd2cce92`, 2 vCPUs, 10 GiB RAM,
 the 100 percent whole-domain CPU limit, and the existing bridge, tap, MAC and
 address. Its single fresh 96 GiB disk is
 `/persist/agent-workspaces/rupan/disks/nixos.qcow2`. SSH remains
@@ -46,11 +46,23 @@ filesystem, and its image carries no provider or infrastructure credentials.
 Since 2026-10-26, by Rupan's explicit choice, the running guest is a full
 operator workstation equivalent to the laptop. Its home directory holds the
 `homelab-agent` tea login and Git push key, a Woodpecker token, the
-cluster-admin kubeconfig, and the SOPS age key. Its own SSH key
-(`developer@agent-rupan`) is authorized for `rupan` on every fleet host through
-`flake/modules/common-base.nix`, and the network grants above admit it. To
-revoke this access, remove that key, delete those files from the guest, and
-narrow `tcpEgress.rupan` in `flake/hosts/homelab-04/default.nix`.
+cluster-admin kubeconfig, and the SOPS age key. Since 2026-11-16 its own SSH
+key (`developer@agent-rupan`) is no longer authorized for `rupan`; on every
+fleet host it logs in only as the unprivileged `agent-observer` account
+defined in `flake/modules/common-base.nix`. That account has no sudo rule, is
+not in `wheel`, and belongs only to its own group and `systemd-journal`, so
+agents can read journals, unit states, disk usage and world-readable files but
+cannot change a host. Host changes go through CI operations or the operator.
+The key carries `restrict,pty,from=` with the source each host observed:
+`172.31.10.2` on homelab-04 and homelab-04's masqueraded `10.0.30.14` on every
+other host. The latter means any process on homelab-04 holding the private key
+could also use it; the key itself stays only in the guest. To revoke this
+access, remove the observer key, delete the credential files from the guest,
+and narrow `tcpEgress.rupan` in `flake/hosts/homelab-04/default.nix`.
+
+```sh
+ssh agent-observer@10.0.30.11 'systemctl --failed; journalctl -u k3s -n 50'
+```
 
 The libvirt definition the host actually starts is
 `/persist/agent-workspaces/rupan/control/domain.xml`;
@@ -84,6 +96,54 @@ Installation is a Rupan-only authorized replacement:
 
 Running agent processes survive laptop disconnects while the guest stays on.
 They do not survive a VM reboot; conversation files survive and can be resumed.
+
+## Disk discard
+
+Workspace disks are qcow2 files on homelab-04's shared `/persist`. Without
+discard, blocks a guest frees are never returned, so each image grows towards
+its virtual size (2026-11-16: Rupan 84.9 of 96 GiB, Sam about 17 GiB).
+`rupan-nixos.xml` and `render_domain` give every qcow2 disk
+`discard="unmap" detect_zeroes="unmap"` on the virtio-blk bus, which passes
+guest TRIM through to QEMU. Both guests already run a weekly `fstrim.timer`
+(NixOS and Ubuntu enable it by default; cloud-init for newly provisioned
+guests also enables it explicitly), but QEMU ignores their TRIM until the
+domain is started with the new driver attributes.
+
+No deployment applies this to an existing guest: the host's
+`agent-workspace-domains.service` defines a domain from its saved XML only
+when the domain is missing, and nothing copies `rupan-nixos.xml` to the host.
+The operator applies it per guest at a convenient time, which cold-restarts
+that guest and ends its sessions (for Rupan, every agent and the operator's
+session). Do it from the LAN or the laptop, not from inside the guest being
+restarted. As root on homelab-04, for `rupan` (domain `agent-rupan`) or
+`sam` (`agent-sam`):
+
+```sh
+id=rupan; dom=agent-$id; ctl=/persist/agent-workspaces/$id/control
+cp -p $ctl/domain.xml $ctl/domain.xml.before-discard-$(date +%Y%m%d)
+virsh dumpxml --inactive $dom > $ctl/inactive-before-discard.xml
+# Add discard="unmap" detect_zeroes="unmap" to every qcow2 <driver> (Rupan:
+# copy config/agent-workspaces/rupan-nixos.xml, keeping any newer memory size;
+# Sam: both vda and vdb, the raw seed cdrom stays unchanged).
+sed -i 's|type="qcow2" cache="none" io="native" \?/>|type="qcow2" cache="none" io="native" discard="unmap" detect_zeroes="unmap"/>|' $ctl/domain.xml
+grep -c 'discard="unmap"' $ctl/domain.xml   # 1 for rupan, 2 for sam
+virsh define $ctl/domain.xml                # persistent definition only
+virsh shutdown $dom                         # wait for "shut off"
+virsh domstate $dom
+virsh start $dom
+virsh dumpxml $dom | grep discard           # active definition has it
+```
+
+Then, inside the guest, once: `sudo fstrim -av`. It reports the trimmed
+amount per filesystem. Confirm on the host with `qemu-img info -U <disk>`
+(`disk size` drops) and in Prometheus after the next two-hourly walk:
+
+```promql
+homelab_path_disk_usage_bytes{job="homelab-04-node",path=~"/persist/agent-workspaces(/.*)?"}
+```
+
+If the guest does not boot, restore the saved `domain.xml.before-discard-*`,
+`virsh define` it and start the domain again.
 
 ## Access and acceptance
 

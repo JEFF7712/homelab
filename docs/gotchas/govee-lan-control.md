@@ -16,8 +16,14 @@ the `shared_space` label.
 - From a laptop on the clients VLAN, a closed port answers with ICMP
   unreachable while an open one stays silent, which is a quick way to tell
   whether the LAN API is up when the host firewall drops the 4002 replies.
-- Not in the Adaptive Lighting "All Dimmable Lights" entry, so the shared
-  scripts leave them out of `adaptive_lighting.set_manual_control` lists.
+- The H6008 white range is 2700K-6500K (manual), but `govee_light_local`
+  advertises 2000K-9000K and forwards anything in that span. Adaptive
+  Lighting therefore drives them from their own entry, "Govee Dining Bulbs"
+  (`switch.adaptive_lighting_govee_dining_bulbs`), with a 2700K minimum and
+  sleep colour temperature. All other options mirror "All Dimmable Lights",
+  whose 2000K floor stays on the Zigbee bulbs. Adaptive Lighting calls
+  that name a switch must split lights per entry. Options are set in the UI
+  and only observed from Git.
 
 ## H6004 (retired)
 

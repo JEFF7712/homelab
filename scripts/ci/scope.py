@@ -39,8 +39,42 @@ _APPLICATION_PREFIXES = (
 
 # Validation infrastructure: any change here can weaken every other lane,
 # so it always forces the full gate.
-_FULL_PREFIXES = ("scripts/ci/", "scripts/checks/", ".woodpecker/", "config/ci/")
+_FULL_PREFIXES = ("scripts/checks/", ".woodpecker/", "config/ci/")
 _FULL_PATHS = {"flake/flake.nix", "flake/flake.lock", "flake.lock", "justfile"}
+# The scripts/ci modules that select, run or report validation, or generate
+# and gate pipelines, with everything they import (a test keeps this closed).
+# The other scripts/ci modules are deploy and release helpers, covered by the
+# Python lane like the rest of scripts/; its shell scripts (cache, mirror,
+# publication) run only in the full gate.
+_GATE_MODULES = {
+    "__init__.py",
+    "applications.py",
+    "build_users.py",
+    "container_release.py",
+    "contract.py",
+    "deployment_risk.py",
+    "deployment_source.py",
+    "development_projects.py",
+    "dotnet_release.py",
+    "node_release.py",
+    "offline.py",
+    "oplock.py",
+    "operation.py",
+    "policy.py",
+    "run.py",
+    "scope.py",
+    "state.py",
+    "tests.py",
+    "timings_report.py",
+    "validate.py",
+}
+
+
+def _gate_path(path: PurePosixPath) -> bool:
+    if path.parts[:2] != ("scripts", "ci"):
+        return False
+    return len(path.parts) != 3 or path.suffix != ".py" or path.name in _GATE_MODULES
+
 
 # Deterministic execution order for scoped checks, mirroring all.sh.
 _CHECK_ORDER = (
@@ -52,6 +86,33 @@ _CHECK_ORDER = (
     "tofu",
     "home-assistant",
     "docs",
+)
+
+
+# Python mounted into workloads from gitops/ (directories, or an exact
+# file for an extensionless script) that scripts/checks/python.sh
+# lints and type-checks (scripts/agent/checks.py routes the same prefixes).
+_PYTHON_GITOPS_PREFIXES = (
+    "gitops/observability/network-monitor/",
+    "gitops/media/spotify-sync/",
+    "gitops/automation/forgejo-dashboard/",
+    "gitops/automation/renovate-approval-webhook/",
+    "gitops/automation/renovate-reviewer/",
+    "gitops/media/arr-queue-hygiene/",
+    "gitops/media/arr-secret-sync/",
+    "gitops/media/beets/",
+    "gitops/media/jellyfin-backup/",
+    "gitops/media/navidrome-lookup/",
+    "gitops/media/soularr/",
+    "gitops/voice/exporter/",
+    "gitops/voice/satellite/",
+    # An extensionless Python script, routed by its exact path.
+    "gitops/media/lidarr-extended/10-render-extended-conf",
+)
+
+
+_RELEASE_RECORDS = frozenset(
+    {"registry/images.inventory.json", "registry/images.lock.json"}
 )
 
 
@@ -74,6 +135,7 @@ def classify(paths: Sequence[str]) -> Scope:
             or ".." in path.parts
             or name in _FULL_PATHS
             or name.startswith(_FULL_PREFIXES)
+            or _gate_path(path)
         ):
             return Scope("full", "unmapped or infrastructure path", tuple(paths))
         if name in _DOCUMENTATION or (
@@ -102,6 +164,11 @@ def classify(paths: Sequence[str]) -> Scope:
         if name.startswith("services/led-matrix/"):
             matrix = True
             continue
+        if name.startswith(_PYTHON_GITOPS_PREFIXES) and (
+            path.suffix == ".py" or name in _PYTHON_GITOPS_PREFIXES
+        ):
+            checks.update(("gitops", "python"))
+            continue
         if name.startswith(("gitops/", "schemas/")):
             checks.add("gitops")
             continue
@@ -110,6 +177,12 @@ def classify(paths: Sequence[str]) -> Scope:
             continue
         if name.startswith("registry/"):
             checks.add("registry")
+            if name in _RELEASE_RECORDS:
+                # Service releases find their inventory and lock records by
+                # exact ID; a regenerated inventory renamed them and broke
+                # main twice (#570, 2026-11-11) with only this check run.
+                checks.add("python")
+                test_modules.add("tests.test_service_release")
             continue
         if name.startswith("scripts/registry/") or name.startswith(
             "tests/test_registry_"

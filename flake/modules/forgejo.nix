@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
@@ -55,7 +56,7 @@ in
     ];
 
     networking.hosts = {
-      "10.0.30.20" = [ cfg.hostName ];
+      ${fleetInventory.hosts.nas-01.address} = [ cfg.hostName ];
     };
 
     services.nginx = {
@@ -82,6 +83,10 @@ in
       certs.${cfg.hostName} = {
         email = cfg.acmeEmail;
         dnsProvider = "cloudflare";
+        # Check propagation against a public resolver: AdGuard rewrites
+        # *.rupan.dev to local addresses, so the local resolver never shows
+        # the challenge TXT and renewal times out.
+        dnsResolver = "1.1.1.1:53";
         credentialFiles.CF_DNS_API_TOKEN_FILE = cfg.cloudflareTokenFile;
         group = "nginx";
       };

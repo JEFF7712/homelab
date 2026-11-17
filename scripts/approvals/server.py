@@ -1,4 +1,6 @@
-"""Approvals dashboard: one passkey-confirmed click per held CI operation.
+"""Approvals dashboard: the one place the operator approves anything.
+
+It holds CI operations and the merges of PRs that need operator authority.
 
 Agents file requests with their own Woodpecker token. The page is served on
 the public approvals origin, and an approval needs a WebAuthn assertion with
@@ -11,6 +13,12 @@ main. A grant request instead approves exact protected file versions (the
 policy's authority digest). Approving it triggers nothing: the CI policy asks
 /api/grants/<digest> on its next agent deployment, so unrelated merges to
 main do not invalidate the approval.
+
+A merge request is filed by the merge policy (authenticated as its Forgejo
+user) for one PR head. Approving it triggers nothing either: the policy asks
+/api/merges/<pr> and passes that head, or a byte-identical update of it. The
+request records the head's protected file versions, so a later grant request
+for exactly those versions is approved without a second passkey.
 """
 
 from __future__ import annotations
@@ -46,14 +54,25 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
-from scripts.approvals.core import ApprovalError, Request, Store, held
+from scripts.approvals.core import (
+    ApprovalError,
+    Request,
+    Store,
+    format_files,
+    held,
+)
 
 PAGE = (Path(__file__).parent / "page.html").read_text(encoding="utf-8")
 REQUEST_PATH = re.compile(
     r"^/api/requests/([A-Za-z0-9_-]+)(?:/(options|approve|decline))?$"
 )
 GRANT_PATH = re.compile(r"^/api/grants/([0-9a-f]{64})$")
+MERGE_PATH = re.compile(r"^/api/merges/([0-9]{1,9})$")
 GRANT_PATHS_LIMIT = 200
+FILES_LIMIT = 500
+# A git tree entry's identity as the CI policy records it, or a deletion.
+IDENTITY = re.compile(r"(?:100644|100755|120000|160000) [0-9a-f]{40}|absent")
+HEAD = re.compile(r"[0-9a-f]{40}")
 IDENTITY_CACHE_SECONDS = 300
 MAIN_CACHE_SECONDS = 15
 BODY_LIMIT = 64 * 1024
@@ -89,6 +108,10 @@ class Config:
     ntfy_url: str
     ntfy_topic: str
     ntfy_token: str
+    forgejo: str = "http://git.internal:3000"
+    # Forgejo users that may file merge requests: the merge policy alone.
+    merge_filers: frozenset[str] = frozenset({"homelab-policy"})
+    forgejo_public: str = "https://git.rupan.dev/JEFF7712/homelab"
 
     @property
     def rp_id(self) -> str:
@@ -162,12 +185,41 @@ class Woodpecker:
         return int(created["number"])
 
 
+class Forgejo:
+    def __init__(self, config: Config) -> None:
+        self.config = config
+        self.identities: dict[str, tuple[str, float]] = {}
+
+    def identity(self, token: str, now: float) -> str:
+        """The Forgejo login a token belongs to."""
+        key = hashlib.sha256(token.encode()).hexdigest()
+        cached = self.identities.get(key)
+        if cached and cached[1] > now:
+            return cached[0]
+        try:
+            login = http(
+                "GET",
+                f"{self.config.forgejo}/api/v1/user",
+                {"Authorization": f"token {token}"},
+            )["login"]
+        except (UpstreamError, KeyError, TypeError) as error:
+            raise ApprovalError("Forgejo did not accept the token") from error
+        self.identities[key] = (login, now + IDENTITY_CACHE_SECONDS)
+        return login
+
+
+def title(request: Request) -> str:
+    if request.kind == "merge":
+        return f"merge PR #{request.parent}"
+    return request.operation
+
+
 def notify(config: Config, request: Request) -> None:
     if not config.ntfy_topic:
         return
     link = f"{config.public_url}/r/{request.id}"
     headers = {
-        "Title": f"Approval needed: {request.operation}",
+        "Title": f"Approval needed: {title(request)}",
         "Click": link,
         "Actions": f"view, Review, {link}",
         "Priority": "high",
@@ -188,16 +240,61 @@ def notify(config: Config, request: Request) -> None:
 
 
 class Service:
-    def __init__(self, config: Config, store: Store, woodpecker: Woodpecker) -> None:
+    def __init__(
+        self,
+        config: Config,
+        store: Store,
+        woodpecker: Woodpecker,
+        forgejo: Forgejo | None = None,
+    ) -> None:
         self.config = config
         self.store = store
         self.woodpecker = woodpecker
+        self.forgejo = forgejo or Forgejo(config)
         self.catalog = json.loads(config.catalog.read_text())
 
     def describe(self, request: Request) -> dict[str, Any]:
-        return {
+        described = {
             **request.public(),
+            "title": title(request),
             "url": f"{self.config.public_url}/r/{request.id}",
+        }
+        if request.kind == "merge":
+            described["pull_url"] = (
+                f"{self.config.forgejo_public}/pulls/{request.parent}/files"
+            )
+        return described
+
+    def file_merge(
+        self, token: str, body: dict[str, Any], now: float
+    ) -> dict[str, Any]:
+        """Record that a PR head needs operator authority to merge."""
+        requester = self.forgejo.identity(token, now)
+        if requester not in self.config.merge_filers:
+            raise ApprovalError(f"{requester} may not file merge requests")
+        pull, head = body.get("pull"), body.get("head")
+        if not (type(pull) is int and 0 < pull < 10**9):
+            raise ApprovalError("pull must be a PR number")
+        if not (isinstance(head, str) and HEAD.fullmatch(head)):
+            raise ApprovalError("head must be a full commit SHA")
+        files = valid_files(body.get("files") or {})
+        findings = body.get("findings") or []
+        if not (
+            isinstance(findings, list) and all(isinstance(f, str) for f in findings)
+        ):
+            raise ApprovalError("findings must be a list of strings")
+        request, created = self.store.create_merge(
+            pull, head, requester, "\n".join(findings), files, now
+        )
+        if created:
+            notify(self.config, request)
+        return self.describe(request)
+
+    def merges(self, pull: int, now: float) -> dict[str, Any]:
+        requests = self.store.merges(pull, now)
+        return {
+            "approved": [r.commit_sha for r in requests if r.state == "approved"],
+            "requests": [self.describe(r) for r in requests],
         }
 
     def file(self, token: str, body: dict[str, Any], now: float) -> dict[str, Any]:
@@ -235,10 +332,19 @@ class Service:
             )
         digest = body.get("digest")
         paths = body.get("paths") or []
+        files = valid_files(body.get("files") or {})
         if digest is not None and not (
             isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest)
         ):
             raise ApprovalError("digest must be a SHA-256 hex digest")
+        # The digest is the CI policy's hash over exactly these lines, so
+        # files can only describe the versions the policy actually saw.
+        if files and (
+            not digest
+            or set(files) != set(paths)
+            or hashlib.sha256(format_files(files).encode()).hexdigest() != digest
+        ):
+            raise ApprovalError("files do not match the grant digest")
         if not (
             isinstance(paths, list)
             and len(paths) <= GRANT_PATHS_LIMIT
@@ -257,6 +363,19 @@ class Service:
             digest=digest,
             paths=paths if digest else None,
         )
+        covering = (
+            self.store.covering_merges(files, now)
+            if files and request.state == "pending"
+            else []
+        )
+        if covering:
+            self.store.approve_by_merges(
+                request.id,
+                now,
+                "approved merge of "
+                + ", ".join(f"PR #{r.parent} {r.commit_sha[:12]}" for r in covering),
+            )
+            return self.describe(self.request(request.id, now))
         if created:
             notify(self.config, request)
         return self.describe(request)
@@ -273,7 +392,7 @@ class Service:
         for request in self.store.recent(now):
             if (
                 request.state == "pending"
-                and not request.digest
+                and request.kind == "deploy"
                 and request.commit_sha != main
             ):
                 try:
@@ -346,7 +465,7 @@ class Service:
             raise ApprovalError(f"Passkey verification failed: {error}") from error
         self.store.update_sign_count(stored.id, verified.new_sign_count)
         request = self.request(identifier, now)
-        if request.digest:
+        if request.kind != "deploy":
             self.store.finish(identifier, "approved", now, "passkey")
             return self.request(identifier, now)
         try:
@@ -405,6 +524,24 @@ class Service:
         )
 
 
+def valid_files(files: Any) -> dict[str, str]:
+    if not (
+        isinstance(files, dict)
+        and len(files) <= FILES_LIMIT
+        and all(
+            isinstance(path, str)
+            and 0 < len(path) <= 512
+            and "\n" not in path
+            and "\t" not in path
+            and isinstance(identity, str)
+            and IDENTITY.fullmatch(identity)
+            for path, identity in files.items()
+        )
+    ):
+        raise ApprovalError("files must map repository paths to git blob identities")
+    return files
+
+
 def handler(service: Service) -> type[BaseHTTPRequestHandler]:
     public_host = urllib.parse.urlsplit(service.config.public_url).netloc
 
@@ -443,10 +580,10 @@ def handler(service: Service) -> type[BaseHTTPRequestHandler]:
                     "Dashboard actions must come from the approvals page"
                 )
 
-        def bearer(self) -> str:
+        def bearer(self, issuer: str = "Woodpecker") -> str:
             value = self.headers.get("Authorization", "")
             if not value.startswith("Bearer "):
-                raise ApprovalError("Missing Woodpecker bearer token")
+                raise ApprovalError(f"Missing {issuer} bearer token")
             return value.removeprefix("Bearer ").strip()
 
         def dispatch(self, method: str) -> None:
@@ -469,6 +606,16 @@ def handler(service: Service) -> type[BaseHTTPRequestHandler]:
                 grant = GRANT_PATH.match(path)
                 if method == "GET" and grant:
                     self.json(200, {"approved": service.store.granted(grant[1], now)})
+                    return
+                merge = MERGE_PATH.match(path)
+                if method == "GET" and merge:
+                    self.json(200, service.merges(int(merge[1]), now))
+                    return
+                if method == "POST" and path == "/api/merges":
+                    self.json(
+                        201,
+                        service.file_merge(self.bearer("Forgejo"), self.body(), now),
+                    )
                     return
                 if method == "GET" and path == "/healthz":
                     self.json(200, {"ok": True})
@@ -557,6 +704,7 @@ def main(argv: list[str] | None = None) -> int:
     serve.add_argument("--woodpecker", default="http://127.0.0.1:8000")
     serve.add_argument("--repository", type=int, default=1)
     serve.add_argument("--operator-token", type=Path, required=True)
+    serve.add_argument("--forgejo", default="http://git.internal:3000")
     sub.add_parser("enroll")
     args = parser.parse_args(argv)
     store = Store(args.state / "approvals.sqlite")
@@ -575,6 +723,7 @@ def main(argv: list[str] | None = None) -> int:
         ntfy_url=os.environ.get("NTFY_URL", "https://ntfy.rupan.dev").rstrip("/"),
         ntfy_topic=os.environ.get("NTFY_TOPIC", ""),
         ntfy_token=os.environ.get("NTFY_TOKEN", ""),
+        forgejo=args.forgejo.rstrip("/"),
     )
     service = Service(config, store, Woodpecker(config))
     host, port = args.listen.rsplit(":", 1)
