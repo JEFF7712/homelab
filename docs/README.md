@@ -78,6 +78,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Home Assistant Automation Best Practices](runbooks/home-assistant-automation-best-practices.md)
 - [Jarvis voice runbook](runbooks/jarvis-voice.md)
 - [Kiosk display](runbooks/kiosk-display.md)
+- [uwagent events key and grade refresh](runbooks/uwagent.md)
 - [Roku Bulb Bridge Architecture](runbooks/roku-bridge-architecture.md)
 - [Shared music mode](runbooks/shared-music-mode.md)
 - [Web analytics (Umami)](runbooks/analytics.md)

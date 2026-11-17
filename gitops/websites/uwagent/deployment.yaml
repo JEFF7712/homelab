@@ -33,6 +33,16 @@ spec:
             # Public ChatGPT plugin domain-verification token, served at /.well-known/openai-apps-challenge.
             - name: UWAGENT_OPENAI_CHALLENGE
               value: 3lrw8QfONNLLS1o2wwr0STs9HDj4YF4WLz2xanPSQx8
+            # Keys the session hash in usage events so it survives pod
+            # restarts; gitops/secrets/uwagent-events.sops.yaml. Optional so
+            # a rollout that lands before the secrets Kustomization still
+            # starts (with a per-process key) instead of taking the site down.
+            - name: UWAGENT_EVENTS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: uwagent-events
+                  key: events-key
+                  optional: true
           ports:
             - containerPort: 8080
           livenessProbe:
