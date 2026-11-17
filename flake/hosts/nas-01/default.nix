@@ -283,7 +283,46 @@
     };
   };
 
-  networking.firewall.allowedTCPPorts = [ 5002 ];
+  networking.firewall.allowedTCPPorts = [
+    5002
+    5003
+  ];
+
+  # TEMPORARY: an unpatched 5.6.3 instance with verbose logging, beside the
+  # patched one, to capture the corked pa_delay() behaviour for upstream
+  # mikebrady/shairport-sync#2346. Remove once the log is captured.
+  environment.etc."shairport-sync-debug.conf".text = ''
+    general = {
+      name = "Bedroom Debug";
+      port = 5003;
+      output_backend = "pulseaudio";
+      audio_backend_buffer_desired_length_in_seconds = 0.5;
+      mdns_backend = "avahi";
+    };
+    diagnostics = {
+      log_verbosity = 3;
+    };
+  '';
+
+  systemd.services.shairport-sync-debug = {
+    description = "Shairport Sync (unpatched, debug logging)";
+    after = [
+      "network.target"
+      "avahi-daemon.service"
+    ];
+    wantedBy = [ "multi-user.target" ];
+    environment = {
+      PIPEWIRE_RUNTIME_DIR = "/run/pipewire";
+      PULSE_SERVER = "unix:/run/pulse/native";
+    };
+    restartTriggers = [ config.environment.etc."shairport-sync-debug.conf".source ];
+    serviceConfig = {
+      User = "shairport";
+      Group = "shairport";
+      ExecStart = "${pkgs.shairport-sync}/bin/shairport-sync -c /etc/shairport-sync-debug.conf";
+      Restart = "on-failure";
+    };
+  };
 
   users.users.shairport.extraGroups = [
     "pipewire"
