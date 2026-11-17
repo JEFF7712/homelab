@@ -2,7 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
-from scripts.ci.prepare_platform import secret_events
+from scripts.ci.prepare_platform import CRON_ONLY, secret_events
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = json.loads((ROOT / "config/ci/operations.json").read_text())
@@ -12,10 +12,21 @@ class SecretEventsTest(unittest.TestCase):
     def setUp(self) -> None:
         self.events = secret_events(CATALOG)
 
-    def test_every_catalog_secret_allows_deployment(self) -> None:
+    def test_every_catalog_secret_allows_deployment_unless_cron_only(self) -> None:
         self.assertTrue(self.events)
         for name, allowed in self.events.items():
-            self.assertIn("deployment", allowed, name)
+            if name not in CRON_ONLY:
+                self.assertIn("deployment", allowed, name)
+
+    def test_secrets_reconciled_on_2026_11_17(self) -> None:
+        # Operator-approved: live events were set to these lists, so a
+        # rebuild restores exactly what runs today.
+        self.assertEqual(self.events["github_token"], ["cron", "deployment"])
+        self.assertEqual(self.events["service_release_ssh_key"], ["deployment"])
+        self.assertEqual(self.events["ntfy_token"], ["cron", "deployment"])
+        self.assertEqual(self.events["woodpecker_token"], ["cron"])
+        # Attic is retired; nothing in the catalog reads its token.
+        self.assertNotIn("attic_token", self.events)
 
     def test_weekly_grades_refresh_secrets_allow_cron(self) -> None:
         # Live since 2026-11-17 (operator-approved after the fact): the weekly
