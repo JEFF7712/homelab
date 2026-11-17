@@ -498,6 +498,88 @@ service-specific write access. State credentials are separate from Garage.
 Woodpecker command-step secrets require empty image filters and are event scoped. Only selected main
 push and maintenance workflows receive their required secrets.
 
+### Pipeline retention
+
+Woodpecker 3 has no server-side retention, so `woodpecker-retention.service`
+on homelab-04 (`flake/modules/woodpecker.nix`, script
+`flake/modules/woodpecker_retention.py`) purges old pipelines every day at
+04:40 local time. It also runs 20 minutes after its timer starts (at boot or
+on the deploy that adds or changes it). It lists every repository from
+`GET /api/repos` and runs the pinned
+`woodpecker-cli pipeline purge <repo-id> --older-than 720h --keep-min 50` on
+each one. Deleting a pipeline removes its workflows, steps, logs and any
+config no other pipeline uses.
+
+- **What stays:** each repository's newest 50 pipelines (by number, whatever
+  their branch, event or status), plus everything from the last 30 days. The
+  server refuses (422) to delete running, pending or blocked pipelines; the CLI
+  logs the refusal and continues, and the journal counts them as "refused".
+- **Identity:** `woodpecker-retention`, a Woodpecker admin that is not an
+  operator (`OPERATOR_AUTHORS` in `scripts/ci/policy.py`), so its token cannot
+  trigger operator deployments. Listing all repositories needs Woodpecker
+  admin and deleting a pipeline needs repo admin, which a Woodpecker admin has
+  on every repository, including new ones. It needs no Forgejo repository
+  access. Its token is the `woodpecker-retention-token` key in
+  `secrets/hosts/homelab-04.sops.yaml`. The unit receives it through
+  `LoadCredential` under `DynamicUser`, and the CLI gets it through its
+  environment, never through argv. The unit can reach only loopback.
+- **Failures:** the unit never fails (a failed unit blocks NixOS deploys).
+  Watch `homelab_woodpecker_retention_success`,
+  `homelab_woodpecker_retention_last_run_timestamp_seconds` and the
+  per-repository `homelab_woodpecker_retention_deleted_pipelines` and
+  `homelab_woodpecker_retention_refused_pipelines` on `homelab-04-node`, and
+  `journalctl -u woodpecker-retention`. A run stops after 5 hours; the next
+  run continues where it stopped.
+- **References:** ship, the approvals service, the CI policy and projectctl
+  look up pipelines only for current main or the newest 50. Pipeline numbers
+  quoted in docs, PRs and commits older than 30 days stop resolving, and so
+  does `just ship --resume` for a merge older than that.
+
+Create or rotate the token (operator, once):
+
+1. Forgejo site admin: create user `woodpecker-retention`. It needs no
+   repository access.
+2. Woodpecker as the operator: Settings > Users > Add user
+   `woodpecker-retention` (registration is closed), then edit it and tick
+   Admin.
+3. In a private window, sign in to Woodpecker through Forgejo as that user,
+   then copy the token from User settings > CLI & API. To rotate, use Reset
+   token there, which revokes the old one.
+4. Run `sops secrets/hosts/homelab-04.sops.yaml` and set
+   `woodpecker-retention-token: <token>`. Ship it; the next run reads the new
+   credential.
+
+Deleted rows go onto SQLite's freelist, so the database file does not shrink.
+New rows reuse that space, so after the first purge the file stays roughly
+flat. To return the space to `/persist` once (operator, as root on
+homelab-04, while no pipeline is running):
+
+```sh
+db=/persist/woodpecker/server-data/woodpecker.sqlite
+# Free pages and page size, as the server's own user (do not create root-owned -wal/-shm files):
+sudo -u woodpecker nix shell nixpkgs#sqlite --command \
+  sqlite3 -readonly "$db" 'PRAGMA page_size; PRAGMA page_count; PRAGMA freelist_count;'
+systemctl stop woodpecker-server
+stamp=$(date +%Y%m%d-%H%M)
+for f in "$db" "$db-wal" "$db-shm"; do
+  [ -e "$f" ] && cp -a "$f" "/persist/woodpecker/manual-backups/$(basename "$f").pre-vacuum-$stamp"
+done
+sudo -u woodpecker env SQLITE_TMPDIR=/persist/woodpecker/server-data \
+  nix shell nixpkgs#sqlite --command sqlite3 "$db" 'PRAGMA integrity_check; VACUUM; PRAGMA integrity_check;'
+ls -l "$db"*   # all files still owned by woodpecker
+systemctl start woodpecker-server
+curl -fsS http://127.0.0.1:8000/healthz
+```
+
+VACUUM writes a full copy of the live pages to a temporary file (hence
+`SQLITE_TMPDIR` on `/persist`, since `/tmp` is tmpfs), then copies it back.
+It needs free space of about twice the live data. On this NVMe disk expect a
+few minutes per GiB of live data. CI is offline for that long; agents
+reconnect by themselves. If either integrity check fails, stop the server,
+copy the backup over `$db` (and `-wal`/`-shm` if they were saved), and start
+it again. Delete the backup from `manual-backups` once CI has run normally for
+a day. The nightly dump then shrinks too.
+
 ## Agent Forgejo access
 
 Agents open Forgejo PRs with the `tea` CLI (in the dev shell) as the dedicated

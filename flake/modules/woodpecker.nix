@@ -149,6 +149,24 @@ let
     };
     environmentFile = [ config.sops.secrets."woodpecker-agent-${tier}.env".path ];
   };
+  # Pipeline retention: every repository keeps 30 days of pipelines, and
+  # always its newest 50 (woodpecker_retention.py).
+  retention = {
+    olderThan = "720h";
+    keepMin = 50;
+    # Seconds for a whole run; the unit's start timeout is an hour above it.
+    deadline = 5 * 3600;
+    runtimeDirectory = "/run/woodpecker-retention";
+    # The host node exporter's textfile collector (persist-capacity.nix).
+    textfileDirectory = "/var/lib/persist-usage-metrics";
+  };
+  publishRetentionMetrics = pkgs.writeShellScript "woodpecker-retention-publish" ''
+    set -eu
+    ${pkgs.coreutils}/bin/install -m 0644 ${retention.runtimeDirectory}/woodpecker_retention.prom \
+      ${retention.textfileDirectory}/.woodpecker_retention.prom.tmp
+    ${pkgs.coreutils}/bin/mv -f ${retention.textfileDirectory}/.woodpecker_retention.prom.tmp \
+      ${retention.textfileDirectory}/woodpecker_retention.prom
+  '';
 in
 {
   imports = [ ./woodpecker-sandbox.nix ];
@@ -234,7 +252,17 @@ in
           restartUnits = [ "woodpecker-server.service" ];
         };
         "woodpecker-policy.env".restartUnits = [ "woodpecker-policy.service" ];
+        # Personal token of woodpecker-retention, a Woodpecker admin that is
+        # not an operator: listing every repository needs Woodpecker admin
+        # and deleting a pipeline needs repo admin. See ci-pipelines.md.
+        woodpecker-retention-token = { };
       };
+    assertions = [
+      {
+        assertion = lib.elem "--collector.textfile.directory=${retention.textfileDirectory}" config.services.prometheus.exporters.node.extraFlags;
+        message = "woodpecker-retention publishes to ${retention.textfileDirectory}, which the node exporter's textfile collector must read (homelab.persistCapacity).";
+      }
+    ];
     users.users.woodpecker = {
       isSystemUser = true;
       group = "woodpecker";
@@ -394,6 +422,101 @@ in
         ProtectHome = true;
         PrivateTmp = true;
         NoNewPrivileges = true;
+      };
+    };
+    # Woodpecker 3 keeps every pipeline's logs forever; this purges pipelines
+    # older than 30 days in every repository it knows, keeping each
+    # repository's newest 50 whatever their age. The server refuses to delete
+    # running, pending or blocked pipelines. A failed purge never fails the
+    # unit (a failed unit makes switch-to-configuration exit 4 and blocks
+    # deployment): homelab_woodpecker_retention_success reports it instead.
+    systemd.services.woodpecker-retention = {
+      description = "Purge Woodpecker pipelines older than 30 days";
+      after = [ "woodpecker-server.service" ];
+      # A deploy during a long first run must not cut it short.
+      restartIfChanged = false;
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart =
+          "-"
+          + lib.escapeShellArgs [
+            "${pkgs.python3}/bin/python3"
+            "${./woodpecker_retention.py}"
+            "--server"
+            "http://127.0.0.1:8000"
+            "--token-file"
+            "%d/woodpecker-token"
+            "--cli"
+            "${pkgs.woodpecker-cli}/bin/woodpecker-cli"
+            "--older-than"
+            retention.olderThan
+            "--keep-min"
+            (toString retention.keepMin)
+            "--output"
+            retention.runtimeDirectory
+            "--work-dir"
+            retention.runtimeDirectory
+            "--deadline"
+            (toString retention.deadline)
+          ];
+        # Root only moves the finished textfile into the collector directory.
+        ExecStartPost = "-+${publishRetentionMetrics}";
+        TimeoutStartSec = "${toString (retention.deadline + 3600)}s";
+        DynamicUser = true;
+        LoadCredential = "woodpecker-token:${config.sops.secrets.woodpecker-retention-token.path}";
+        RuntimeDirectory = "woodpecker-retention";
+        UMask = "0077";
+        Nice = 19;
+        IOSchedulingClass = "idle";
+        CPUSchedulingPolicy = "idle";
+        # Only the server on loopback.
+        IPAddressAllow = "localhost";
+        IPAddressDeny = "any";
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateTmp = true;
+        PrivateDevices = true;
+        ProtectKernelTunables = true;
+        ProtectKernelModules = true;
+        ProtectKernelLogs = true;
+        ProtectControlGroups = true;
+        ProtectClock = true;
+        ProtectHostname = true;
+        ProtectProc = "invisible";
+        ProcSubset = "pid";
+        NoNewPrivileges = true;
+        CapabilityBoundingSet = "";
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        RestrictSUIDSGID = true;
+        LockPersonality = true;
+        SystemCallArchitectures = "native";
+        SystemCallFilter = [
+          "@system-service"
+          "~@privileged"
+        ];
+        # A filtered call fails instead of killing the process.
+        SystemCallErrorNumber = "EPERM";
+      };
+    };
+    systemd.timers.woodpecker-retention = {
+      description = "Daily Woodpecker pipeline retention";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        # Local time (America/Chicago): clear of the 02:40 database dump, the
+        # hourly (:00) and two-hourly (:30) platform backups and the :17
+        # usage walk.
+        OnCalendar = "*-*-* 04:40:00";
+        # Also 20 minutes after the timer starts (boot, or the deploy that
+        # adds or changes it), so a new schedule takes effect without waiting
+        # a day; a purge is idempotent.
+        OnActiveSec = "20min";
+        Persistent = true;
       };
     };
     networking.firewall.allowedTCPPorts = [ 8000 ];
