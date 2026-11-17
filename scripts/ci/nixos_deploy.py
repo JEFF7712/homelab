@@ -71,10 +71,11 @@ def advance_action(main: str, deploy: str | None, validation: str) -> str:
 @dataclass
 class Forgejo:
     token: str
+    repository: str = REPOSITORY
 
     def call(self, method: str, path: str, body: dict[str, Any] | None = None) -> Any:
         request = urllib.request.Request(
-            f"{FORGEJO}/api/v1/repos/{REPOSITORY}{path}",
+            f"{FORGEJO}/api/v1/repos/{self.repository}{path}",
             data=None if body is None else json.dumps(body).encode(),
             method=method,
             headers={
@@ -108,10 +109,10 @@ class Forgejo:
 
 
 class Checkout:
-    """A blobless clone of nixos-config pushing as the publisher identity."""
+    """A blobless clone of a repository's main pushing as the publisher identity."""
 
-    def __init__(self, token: str, work: Path) -> None:
-        self.path = work / "nixos-config"
+    def __init__(self, token: str, work: Path, repository: str = REPOSITORY) -> None:
+        self.path = work / repository.split("/")[1]
         helper = work / "credential"
         helper.write_text(
             "#!/usr/bin/env bash\n"
@@ -142,7 +143,7 @@ class Checkout:
                 "--filter=blob:none",
                 "--branch",
                 MAIN,
-                f"{FORGEJO}/{REPOSITORY}.git",
+                f"{FORGEJO}/{repository}.git",
                 str(self.path),
             ],
             check=True,
