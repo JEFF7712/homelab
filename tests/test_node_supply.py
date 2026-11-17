@@ -171,6 +171,32 @@ class RetainTests(unittest.TestCase):
         upload.assert_not_called()
         self.assertEqual(result, node_supply.digest_bytes(b"retained"))
 
+    def test_flake_node_must_share_only_the_retained_major(self) -> None:
+        def build(argv, **kwargs):
+            version = (
+                "v24.22.2" if argv[0].endswith("/bin/node") else "/nix/store/x-nodejs"
+            )
+            return mock.Mock(stdout=version + "\n")
+
+        for expected, ok in (
+            ("v24.21.0", True),
+            ("v24.22.2", True),
+            ("v22.11.0", False),
+        ):
+            with (
+                self.subTest(expected=expected),
+                tempfile.TemporaryDirectory() as work,
+                mock.patch.object(node_supply.subprocess, "run", side_effect=build),
+            ):
+                if ok:
+                    toolchain = node_supply.nix_toolchain(Path(work), expected)
+                    self.assertTrue((toolchain / "node").is_symlink())
+                else:
+                    with self.assertRaisesRegex(ValueError, "major"):
+                        node_supply.nix_toolchain(Path(work), expected)
+        with self.assertRaisesRegex(ValueError, "Unexpected node version"):
+            node_supply.major("24")
+
     def test_rejects_toolchain_that_differs_from_its_pin(self) -> None:
         def download(package, version, filename, dest, host, owner):
             if package == "site-supply":

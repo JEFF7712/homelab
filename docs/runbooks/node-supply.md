@@ -30,9 +30,11 @@ commit whose lockfile the snapshot must cover, normally the release that
 failed. The request file routes to the protected `node-supply-publish`
 operation, so `just ship` runs it after merge. The operation:
 
-1. Downloads the pinned glibc toolchain and checks its digest. It then requires
-   the flake's `nodejs_24` to be the same node release, because the toolchain
-   itself needs an FHS loader that the Nix CI image lacks.
+1. Downloads the pinned glibc toolchain and checks its digest. It then packs
+   with the flake's `nodejs_24` instead, because the toolchain itself needs an
+   FHS loader that the Nix CI image lacks. Only the major must match the
+   retained toolchain: nixpkgs moves the patch release with each lock update,
+   and the npm cache does not depend on it.
 2. Fetches the application at `source` and runs `node_supply.py pack`. Pack
    installs online, adds the musl optional natives (`npm ci --libc=musl`), and
    then proves an offline reinstall for both libcs and an offline build.
