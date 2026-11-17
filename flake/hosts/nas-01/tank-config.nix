@@ -80,11 +80,6 @@
           mountpoint = "/tank/cluster";
           options.mountpoint = "legacy";
         };
-        attic = {
-          type = "zfs_fs";
-          mountpoint = "/tank/attic";
-          options.mountpoint = "legacy";
-        };
         registry = {
           type = "zfs_fs";
           mountpoint = "/tank/registry";

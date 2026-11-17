@@ -137,7 +137,6 @@ in
   };
 
   environment.systemPackages = with pkgs; [
-    attic-client
     cryptsetup
     curl
     dmidecode

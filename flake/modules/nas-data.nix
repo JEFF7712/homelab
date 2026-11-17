@@ -8,7 +8,6 @@
 {
   networking.firewall.allowedTCPPorts = [
     2049
-    8080
   ];
 
   # The OPNsense API cert only carries DNS:OPNsense.internal (no IP SANs), so
@@ -137,11 +136,6 @@
       autosnap = true;
       autoprune = true;
     };
-    templates.weekly = {
-      daily = 7;
-      autosnap = true;
-      autoprune = true;
-    };
     datasets = {
       "tank/photos".useTemplate = [ "personal" ];
       "tank/documents".useTemplate = [ "personal" ];
@@ -150,71 +144,7 @@
       "tank/cluster".useTemplate = [ "operational" ];
       "tank/forgejo".useTemplate = [ "operational" ];
       "tank/media".useTemplate = [ "media" ];
-      "tank/attic".useTemplate = [ "weekly" ];
       "tank/registry".useTemplate = [ "operational" ];
-    };
-  };
-
-  users.users.atticd = {
-    isSystemUser = true;
-    group = "atticd";
-  };
-  users.groups.atticd = { };
-
-  systemd.services.atticd = {
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    unitConfig.RequiresMountsFor = [
-      "/srv/attic"
-      "/persist/attic"
-    ];
-    serviceConfig = {
-      DynamicUser = lib.mkForce false;
-      User = "atticd";
-      Group = "atticd";
-      TimeoutStartSec = "15min";
-      ReadWritePaths = [ "/persist/attic" ];
-      ExecStartPre = [
-        "+${pkgs.writeShellScript "ensure-attic-storage-permissions" ''
-          set -eu
-          ${pkgs.coreutils}/bin/install -d -m 0750 -o atticd -g atticd /srv/attic
-          ${pkgs.coreutils}/bin/chown -R atticd:atticd /srv/attic
-          ${pkgs.coreutils}/bin/install -d -m 0700 -o atticd -g atticd /persist/attic
-          if [ -f /persist/attic/server.db ]; then
-            ${pkgs.coreutils}/bin/chown atticd:atticd /persist/attic/server.db
-            ${pkgs.coreutils}/bin/chmod 0600 /persist/attic/server.db
-          fi
-        ''}"
-        "${pkgs.writeShellScript "optimize-attic-query-plans" ''
-          set -eu
-          if [ -f /persist/attic/server.db ]; then
-            ${pkgs.sqlite}/bin/sqlite3 /persist/attic/server.db 'PRAGMA optimize=0x10002;'
-          fi
-        ''}"
-      ];
-    };
-  };
-
-  services.atticd = {
-    enable = true;
-    environmentFile = "/persist/attic/env";
-    settings = {
-      listen = "[::]:8080";
-      storage = {
-        type = "local";
-        path = "/srv/attic";
-      };
-      database = {
-        url = "sqlite:///persist/attic/server.db?mode=rwc";
-      };
-      # Weekly sweep; objects neither created nor accessed within 90 days are
-      # collected. 90d comfortably exceeds the consumers' GC windows (laptop
-      # nh clean 7d, nas nix GC 30d). Monolithic mode runs this on interval;
-      # garbage-collector-once covers one-shot runs.
-      garbage-collection = {
-        interval = "7 days";
-        default-retention-period = "90 days";
-      };
     };
   };
 
@@ -329,12 +259,6 @@
   };
 
   systemd.tmpfiles.rules = [
-    # atticd (not root) owns this dir: the atticd ExecStartPre ensure script
-    # enforces the same ownership, and sqlite needs directory write access
-    # for its WAL files. A root-owned rule here revokes access on every
-    # switch without an atticd restart, which surfaces as HTTP 500s with
-    # "unable to open database file".
-    "d /persist/attic 0700 atticd atticd -"
     "d /persist/keys 0700 root root -"
     "d /mnt/backup-2tb/registry-restic 0700 zot zot -"
     "d /mnt/backup-2tb/photos 0755 root root -"

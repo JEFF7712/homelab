@@ -29,6 +29,15 @@ let
       [ "172.31.10.2" ]
     else
       [ fleetInventory.hosts.homelab-04.address ];
+  # Operator workstation sessions (`just doctor --live`, interactive agents on
+  # laptop-nixos) use a separate read-only observer key bounded to client/VPN
+  # subnets rather than falling back to passwordless wheel access.
+  laptopObserverKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGPgdA467aAFq4re73+3yM3Tws4F7GkecGh3LlN6S7/ agent-observer@laptop-nixos";
+  laptopObserverSources = [
+    fleetInventory.networks.management.cidr
+    fleetInventory.networks.clients.cidr
+    "100.64.0.0/10"
+  ];
 in
 {
   imports = [ ./host-secrets.nix ];
@@ -129,6 +138,7 @@ in
         extraGroups = [ "systemd-journal" ];
         openssh.authorizedKeys.keys = [
           ''restrict,pty,from="${lib.concatStringsSep "," observerSources}" ${observerKey}''
+          ''restrict,pty,from="${lib.concatStringsSep "," laptopObserverSources}" ${laptopObserverKey}''
         ];
       };
     };

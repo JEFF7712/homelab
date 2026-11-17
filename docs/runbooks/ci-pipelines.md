@@ -246,17 +246,10 @@ benchmark and the defect behind the patch are in
 `bench/nix-cache/report/` on the `feat/nix-cache-benchmark` branch.
 
 Attic, the previous cache on port 8080, was retired from substitution and
-publication on 2026-11-10, nine days into the planned 30-day overlap: it
-rejected the `python3-3.14.10` NAR ("Bad NAR Hash or Size"), and because
-`attic push` uploads closures, every batch depending on python3 failed and
-retried path by path. Cache publication ran for hours (pipeline #12539),
-held niks3 publication behind it, and blocked every later maintenance run.
-atticd and its data (`zroot/attic` at `/srv/attic`, the pre-move copy
-`tank/attic`, `/persist/attic`) stay untouched until about 2026-12-01; then
-decommission the service, its port, `attic-client` on nas-01 and the GitHub
-runner, the `attic_token` Woodpecker secret, and the laptop's Attic
-substituter in `JEFF7712/nixos-config`. Deleting the datasets is
-persistent-data destruction and follows that hold.
+publication on 2026-11-10 (`python3-3.14.10` "Bad NAR Hash or Size" upload
+stalls) and completely decommissioned on 2026-11-17 (`atticd`, port 8080,
+`attic-client`, `zroot/attic`, `tank/attic`, `/persist/attic` and the unused
+`attic_token` Woodpecker secret removed).
 
 - niks3 keeps metadata in a local PostgreSQL (`/var/lib/postgresql`,
   persisted) and objects in its own Garage instance (`garage-nix-cache`) on
@@ -446,12 +439,6 @@ green validation-v2 status. The external Obsidian publisher no longer writes
 homelab main; it publishes images only and the maintenance promotion PR
 carries the digest bump.
 
-Attic (retired from use; see the niks3 section) optimizes its SQLite
-query-planner statistics before startup. Missing
-statistics can make chunk hash lookups scan the valid-chunk index, stalling
-uploads as the cache grows. The bounded PRAGMA optimize pass preserves cache
-objects and lets the server load the appropriate hash-index query plan.
-
 config/ci/operations.json defines all manual deployment targets. Select its
 key as deploy_to when restarting successful current-main push or manual
 validation. The catalog covers registry operations, publisher provisioning,
@@ -530,7 +517,7 @@ to `maintenance` on 2026-10-18), `service_release_ssh_key` lost `cron` (its
 publish operations are never scheduled) and `ntfy_token` gained `deployment`
 (so `fleet-reboot`, `vip-dataplane-watch` and `switches-drift-nightly` can run
 by hand). `woodpecker_token` stays `cron` only through `CRON_ONLY`. The
-unused `attic_token` is deleted with the Attic stage-2 decommission.
+unused `attic_token` was deleted with the 2026-11-17 Attic decommission.
 
 ### Pipeline retention
 
