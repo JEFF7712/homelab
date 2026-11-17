@@ -28,7 +28,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "solubility-gnn",
@@ -494,7 +495,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "pod-agent",
@@ -1044,7 +1046,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "bookshelf",
@@ -1136,7 +1139,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "nixos-config",
@@ -1165,7 +1169,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "bus-route-display",
@@ -1194,7 +1199,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "apolline",
@@ -1223,7 +1229,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "rupan-dev",
@@ -1310,7 +1317,8 @@
         ]
       ],
       "node_runtime": "node",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "rupanism",
@@ -1397,7 +1405,8 @@
         ]
       ],
       "node_runtime": "node",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "ism",
@@ -1484,7 +1493,8 @@
         ]
       ],
       "node_runtime": "node",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "nix-agent-site",
@@ -1555,7 +1565,8 @@
         ]
       ],
       "node_runtime": "static",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "pulse-site",
@@ -1646,7 +1657,8 @@
         ]
       ],
       "node_runtime": "static",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "majorfinder",
@@ -1717,7 +1729,8 @@
         ]
       ],
       "node_runtime": "static",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "photography",
@@ -1746,7 +1759,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "spatia-site",
@@ -1775,7 +1789,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "sovereign-site",
@@ -1804,7 +1819,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "distrojeff-site",
@@ -1875,7 +1891,8 @@
         ]
       ],
       "node_runtime": "static",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "quartz",
@@ -1975,7 +1992,8 @@
           "quartz-fonts.tar.gz",
           "quartz/quartz/.quartz-cache"
         ]
-      ]
+      ],
+      "node_test": false
     },
     {
       "id": "cr-demo",
@@ -2004,7 +2022,8 @@
       "node_build": [],
       "node_outputs": [],
       "node_runtime": "",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": false
     },
     {
       "id": "uwagent",
@@ -2094,7 +2113,8 @@
         ]
       ],
       "node_runtime": "node",
-      "node_seeds": []
+      "node_seeds": [],
+      "node_test": true
     }
   ]
 }

@@ -695,6 +695,106 @@ class NodeReleaseTest(unittest.TestCase):
         pull_request["pipeline"]["event"] = "pull_request"
         self.assertEqual(len(configuration(pull_request, (app,))["configs"]), 1)
 
+    def test_node_test_runs_the_suite_in_validation_without_secrets(self) -> None:
+        app = replace(self.node_app(), node_test=True)
+        request = {
+            "repo": {"id": 8, "owner": "JEFF7712", "name": "pulse"},
+            "pipeline": {"event": "pull_request", "commit": "c" * 40, "number": 7},
+        }
+        for event in ("pull_request", "push"):
+            request["pipeline"]["event"] = event
+            request["pipeline"]["ref"] = "refs/heads/feature"
+            configs = configuration(request, (app,))["configs"]
+            validation = yaml.safe_load(configs[0]["data"])
+            self.assertEqual(configs[0]["name"], "application-validation.yaml")
+            static, prepare, tests = validation["steps"]
+            self.assertEqual(
+                [static["name"], prepare["name"], tests["name"]],
+                ["application-validation", "prepare-test-inputs", "application-tests"],
+            )
+            self.assertNotIn("environment", static)
+            self.assertEqual(
+                prepare["environment"],
+                {"FORGEJO_TOKEN": {"from_secret": "supply_read_password"}},
+            )
+            # The step that runs checkout code never receives a secret.
+            self.assertNotIn("environment", tests)
+            self.assertIn("<server-owned-node-test>", tests["commands"][0])
+            self.assertIn(" prepare-test ", prepare["commands"][0])
+            self.assertIn(" test --supply ", tests["commands"][0])
+        request["pipeline"]["event"] = "pull_request_closed"
+        lifecycle = yaml.safe_load(configuration(request, (app,))["configs"][0]["data"])
+        self.assertEqual(len(lifecycle["steps"]), 1)
+
+    def test_node_test_is_opt_in(self) -> None:
+        app = self.node_app()
+        request = {
+            "repo": {"id": 8, "owner": "JEFF7712", "name": "pulse"},
+            "pipeline": {"event": "pull_request", "commit": "c" * 40, "number": 7},
+        }
+        validation = yaml.safe_load(
+            configuration(request, (app,))["configs"][0]["data"]
+        )
+        self.assertEqual(len(validation["steps"]), 1)
+        catalog = load_catalog(ROOT / "config/ci/applications.json")
+        self.assertEqual([a.id for a in catalog if a.node_test], ["uwagent"])
+
+    def test_node_test_contract_fails_closed(self) -> None:
+        good = self.node_app()
+        self.assertTrue(self.load_with(replace(good, node_test=True))[-1].node_test)
+        for bad in (
+            replace(good, node_test="yes"),
+            replace(good, node_test=1),
+            replace(good, node_test=True, node_seeds=[["npm-cache.tar.gz", "x"]]),
+            replace(
+                good,
+                node_test=True,
+                release_kind="none",
+                release_supply=[],
+                node_manager="",
+                node_build=[],
+                node_outputs=[],
+                node_runtime="",
+            ),
+        ):
+            with self.subTest(bad=(bad.node_test, bad.release_kind, bad.node_seeds)):
+                with self.assertRaises(ValueError):
+                    self.load_with(bad)
+
+    def test_run_tests_checks_supply_then_runs_npm_test(self) -> None:
+        from scripts.ci import node_release
+
+        supply = self.supply()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source, test_root = root / "src", root / "test"
+            source.mkdir()
+            (test_root / "supply").mkdir(parents=True)
+            for entry in supply:
+                (test_root / "supply" / entry["filename"]).write_bytes(b"x")
+            entries = [
+                {**entry, "sha256": node_release.digest(b"x")} for entry in supply
+            ]
+            with (
+                unittest.mock.patch.object(
+                    node_release,
+                    "select_toolchain_bin",
+                    return_value=(Path("/t/bin/node"), "glibc", None),
+                ),
+                unittest.mock.patch.object(node_release, "extract_tarball"),
+                unittest.mock.patch.object(node_release, "run_build") as build,
+            ):
+                node_release.run_tests(source, test_root, entries, "")
+                args = build.call_args
+                self.assertEqual(args.args[0], source.resolve())
+                self.assertEqual(args.args[6], ["npm", "test"])
+                self.assertEqual(args.kwargs, {"step": "npm test"})
+                (test_root / "supply" / "npm-cache.tar.gz").write_bytes(b"tampered")
+                with self.assertRaisesRegex(ValueError, "Supply input mismatch"):
+                    node_release.run_tests(source, test_root, entries, "")
+                with self.assertRaisesRegex(ValueError, "contained relative"):
+                    node_release.run_tests(source, test_root, entries, "../x")
+
     def test_build_drops_node_env_so_dev_dependencies_install(self) -> None:
         from scripts.ci.node_release import run_build
 

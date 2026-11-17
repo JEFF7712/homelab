@@ -13,6 +13,7 @@ import re
 import socket
 import ssl
 import subprocess
+import sys
 import tarfile
 from pathlib import Path
 from typing import Any
@@ -344,6 +345,33 @@ def store(root: Path, data: bytes, media: str) -> dict[str, Any]:
     return item
 
 
+def prepare_supply(
+    root: Path,
+    supply: list[dict[str, Any]],
+    forgejo_owner: str,
+    forgejo_token: str,
+) -> list[dict[str, Any]]:
+    """Download each pinned supply file into root/supply, checking its digest."""
+    stored_supply = []
+    for entry in sorted(supply, key=lambda e: (e["package"], e["filename"])):
+        data = forgejo_download(
+            forgejo_owner,
+            entry["package"],
+            entry["version"],
+            entry["filename"],
+            forgejo_token,
+        )
+        if digest(data) != entry["sha256"]:
+            raise ValueError(
+                f"Supply digest mismatch: {entry['package']}/{entry['filename']}"
+            )
+        path = root / "supply" / entry["filename"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(data)
+        stored_supply.append({**entry, "stored": digest(data)})
+    return stored_supply
+
+
 def prepare(
     root: Path,
     base: str,
@@ -374,23 +402,7 @@ def prepare(
         if len(data) != item["size"]:
             raise ValueError("Base blob size mismatch")
         store(root, data, item["mediaType"])
-    stored_supply = []
-    for entry in sorted(supply, key=lambda e: (e["package"], e["filename"])):
-        data = forgejo_download(
-            forgejo_owner,
-            entry["package"],
-            entry["version"],
-            entry["filename"],
-            forgejo_token,
-        )
-        if digest(data) != entry["sha256"]:
-            raise ValueError(
-                f"Supply digest mismatch: {entry['package']}/{entry['filename']}"
-            )
-        path = root / "supply" / entry["filename"]
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(data)
-        stored_supply.append({**entry, "stored": digest(data)})
+    stored_supply = prepare_supply(root, supply, forgejo_owner, forgejo_token)
     (root / "input.json").write_bytes(
         encode(
             {
@@ -575,6 +587,7 @@ def run_build(
     home_dir: Path,
     build: list[str],
     env: dict[str, str],
+    step: str = "build",
 ) -> None:
     npm_cli = (
         toolchain_bin.parent.parent
@@ -624,7 +637,7 @@ def run_build(
     print(f"+ {' '.join(command)} (cwd={builddir})", flush=True)
     result = subprocess.run(command, cwd=builddir, env=build_env)
     if result.returncode:
-        raise ValueError(f"Offline build failed ({result.returncode})")
+        raise ValueError(f"Offline {step} failed ({result.returncode})")
 
 
 def assemble(
@@ -935,7 +948,74 @@ def publish_user(repository: str) -> str:
     return "forgejo-" + name
 
 
+TEST_ROOT = Path(".sovereign/test")
+
+
+def run_tests(
+    source: Path, test_root: Path, supply: list[dict[str, Any]], node_dir: str
+) -> None:
+    """Install offline from retained supply and run `npm test` in the checkout."""
+    if node_dir and (
+        node_dir.startswith("/") or re.search(r"(^|/)\.\.(/|$)", node_dir)
+    ):
+        raise ValueError("Build directory must be a contained relative path")
+    builddir = source.resolve() / node_dir if node_dir else source.resolve()
+    if not builddir.is_dir():
+        raise ValueError(f"Build directory is missing: {node_dir or '.'}")
+    test_root = test_root.resolve()
+    supply_files = {}
+    for entry in supply:
+        data = (test_root / "supply" / entry["filename"]).read_bytes()
+        if digest(data) != entry["sha256"]:
+            raise ValueError(f"Supply input mismatch: {entry['filename']}")
+        supply_files[entry["dest"]] = data
+    if NODE_TARBALL_DEST not in supply_files or NPM_CACHE_DEST not in supply_files:
+        raise ValueError("Node tests need the retained toolchain and npm cache")
+    toolchain_bin, toolchain_label, lib_dir = select_toolchain_bin(
+        test_root, supply_files
+    )
+    cache_dir = test_root / "npm-cache"
+    extract_tarball(supply_files[NPM_CACHE_DEST], cache_dir, "npm cache")
+    home_dir = test_root / "home"
+    home_dir.mkdir(exist_ok=True)
+    run_build(
+        builddir,
+        toolchain_bin,
+        toolchain_label,
+        lib_dir,
+        cache_dir,
+        home_dir,
+        ["npm", "test"],
+        {},
+        step="npm test",
+    )
+
+
+def test_main(argv: list[str]) -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("operation", choices=["prepare-test", "test"])
+    p.add_argument("--supply", required=True)
+    p.add_argument("--dir", required=True, default="")
+    p.add_argument("--forgejo-owner", required=True)
+    args = p.parse_args(argv)
+    supply = [check_supply_item(e) for e in parse_manifests(args.supply)]
+    if args.operation == "prepare-test":
+        if Path(".sovereign").exists():
+            raise ValueError("Reserved build workspace must not exist in source")
+        TEST_ROOT.mkdir(parents=True)
+        prepare_supply(
+            TEST_ROOT, supply, args.forgejo_owner, os.environ["FORGEJO_TOKEN"]
+        )
+        print(f"Prepared {len(supply)} retained test inputs")
+    else:
+        run_tests(Path.cwd(), TEST_ROOT, supply, args.dir)
+        print("npm test passed")
+
+
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] in {"prepare-test", "test"}:
+        test_main(sys.argv[1:])
+        return
     p = argparse.ArgumentParser()
     p.add_argument("operation", choices=["prepare", "assemble", "publish"])
     p.add_argument("--base", required=True)
