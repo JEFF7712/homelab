@@ -33,6 +33,25 @@ Notifier = Callable[[str, str, str, list[str] | None], bool]
 
 
 APPLIANCE_SETTLE_ATTEMPTS = 20
+# Crash-loop check. A service with Restart= that dies soon after every start
+# spends most of its time `activating (auto-restart)`, never `failed`, so the
+# failed-unit check passes: on 2026-11-16 monerod (RestartSec=30s) died with
+# SIGSYS seconds after each start and stayed down for 28 minutes after a
+# "successful" deploy. After the failed-unit check settles, the deployer samples
+# NRestarts (automatic restarts only: the switch's own restarts, manual starts
+# and timer activations do not count) every interval for the window. A unit is
+# looping when it restarted CRASH_LOOP_MIN_RESTARTS times inside the window, or
+# restarted once and has not settled (up, or stopped cleanly); such a unit is
+# observed for up to CRASH_LOOP_MAX_WINDOW before it is flagged. The window
+# covers at least one full cycle of a 30s RestartSec loop.
+CRASH_LOOP_INTERVAL = 10.0
+CRASH_LOOP_WINDOW = 40.0
+CRASH_LOOP_MAX_WINDOW = 80.0
+CRASH_LOOP_MIN_RESTARTS = 2
+CRASH_LOOP_PROBE = (
+    "systemctl show --property=Id,NRestarts,ActiveState,SubState,"
+    "ActiveEnterTimestamp '*.service'"
+)
 # Evictions are throttled client-side on a busy node, and a pod evicted while
 # it is still starting can take minutes to stop: on 2026-11-10 Home Assistant,
 # rescheduled from the previous node a minute earlier, stopped 128s after its
@@ -74,6 +93,112 @@ class HostConfig:
     ip: str
     host_type: str  # "k3s-worker", "k3s-stateful", "appliance-dns", "appliance-nas"
     order: int
+
+
+@dataclass(frozen=True)
+class UnitSample:
+    """One service's restart state from `systemctl show`."""
+
+    restarts: int
+    active_state: str
+    sub_state: str
+    active_enter: str
+
+
+UnitSamples = dict[str, UnitSample]
+
+
+def parse_unit_samples(text: str) -> UnitSamples:
+    """Parse `systemctl show` output: blank-line separated Key=Value blocks.
+
+    Property order within a block is systemd's, not the requested order.
+    Blocks without an Id or an integer NRestarts (non-service units) are
+    skipped.
+    """
+    samples: UnitSamples = {}
+    for block in re.split(r"\n\s*\n", text):
+        fields = dict(line.split("=", 1) for line in block.splitlines() if "=" in line)
+        unit = fields.get("Id", "").strip()
+        restarts = fields.get("NRestarts", "").strip()
+        if not unit or not restarts.isdigit():
+            continue
+        samples[unit] = UnitSample(
+            restarts=int(restarts),
+            active_state=fields.get("ActiveState", "").strip(),
+            sub_state=fields.get("SubState", "").strip(),
+            active_enter=fields.get("ActiveEnterTimestamp", "").strip(),
+        )
+    return samples
+
+
+def restarts_between(samples: Sequence[UnitSamples], unit: str) -> int:
+    """Automatic restarts of a unit across consecutive samples.
+
+    Only increases count; a lower NRestarts means a manual start reset the
+    counter inside the interval, so the new value is the restarts since then.
+    """
+    counts = [sample[unit].restarts for sample in samples if unit in sample]
+    return sum(
+        current - previous if current >= previous else current
+        for previous, current in zip(counts, counts[1:], strict=False)
+    )
+
+
+def unit_settled(samples: Sequence[UnitSamples], unit: str) -> bool:
+    """Steady over the last interval: up, or stopped cleanly, with no restart.
+
+    A unit in its restart delay is `activating`, and one that restarted inside
+    the interval re-entered active, so neither counts as settled.
+    """
+    present = [sample[unit] for sample in samples if unit in sample]
+    if len(present) < 2:
+        return False
+    previous, current = present[-2:]
+    return (
+        previous.active_state == current.active_state
+        and current.active_state in ("active", "inactive")
+        and previous.active_enter == current.active_enter
+        and previous.restarts == current.restarts
+    )
+
+
+def classify_crash_loops(
+    samples: Sequence[UnitSamples],
+    *,
+    exempt: set[str] | frozenset[str] = frozenset(),
+    min_restarts: int = CRASH_LOOP_MIN_RESTARTS,
+) -> tuple[dict[str, int], set[str]]:
+    """Decide which units loop from samples taken after the switch settled.
+
+    Returns (looping unit -> restarts inside the window, unsettled units).
+    A unit is looping after `min_restarts` restarts in the window. One that
+    restarted fewer times but has not settled is unsettled: the caller
+    keeps observing it. Restarts before the first sample (during the switch or
+    earlier) never count. A oneshot or timer-started service that runs and
+    exits does not increase NRestarts. Exempt units looped before the switch.
+    """
+    looping: dict[str, int] = {}
+    unsettled: set[str] = set()
+    if len(samples) < 2:
+        return looping, unsettled
+    units = set().union(*(sample.keys() for sample in samples)) - set(exempt)
+    for unit in sorted(units):
+        restarts = restarts_between(samples, unit)
+        if restarts >= min_restarts:
+            looping[unit] = restarts
+        elif restarts and not unit_settled(samples, unit):
+            unsettled.add(unit)
+    return looping, unsettled
+
+
+def looping_before_switch(before: UnitSamples, after: UnitSamples) -> set[str]:
+    """Units already restarting automatically before the switch began."""
+    return {
+        unit
+        for unit, sample in after.items()
+        if sample.sub_state == "auto-restart"
+        or (unit in before and restarts_between([before, after], unit) > 0)
+    }
 
 
 FLEET_HOSTS: dict[str, HostConfig] = {
@@ -589,6 +714,8 @@ class FleetDeployer:
     ) -> None:
         self.roots: dict[str, str] = {}
         self.failed_before: dict[str, set[str]] = {}
+        self.restarts_before: dict[str, UnitSamples] = {}
+        self.looping_before: dict[str, set[str]] = {}
         self.prepared: dict[str, tuple[str, str]] = {}
         self.targets = targets
         self.dry_run = dry_run
@@ -830,6 +957,7 @@ class FleetDeployer:
         if host.host_type == "appliance-nas":
             self.verify_nas_datasets(host)
         self.failed_before[host.name] = self.failed_units(host)
+        self.restarts_before[host.name] = self.unit_samples(host)
         root = "/tmp/homelab-fleet-" + uuid.uuid4().hex
         self.roots[host.name] = root
         run_command(
@@ -966,6 +1094,76 @@ class FleetDeployer:
         )
         return {line.split()[0] for line in result.stdout.splitlines() if line.strip()}
 
+    def unit_samples(self, host: HostConfig) -> UnitSamples:
+        result = run_command(
+            self.ssh_command(host.ip, CRASH_LOOP_PROBE),
+            runner=self.runner,
+            timeout=30.0,
+        )
+        return parse_unit_samples(result.stdout)
+
+    def record_looping_before(self, host: HostConfig) -> None:
+        """Exempt services that were restarting before this switch began.
+
+        Compares the sample taken during preparation with one taken just
+        before activation, as failed_before exempts units already failed.
+        """
+        if self.dry_run:
+            return
+        looping = looping_before_switch(
+            self.restarts_before.get(host.name, {}), self.unit_samples(host)
+        )
+        self.looping_before[host.name] = looping
+        if looping:
+            logger.warning(
+                "[%s] Services already restarting before the switch are exempt "
+                "from the crash-loop check: %s",
+                host.name,
+                ", ".join(sorted(looping)),
+            )
+
+    def verify_no_crash_loops(self, host: HostConfig) -> None:
+        """Fail like a failed unit when a service keeps restarting."""
+        started = time.monotonic()
+        exempt = self.looping_before.get(host.name, set())
+        samples = [self.unit_samples(host)]
+        observed = 0.0
+        while True:
+            self.sleeper(CRASH_LOOP_INTERVAL)
+            observed += CRASH_LOOP_INTERVAL
+            samples.append(self.unit_samples(host))
+            if observed < CRASH_LOOP_WINDOW:
+                continue
+            looping, unsettled = classify_crash_loops(samples, exempt=exempt)
+            if not unsettled or observed >= CRASH_LOOP_MAX_WINDOW:
+                break
+            logger.info(
+                "[%s] Crash-loop check: still observing %s",
+                host.name,
+                ", ".join(sorted(unsettled)),
+            )
+        # Still not settled after the extended window: a slow loop.
+        for unit in unsettled:
+            looping[unit] = restarts_between(samples, unit)
+        elapsed = time.monotonic() - started
+        if looping:
+            detail = ", ".join(
+                f"{unit} ({count} restart{'' if count == 1 else 's'})"
+                for unit, count in sorted(looping.items())
+            )
+            raise FleetDeploymentError(
+                f"{host.name} has crash-looping systemd units "
+                f"(restarts in {observed:.0f}s): {detail}"
+            )
+        logger.info(
+            "[%s] Crash-loop check passed: %d services observed for %.0fs, "
+            "none looping (%.1fs added)",
+            host.name,
+            len(samples[-1]),
+            observed,
+            elapsed,
+        )
+
     def verify_host(self, host: HostConfig) -> None:
         if self.dry_run:
             return
@@ -978,6 +1176,7 @@ class FleetDeployer:
             )
         ):
             raise FleetDeploymentError(f"{host.name} has newly failed systemd units")
+        self.verify_no_crash_loops(host)
         if host.host_type in ("k3s-worker", "k3s-stateful"):
             self.wait_node_ready(host.name)
         elif host.host_type == "appliance-dns":
@@ -1295,6 +1494,7 @@ class FleetDeployer:
                 self.drain_node(host.name)
 
             # 2. Activate the already prepared closure.
+            self.record_looping_before(host)
             activation_attempted = True
             self.rebuild_host(host)
             self.verify_host(host)
