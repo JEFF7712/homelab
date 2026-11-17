@@ -15,11 +15,10 @@ class ClockWeatherRenderer(ModeRenderer):
         self.font_time = ImageFont.load_default(size=18)
         self.font_small = ImageFont.load_default(size=9)
         self.font_temp = ImageFont.load_default(size=13)
+        self._cache_key: tuple[int, str, str, str, str] | None = None
+        self._cached_frame: Image.Image | None = None
 
     def render(self, ctx: RenderContext, size: int = 64) -> Image.Image:
-        frame = Image.new("RGB", (size, size), (6, 8, 14))
-        draw = ImageDraw.Draw(frame)
-
         now = datetime.now()
 
         # 1. Digital Time (12-hour format with blinking colon)
@@ -27,6 +26,17 @@ class ClockWeatherRenderer(ModeRenderer):
         minute = now.strftime("%M")
         colon = ":" if (int(time.monotonic() * 2) % 2 == 0) else " "
         time_str = f"{hour}{colon}{minute}"
+        date_str = now.strftime("%a %b %d").upper()
+        temp_val = ctx.ha_state.weather_temp
+        temp_str = f"{round(temp_val)}°" if temp_val is not None else "--°"
+        cond_key = (ctx.ha_state.weather_condition or "").lower()
+
+        key = (size, time_str, date_str, temp_str, cond_key)
+        if key == self._cache_key and self._cached_frame is not None:
+            return self._cached_frame
+
+        frame = Image.new("RGB", (size, size), (6, 8, 14))
+        draw = ImageDraw.Draw(frame)
 
         bbox_time = draw.textbbox((0, 0), time_str, font=self.font_time)
         w_time = bbox_time[2] - bbox_time[0]
@@ -38,7 +48,6 @@ class ClockWeatherRenderer(ModeRenderer):
         )
 
         # 2. Date (e.g. FRI OCT 16)
-        date_str = now.strftime("%a %b %d").upper()
         bbox_date = draw.textbbox((0, 0), date_str, font=self.font_small)
         w_date = bbox_date[2] - bbox_date[0]
         draw.text(
@@ -52,15 +61,14 @@ class ClockWeatherRenderer(ModeRenderer):
         draw.line([(6, 35), (size - 7, 35)], fill=(30, 42, 60), width=1)
 
         # 4. Weather Icon and Temperature
-        temp_val = ctx.ha_state.weather_temp
-        temp_str = f"{round(temp_val)}°" if temp_val is not None else "--°"
-
         # Draw Weather Icon on left, Temperature on right
         self._draw_weather_icon(draw, ctx.ha_state.weather_condition, x=10, y=41)
 
         # Temperature text
         draw.text((32, 42), temp_str, fill=(255, 195, 60), font=self.font_temp)
 
+        self._cache_key = key
+        self._cached_frame = frame
         return frame
 
     def _draw_weather_icon(

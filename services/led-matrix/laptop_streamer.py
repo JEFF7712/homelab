@@ -450,7 +450,8 @@ def main() -> None:
     signal.signal(signal.SIGTERM, handle_signal)
 
     print("=== Laptop LED Matrix Streamer Running (Ctrl+C to stop) ===")
-    last_tick = time.monotonic()
+    frame_interval = 1.0 / args.fps
+    last_tick = next_frame_at = time.monotonic()
     last_input_check = time.monotonic()
     active_input = args.input
     ha_dummy = HAState(power=True, mode="Laptop", brightness=args.brightness)
@@ -503,9 +504,12 @@ def main() -> None:
             streamer.send_frame(frame, brightness=args.brightness)
 
             last_tick = tick
-            elapsed = time.monotonic() - tick
-            sleep_time = max(0.0, (1.0 / args.fps) - elapsed)
-            stop_event.wait(sleep_time)
+            next_frame_at += frame_interval
+            after = time.monotonic()
+            if next_frame_at < after:
+                next_frame_at = after
+            else:
+                stop_event.wait(next_frame_at - after)
     finally:
         print("\nShutting down laptop streamer...")
         tap.stop()
