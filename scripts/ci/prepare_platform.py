@@ -13,6 +13,7 @@ import tarfile
 import tempfile
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
@@ -25,6 +26,41 @@ from scripts.ci.policy import SCHEDULES
 from scripts.ci.state import Store
 
 RECIPIENT = "age1k2vhn663mmw9ancuwm2hfmtfg4xyus9xlvp8rkep4fpvxlqa9gdsms9usl"
+
+
+# Operations that run on main pushes; their secrets also allow `push`.
+PUSH_OPERATIONS = (
+    "opnsense-plan",
+    "cloudflare-plan",
+    "cloudflare-access-plan",
+    "registry-lock-import",
+)
+
+
+def secret_events(
+    catalog: dict[str, Any],
+    schedules: dict[str, tuple[str, ...]] = SCHEDULES,
+) -> dict[str, list[str]]:
+    """Woodpecker events for each homelab repository secret the catalog names.
+
+    This is the source of the live secret events: a platform rebuild creates
+    every secret with these lists. Each allows `deployment`; a secret read by
+    a scheduled operation also allows `cron`, and one read by a push-triggered
+    operation also allows `push`. docs/runbooks/ci-pipelines.md lists the
+    resulting events for secrets whose access was granted deliberately.
+    """
+    events: dict[str, set[str]] = {}
+    for operation in catalog.values():
+        for value in operation["environment"].values():
+            if isinstance(value, dict):
+                events.setdefault(value["from_secret"], {"deployment"})
+    scheduled = sorted({target for names in schedules.values() for target in names})
+    for event, targets in (("push", PUSH_OPERATIONS), ("cron", scheduled)):
+        for target in targets:
+            for value in catalog[target]["environment"].values():
+                if isinstance(value, dict):
+                    events[value["from_secret"]].add(event)
+    return {name: sorted(allowed) for name, allowed in sorted(events.items())}
 
 
 def s3_state(name: str, key_id: str, secret: str) -> bytes:
@@ -117,26 +153,8 @@ def main() -> None:
         state_deploy_password=passwords["deploy"],
         state_ca_file=cert.decode(),
     )
-    required = {
-        item["from_secret"]
-        for op in catalog.values()
-        for item in op["environment"].values()
-        if isinstance(item, dict)
-    }
-    automatic_events: dict[str, set[str]] = {}
-    for event, targets in {
-        "push": [
-            "opnsense-plan",
-            "cloudflare-plan",
-            "cloudflare-access-plan",
-            "registry-lock-import",
-        ],
-        "cron": sorted({target for names in SCHEDULES.values() for target in names}),
-    }.items():
-        for target in targets:
-            for value in catalog[target]["environment"].values():
-                if isinstance(value, dict):
-                    automatic_events.setdefault(value["from_secret"], set()).add(event)
+    events = secret_events(catalog)
+    required = set(events)
     missing = sorted(required - available.keys())
     if missing:
         raise ValueError("Missing explicit credentials: " + ", ".join(missing))
@@ -174,9 +192,7 @@ def main() -> None:
                     {
                         "name": name,
                         "value": available[name],
-                        "events": sorted(
-                            {"deployment"} | automatic_events.get(name, set())
-                        ),
+                        "events": events[name],
                         "images": [],
                     }
                     for name in sorted(required)
