@@ -499,6 +499,42 @@ service-specific write access. State credentials are separate from Garage.
 Woodpecker command-step secrets require empty image filters and are event scoped. Only selected main
 push and maintenance workflows receive their required secrets.
 
+### Secret events
+
+Changing which events or images may read a secret changes secret access: it
+needs the operator's explicit approval, also when it is a live change with no
+PR. A step only receives the secrets its own `environment` declares, so an
+event grant reaches only the operations that name the secret.
+
+Homelab repository (Woodpecker repo 1) secret events are derived, not
+hand-kept: `secret_events` in `scripts/ci/prepare_platform.py` gives every
+secret named in `config/ci/operations.json` the `deployment` event, adds `cron`
+when an operation in `SCHEDULES` reads it and `push` when one of
+`PUSH_OPERATIONS` reads it. A platform rebuild creates the secrets with those
+lists, and `tests/test_prepare_platform.py` pins the deliberate grants:
+
+| Secret | Events | Why |
+| --- | --- | --- |
+| `supply_read_password` | `cron`, `deployment` | read-only supply token; the weekly `uwagent-grades-refresh` downloads its npm cache (granted live 2026-11-17, approved by the operator) |
+| `madgrades_token` | `cron`, `deployment` | `uwagent-grades-refresh` |
+| `forgejo_publish_token` | `cron`, `deployment` | scheduled publishers, including `uwagent-grades-refresh` |
+
+Application repositories' secrets are not derived. uwagent (Woodpecker repo 36)
+`supply_read_password` allows `push`, `pull_request` and `manual`, which its
+node test steps need ([application CI](application-ci.md)); restore that list
+by hand after a rebuild.
+
+On 2026-11-17 these live homelab secrets differed from the derived lists and
+await an operator decision (a rebuild would apply the derived column):
+
+| Secret | Live | Derived |
+| --- | --- | --- |
+| `attic_token` | `cron`, `deployment`, `push` | none (Attic retired; decommission pending) |
+| `github_token` | `cron`, `deployment`, `push` | `cron`, `deployment` |
+| `service_release_ssh_key` | `cron`, `deployment` | `deployment` |
+| `ntfy_token` | `cron` | `cron`, `deployment` |
+| `woodpecker_token` | `cron` | `cron`, `deployment` |
+
 ### Pipeline retention
 
 Woodpecker 3 has no server-side retention, so `woodpecker-retention.service`
