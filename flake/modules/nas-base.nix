@@ -111,10 +111,16 @@ in
     };
   };
 
+  # A tank scrub takes about two days of the single disk's bandwidth;
+  # weekly kept it busy a third of the time.
   services.zfs.autoScrub = {
     enable = true;
-    interval = "weekly";
+    interval = "monthly";
   };
+  # zfs-scrub.service stays active for the whole scrub (about two days on
+  # tank). Restarting it on a switch reruns `zpool scrub`, which fails while
+  # one is in progress and rolls the deployment back (2026-11-16).
+  systemd.services.zfs-scrub.restartIfChanged = false;
   services.zfs.trim = {
     enable = true;
     interval = "weekly";
