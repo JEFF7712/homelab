@@ -56,7 +56,10 @@ cannot change a host. Host changes go through CI operations or the operator.
 The key carries `restrict,pty,from=` with the source each host observed:
 `172.31.10.2` on homelab-04 and homelab-04's masqueraded `10.0.30.14` on every
 other host. The latter means any process on homelab-04 holding the private key
-could also use it; the key itself stays only in the guest. To revoke this
+could also use it; the key itself stays only in the guest. Operator
+workstation sessions on `laptop-nixos` use a separate `agent-observer` key
+bounded to management, clients and NetBird subnets so `just doctor --live` and
+interactive agents read host state without falling back to `wheel`. To revoke guest
 access, remove the observer key, delete the credential files from the guest,
 and narrow `tcpEgress.rupan` in `flake/hosts/homelab-04/default.nix`.
 

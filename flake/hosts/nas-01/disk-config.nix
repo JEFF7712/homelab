@@ -102,22 +102,11 @@
           mountpoint = "/var/log";
           options.mountpoint = "legacy";
         };
-        # The Nix binary cache serves many small random reads to every CI
-        # container. On the single tank HDD, shared with media and NFS, it
-        # saturated the disk (IO pressure above 80% full) and turned a one
-        # minute CI step into fifteen. The quota keeps the cache from
-        # crowding the system pool; Attic's own GC bounds its growth.
-        attic = {
-          type = "zfs_fs";
-          mountpoint = "/srv/attic";
-          options = {
-            mountpoint = "legacy";
-            quota = "120G";
-          };
-        };
-        # niks3 cache store (Garage metadata and data). On the SSD mirror
-        # for the same reason as Attic; the Garage layout capacity stays
-        # below this quota.
+        # niks3 cache store (Garage metadata and data). Kept on the SSD mirror
+        # because the Nix binary cache serves many small random reads to every
+        # CI container; on the shared tank HDD it saturated I/O above 80% full
+        # and turned a one-minute CI step into fifteen. The Garage layout
+        # capacity stays below this quota.
         nix-cache = {
           type = "zfs_fs";
           mountpoint = "/srv/nix-cache";

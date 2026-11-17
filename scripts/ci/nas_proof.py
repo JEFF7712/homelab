@@ -12,7 +12,7 @@ def prove(targets: Sequence[tuple[str, int]]) -> None:
 
 
 def main() -> None:
-    prove([("10.0.30.20", 8080), ("10.0.30.11", 6443)])
+    prove([("10.0.30.20", 8090), ("10.0.30.11", 6443)])
 
 
 if __name__ == "__main__":

@@ -42,6 +42,7 @@ from typing import Any
 from scripts.ci.deployment_risk import protected
 from scripts.verifier.enforcement import enforcement
 from scripts.verifier.freshness import OUTDATED, overlap
+from scripts.verifier.gitops import GITOPS, covered_yaml, verify_gitops
 from scripts.verifier.websites import (
     SPEC,
     WEBSITES,
@@ -110,7 +111,7 @@ def catalog_findings(read_base: Any, read_head: Any) -> list[Finding]:
 
 def gated(path: str) -> bool:
     """Whether a change to path can need an operator in decide()."""
-    return enforcement(path) or path == CATALOG or path.startswith(WEBSITES + "/")
+    return enforcement(path) or path == CATALOG or path.startswith(GITOPS + "/")
 
 
 def decide(
@@ -135,6 +136,11 @@ def decide(
             )
         except Unreadable as error:
             findings = [Finding("repair", "websites", str(error))]
+    if any(covered_yaml(path) for path in changed):
+        try:
+            findings += verify_gitops(changed, read_base, read_head)
+        except Unreadable as error:
+            findings.append(Finding("repair", "gitops", str(error)))
     if CATALOG in changed:
         findings += catalog_findings(read_base, read_head)
     for path in sorted(path for path in changed if enforcement(path)):

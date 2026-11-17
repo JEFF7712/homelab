@@ -2,7 +2,7 @@
 
 ## Scope and ownership
 
-`registry.rupan.dev` is the only container registry endpoint for the new homelab. Zot runs as a native NixOS service on `nas-01`, stores data in `tank/registry`, and is reverse proxied with host-managed TLS. Attic remains the Nix binary cache. NixOS owns the host service, storage, DNS client configuration, and k3s runtime configuration. Flux owns Kubernetes consumers. CI owns image import and host deployment.
+`registry.rupan.dev` is the only container registry endpoint for the new homelab. Zot runs as a native NixOS service on `nas-01`, stores data in `tank/registry`, and is reverse proxied with host-managed TLS. niks3 (`http://10.0.30.20:8090`) is the Nix binary cache. NixOS owns the host service, storage, DNS client configuration, and k3s runtime configuration. Flux owns Kubernetes consumers. CI owns image import and host deployment.
 
 The registry uses explicit imports, not pull-through synchronization. An imported image is addressed by its destination digest before a consumer is changed. Public registries, Helm repositories, Git repositories, ACME, and application egress remain separate dependencies.
 

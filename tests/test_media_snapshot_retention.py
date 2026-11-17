@@ -52,10 +52,9 @@ class MediaSnapshotRetentionTest(unittest.TestCase):
         self.assertGreaterEqual(media["daily"], 1)
         self.assertTrue(media["autoprune"])
 
-    def test_attic_retention_is_unchanged(self) -> None:
-        # Retired attic data is held until decommission.
-        self.assertEqual(self.settings["tank/attic"]["use_template"], ["weekly"])
-        self.assertEqual(self.settings["template_weekly"]["daily"], 7)
+    def test_attic_dataset_is_retired(self) -> None:
+        self.assertNotIn("tank/attic", self.settings)
+        self.assertNotIn("template_weekly", self.settings)
 
 
 if __name__ == "__main__":

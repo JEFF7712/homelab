@@ -450,6 +450,114 @@ class AuthorityBoundaryTest(unittest.TestCase):
                 decision = decide([path], None, None, set(), set(), False)
                 self.assertEqual(decision.state, "success")
 
+    def test_every_bundled_enforcement_daemon_file_is_in_enforcement_paths(
+        self,
+    ) -> None:
+        import re
+
+        from scripts.verifier.enforcement import enforcement
+
+        modules = (
+            "flake/modules/woodpecker.nix",
+            "flake/modules/merge-policy.nix",
+            "flake/modules/approvals.nix",
+            "flake/modules/tofu-state.nix",
+        )
+        found: set[str] = set()
+        for mod in modules:
+            text = (ROOT / mod).read_text()
+            for rel in re.findall(
+                r"(?:\.\./\.\./|\.\./|\./)([A-Za-z0-9_./-]+\.(?:py|sh|patch))", text
+            ):
+                base_dir = (ROOT / mod).parent
+                resolved = (
+                    (ROOT / rel) if not (base_dir / rel).exists() else (base_dir / rel)
+                )
+                for candidate in (
+                    (base_dir / "../../" / rel).resolve(),
+                    (base_dir / "../" / rel).resolve(),
+                    (base_dir / rel).resolve(),
+                ):
+                    if candidate.exists() and candidate.is_relative_to(ROOT):
+                        resolved = candidate
+                        break
+                if resolved.exists() and resolved.is_relative_to(ROOT):
+                    found.add(resolved.relative_to(ROOT).as_posix())
+        # service_release.py runs as an unprivileged forced-command image builder
+        # with scoped publisher credentials, not an enforcement daemon.
+        found.discard("scripts/ci/service_release.py")
+        self.assertGreaterEqual(len(found), 20)
+        for path in sorted(found):
+            with self.subTest(path=path):
+                self.assertTrue(
+                    enforcement(path),
+                    f"{path} is bundled into an enforcement host module but missing from ENFORCEMENT_PATHS",
+                )
+
+    def test_gitops_host_access_and_stateful_deletions_escalate_with_ratchet(
+        self,
+    ) -> None:
+        existing_host_net = (
+            "apiVersion: apps/v1\nkind: Deployment\nmetadata:\n"
+            "  name: home-assistant\n  namespace: home-assistant\nspec:\n"
+            "  template:\n    spec:\n      hostNetwork: true\n"
+            "      containers:\n        - name: ha\n          image: img:1\n"
+        )
+        updated_image_only = existing_host_net.replace("img:1", "img:2")
+        ok = decide(
+            ["gitops/home-assistant/deployment.yaml"],
+            {"gitops/home-assistant/deployment.yaml": existing_host_net}.get,
+            {"gitops/home-assistant/deployment.yaml": updated_image_only}.get,
+            set(),
+            set(),
+            False,
+        )
+        self.assertEqual((ok.state, ok.escalate), ("success", False))
+
+        added_host_path = updated_image_only + (
+            "      volumes:\n        - name: p\n          hostPath:\n            path: /persist\n"
+        )
+        escalated_host = decide(
+            ["gitops/home-assistant/deployment.yaml"],
+            {"gitops/home-assistant/deployment.yaml": existing_host_net}.get,
+            {"gitops/home-assistant/deployment.yaml": added_host_path}.get,
+            set(),
+            set(),
+            False,
+        )
+        self.assertEqual(
+            (escalated_host.state, escalated_host.escalate), ("failure", True)
+        )
+        self.assertIn("hostPath:/persist", " ".join(escalated_host.findings))
+
+        pvc = (
+            "apiVersion: v1\nkind: PersistentVolumeClaim\nmetadata:\n"
+            "  name: immich-library\n  namespace: immich\n"
+            "  annotations:\n    kustomize.toolkit.fluxcd.io/prune: disabled\n"
+        )
+        deleted_pvc = decide(
+            ["gitops/immich/pvc.yaml"],
+            {"gitops/immich/pvc.yaml": pvc}.get,
+            {}.get,
+            set(),
+            set(),
+            False,
+        )
+        self.assertEqual((deleted_pvc.state, deleted_pvc.escalate), ("failure", True))
+        self.assertIn("deletes stateful resource", " ".join(deleted_pvc.findings))
+
+        dropped_prune = decide(
+            ["gitops/immich/pvc.yaml"],
+            {"gitops/immich/pvc.yaml": pvc}.get,
+            {"gitops/immich/pvc.yaml": pvc.replace("disabled", "enabled")}.get,
+            set(),
+            set(),
+            False,
+        )
+        self.assertEqual(
+            (dropped_prune.state, dropped_prune.escalate), ("failure", True)
+        )
+
     def test_operator_approval_still_overrides(self) -> None:
         decision = decide(["scripts/ci/policy.py"], None, None, set(), set(), True)
         self.assertEqual(decision.state, "success")

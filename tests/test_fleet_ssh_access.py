@@ -20,6 +20,11 @@ AGENT_VM_KEY = (
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICZzDfJQDvL6axeNiY0b+iObfhjkBxzut8cGfcxr9zva"
     " developer@agent-rupan"
 )
+LAPTOP_OBSERVER_KEY = (
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGPgdA467aAFq4re73+3yM3Tws4F7GkecGh3LlN6S7/"
+    " agent-observer@laptop-nixos"
+)
+LAPTOP_OBSERVER_SOURCES = "10.0.10.0/24,10.0.20.0/24,100.64.0.0/10"
 OBSERVER = "agent-observer"
 # Source each host's sshd saw for the agent VM on 2026-11-16: homelab-04 sees
 # the VM's routed address, every other host sees homelab-04's masquerade.
@@ -142,7 +147,7 @@ class FleetSshAccessTest(unittest.TestCase):
                 self.assertNotIn(OBSERVER, settings["nixTrusted"])
                 self.assertNotIn("@" + OBSERVER, settings["nixTrusted"])
 
-    def test_observer_trusts_only_the_restricted_vm_key_from_observed_source(
+    def test_observer_trusts_only_the_restricted_vm_and_laptop_keys(
         self,
     ) -> None:
         for host, settings in self.hosts.items():
@@ -152,7 +157,10 @@ class FleetSshAccessTest(unittest.TestCase):
                 self.assertEqual(observer["keyFiles"], [])
                 self.assertEqual(
                     observer["keys"],
-                    [f'restrict,pty,from="{source}" {AGENT_VM_KEY}'],
+                    [
+                        f'restrict,pty,from="{source}" {AGENT_VM_KEY}',
+                        f'restrict,pty,from="{LAPTOP_OBSERVER_SOURCES}" {LAPTOP_OBSERVER_KEY}',
+                    ],
                 )
 
     def test_legacy_deploy_key_requires_exact_trusted_source_and_restrict(self) -> None:

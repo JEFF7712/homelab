@@ -125,7 +125,7 @@ create a dataset during `nixos-rebuild`. Never run Disko against the existing
 tank to add an application dataset.
 
 Every declared tank data mount uses `nofail`, so missing application storage
-does not send the NAS into emergency mode. Attic, Zot, Forgejo and S3 services
+does not send the NAS into emergency mode. niks3, Zot, Forgejo and S3 services
 require their respective mounts. NFS waits for its export mounts to finish
 attempting to mount and exports only mounted paths, using the `mountpoint`
 export option. A missing export does not disable the remaining exports.

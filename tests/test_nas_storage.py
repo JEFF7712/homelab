@@ -42,7 +42,7 @@ class NasStorageTest(unittest.TestCase):
             services = builtins.mapAttrs (_: service: {
               inherit (service) after wants requires unitConfig;
             }) {
-              inherit (system.config.systemd.services) atticd nas-backup-2tb zot nfs-server registry-backup;
+              inherit (system.config.systemd.services) nas-backup-2tb zot nfs-server registry-backup;
             };
             exports = system.config.services.nfs.server.exports;
           }
@@ -66,22 +66,20 @@ class NasStorageTest(unittest.TestCase):
             "documents",
             "backups",
             "cluster",
-            "attic",
             "registry",
         ):
             mount = filesystems[f"/tank/{name}"]
             self.assertEqual(mount["device"], f"tank/{name}")
             self.assertIn("nofail", mount["options"])
             self.assertFalse(mount["neededForBoot"])
+        self.assertNotIn("/tank/attic", filesystems)
+        self.assertNotIn("/srv/attic", filesystems)
         for path in ("/nix", "/persist", "/var/log", "/boot", "/boot-fallback"):
             self.assertNotIn("nofail", filesystems[path]["options"])
         self.assertTrue(filesystems["/var/log"]["neededForBoot"])
 
     def test_storage_consumers_require_their_mounts(self) -> None:
         services = self.configuration["services"]
-        self.assertIn(
-            "/srv/attic", services["atticd"]["unitConfig"]["RequiresMountsFor"]
-        )
         self.assertIn(
             "/tank/registry", services["zot"]["unitConfig"]["RequiresMountsFor"]
         )
