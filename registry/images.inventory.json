@@ -4218,6 +4218,23 @@
         "repository": "cloudnative-pg/plugin-barman-cloud-sidecar",
         "tag": "v0.16.0"
       }
+    },
+    {
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:33"
+      ],
+      "destination_repository": "upstream/ghcr.io/astral-sh/uv",
+      "id": "upstream-astral-sh-uv-12081fd39251",
+      "kind": "upstream",
+      "producer": null,
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d",
+        "reference": "ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d",
+        "registry": "ghcr.io",
+        "repository": "astral-sh/uv",
+        "tag": "0.13.9"
+      }
     }
   ],
   "kind": "registry-inventory",
