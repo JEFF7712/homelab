@@ -108,6 +108,18 @@ class SpotifyVinylTests(unittest.TestCase):
         sat_boosted = disc_mean_saturation(renderer.render(ctx_boosted))
         self.assertGreater(sat_boosted, sat_default)
 
+    def test_prepared_disc_art_is_cached_across_rotations(self) -> None:
+        art = muted_art()
+        renderer = SpotifyVinylRenderer()
+        ctx = playing_context(art)
+        renderer.render(ctx, size=64)
+        self.assertEqual(len(renderer._fitted_cache), 1)
+        cached_prepared = renderer._fitted_cache[0][4]
+        for _ in range(5):
+            renderer.render(ctx, size=64)
+        self.assertEqual(len(renderer._fitted_cache), 1)
+        self.assertIs(renderer._fitted_cache[0][4], cached_prepared)
+
 
 if __name__ == "__main__":
     unittest.main()

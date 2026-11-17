@@ -12,6 +12,9 @@ from modes.base import ModeRenderer, RenderContext
 VINYL_SATURATION = 1.25
 VINYL_CONTRAST = 1.12
 
+_GEOMETRY_CACHE: dict[int, tuple[int, int, Image.Image, Image.Image]] = {}
+_IDLE_CACHE: dict[int, Image.Image] = {}
+
 
 def compensate_disc_color(
     art: Image.Image, saturation: float, contrast: float
@@ -23,6 +26,51 @@ def compensate_disc_color(
     return art
 
 
+def _disc_geometry(size: int) -> tuple[int, int, Image.Image, Image.Image]:
+    cached = _GEOMETRY_CACHE.get(size)
+    if cached is not None:
+        return cached
+
+    margin = max(2, size // 32)
+    disc_size = size - margin * 2
+
+    disc_mask = Image.new("L", (disc_size, disc_size), 0)
+    mask_draw = ImageDraw.Draw(disc_mask)
+    mask_draw.ellipse((0, 0, disc_size - 1, disc_size - 1), fill=255)
+
+    overlay = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay, "RGBA")
+    outer = (margin, margin, size - margin - 1, size - margin - 1)
+    draw.ellipse(outer, outline=(6, 6, 6, 255), width=max(1, size // 32))
+
+    center = size // 2
+    label_radius = max(5, size // 11)
+    hole_radius = max(2, size // 25)
+    draw.ellipse(
+        (
+            center - label_radius,
+            center - label_radius,
+            center + label_radius,
+            center + label_radius,
+        ),
+        fill=(16, 16, 16, 210),
+        outline=(220, 220, 220, 90),
+    )
+    draw.ellipse(
+        (
+            center - hole_radius,
+            center - hole_radius,
+            center + hole_radius,
+            center + hole_radius,
+        ),
+        fill=(0, 0, 0, 255),
+    )
+
+    result = (margin, disc_size, disc_mask, overlay)
+    _GEOMETRY_CACHE[size] = result
+    return result
+
+
 class SpotifyVinylRenderer(ModeRenderer):
     def __init__(
         self,
@@ -32,6 +80,36 @@ class SpotifyVinylRenderer(ModeRenderer):
         self.angle = 0.0
         self.saturation = saturation
         self.contrast = contrast
+        self._fitted_cache: list[
+            tuple[Image.Image, int, float, float, Image.Image]
+        ] = []
+
+    def _prepare_disc_art(
+        self,
+        art: Image.Image,
+        disc_size: int,
+        saturation: float,
+        contrast: float,
+    ) -> Image.Image:
+        sat_key = round(saturation, 4)
+        con_key = round(contrast, 4)
+        for cached_art, cached_size, c_sat, c_con, prepared in self._fitted_cache:
+            if (
+                cached_art is art
+                and cached_size == disc_size
+                and c_sat == sat_key
+                and c_con == con_key
+            ):
+                return prepared
+
+        fitted = ImageOps.fit(
+            art, (disc_size, disc_size), method=Image.Resampling.LANCZOS
+        )
+        prepared = compensate_disc_color(fitted, sat_key, con_key).convert("RGBA")
+        self._fitted_cache.append((art, disc_size, sat_key, con_key, prepared))
+        if len(self._fitted_cache) > 6:
+            self._fitted_cache.pop(0)
+        return prepared
 
     def render(self, ctx: RenderContext, size: int = 64) -> Image.Image:
         # Advance angle if music is playing
@@ -64,61 +142,23 @@ class SpotifyVinylRenderer(ModeRenderer):
         saturation: float | None = None,
         contrast: float | None = None,
     ) -> Image.Image:
-        frame = Image.new("RGBA", (size, size), (0, 0, 0, 255))
         if art is None:
-            # Idle record without album art
             return self._render_idle_disc(size)
 
-        margin = max(2, size // 32)
-        disc_size = size - margin * 2
-
-        # Crop album art to disk, compensate for the panel's narrow color
-        # depth, then rotate by angle
-        art_square = ImageOps.fit(
-            art, (disc_size, disc_size), method=Image.Resampling.LANCZOS
-        )
+        margin, disc_size, disc_mask, overlay = _disc_geometry(size)
         sat = self.saturation if saturation is None else saturation
         con = self.contrast if contrast is None else contrast
-        art_square = compensate_disc_color(art_square, sat, con)
+        art_square = self._prepare_disc_art(art, disc_size, sat, con)
         rotated = art_square.rotate(angle, resample=Image.Resampling.BICUBIC)
 
-        # Circular mask
-        disc_mask = Image.new("L", (disc_size, disc_size), 0)
-        mask_draw = ImageDraw.Draw(disc_mask)
-        mask_draw.ellipse((0, 0, disc_size - 1, disc_size - 1), fill=255)
-        frame.paste(rotated.convert("RGBA"), (margin, margin), disc_mask)
-
-        # Draw vinyl edges and center spindle label
-        draw = ImageDraw.Draw(frame, "RGBA")
-        outer = (margin, margin, size - margin - 1, size - margin - 1)
-        draw.ellipse(outer, outline=(6, 6, 6, 255), width=max(1, size // 32))
-
-        center = size // 2
-        label_radius = max(5, size // 11)
-        hole_radius = max(2, size // 25)
-
-        draw.ellipse(
-            (
-                center - label_radius,
-                center - label_radius,
-                center + label_radius,
-                center + label_radius,
-            ),
-            fill=(16, 16, 16, 210),
-            outline=(220, 220, 220, 90),
-        )
-        draw.ellipse(
-            (
-                center - hole_radius,
-                center - hole_radius,
-                center + hole_radius,
-                center + hole_radius,
-            ),
-            fill=(0, 0, 0, 255),
-        )
-        return frame.convert("RGB")
+        frame = Image.new("RGBA", (size, size), (0, 0, 0, 255))
+        frame.paste(rotated, (margin, margin), disc_mask)
+        return Image.alpha_composite(frame, overlay).convert("RGB")
 
     def _render_idle_disc(self, size: int = 64) -> Image.Image:
+        cached = _IDLE_CACHE.get(size)
+        if cached is not None:
+            return cached
         frame = Image.new("RGB", (size, size), (0, 0, 0))
         draw = ImageDraw.Draw(frame)
         margin = max(2, size // 32)
@@ -149,4 +189,5 @@ class SpotifyVinylRenderer(ModeRenderer):
             ),
             fill=(0, 0, 0),
         )
+        _IDLE_CACHE[size] = frame
         return frame
