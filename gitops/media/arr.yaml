@@ -484,7 +484,7 @@ spec:
               mountPath: /config
       containers:
         - name: bazarr
-          image: registry.rupan.dev/upstream/lscr.io/linuxserver/bazarr@sha256:3a820372f19fcb2981ea19fe4b5382934d67414afaba974bce831ddda0a64a02  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/lscr.io/linuxserver/bazarr@sha256:7ef0e58216900dbce30b123e0eb65f5cb30e36f126de9474acdd2022fb069c54  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
