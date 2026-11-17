@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from tests.agent_helpers import commit, make_repository
 from tests.test_agent_tasks import creation_payload
@@ -49,6 +50,39 @@ class AgentContextTest(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_environment_hints_are_local_and_do_not_expose_secrets(self) -> None:
+        from scripts.agent.context import environment_payload
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            token = root / ".agent-state/home-assistant/token"
+            token.parent.mkdir(parents=True)
+            token.write_text("file-secret")
+            with (
+                patch.dict(
+                    os.environ,
+                    {"HASS_TOKEN": "env-secret", "KUBECONFIG": "/missing/config"},
+                    clear=True,
+                ),
+                patch("scripts.agent.context.Path.home", return_value=root),
+                patch("scripts.agent.context.shutil.which", return_value=None),
+                patch(
+                    "scripts.agent.context.socket.gethostname", return_value="test-vm"
+                ),
+                patch.object(
+                    Path,
+                    "read_text",
+                    side_effect=AssertionError("must not read credentials"),
+                ),
+            ):
+                payload = environment_payload(root)
+            self.assertEqual(payload["hostname"], "test-vm")
+            self.assertTrue(payload["credential_hints"]["home-assistant"])
+            self.assertTrue(payload["credential_hints"]["kubernetes"])
+            self.assertFalse(payload["credential_hints"]["woodpecker"])
+            self.assertFalse(any(payload["tools"].values()))
+            self.assertNotIn("secret", json.dumps(payload))
+
     def test_no_task_lists_active_tasks_without_selecting(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             repository = self.make_repo(directory)
@@ -79,6 +113,8 @@ class AgentContextTest(unittest.TestCase):
         self.assertIn("truncated", result.stdout.lower())
         self.assertIn("untracked: 800", result.stdout)
         self.assertIn("Tasks", result.stdout)
+        self.assertIn("agent-environment.md", result.stdout)
+        self.assertIn("connectivity and permissions unverified", result.stdout)
         self.assertIn("just check-changed", result.stdout)
         self.assertIn("AGENT_MAP.md", result.stdout)
 
