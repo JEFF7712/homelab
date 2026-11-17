@@ -22,6 +22,7 @@ class NasScrubSwitchTest(unittest.TestCase):
             config = flake.nixosConfigurations.nas-01.config;
           in {
             enabled = config.services.zfs.autoScrub.enable;
+            interval = config.services.zfs.autoScrub.interval;
             restart = config.systemd.services.zfs-scrub.restartIfChanged;
           }
         """.replace("__FLAKE_PATH__", json.dumps(f"git+file://{ROOT}?dir=flake"))
@@ -36,6 +37,7 @@ class NasScrubSwitchTest(unittest.TestCase):
         scrub = json.loads(result.stdout)
         self.assertTrue(scrub["enabled"])
         self.assertFalse(scrub["restart"])
+        self.assertEqual(scrub["interval"], "monthly")
 
 
 if __name__ == "__main__":
