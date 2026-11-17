@@ -191,7 +191,7 @@ def write_atomic(directory: Path, body: str) -> None:
 
 
 def parse_args(argv: Sequence[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--server", required=True)
     parser.add_argument("--token-file", type=Path, required=True)
     parser.add_argument("--cli", required=True, help="woodpecker-cli executable")

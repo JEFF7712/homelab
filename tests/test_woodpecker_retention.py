@@ -38,6 +38,10 @@ def log(level: str, message: str, **fields: Any) -> str:
     return json.dumps({"level": level, "message": message, **fields})
 
 
+def two_repositories(url: str, token: str) -> list[dict[str, Any]]:
+    return [{"id": 1, "full_name": "o/a"}, {"id": 2, "full_name": "o/b"}]
+
+
 class FakeRun:
     """Stands in for woodpecker-cli; returns canned stderr per repository id."""
 
@@ -161,10 +165,6 @@ class WrapperTest(unittest.TestCase):
         self.assertNotIn("secret-token", summary)
 
     def test_cli_failure_is_reported_not_raised(self) -> None:
-        fetch = lambda url, token: [
-            {"id": 1, "full_name": "o/a"},
-            {"id": 2, "full_name": "o/b"},
-        ]
         run = FakeRun(
             {
                 "1": (
@@ -177,7 +177,9 @@ class WrapperTest(unittest.TestCase):
                 "2": (0, []),
             }
         )
-        self.assertEqual(retention.main(self.args(), fetch=fetch, run=run), 0)
+        self.assertEqual(
+            retention.main(self.args(), fetch=two_repositories, run=run), 0
+        )
         body = self.metrics()
         self.assertIn("homelab_woodpecker_retention_success 0\n", body)
         self.assertIn("homelab_woodpecker_retention_failed_repositories 1\n", body)
@@ -204,12 +206,10 @@ class WrapperTest(unittest.TestCase):
 
     def test_deadline_stops_before_remaining_repositories(self) -> None:
         ticks = iter([0.0, 10.0, 4000.0])
-        fetch = lambda url, token: [
-            {"id": 1, "full_name": "o/a"},
-            {"id": 2, "full_name": "o/b"},
-        ]
         run = FakeRun({"1": (0, []), "2": (0, [])})
-        retention.main(self.args(), fetch=fetch, run=run, clock=lambda: next(ticks))
+        retention.main(
+            self.args(), fetch=two_repositories, run=run, clock=lambda: next(ticks)
+        )
         self.assertEqual([call[0][-1] for call in run.calls], ["1"])
         self.assertIn(
             "homelab_woodpecker_retention_failed_repositories 1\n", self.metrics()
@@ -228,7 +228,7 @@ class FakeWoodpecker(BaseHTTPRequestHandler):
     pipelines: ClassVar[dict[int, dict[str, Any]]] = {}
     deleted: ClassVar[list[int]] = []
 
-    def log_message(self, *args: Any) -> None:
+    def log_message(self, format: str, *args: Any) -> None:
         pass
 
     def reply(self, code: int, body: Any = None) -> None:
