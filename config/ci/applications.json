@@ -2049,9 +2049,9 @@
         },
         {
           "package": "uwagent-supply",
-          "version": "1",
+          "version": "2",
           "filename": "npm-cache.tar.gz",
-          "sha256": "sha256:a5b329327f0cd9aea95c1f9b9c1e6ef60d8f74bd80153888a0d30cd75394a01d",
+          "sha256": "sha256:fba9c2a8e225f0c849fa97d47cab4856f674bc3b303141557956f3aa7868404a",
           "kind": "file",
           "dest": "/inputs/npm-cache.tar.gz"
         },
