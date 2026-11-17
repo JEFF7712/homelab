@@ -9,6 +9,9 @@ from unittest.mock import MagicMock, patch
 from scripts.deploy_fleet import (
     APPLIANCE_SETTLE_ATTEMPTS,
     CORDON_MARK,
+    CRASH_LOOP_INTERVAL,
+    CRASH_LOOP_PROBE,
+    CRASH_LOOP_WINDOW,
     ETCD_HEALTH,
     FLEET_HOSTS,
     POSTGRES_CLUSTERS,
@@ -52,6 +55,8 @@ class DeployFleetTest(unittest.TestCase):
                 running[argv[-2]] = self.OLD if self.OLD in argv[-1] else self.NEW
             return result
 
+        # The crash-loop window sleeps; never sleep for real in tests.
+        kwargs.setdefault("sleeper", lambda _: None)
         return FleetDeployer(**dict(kwargs, runner=with_systems))
 
     def test_drain_outlasts_a_slow_pod_stop(self) -> None:
@@ -449,7 +454,12 @@ class DeployFleetTest(unittest.TestCase):
             )
         )
         self.assertIn("kubectl uncordon", cmd_verbs)
-        self.assertEqual(sleeps, [10.0])
+        # The crash-loop window, then the requested cooldown.
+        self.assertEqual(
+            sleeps,
+            [CRASH_LOOP_INTERVAL] * int(CRASH_LOOP_WINDOW / CRASH_LOOP_INTERVAL)
+            + [10.0],
+        )
 
     def test_deployer_stateful_anchor_verifies_postgres(self) -> None:
         executed_commands: list[list[str]] = []
@@ -945,8 +955,10 @@ class FleetClosureTest(unittest.TestCase):
         recovery_failure=False,
         node=None,
         failed_units="",
+        crash_loop=False,
     ):
         self.commands = []
+        probes = iter(range(1000))
         self.build_directories = []
         self.active = self.OLD
         host = FLEET_HOSTS["homelab-02"]
@@ -973,6 +985,18 @@ class FleetClosureTest(unittest.TestCase):
                     output = "application.service loaded failed failed Application\n"
                 elif remote == "systemctl --failed --no-legend --plain":
                     output = failed_units
+                elif remote == CRASH_LOOP_PROBE:
+                    looping = crash_loop and self.active == self.NEW
+                    state = (
+                        "activating\nSubState=auto-restart"
+                        if looping
+                        else ("active\nSubState=running")
+                    )
+                    output = (
+                        f"Id=monero.service\nActiveState={state}\n"
+                        f"NRestarts={next(probes) if looping else 0}\n"
+                        "ActiveEnterTimestamp=\n"
+                    )
                 elif "/bin/switch-to-configuration switch" in remote:
                     if self.OLD in remote and recovery_failure:
                         code = 1
@@ -1051,6 +1075,20 @@ class FleetClosureTest(unittest.TestCase):
             if cmd[:2] == ["kubectl", "uncordon"]
         )
         self.assertLess(rollback, uncordon)
+
+    def test_crash_looping_unit_restores_previous_system_like_a_failed_unit(self):
+        with self.assertRaisesRegex(
+            FleetDeploymentError, r"crash-looping.*monero\.service \(\d+ restarts\)"
+        ):
+            self.run_deployment(crash_loop=True)
+        self.assertEqual(self.active, self.OLD)
+        self.assertTrue(
+            any(
+                cmd[0] == "ssh"
+                and self.OLD + "/bin/switch-to-configuration switch" in cmd[-1]
+                for cmd in self.commands
+            )
+        )
 
     def test_failed_recovery_keeps_unhealthy_node_cordoned_and_reports_path(self):
         with self.assertRaisesRegex(

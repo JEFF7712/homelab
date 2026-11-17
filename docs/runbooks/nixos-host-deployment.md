@@ -164,8 +164,8 @@ configured fleet, skipping unchanged live systems.
 The deployer runs its connectivity and readiness preflight by default. It
 prepares changed closures, then cordons and drains affected k3s nodes. It runs
 the prepared closure's `switch-to-configuration dry-activate` in dry-run mode
-and `switch-to-configuration switch` for apply, verifies k3s readiness and newly
-failed units, then uncordons the node. Stateful k3s nodes also wait for PostgreSQL readiness.
+and `switch-to-configuration switch` for apply, verifies k3s readiness, newly
+failed units and crash-looping services, then uncordons the node. Stateful k3s nodes also wait for PostgreSQL readiness.
 Embedded etcd members (nodes labelled `node-role.kubernetes.io/etcd=true`)
 deploy one at a time behind a quorum gate: every member's loopback
 `http://127.0.0.1:2381/health` must answer `true` before the member is drained
@@ -336,8 +336,9 @@ and previous closures during delivery and are cleaned up on exit.
 Activation sets the system profile and switches to the prepared store path; it
 does not reevaluate the source while workloads are drained. Before disruption,
 the deployer rejects a host whose live system changed during preparation. It
-checks the activated path, newly failed systemd units, node readiness and existing
-appliance probes. PostgreSQL rollout checks run after uncordoning its node.
+checks the activated path, newly failed systemd units, crash-looping services,
+node readiness and existing appliance probes. PostgreSQL rollout checks run
+after uncordoning its node.
 The default extra cooldown is zero; `--cooldown-seconds` can request an additional
 delay after health verification.
 
@@ -347,3 +348,33 @@ possible and reports the previous closure for recovery. Configuration rollback
 does not reverse database migrations or restore deleted data. The agent must
 verify backups before intended data destruction and check the requested live
 behavior after infrastructure convergence.
+
+### Post-switch health checks
+
+A unit counts as failed when `systemctl --failed` lists it after the switch and
+did not before preparation (retried for up to a minute while activation
+restarts units). A service with `Restart=` that dies soon after each start is
+`activating (auto-restart)` most of the time, never `failed`, which hid a
+SIGSYS-looping monerod for 28 minutes on 2026-11-16. So once no unit is newly
+failed, the deployer samples every loaded service with
+`systemctl show --property=Id,NRestarts,ActiveState,SubState,ActiveEnterTimestamp '*.service'`
+every 10 seconds for 40 seconds (`CRASH_LOOP_*` in `scripts/deploy_fleet.py`):
+
+- `NRestarts` counts only automatic restarts. Restarts by the switch itself,
+  manual starts and timer activations do not count, and only the increase
+  inside the window is used, so restarts at switch time or earlier are ignored
+  and a oneshot that runs and exits never counts.
+- Two or more restarts in the window flag the service. One restart flags it
+  only if it has not settled (active, or stopped cleanly, with no restart over
+  the last interval); such a service is observed for up to 80 seconds in all.
+  This catches a `RestartSec=30s` loop and passes a service that crashed once
+  and recovered.
+- Services already restarting before the switch (`NRestarts` rose between
+  preparation and activation, or in `auto-restart` just before it) are exempt
+  and logged, as already failed units are.
+
+A flagged service is handled exactly as a newly failed unit: the step log names
+each service and its restart count, the host is restored to its previous
+system and the rollout stops. The check adds about 45 seconds per changed host
+(and again after a rollback). A loop whose restart delay is longer than the
+window, or a crash triggered only later by load, is not caught.
