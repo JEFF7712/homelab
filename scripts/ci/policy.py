@@ -273,7 +273,12 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
     # Reboots hosts onto the installed kernel; the operation only acts inside
     # 03:00-05:00 America/Chicago, so two UTC runs cover daylight saving.
     "fleet-reboot": ("fleet-reboot",),
-    "weekly": ("nixos-lock-update", "registry-cve-audit"),
+    "weekly": (
+        "nixos-lock-update",
+        "registry-cve-audit",
+        # One Madgrades /terms call unless a new term is out; then a refresh PR.
+        "uwagent-grades-refresh",
+    ),
 }
 
 
