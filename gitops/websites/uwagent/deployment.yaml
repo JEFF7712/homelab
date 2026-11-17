@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: registry.rupan.dev/apps/uwagent@sha256:a58e00b152292548ca80bcb075f0ec5408deb732db651a052bcf2fed6e6fd449  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/apps/uwagent@sha256:9beb42c79e949e0081d363dfefcded978107837cde7d95654500c0290c1de854  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           env:
             - name: UWAGENT_PUBLIC_URL
