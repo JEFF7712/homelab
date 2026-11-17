@@ -36,6 +36,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Dedicated fleet CI SSH identity](runbooks/fleet-ci-identity.md)
 - [Application CI](runbooks/application-ci.md)
 - [Forgejo automation runtime](runbooks/forgejo-automation-runtime.md)
+- [Forgejo organization teams](runbooks/forgejo-organization.md)
 - [Local container registry operations](runbooks/local-registry.md)
 - [Node supply](runbooks/node-supply.md)
 - [Matrix releases](runbooks/matrix-release.md)
