@@ -197,6 +197,16 @@ class CatalogTest(unittest.TestCase):
         self.assertEqual(secrets["FORGEJO_PACKAGE_TOKEN"], "supply_read_password")
         self.assertEqual(secrets["MADGRADES_TOKEN"], "madgrades_token")
 
+    def test_the_refresh_polls_weekly(self) -> None:
+        from scripts.ci.policy import SCHEDULES
+
+        scheduled = [
+            name
+            for name, targets in SCHEDULES.items()
+            if "uwagent-grades-refresh" in targets
+        ]
+        self.assertEqual(scheduled, ["weekly"])
+
 
 if __name__ == "__main__":
     unittest.main()

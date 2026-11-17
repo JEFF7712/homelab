@@ -196,9 +196,7 @@ class FinishTests(unittest.TestCase):
 class CatalogTests(unittest.TestCase):
     def test_schedules_and_credentials(self) -> None:
         catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
-        self.assertEqual(
-            SCHEDULES["weekly"], ("nixos-lock-update", "registry-cve-audit")
-        )
+        self.assertIn("nixos-lock-update", SCHEDULES["weekly"])
         self.assertIn("nixos-deploy", SCHEDULES["nightly"])
         for name, schedule in [
             ("nixos-lock-update", "weekly"),
