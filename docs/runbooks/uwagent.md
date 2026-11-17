@@ -55,8 +55,9 @@ Credentials (homelab repository secrets in Woodpecker):
 
 - `madgrades_token`: the Madgrades API token, events `cron` and
   `deployment`, no image filter.
-- `forgejo_publish_token`: `homelab-publisher`, which needs write access to
-  `JEFF7712/uwagent` (granted in the repository's collaborator settings).
+- `forgejo_publish_token`: `homelab-publisher`, which writes to every
+  `JEFF7712` repository through the `publishers` team
+  ([Forgejo organization teams](forgejo-organization.md)).
 - `supply_read_password`: the read-only supply token; scheduled use needs the
   `cron` event as well as `deployment`.
 
