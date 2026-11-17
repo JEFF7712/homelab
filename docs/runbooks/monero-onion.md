@@ -66,12 +66,18 @@ reverted because monerod crash-looped: denying `@resources` (it calls
 (the ZMQ RPC interface resolver aborts with `Address family not supported by
 protocol (src/ip_resolver.cpp:542)`). `MemoryDenyWriteExecute`
 stays off because RandomX JIT-compiles. A blocked syscall kills the process
-with `SIGSYS`, and the fleet deploy's failed-unit check does not catch a unit
-in its restart delay, so check after every sandbox change:
+with `SIGSYS`. With `RestartSec=30s` monerod then sits in its restart delay
+rather than `failed`; the fleet deploy's crash-loop check (see
+[nixos-host-deployment.md](nixos-host-deployment.md#post-switch-health-checks))
+flags it and rolls back. A crash that comes only later, for example on the
+first peer connection, still escapes it, so check the audit log after every
+sandbox change:
 
 ```logql
 {hostname="homelab-04", transport="audit"} |= "monerod"
-``` The nixpkgs Tor unit is already
+```
+
+The nixpkgs Tor unit is already
 confined further (`RootDirectory`, `MemoryDenyWriteExecute`, native
 architecture, narrowed syscall groups) and is left unchanged.
 
