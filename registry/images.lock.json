@@ -1,6 +1,6 @@
 {
   "destination_registry": "registry.rupan.dev",
-  "generated_at": "2026-11-18T00:33:36+00:00",
+  "generated_at": "2026-11-18T00:48:44+00:00",
   "images": [
     {
       "authenticity": {
@@ -892,10 +892,10 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000038",
-        "retention-deployed-1b1dc6e96ab6b673"
+        "0.0.1000039",
+        "retention-deployed-920f37fb8c881a83"
       ],
-      "digest": "sha256:1b1dc6e96ab6b67303ad2c0ab60e79d1edfd6655d3bbc257c20c6662f11d0cd0",
+      "digest": "sha256:920f37fb8c881a83b9cdaa10a57d2d9b3977d0315b0fd9bc2f38eb8f56278681",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -915,11 +915,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:1b1dc6e96ab6b67303ad2c0ab60e79d1edfd6655d3bbc257c20c6662f11d0cd0",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000038@sha256:1b1dc6e96ab6b67303ad2c0ab60e79d1edfd6655d3bbc257c20c6662f11d0cd0",
+        "digest": "sha256:920f37fb8c881a83b9cdaa10a57d2d9b3977d0315b0fd9bc2f38eb8f56278681",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000039@sha256:920f37fb8c881a83b9cdaa10a57d2d9b3977d0315b0fd9bc2f38eb8f56278681",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000038"
+        "tag": "0.0.1000039"
       }
     },
     {
@@ -933,10 +933,10 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000038",
-        "retention-deployed-1b1dc6e96ab6b673"
+        "0.0.1000039",
+        "retention-deployed-920f37fb8c881a83"
       ],
-      "digest": "sha256:1b1dc6e96ab6b67303ad2c0ab60e79d1edfd6655d3bbc257c20c6662f11d0cd0",
+      "digest": "sha256:920f37fb8c881a83b9cdaa10a57d2d9b3977d0315b0fd9bc2f38eb8f56278681",
       "id": "first-party-jeff7712-quartz-21f9999c8e03-previous",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -956,11 +956,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:1b1dc6e96ab6b67303ad2c0ab60e79d1edfd6655d3bbc257c20c6662f11d0cd0",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000038@sha256:1b1dc6e96ab6b67303ad2c0ab60e79d1edfd6655d3bbc257c20c6662f11d0cd0",
+        "digest": "sha256:920f37fb8c881a83b9cdaa10a57d2d9b3977d0315b0fd9bc2f38eb8f56278681",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000039@sha256:920f37fb8c881a83b9cdaa10a57d2d9b3977d0315b0fd9bc2f38eb8f56278681",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000038"
+        "tag": "0.0.1000039"
       }
     },
     {
@@ -973,10 +973,10 @@
       ],
       "destination_repository": "apps/rupan-dev",
       "destination_tags": [
-        "0.0.1000097",
-        "retention-deployed-3aae291787cf6152"
+        "0.0.1000101",
+        "retention-deployed-81e06a9dc5b1d691"
       ],
-      "digest": "sha256:3aae291787cf6152277431b5ac2f2dad458a7b8cef06d11a4717650cb0576916",
+      "digest": "sha256:81e06a9dc5b1d6918458abbb4b083061c92c6d09815c360801650dd36de45475",
       "id": "first-party-jeff7712-rupan-dev-157d71f1966e",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -996,11 +996,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:3aae291787cf6152277431b5ac2f2dad458a7b8cef06d11a4717650cb0576916",
-        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000097@sha256:3aae291787cf6152277431b5ac2f2dad458a7b8cef06d11a4717650cb0576916",
+        "digest": "sha256:81e06a9dc5b1d6918458abbb4b083061c92c6d09815c360801650dd36de45475",
+        "reference": "registry.rupan.dev/apps/rupan-dev:0.0.1000101@sha256:81e06a9dc5b1d6918458abbb4b083061c92c6d09815c360801650dd36de45475",
         "registry": "registry.rupan.dev",
         "repository": "apps/rupan-dev",
-        "tag": "0.0.1000097"
+        "tag": "0.0.1000101"
       }
     },
     {
