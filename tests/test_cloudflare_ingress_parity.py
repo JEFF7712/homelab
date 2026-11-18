@@ -113,7 +113,6 @@ class TestTunnelIngressIsMirrored(unittest.TestCase):
                     "ci.rupan.dev",
                     "tally.rupan.dev",
                     "ntfy.rupan.dev",
-                    "renovate-approve.rupan.dev",
                     "flux-wh-33b0c8004348.rupan.dev",
                 }
             )
