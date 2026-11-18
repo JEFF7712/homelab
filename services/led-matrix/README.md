@@ -74,7 +74,7 @@ documented in [DEPLOYMENT.md](DEPLOYMENT.md). Kubernetes desired state lives in
 
 ## Architecture
 
-- **Pico W:** SeenGreat V3.9 adapter driving a 64x64 HUB75 panel via either CircuitPython 10.3.1 (`firmware/circuitpython/`, 4-bit color depth, `R565`) or the dual-core RP2040 C/PIO/DMA firmware (`firmware/`, see its README for build and flashing; 8-bit gamma BCM, `R889`/`R890` delta+RLE with hardware OE brightness).
+- **Pico W:** SeenGreat V3.9 adapter driving a 64x64 HUB75 panel via either CircuitPython 10.3.1 (`firmware/circuitpython/`, 4-bit color depth, `R565`) or the dual-core RP2040 C/PIO/DMA firmware (`firmware/`, see its README for build and flashing; 11-bit gamma BCM, `R889`/`R890` delta+RLE with hardware OE brightness).
 - **Host:** Follows HA playback events, caches fitted/color-compensated album art and vinyl overlays, and streams frames with up to four pipelined frames in flight. Identical static frames (`Off`, paused art, unchanged clock ticks) are suppressed on the wire with a 4-second keepalive so readiness stays green while idle bandwidth drops by ~99%.
 - **USB:** Connect the Pico directly to the machine running this service. `boot.py` enables separate console and data endpoints. A hardware reset is required after changing USB descriptors. The data endpoint is auto-detected by its `CircuitPython CDC2 control` interface, currently `/dev/ttyACM1`. Console `/dev/ttyACM0` remains available for diagnostics. Stable data path: `/dev/serial/by-id/usb-Raspberry_Pi_Pico_W_E661A4D41730262D-if02`.
 - **Wi-Fi:** TCP port `9999` (`10.0.20.136` in production), selected by default. TCP_NODELAY is enabled on both ends, and Wi-Fi power saving is disabled. USB takes priority while its data port is open. UDP is no longer accepted on the Pico receiver.
