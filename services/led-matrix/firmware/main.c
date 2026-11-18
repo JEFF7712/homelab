@@ -43,18 +43,20 @@
 #define PANEL_WIDTH    64
 #define PANEL_HEIGHT   64
 #define SCAN_ROWS      32
-#define BIT_DEPTH      8
+#define BIT_DEPTH      11
+#define GAMMA_MAX      ((1u << BIT_DEPTH) - 1u)        // 2047
 #define TCP_PORT       9999
 
 #define PIXEL_COUNT    (PANEL_WIDTH * PANEL_HEIGHT)      // 4096
 #define RGB888_BYTES   (PIXEL_COUNT * 3)                 // 12288
 #define RGB565_BYTES   (PIXEL_COUNT * 2)                 // 8192
-#define DATA_WORDS     ((SCAN_ROWS * BIT_DEPTH * PANEL_WIDTH) / 4) // 4096 u32 words
-#define CTRL_WORDS     (SCAN_ROWS * BIT_DEPTH)                     // 256 u32 words
+#define DATA_WORDS     ((SCAN_ROWS * BIT_DEPTH * PANEL_WIDTH) / 4) // 5632 u32 words
+#define CTRL_WORDS     (SCAN_ROWS * BIT_DEPTH)                     // 352 u32 words
 
-// Max indoor LSB pulse width in 10 ns ticks (at hw_brightness = 255):
-// 23 * 10ns = 230ns LSB -> 29.4us MSB (~360+ Hz refresh, comfortable indoor ceiling)
-#define MAX_LSB_TICKS  23u
+// MSB pulse width in 10 ns ticks at hw_brightness = 255: 2944 * 10ns = 29.44us,
+// the same MSB as the former 8-bit scan, so the extra depth adds three short
+// LSB planes (2.9, 5.75, 11.5 ticks) below the old 230 ns LSB.
+#define MSB_TICKS      2944u
 
 // Top 4 KiB flash sector for persistent Wi-Fi credentials
 #define FLASH_CFG_OFFSET (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE)
@@ -84,8 +86,9 @@ static uint8_t built_hw_brightness = 255;
 static volatile uint32_t vsync_hz_counter = 0;
 static spin_lock_t *buf_lock = NULL;
 
-static uint8_t gamma8[256];
-static uint64_t spread8[256];
+// Per input byte: bitplanes 0..7 and 8..10 of its 11-bit gamma value, one plane per byte
+static uint64_t gamma_planes_lo[256];
+static uint32_t gamma_planes_hi[256];
 
 // Persistent 24-bit RGB888 canvas on Core 0 for R889/S889 delta+RLE decoding
 static uint8_t canvas_rgb[RGB888_BYTES];
@@ -150,41 +153,42 @@ static uint32_t simple_crc32(const void *data, size_t len) {
     return ~crc;
 }
 
-static void init_luts(void) {
-    memset(gamma8, 0, sizeof(gamma8));
-    // Full 0..255 8-bit BCM range; hardware brightness scales OE pulse width directly
-    // so full 256-step color resolution is preserved even at dim night brightness.
-    for (int i = 3; i < 256; ++i) {
-        double norm = (double)(i - 2) / (255.0 - 2.0);
-        int v = (int)lround(pow(norm, 2.2) * 255.0);
-        if (i >= 10 && v < 1) {
-            v = 1;
+static uint64_t spread_bits(uint32_t v, uint32_t bits) {
+    uint64_t s = 0;
+    for (uint32_t b = 0; b < bits; ++b) {
+        if ((v >> b) & 1u) {
+            s |= (1ULL << (b * 8u));
         }
-        if (v > 255) {
-            v = 255;
-        }
-        gamma8[i] = (uint8_t)v;
     }
+    return s;
+}
 
-    // Precompute 64-bit bitplane spread table: byte `b` holds bit `b` of `v`
-    for (int v = 0; v < 256; ++v) {
-        uint64_t s = 0;
-        for (int b = 0; b < 8; ++b) {
-            if ((v >> b) & 1) {
-                s |= (1ULL << (b * 8));
-            }
+static void init_luts(void) {
+    // Inputs 0..2 stay off to swallow host quantization noise; every other input
+    // lights at least the LSB. Hardware brightness scales OE pulse width, so all
+    // 2048 levels survive dimming until the shortest planes fall below one tick.
+    for (int i = 0; i < 256; ++i) {
+        uint32_t v = 0;
+        if (i >= 3) {
+            double norm = (double)(i - 2) / (255.0 - 2.0);
+            long g = lround(pow(norm, 2.2) * (double)GAMMA_MAX);
+            v = g < 1 ? 1u : (g > (long)GAMMA_MAX ? GAMMA_MAX : (uint32_t)g);
         }
-        spread8[v] = s;
+        gamma_planes_lo[i] = spread_bits(v & 0xFFu, 8);
+        gamma_planes_hi[i] = (uint32_t)spread_bits(v >> 8, BIT_DEPTH - 8);
     }
 }
 
 static void build_ctrl_table(uint8_t idx, uint8_t hw_bright) {
     for (uint32_t bit = 0; bit < BIT_DEPTH; ++bit) {
-        uint32_t full_ticks = MAX_LSB_TICKS << bit;
-        uint32_t ticks = (hw_bright == 0)
-            ? 0u
-            : ((full_ticks * (uint32_t)hw_bright + 127u) / 255u);
-        if (hw_bright > 0 && ticks == 0u && bit >= 2u) {
+        // Rounded MSB_TICKS * 2^(bit - 10) * hw_bright / 255
+        uint32_t shift = BIT_DEPTH - 1u - bit;
+        uint32_t scaled = MSB_TICKS * (uint32_t)hw_bright;
+        uint32_t denom = 255u << shift;
+        uint32_t ticks = (scaled + denom / 2u) / denom;
+        // Planes at or above the former 8-bit scan's third bit stay visible when
+        // dimmed; the three sub-230 ns planes may legitimately round to zero.
+        if (hw_bright > 0 && ticks == 0u && bit >= 5u) {
             ticks = 1u;
         }
         for (uint32_t row = 0; row < SCAN_ROWS; ++row) {
@@ -250,24 +254,34 @@ static void __not_in_flash_func(publish_rgb888_frame)(const uint8_t *rgb, uint8_
         const uint8_t *bot = rgb + ((row + SCAN_ROWS) * PANEL_WIDTH * 3);
 
         for (int col = 0; col < PANEL_WIDTH; ++col) {
-            uint64_t planes =
-                (spread8[gamma8[top[0]]] << 0) |
-                (spread8[gamma8[top[1]]] << 1) |
-                (spread8[gamma8[top[2]]] << 2) |
-                (spread8[gamma8[bot[0]]] << 3) |
-                (spread8[gamma8[bot[1]]] << 4) |
-                (spread8[gamma8[bot[2]]] << 5);
+            uint64_t lo =
+                (gamma_planes_lo[top[0]] << 0) |
+                (gamma_planes_lo[top[1]] << 1) |
+                (gamma_planes_lo[top[2]] << 2) |
+                (gamma_planes_lo[bot[0]] << 3) |
+                (gamma_planes_lo[bot[1]] << 4) |
+                (gamma_planes_lo[bot[2]] << 5);
+            uint32_t hi =
+                (gamma_planes_hi[top[0]] << 0) |
+                (gamma_planes_hi[top[1]] << 1) |
+                (gamma_planes_hi[top[2]] << 2) |
+                (gamma_planes_hi[bot[0]] << 3) |
+                (gamma_planes_hi[bot[1]] << 4) |
+                (gamma_planes_hi[bot[2]] << 5);
             top += 3;
             bot += 3;
 
-            dst[row][0][col] = (uint8_t)(planes >> 0);
-            dst[row][1][col] = (uint8_t)(planes >> 8);
-            dst[row][2][col] = (uint8_t)(planes >> 16);
-            dst[row][3][col] = (uint8_t)(planes >> 24);
-            dst[row][4][col] = (uint8_t)(planes >> 32);
-            dst[row][5][col] = (uint8_t)(planes >> 40);
-            dst[row][6][col] = (uint8_t)(planes >> 48);
-            dst[row][7][col] = (uint8_t)(planes >> 56);
+            dst[row][0][col] = (uint8_t)(lo >> 0);
+            dst[row][1][col] = (uint8_t)(lo >> 8);
+            dst[row][2][col] = (uint8_t)(lo >> 16);
+            dst[row][3][col] = (uint8_t)(lo >> 24);
+            dst[row][4][col] = (uint8_t)(lo >> 32);
+            dst[row][5][col] = (uint8_t)(lo >> 40);
+            dst[row][6][col] = (uint8_t)(lo >> 48);
+            dst[row][7][col] = (uint8_t)(lo >> 56);
+            dst[row][8][col] = (uint8_t)(hi >> 0);
+            dst[row][9][col] = (uint8_t)(hi >> 8);
+            dst[row][10][col] = (uint8_t)(hi >> 16);
         }
     }
 
