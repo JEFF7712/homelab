@@ -155,12 +155,14 @@ spec:
               - action: drop
                 source_labels: [__name__, le]
                 regex: 'etcd_disk_.*_bucket;(0\.001|0\.002|0\.004|4\.096|8\.192)'
+        # Sized from 7 days of working set (docs/runbooks/prometheus-memory.md):
+        # median ~1.2 GiB, peak 2,046 MiB right after a drain restart.
         resources:
           requests:
             cpu: 250m
-            memory: 1Gi
+            memory: 1536Mi
           limits:
-            memory: 2Gi
+            memory: 3Gi
         storageSpec:
           volumeClaimTemplate:
             metadata:
