@@ -1,18 +1,23 @@
 import os
 import pty
 import socket
+import struct
 import threading
 import time
 import unittest
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from spotify_matrix_streamer import (
     TCPMatrixStreamer,
     USBMatrixStreamer,
+    decode_r889_frame,
+    encode_r889_frame,
     frame_to_rgb565,
     frame_to_rgb888,
+    render_record,
+    render_test_album,
 )
 
 
@@ -321,6 +326,127 @@ class StreamingTests(unittest.TestCase):
                 time.sleep(0.36)
                 self.assertTrue(streamer.send_frame(red))
                 self.assertEqual(len(receiver.recv(8192)), 8192)
+            finally:
+                streamer.close()
+
+    def test_r889_delta_rle_roundtrip_and_hardware_brightness(self) -> None:
+        base = Image.new("RGB", (64, 64), (0, 0, 0))
+        draw = ImageDraw.Draw(base)
+        draw.rectangle((16, 16, 48, 48), fill=(255, 80, 20))
+
+        pkt0, rgb0, hb0 = encode_r889_frame(base, brightness=0.7, prev_rgb=None)
+        self.assertEqual(pkt0[:1], b"F")
+        self.assertEqual(len(pkt0), 12292)
+        canvas, decoded_hb0 = decode_r889_frame(pkt0, None)
+        self.assertEqual(bytes(canvas), rgb0)
+        self.assertEqual(decoded_hb0, hb0)
+        self.assertEqual(hb0, 178)
+
+        # Brightness-only change uses 4-byte zero-payload header preserving full 24-bit RGB
+        pkt1, rgb1, hb1 = encode_r889_frame(base, brightness=0.1, prev_rgb=rgb0)
+        self.assertEqual(len(pkt1), 4)
+        canvas, decoded_hb1 = decode_r889_frame(pkt1, canvas)
+        self.assertEqual(bytes(canvas), rgb1)
+        self.assertEqual(decoded_hb1, hb1)
+        self.assertEqual(hb1, 26)
+
+        # Small sprite change encodes compactly (< 200 bytes)
+        moved = base.copy()
+        ImageDraw.Draw(moved).rectangle((2, 2, 5, 5), fill=(20, 200, 255))
+        pkt2, rgb2, _ = encode_r889_frame(moved, brightness=0.7, prev_rgb=rgb1)
+        self.assertEqual(pkt2[:1], b"R")
+        self.assertLess(len(pkt2), 200)
+        canvas, _ = decode_r889_frame(pkt2, canvas)
+        self.assertEqual(bytes(canvas), rgb2)
+
+        # Spinning vinyl compresses outer corners & spindle hole losslessly
+        art = render_test_album(64)
+        v1 = render_record(art, 10.0, size=64)
+        v2 = render_record(art, 11.5, size=64)
+        pkt_v1, rgb_v1, _ = encode_r889_frame(v1, brightness=0.7, prev_rgb=None)
+        canvas, _ = decode_r889_frame(pkt_v1, None)
+        pkt_v2, rgb_v2, _ = encode_r889_frame(v2, brightness=0.7, prev_rgb=rgb_v1)
+        self.assertLess(len(pkt_v2), 9500)
+        canvas, _ = decode_r889_frame(pkt_v2, canvas)
+        self.assertEqual(bytes(canvas), rgb_v2)
+
+        # Incompressible random noise falls back to 'F' cleanly
+        rng = np.random.default_rng(42)
+        noise = Image.fromarray(
+            rng.integers(0, 256, (64, 64, 3), dtype=np.uint8), "RGB"
+        )
+        pkt_noise, rgb_noise, _ = encode_r889_frame(
+            noise, brightness=1.0, prev_rgb=rgb_v2
+        )
+        self.assertEqual(pkt_noise[:1], b"F")
+        canvas, _ = decode_r889_frame(pkt_noise, canvas)
+        self.assertEqual(bytes(canvas), rgb_noise)
+
+    def test_tcp_negotiates_r889_compressed_stream(self) -> None:
+        decoded_frames: list[tuple[bytes, int]] = []
+        with socket.socket() as server:
+            server.bind(("127.0.0.1", 0))
+            server.listen()
+            server.settimeout(3)
+
+            def receive() -> None:
+                conn, _ = server.accept()
+                with conn:
+                    conn.settimeout(3)
+                    conn.sendall(b"R889")
+                    canvas: bytearray | None = None
+                    for _ in range(3):
+                        hdr = bytearray()
+                        while len(hdr) < 4:
+                            part = conn.recv(4 - len(hdr))
+                            if not part:
+                                return
+                            hdr.extend(part)
+                        _, plen = struct.unpack("<BH", hdr[1:4])
+                        body = bytearray()
+                        while len(body) < plen:
+                            part = conn.recv(plen - len(body))
+                            if not part:
+                                return
+                            body.extend(part)
+                        canvas, hb = decode_r889_frame(bytes(hdr + body), canvas)
+                        decoded_frames.append((bytes(canvas), hb))
+                        conn.sendall(b"A")
+
+            worker = threading.Thread(target=receive, daemon=True)
+            worker.start()
+            streamer = TCPMatrixStreamer(
+                "127.0.0.1",
+                server.getsockname()[1],
+                max_in_flight=4,
+                keepalive_interval=4.0,
+            )
+            try:
+                f1 = Image.new("RGB", (64, 64), (0, 0, 0))
+                ImageDraw.Draw(f1).ellipse((20, 20, 44, 44), fill=(120, 40, 250))
+                f2 = f1.copy()
+                ImageDraw.Draw(f2).point((10, 10), fill=(255, 255, 255))
+
+                self.assertTrue(streamer.send_frame(f1, brightness=0.7))
+                # Identical frame + brightness -> skipped on wire
+                self.assertTrue(streamer.send_frame(f1, brightness=0.7))
+                self.assertEqual(streamer.skipped_frames, 1)
+                # Brightness change -> immediate 4-byte hardware OE brightness packet
+                self.assertTrue(streamer.send_frame(f1, brightness=0.2))
+                # Pixel change -> compact delta packet
+                self.assertTrue(streamer.send_frame(f2, brightness=0.2))
+
+                worker.join(3)
+                self.assertFalse(worker.is_alive())
+                self.assertEqual(streamer.protocol, "R889")
+                self.assertEqual(
+                    decoded_frames,
+                    [
+                        (f1.tobytes(), 178),
+                        (f1.tobytes(), 51),
+                        (f2.tobytes(), 51),
+                    ],
+                )
             finally:
                 streamer.close()
 
