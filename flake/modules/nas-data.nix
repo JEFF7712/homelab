@@ -202,12 +202,14 @@ in
     serviceConfig = {
       Type = "oneshot";
       PrivateTmp = true;
+      CacheDirectory = "nas-backup-local";
       ExecStartPre = pkgs.writeShellScript "check-nas-backup-mounts" (
         builtins.readFile ../../scripts/nas/check-backup-mounts.sh
       );
     };
     script = ''
       export RESTIC_REPOSITORY=/mnt/backup-local/nas-restic
+      export RESTIC_CACHE_DIR=$CACHE_DIRECTORY
       export RESTIC_PASSWORD_FILE=${config.sops.secrets.registry-restic-password.path}
       if [ ! -f "$RESTIC_REPOSITORY/config" ]; then
         restic init
