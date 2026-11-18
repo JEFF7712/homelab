@@ -32,6 +32,9 @@ notify() {
     "${ntfy_url}" >/dev/null || true
 }
 
+# Each failure line starts with the failing object's identity, ended by ": "
+# or " (". The identities are stored per check so a second object failing
+# while the check is already bad still alerts.
 check_change() {
   key="$1"
   status="$2"
@@ -39,11 +42,20 @@ check_change() {
   ok_title="$4"
   message="$5"
   previous="$(state_get "${key}")"
-  if [ "${status}" = "bad" ] && [ "${previous}" != "bad" ]; then
-    notify "${fail_title}" "high" "${message}"
-  elif [ "${status}" = "ok" ] && [ "${previous}" = "bad" ]; then
+  items=""
+  if [ "${status}" = "bad" ]; then
+    items="$(printf '%s\n' "${message}" | sed -E 's/( \(|: ).*//' | sed '/^$/d' | sort -u)"
+    new_items="$(printf '%s\n' "${items}" | KNOWN="$(state_get "${key}-items")" awk '
+      BEGIN { n = split(ENVIRON["KNOWN"], known, "\n"); for (i = 1; i <= n; i++) seen[known[i]] = 1 }
+      $0 != "" && !($0 in seen)
+    ')"
+    if [ -n "${new_items}" ]; then
+      notify "${fail_title}" "high" "${message}"
+    fi
+  elif [ "${previous}" = "bad" ]; then
     notify "${ok_title}" "default" "${message}"
   fi
+  state_set "${key}-items" "${items}"
   state_set "${key}" "${status}"
 }
 
