@@ -11,6 +11,8 @@ from PIL import Image
 
 from modes.base import ModeRenderer, RenderContext
 
+TRAIL_LUT_SIZE = 256
+
 
 @dataclass(frozen=True)
 class LifePalette:
@@ -20,6 +22,14 @@ class LifePalette:
     decay2: tuple[int, int, int]
     decay3: tuple[int, int, int]
     alive: tuple[int, int, int]
+
+    def trail_lut(self) -> np.ndarray:
+        """Colors for trail intensity 0..1: bg, decay1, decay2, decay3 at equal steps."""
+        stops = np.array([self.bg, self.decay1, self.decay2, self.decay3], dtype=float)
+        positions = np.linspace(0.0, 1.0, len(stops))
+        samples = np.linspace(0.0, 1.0, TRAIL_LUT_SIZE)
+        channels = [np.interp(samples, positions, stops[:, c]) for c in range(3)]
+        return np.rint(np.stack(channels, axis=1)).astype(np.uint8)
 
 
 DEFAULT_PALETTES: tuple[LifePalette, ...] = (
@@ -110,9 +120,11 @@ class LifeRenderer(ModeRenderer):
     ) -> None:
         self.size = size
         self.grid = np.zeros((size, size), dtype=bool)
-        self.decay = np.zeros((size, size), dtype=np.int8)  # 0..3 decay trail
+        # Trail intensity of dead cells, 1.0 at death fading linearly to 0
+        self.trail = np.zeros((size, size), dtype=np.float32)
         self.step_timer = 0.0
         self.step_interval = 0.09  # ~11 gen/sec
+        self.trail_seconds = 4 * self.step_interval
         self.palette_timer = 0.0
         self.palette_interval = palette_interval
         self.palettes = list(palettes if palettes is not None else DEFAULT_PALETTES)
@@ -123,6 +135,7 @@ class LifeRenderer(ModeRenderer):
             random.shuffle(self.palette_playlist)
         self.palette_idx = self.palette_playlist[0] if self.randomize else 0
         self.stagnant_history: deque[int] = deque(maxlen=24)
+        self._trail_luts: dict[int, np.ndarray] = {}
         self.reset()
 
     @property
@@ -166,7 +179,7 @@ class LifeRenderer(ModeRenderer):
 
     def reset(self) -> None:
         self.grid = np.zeros((self.size, self.size), dtype=bool)
-        self.decay = np.zeros((self.size, self.size), dtype=np.int8)
+        self.trail = np.zeros((self.size, self.size), dtype=np.float32)
         # Seed a rich random 36x36 core
         core = np.random.rand(36, 36) < 0.28
         self.grid[14:50, 14:50] = core
@@ -210,10 +223,15 @@ class LifeRenderer(ModeRenderer):
         elif not should_cycle:
             self.palette_timer = 0.0
 
+        if dt > 0:
+            self.trail = np.maximum(self.trail - dt / self.trail_seconds, 0.0)
+
         self.step_timer += dt
         if self.step_timer < self.step_interval:
             return
-        self.step_timer = 0.0
+        # Carry the remainder so the generation rate is independent of the frame
+        # rate, but never replay a backlog after a long frame.
+        self.step_timer = min(self.step_timer - self.step_interval, self.step_interval)
 
         # Vectorized Conway's Game of Life
         g = self.grid.astype(int)
@@ -229,12 +247,8 @@ class LifeRenderer(ModeRenderer):
         )
         new_grid = (nbrs == 3) | (self.grid & (nbrs == 2))
 
-        # Update decay trail: cells that died get max trail (3), living get 0, decaying drop by 1
-        died = self.grid & (~new_grid)
-        self.decay[died] = 3
-        self.decay[new_grid] = 0
-        decaying = (~new_grid) & (self.decay > 0) & (~died)
-        self.decay[decaying] -= 1
+        self.trail[self.grid & ~new_grid] = 1.0
+        self.trail[new_grid] = 0.0
 
         self.grid = new_grid
         alive_count = int(np.count_nonzero(self.grid))
@@ -257,21 +271,12 @@ class LifeRenderer(ModeRenderer):
         )
         self.update(ctx.dt, should_cycle=should_cycle)
 
-        img_array = np.zeros((self.size, self.size, 3), dtype=np.uint8)
         palette = self.current_palette
-
-        # Background
-        img_array[:, :] = palette.bg
-
-        # Phosphor decay trails:
-        # Trail 1: oldest decay
-        img_array[self.decay == 1] = palette.decay1
-        # Trail 2: mid decay
-        img_array[self.decay == 2] = palette.decay2
-        # Trail 3: freshest decay
-        img_array[self.decay == 3] = palette.decay3
-
-        # Living cells
+        lut = self._trail_luts.get(self.palette_idx)
+        if lut is None:
+            lut = self._trail_luts[self.palette_idx] = palette.trail_lut()
+        levels = np.rint(self.trail * (TRAIL_LUT_SIZE - 1)).astype(np.intp)
+        img_array = lut[levels]
         img_array[self.grid] = palette.alive
 
         return Image.fromarray(img_array, mode="RGB")
