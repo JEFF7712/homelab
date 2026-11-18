@@ -35,7 +35,7 @@ class ClockWeatherRenderer(ModeRenderer):
         if key == self._cache_key and self._cached_frame is not None:
             return self._cached_frame
 
-        frame = Image.new("RGB", (size, size), (6, 8, 14))
+        frame = Image.new("RGB", (size, size), (0, 0, 0))
         draw = ImageDraw.Draw(frame)
 
         bbox_time = draw.textbbox((0, 0), time_str, font=self.font_time)
@@ -107,7 +107,7 @@ class ClockWeatherRenderer(ModeRenderer):
             # Crescent moon with tiny stars
             draw.ellipse((x + 3, y + 2, x + 13, y + 12), fill=(255, 230, 130))
             draw.ellipse(
-                (x + 6, y + 1, x + 15, y + 10), fill=(6, 8, 14)
+                (x + 6, y + 1, x + 15, y + 10), fill=(0, 0, 0)
             )  # Cut out crescent
             draw.point([(x + 14, y + 4), (x + 3, y + 14)], fill=(255, 255, 255))
         else:

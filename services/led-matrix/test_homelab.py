@@ -127,6 +127,40 @@ class HomelabDashboardTests(unittest.TestCase):
         self.assertTrue(fresh)
         self.assertIn("nodes", vals)
 
+    def test_modes_use_true_black_backgrounds(self) -> None:
+        from modes import (
+            DEFAULT_PALETTES,
+            ClockWeatherRenderer,
+            PhysicsRenderer,
+            VisualizerRenderer,
+        )
+
+        ctx = RenderContext(
+            tick=0.0,
+            dt=0.05,
+            ha_state=HAState(weather_condition="clear-night", weather_temp=68.0),
+            spotify_state=PlaybackState(),
+            spotify_art=None,
+        )
+        for palette in DEFAULT_PALETTES:
+            self.assertEqual(palette.bg, (0, 0, 0))
+
+        clock_frame = ClockWeatherRenderer().render(ctx, size=64)
+        self.assertEqual(clock_frame.getpixel((0, 0)), (0, 0, 0))
+
+        homelab_frame = HomelabRenderer(self.source).render(ctx, size=64)
+        self.assertEqual(homelab_frame.getpixel((0, 0)), (0, 0, 0))
+
+        physics = PhysicsRenderer(randomize=False)
+        physics.set_scene(0)
+        self.assertEqual(physics.render(ctx, size=64).getpixel((0, 0)), (0, 0, 0))
+        physics.set_scene(4)
+        self.assertEqual(physics.render(ctx, size=64).getpixel((0, 0)), (0, 0, 0))
+
+        vis = VisualizerRenderer(randomize=False)
+        vis.set_effect(0)
+        self.assertEqual(vis.render(ctx, size=64).getpixel((0, 0)), (0, 0, 0))
+
 
 if __name__ == "__main__":
     unittest.main()

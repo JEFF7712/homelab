@@ -26,7 +26,7 @@ DEFAULT_PALETTES: tuple[LifePalette, ...] = (
     # 1. Cyberpunk Emerald & Violet (original classic)
     LifePalette(
         name="Cyberpunk",
-        bg=(3, 5, 10),
+        bg=(0, 0, 0),
         decay1=(15, 10, 50),
         decay2=(40, 20, 110),
         decay3=(120, 30, 180),
@@ -35,7 +35,7 @@ DEFAULT_PALETTES: tuple[LifePalette, ...] = (
     # 2. Amber CRT Phosphor (warm retro arcade)
     LifePalette(
         name="Amber CRT",
-        bg=(8, 4, 1),
+        bg=(0, 0, 0),
         decay1=(40, 16, 2),
         decay2=(110, 50, 5),
         decay3=(190, 100, 10),
@@ -44,7 +44,7 @@ DEFAULT_PALETTES: tuple[LifePalette, ...] = (
     # 3. Matrix Terminal (classic green phosphor)
     LifePalette(
         name="Matrix Terminal",
-        bg=(2, 6, 2),
+        bg=(0, 0, 0),
         decay1=(5, 35, 10),
         decay2=(12, 95, 25),
         decay3=(25, 165, 45),
@@ -53,7 +53,7 @@ DEFAULT_PALETTES: tuple[LifePalette, ...] = (
     # 4. Synthwave Sunset (hot magenta/purple to warm sun orange)
     LifePalette(
         name="Synthwave",
-        bg=(8, 2, 10),
+        bg=(0, 0, 0),
         decay1=(45, 10, 50),
         decay2=(110, 15, 75),
         decay3=(200, 30, 80),
@@ -62,7 +62,7 @@ DEFAULT_PALETTES: tuple[LifePalette, ...] = (
     # 5. Bioluminescent Abyss (deep ocean blue to electric cyan)
     LifePalette(
         name="Bioluminescent Abyss",
-        bg=(2, 6, 12),
+        bg=(0, 0, 0),
         decay1=(5, 25, 60),
         decay2=(10, 70, 130),
         decay3=(20, 140, 200),
@@ -71,7 +71,7 @@ DEFAULT_PALETTES: tuple[LifePalette, ...] = (
     # 6. Solar Flare (crimson plasma to vibrant gold)
     LifePalette(
         name="Solar Flare",
-        bg=(8, 2, 4),
+        bg=(0, 0, 0),
         decay1=(45, 8, 20),
         decay2=(110, 15, 30),
         decay3=(190, 35, 30),
@@ -80,7 +80,7 @@ DEFAULT_PALETTES: tuple[LifePalette, ...] = (
     # 7. Arctic Aurora (twilight indigo through teal to mint)
     LifePalette(
         name="Arctic Aurora",
-        bg=(4, 3, 10),
+        bg=(0, 0, 0),
         decay1=(25, 12, 50),
         decay2=(25, 65, 85),
         decay3=(35, 145, 125),
@@ -89,7 +89,7 @@ DEFAULT_PALETTES: tuple[LifePalette, ...] = (
     # 8. Neon Dream (midnight violet to pastel pink)
     LifePalette(
         name="Neon Dream",
-        bg=(6, 2, 8),
+        bg=(0, 0, 0),
         decay1=(25, 15, 60),
         decay2=(65, 30, 110),
         decay3=(140, 45, 140),
