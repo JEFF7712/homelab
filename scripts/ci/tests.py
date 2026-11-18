@@ -91,6 +91,30 @@ def write_report(cases: Iterable[ET.Element], output: Path) -> None:
     ET.ElementTree(suite).write(output, encoding="utf-8", xml_declaration=True)
 
 
+# repository-contract runs the suite in the Nix sandbox, which has no `nix`
+# binary, so modules that evaluate the flake gate on shutil.which("nix") and
+# skip there. This marker selects them for the lane that has a real Nix.
+NIX_MARKER = re.compile(r"""shutil\.which\(\s*["']nix["']\s*\)""")
+
+
+def nix_integration(suite: unittest.TestSuite) -> unittest.TestSuite:
+    """Keep the tests whose module needs a real `nix`, and import failures."""
+    selected = unittest.TestSuite()
+    for test in suite:
+        if isinstance(test, unittest.TestSuite):
+            selected.addTest(nix_integration(test))
+            continue
+        module = sys.modules.get(type(test).__module__)
+        source = getattr(module, "__file__", None)
+        # A module that fails to import becomes a loader _FailedTest; keep
+        # it so the failure is reported rather than silently deselected.
+        if type(test).__module__ == "unittest.loader" or (
+            source and NIX_MARKER.search(Path(source).read_text())
+        ):
+            selected.addTest(test)
+    return selected
+
+
 def exclude_module(suite: unittest.TestSuite, module: str) -> unittest.TestSuite:
     selected = unittest.TestSuite()
     for test in suite:
@@ -181,12 +205,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--log-report", action="store_true")
     parser.add_argument("--exclude-module")
     parser.add_argument(
+        "--nix-integration",
+        action="store_true",
+        help='only modules that need a real nix (shutil.which("nix"))',
+    )
+    parser.add_argument(
         "--jobs", type=int, default=1, help="worker processes; 0 uses every CPU"
     )
     args = parser.parse_args(argv)
     suite = unittest.defaultTestLoader.discover(args.start, pattern=args.pattern)
     if args.exclude_module:
         suite = exclude_module(suite, args.exclude_module)
+    if args.nix_integration:
+        suite = nix_integration(suite)
     jobs = args.jobs if args.jobs > 0 else len(os.sched_getaffinity(0))
     if jobs > 1:
         cases, success = run_parallel(suite, jobs)
