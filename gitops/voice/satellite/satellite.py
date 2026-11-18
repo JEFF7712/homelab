@@ -1198,10 +1198,15 @@ class VoiceSatelliteProtocol(APIServer):
     def duck(self) -> None:
         _LOGGER.debug("Ducking music")
         self.state.music_player.duck()
+        # Music normally plays through the host Sendspin player, not mpv.
+        if ducker := getattr(self.state, "music_stream_ducker", None):
+            ducker.duck()
 
     def unduck(self) -> None:
         _LOGGER.debug("Unducking music")
         self.state.music_player.unduck()
+        if ducker := getattr(self.state, "music_stream_ducker", None):
+            ducker.unduck()
 
     # ------------------------------------------------------------------
     # Timer finished loop

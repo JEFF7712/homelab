@@ -33,6 +33,7 @@ configMapGenerator:
       - satellite/healthcheck.py
       - satellite/__main__.py
       - satellite/satellite.py
+      - satellite/stream_ducker.py
   - name: jarvis-exporter-code
     options:
       disableNameSuffixHash: true
