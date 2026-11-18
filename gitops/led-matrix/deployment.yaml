@@ -57,7 +57,7 @@ spec:
             - --pico-ip
             - 10.0.20.136
             - --fps
-            - "30"
+            - "60"
             - --spotify-poll-interval
             - "5.0"
             - --spotify-poll-interval-paused
