@@ -1,0 +1,11 @@
+{
+  "transport": "tcp",
+  "requested_fps": 20.0,
+  "seconds": 60.01929389097495,
+  "acknowledged_frames": 1193,
+  "failures": 0,
+  "displayed_fps": 19.87694160759513,
+  "mean_frame_ms": 34.5777124370435,
+  "max_frame_ms": 99.57625798415393,
+  "receiver_log": "10.0.20.131 | code.py | 10.3.1\u001b\\TCP connected\r\nSTATS fps=16.31 frames=82 incomplete=0 refresh_ms=8.40\r\nSTATS fps=19.86 frames=100 incomplete=0 refresh_ms=8.77\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.79\r\nSTATS fps=19.93 frames=100 incomplete=0 refresh_ms=8.48\r\nSTATS fps=19.64 frames=99 incomplete=0 refresh_ms=8.71\r\nSTATS fps=19.93 frames=100 incomplete=0 refresh_ms=8.66\r\nSTATS fps=19.92 frames=100 incomplete=0 refresh_ms=8.74\r\nSTATS fps=19.94 frames=100 incomplete=0 refresh_ms=9.05\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.70\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.76\r\nSTATS fps=19.77 frames=99 incomplete=0 refresh_ms=8.95\r\nSTATS fps=19.95 frames=100 incomplete=0 refresh_ms=8.73\r\n"
+}

@@ -1,0 +1,11 @@
+{
+  "transport": "usb",
+  "requested_fps": 20.0,
+  "seconds": 60.009008847002406,
+  "acknowledged_frames": 1198,
+  "failures": 0,
+  "displayed_fps": 19.96366917264695,
+  "mean_frame_ms": 33.5974243349234,
+  "max_frame_ms": 39.27637898596004,
+  "receiver_log": "\u001b]0;\ud83d\udc0d10.0.20.131 | code.py | 10.3.1\u001b\\\u001b]0;\ud83d\udc0d10.0.20.131 | code.py | 10.3.1\u001b\\STATS fps=19.20 frames=96 incomplete=0 refresh_ms=8.45\r\nSTATS fps=20.00 frames=100 incomplete=0 refresh_ms=8.46\r\nSTATS fps=19.97 frames=100 incomplete=0 refresh_ms=8.37\r\nSTATS fps=19.95 frames=100 incomplete=0 refresh_ms=8.66\r\nSTATS fps=19.98 frames=100 incomplete=0 refresh_ms=8.41\r\nSTATS fps=19.95 frames=100 incomplete=0 refresh_ms=8.44\r\nSTATS fps=19.97 frames=100 incomplete=0 refresh_ms=8.45\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.38\r\nSTATS fps=19.97 frames=100 incomplete=0 refresh_ms=8.40\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.35\r\nSTATS fps=19.97 frames=100 incomplete=0 refresh_ms=8.43\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.28\r\n"
+}

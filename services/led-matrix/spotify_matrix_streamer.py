@@ -1058,7 +1058,7 @@ class SpotifyClient:
 
 # --- Main Streaming Loop ---
 def run_streamer(args: argparse.Namespace) -> None:
-    pico_ip = args.pico_ip or os.environ.get("PICO_MATRIX_IP", "10.0.20.131")
+    pico_ip = args.pico_ip or os.environ.get("PICO_MATRIX_IP", "10.0.20.136")
     port = args.port
     fps = max(1, min(60, args.fps))
     frame_interval = 1.0 / fps
@@ -1202,7 +1202,7 @@ def main() -> None:
         help="Dedicated USB data port (default: auto-detect)",
     )
     parser.add_argument(
-        "--pico-ip", default=None, help="Pico W IP address (default: 10.0.20.131)"
+        "--pico-ip", default=None, help="Pico W IP address (default: 10.0.20.136)"
     )
     parser.add_argument(
         "--port", type=int, default=9999, help="TCP port (default: 9999)"

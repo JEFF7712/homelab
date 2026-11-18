@@ -61,6 +61,18 @@ class HomeAssistantTests(unittest.TestCase):
         self.assertEqual(effective_brightness("Off", 0.35), 0.0)
         self.assertEqual(effective_brightness("Laptop", 0.35), 0.0)
 
+    def test_recent_frame_time_max_forgets_samples_outside_window(self) -> None:
+        from ha_matrix_streamer import RecentMax
+
+        recent = RecentMax(60.0)
+        self.assertEqual(recent.value(0.0), 0.0)
+        recent.add(0.0, 1250.0)
+        recent.add(1.0, 30.0)
+        recent.add(30.0, 45.0)
+        self.assertEqual(recent.value(59.0), 1250.0)
+        self.assertEqual(recent.value(61.0), 45.0)
+        self.assertEqual(recent.value(91.0), 0.0)
+
     def test_compact_entity_deltas_merge_attributes_and_remove_stale_art(self) -> None:
         source = HomeAssistantSource("http://127.0.0.1:8123", "test-token", ENTITY)
         source._connected = True

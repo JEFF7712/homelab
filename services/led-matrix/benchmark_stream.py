@@ -24,7 +24,7 @@ def main() -> None:
     parser.add_argument("--fps", type=float, default=20)
     parser.add_argument("--transport", choices=("usb", "tcp"), default="tcp")
     parser.add_argument("--serial-port")
-    parser.add_argument("--pico-ip", default="10.0.20.131")
+    parser.add_argument("--pico-ip", default="10.0.20.136")
     parser.add_argument("--console")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
