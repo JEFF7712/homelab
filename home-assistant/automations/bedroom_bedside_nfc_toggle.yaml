@@ -1,0 +1,27 @@
+id: bedroom_bedside_nfc_toggle
+alias: "Bedroom Lights: Bedside NFC Toggle"
+description: >-
+  Scanning the bedside NFC tag toggles the bedroom lights. When anything in
+  the bedroom is on, run "Bedroom: Lights Off" (which snapshots the current
+  state); otherwise run "Bedroom: Evening Lights On" to restore it. Single
+  mode plus a short hold swallows the duplicate scan a phone can report when
+  it lingers on the tag, so one tap never toggles twice.
+triggers:
+  - trigger: tag
+    tag_id: bedroom-bedside
+conditions: []
+actions:
+  - if:
+      - condition: template
+        value_template: >-
+          {{ expand('light.desk_lamp_desk_lamp', 'light.floor_lamp_floor_lamp',
+          'light.light_strip_light_strip', 'light.bus_display',
+          'switch.bedroom_window_plug', 'switch.bedroom_mushroom_plug')
+          | selectattr('state', 'eq', 'on') | list | count > 0 }}
+    then:
+      - action: script.bedroom_lights_off
+    else:
+      - action: script.bedroom_lights_on
+  - delay: "00:00:02"
+mode: single
+max_exceeded: silent

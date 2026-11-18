@@ -1,3 +1,0 @@
-name: Bedroom Bedtime Charging Done
-icon: mdi:cellphone-charging
-entity_id: input_boolean.bedroom_bedtime_charging_done

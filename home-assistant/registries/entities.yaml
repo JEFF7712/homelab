@@ -85,10 +85,6 @@
 - disabled_by: integration
   entity_id: binary_sensor.zigbee2mqtt_bridge_restart_required
   labels: []
-- entity_id: input_boolean.bedroom_bedtime_charging_done
-  icon: mdi:cellphone-charging
-  labels: []
-  name: Bedroom Bedtime Charging Done
 - entity_id: input_boolean.bedroom_lights_auto_on
   icon: mdi:lightbulb-auto
   labels: []
