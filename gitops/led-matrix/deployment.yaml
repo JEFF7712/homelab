@@ -38,7 +38,7 @@ spec:
       containers:
         - name: renderer
           image: >-
-            registry.rupan.dev/apps/spotify-matrix@sha256:b95104376acb95029d64f6d368b165c9c8d5fd9536e1024198e3d547aa874637
+            registry.rupan.dev/apps/spotify-matrix@sha256:79bc6b97fb209a96bb592f4fd1909adefee316ed0fe0d5cd580d65b3130e622d
           args:
             - --ha-url
             - http://10.0.40.13:8123
@@ -50,10 +50,6 @@ spec:
             - input_boolean.bedroom_matrix_power
             - --mode-entity
             - input_select.bedroom_matrix_mode
-            - --contrast-entity
-            - input_number.bedroom_matrix_vinyl_contrast
-            - --saturation-entity
-            - input_number.bedroom_matrix_vinyl_saturation
             - --weather-entity
             - weather.forecast_home
             - --music-mode-entity
@@ -61,7 +57,7 @@ spec:
             - --pico-ip
             - 10.0.20.136
             - --fps
-            - "30"
+            - "60"
             - --spotify-poll-interval
             - "5.0"
             - --spotify-poll-interval-paused

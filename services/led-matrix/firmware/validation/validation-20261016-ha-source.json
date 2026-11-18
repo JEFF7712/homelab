@@ -1,0 +1,9 @@
+{
+  "source": "home_assistant",
+  "seconds": 60.041895667032804,
+  "acknowledged_frames": 1192,
+  "failures": 0,
+  "displayed_fps": 19.852804225408413,
+  "max_frame_ms": 149.58069997373968,
+  "entity_available": true
+}

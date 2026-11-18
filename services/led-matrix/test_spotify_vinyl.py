@@ -92,33 +92,17 @@ class SpotifyVinylTests(unittest.TestCase):
         pixels = frame.load()
         self.assertEqual(pixels[32, 32], (0, 0, 0))
 
-    def test_live_ha_state_contrast_and_saturation(self) -> None:
-        art = muted_art()
-        renderer = SpotifyVinylRenderer()
-        renderer.angle = 13.0
-        ctx_default = playing_context(art)
-        ctx_boosted = RenderContext(
-            tick=0.0,
-            dt=0.05,
-            ha_state=HAState(vinyl_contrast=1.5, vinyl_saturation=1.8),
-            spotify_state=PlaybackState(available=True, playing=True),
-            spotify_art=art,
-        )
-        sat_default = disc_mean_saturation(renderer.render(ctx_default))
-        sat_boosted = disc_mean_saturation(renderer.render(ctx_boosted))
-        self.assertGreater(sat_boosted, sat_default)
-
     def test_prepared_disc_art_is_cached_across_rotations(self) -> None:
         art = muted_art()
         renderer = SpotifyVinylRenderer()
         ctx = playing_context(art)
         renderer.render(ctx, size=64)
         self.assertEqual(len(renderer._fitted_cache), 1)
-        cached_prepared = renderer._fitted_cache[0][4]
+        cached_prepared = renderer._fitted_cache[0][2]
         for _ in range(5):
             renderer.render(ctx, size=64)
         self.assertEqual(len(renderer._fitted_cache), 1)
-        self.assertIs(renderer._fitted_cache[0][4], cached_prepared)
+        self.assertIs(renderer._fitted_cache[0][2], cached_prepared)
 
 
 if __name__ == "__main__":

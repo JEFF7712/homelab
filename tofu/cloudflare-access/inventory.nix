@@ -313,10 +313,6 @@
         }
         {
           type = "public";
-          uri = "renovate-approve.rupan.dev";
-        }
-        {
-          type = "public";
           uri = "nix-agent.rupan.dev";
         }
         {

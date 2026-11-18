@@ -60,7 +60,9 @@ class SpotifySetupTests(unittest.TestCase):
         self.assertNotIn("test-secret", location)
         params = urllib.parse.parse_qs(urllib.parse.urlparse(location).query)
         self.assertEqual(params["redirect_uri"], [REDIRECT_URI])
-        self.assertEqual(params["scope"], ["user-read-currently-playing"])
+        self.assertEqual(
+            params["scope"], ["user-read-currently-playing user-read-playback-state"]
+        )
         self.assertEqual(params["state"], [self.setup.oauth_state])
 
     def test_wrong_state_cannot_exchange_code(self) -> None:

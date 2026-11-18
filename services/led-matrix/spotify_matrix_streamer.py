@@ -38,7 +38,10 @@ except ImportError:
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 CURRENTLY_PLAYING_URL = "https://api.spotify.com/v1/me/player/currently-playing"
-SCOPE = "user-read-currently-playing"
+QUEUE_URL = "https://api.spotify.com/v1/me/player/queue"
+# The queue endpoint needs user-read-playback-state; the matrix prefetches the
+# covers of upcoming tracks from it.
+SCOPE = "user-read-currently-playing user-read-playback-state"
 
 
 def write_private_file(path: Path, contents: str) -> None:
@@ -423,8 +426,38 @@ class USBMatrixStreamer:
         self._last_r889_bright = -1
 
 
+ACK_TIMEOUT_S = 3.0
+RECEIVER_STATS_INTERVAL_S = 5.0
+R890_STATS_QUERY = b"Q\x00\x00\x00"
+R890_STATS = struct.Struct("<IIIIIIIHBbH")
+R890_STATS_FIELDS = (
+    "uptime_ms",
+    "frames",
+    "incomplete",
+    "rx_bytes",
+    "tcp_rexmit",
+    "tcp_drop",
+    "tcp_memerr",
+    "refresh_hz",
+    "hw_bright",
+    "rssi_dbm",
+    "wifi_reconnects",
+)
+R890_ALERT_FIELDS = (
+    "incomplete",
+    "tcp_rexmit",
+    "tcp_drop",
+    "tcp_memerr",
+    "wifi_reconnects",
+)
+
+
 class TCPMatrixStreamer:
-    """Send R565, R888, or compressed R889 frames with pipelining and deduplication."""
+    """Send R565, R888, or compressed R889/R890 frames with pipelining and deduplication.
+
+    R890 is R889 framing plus an in-band receiver telemetry query: the host sends
+    a 4-byte ``Q`` header and the Pico answers ``S`` followed by ``R890_STATS``.
+    """
 
     def __init__(
         self,
@@ -446,38 +479,124 @@ class TCPMatrixStreamer:
         self.protocol = "R565"
         self._pending_frames = 0
         self._oldest_pending_since = 0.0
+        self._rx = bytearray()
+        self._stats_query_sent_at = 0.0
+        self._stats_pending = False
         self._last_payload: bytes | None = None
         self._last_r889_rgb: bytes | None = None
         self._last_r889_bright = -1
         self._last_send_time = 0.0
+        self._consecutive_failures = 0
         self.frames = 0
         self.skipped_frames = 0
+        self.dropped_frames = 0
         self.failures = 0
         self.last_error = 0.0
         self.last_ack = 0.0
+        self.receiver_stats: dict[str, int] | None = None
 
-    def _receive_acknowledgements(self, *, wait: bool = False) -> bool:
-        if self.sock is None or not self._pending_frames:
-            return False
-        readable, _, _ = select.select([self.sock], [], [], 1.0 if wait else 0)
-        if not readable:
-            if wait or (
-                self._oldest_pending_since
-                and (time.monotonic() - self._oldest_pending_since) >= 1.0
-            ):
-                raise TimeoutError("Pico did not acknowledge displayed frames")
-            return False
-        replies = self.sock.recv(self._pending_frames)
-        if not replies or replies != b"A" * len(replies):
-            raise ConnectionError(
-                "Pico disconnected or returned an invalid frame acknowledgement"
+    def _apply_receiver_stats(self, raw: bytes) -> None:
+        stats = dict(zip(R890_STATS_FIELDS, R890_STATS.unpack(raw), strict=True))
+        previous = self.receiver_stats
+        self.receiver_stats = stats
+        if previous is None:
+            return
+        if stats["uptime_ms"] < previous["uptime_ms"]:
+            print("[Matrix] Pico rebooted since the last telemetry sample", flush=True)
+            return
+        changed = {
+            name: stats[name] - previous[name]
+            for name in R890_ALERT_FIELDS
+            if stats[name] != previous[name]
+        }
+        if changed:
+            detail = " ".join(f"{name}=+{delta}" for name, delta in changed.items())
+            print(
+                f"[Matrix] Pico link: {detail} rssi={stats['rssi_dbm']}dBm",
+                flush=True,
             )
-        self._pending_frames -= len(replies)
-        now = time.monotonic()
-        self._oldest_pending_since = now if self._pending_frames else 0.0
-        self.frames += len(replies)
-        self.last_ack = now
+
+    def _parse_replies(self) -> int:
+        acks = 0
+        pos = 0
+        while pos < len(self._rx):
+            marker = self._rx[pos]
+            if marker == 0x41:
+                acks += 1
+                pos += 1
+            elif marker == 0x53 and self.protocol == "R890":
+                end = pos + 1 + R890_STATS.size
+                if len(self._rx) < end:
+                    break
+                self._apply_receiver_stats(bytes(self._rx[pos + 1 : end]))
+                self._stats_pending = False
+                pos = end
+            else:
+                raise ConnectionError("Pico returned an invalid frame acknowledgement")
+        del self._rx[:pos]
+        return acks
+
+    def _receive_replies(self, timeout: float) -> bool:
+        if self.sock is None or not (self._pending_frames or self._stats_pending):
+            return False
+        readable, _, _ = select.select([self.sock], [], [], timeout)
+        if not readable:
+            return False
+        data = self.sock.recv(4096)
+        if not data:
+            raise ConnectionError("Pico disconnected")
+        self._rx.extend(data)
+        acks = self._parse_replies()
+        if acks > self._pending_frames:
+            raise ConnectionError("Pico acknowledged frames that were never sent")
+        if acks:
+            self._pending_frames -= acks
+            now = time.monotonic()
+            self._oldest_pending_since = now if self._pending_frames else 0.0
+            self.frames += acks
+            self.last_ack = now
+            self._consecutive_failures = 0
         return True
+
+    def _check_ack_deadline(self) -> None:
+        if (
+            self._pending_frames
+            and self._oldest_pending_since
+            and (time.monotonic() - self._oldest_pending_since) >= ACK_TIMEOUT_S
+        ):
+            raise TimeoutError("Pico did not acknowledge displayed frames")
+
+    def _wait_for_acknowledgement(self) -> None:
+        deadline = time.monotonic() + ACK_TIMEOUT_S
+        pending = self._pending_frames
+        while self._pending_frames >= pending:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("Pico did not acknowledge displayed frames")
+            self._receive_replies(remaining)
+
+    def _send(self, payload: bytes) -> None:
+        assert self.sock is not None
+        self.sock.sendall(payload)
+        send_t = time.monotonic()
+        if self._pending_frames == 0:
+            self._oldest_pending_since = send_t
+        self._pending_frames += 1
+        self._last_send_time = send_t
+        if self.max_in_flight == 1:
+            self._wait_for_acknowledgement()
+
+    def _maybe_query_receiver_stats(self, now: float) -> None:
+        if self.protocol != "R890" or self.sock is None:
+            return
+        since = now - self._stats_query_sent_at
+        if self._stats_pending and since < 2 * RECEIVER_STATS_INTERVAL_S:
+            return
+        if since < RECEIVER_STATS_INTERVAL_S:
+            return
+        self.sock.sendall(R890_STATS_QUERY)
+        self._stats_query_sent_at = now
+        self._stats_pending = True
 
     def send_frame(self, image: Image.Image, brightness: float = 1.0) -> bool:
         if image.size != (64, 64):
@@ -496,18 +615,27 @@ class TCPMatrixStreamer:
                             "Pico disconnected before the ready handshake"
                         )
                     ready.extend(part)
-                if ready not in (b"R565", b"R888", b"R889"):
+                if ready not in (b"R565", b"R888", b"R889", b"R890"):
                     raise ConnectionError("Pico returned an invalid ready handshake")
+                self.sock.settimeout(ACK_TIMEOUT_S)
                 self.protocol = ready.decode("ascii")
                 self._last_payload = None
                 self._last_r889_rgb = None
                 self._last_r889_bright = -1
 
-            while self._receive_acknowledgements():
+            while self._receive_replies(0):
                 pass
+            self._check_ack_deadline()
             now = time.monotonic()
+            self._maybe_query_receiver_stats(now)
 
-            if self.protocol == "R889":
+            # Drop rather than block when the pipeline is full so a slow Wi-Fi
+            # moment costs frames, not render-loop time.
+            if self._pending_frames >= self.max_in_flight:
+                self.dropped_frames += 1
+                return True
+
+            if self.protocol in ("R889", "R890"):
                 wire_bytes, rgb_bytes, hw_bright = encode_r889_frame(
                     image, brightness, prev_rgb=self._last_r889_rgb
                 )
@@ -519,17 +647,9 @@ class TCPMatrixStreamer:
                 ):
                     self.skipped_frames += 1
                     return True
-                while self._pending_frames >= self.max_in_flight:
-                    self._receive_acknowledgements(wait=True)
-                self.sock.sendall(wire_bytes)
-                send_t = time.monotonic()
-                if self._pending_frames == 0:
-                    self._oldest_pending_since = send_t
-                self._pending_frames += 1
                 self._last_r889_rgb = rgb_bytes
                 self._last_r889_bright = hw_bright
-                self._last_send_time = send_t
-                self._receive_acknowledgements(wait=self.max_in_flight == 1)
+                self._send(wire_bytes)
                 return True
 
             raw_bytes = (
@@ -549,19 +669,12 @@ class TCPMatrixStreamer:
             ):
                 self.skipped_frames += 1
                 return True
-            while self._pending_frames >= self.max_in_flight:
-                self._receive_acknowledgements(wait=True)
-            self.sock.sendall(raw_bytes)
-            send_t = time.monotonic()
-            if self._pending_frames == 0:
-                self._oldest_pending_since = send_t
-            self._pending_frames += 1
             self._last_payload = raw_bytes
-            self._last_send_time = send_t
-            self._receive_acknowledgements(wait=self.max_in_flight == 1)
+            self._send(raw_bytes)
             return True
         except OSError as error:
             self.failures += 1
+            self._consecutive_failures += 1
             self.close()
             now = time.monotonic()
             if now - self.last_error >= 5:
@@ -569,7 +682,8 @@ class TCPMatrixStreamer:
                     f"[Matrix] {error}; reconnecting with the latest frame", flush=True
                 )
                 self.last_error = now
-            time.sleep(0.25)
+            if self._consecutive_failures > 1:
+                time.sleep(0.25)
             return False
 
     def close(self) -> None:
@@ -578,6 +692,9 @@ class TCPMatrixStreamer:
             self.sock = None
         self._pending_frames = 0
         self._oldest_pending_since = 0.0
+        self._rx.clear()
+        self._stats_pending = False
+        self._stats_query_sent_at = 0.0
         self._last_payload = None
         self._last_r889_rgb = None
         self._last_r889_bright = -1
@@ -789,12 +906,32 @@ class SpotifyClient:
         raise_on_rate_limit: bool = False,
         raise_on_error: bool = False,
     ) -> dict[str, Any] | None:
+        return self._api_get(
+            CURRENTLY_PLAYING_URL,
+            params={"additional_types": "track,episode"},
+            retry_auth=retry_auth,
+            raise_on_rate_limit=raise_on_rate_limit,
+            raise_on_error=raise_on_error,
+        )
+
+    def get_queue(self) -> dict[str, Any] | None:
+        """Return the playback queue; raises like a raising currently-playing."""
+        return self._api_get(QUEUE_URL, raise_on_rate_limit=True, raise_on_error=True)
+
+    def _api_get(
+        self,
+        url: str,
+        params: dict[str, str] | None = None,
+        retry_auth: bool = True,
+        raise_on_rate_limit: bool = False,
+        raise_on_error: bool = False,
+    ) -> dict[str, Any] | None:
         token = self._valid_access_token()
         headers = {"Authorization": f"Bearer {token}"}
         try:
             resp = requests.get(
-                CURRENTLY_PLAYING_URL,
-                params={"additional_types": "track,episode"},
+                url,
+                params=params,
                 headers=headers,
                 timeout=5,
             )
@@ -802,7 +939,9 @@ class SpotifyClient:
                 return None
             if resp.status_code == 401 and retry_auth:
                 self._refresh_token()
-                return self.get_currently_playing(
+                return self._api_get(
+                    url,
+                    params=params,
                     retry_auth=False,
                     raise_on_rate_limit=raise_on_rate_limit,
                     raise_on_error=raise_on_error,
@@ -944,7 +1083,7 @@ class SpotifyClient:
 
 # --- Main Streaming Loop ---
 def run_streamer(args: argparse.Namespace) -> None:
-    pico_ip = args.pico_ip or os.environ.get("PICO_MATRIX_IP", "10.0.20.131")
+    pico_ip = args.pico_ip or os.environ.get("PICO_MATRIX_IP", "10.0.20.136")
     port = args.port
     fps = max(1, min(60, args.fps))
     frame_interval = 1.0 / fps
@@ -1088,7 +1227,7 @@ def main() -> None:
         help="Dedicated USB data port (default: auto-detect)",
     )
     parser.add_argument(
-        "--pico-ip", default=None, help="Pico W IP address (default: 10.0.20.131)"
+        "--pico-ip", default=None, help="Pico W IP address (default: 10.0.20.136)"
     )
     parser.add_argument(
         "--port", type=int, default=9999, help="TCP port (default: 9999)"

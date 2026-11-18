@@ -8,6 +8,7 @@ import os
 import signal
 import threading
 import time
+from collections import deque
 from pathlib import Path
 
 from ha_source import ArtworkCache, HomeAssistantSource, HybridPlaybackSource
@@ -34,6 +35,25 @@ from spotify_matrix_streamer import (
 from web_controller import MultiplayerHub, start_background_server
 
 SPOTIFY_VINYL_BRIGHTNESS = 0.7
+FRAME_TIME_WINDOW_S = 60.0
+
+
+class RecentMax:
+    """Maximum of the samples recorded within a trailing time window."""
+
+    def __init__(self, window: float) -> None:
+        self.window = window
+        self._samples: deque[tuple[float, float]] = deque()
+
+    def add(self, at: float, value: float) -> None:
+        while self._samples and self._samples[-1][1] <= value:
+            self._samples.pop()
+        self._samples.append((at, value))
+
+    def value(self, now: float) -> float:
+        while self._samples and self._samples[0][0] < now - self.window:
+            self._samples.popleft()
+        return self._samples[0][1] if self._samples else 0.0
 
 
 def effective_brightness(mode: str, configured_brightness: float) -> float:
@@ -72,18 +92,6 @@ def main() -> None:
     parser.add_argument(
         "--brightness-entity",
         default=os.getenv("BRIGHTNESS_ENTITY") or None,
-    )
-    parser.add_argument(
-        "--contrast-entity",
-        default=os.getenv(
-            "CONTRAST_ENTITY", "input_number.bedroom_matrix_vinyl_contrast"
-        ),
-    )
-    parser.add_argument(
-        "--saturation-entity",
-        default=os.getenv(
-            "SATURATION_ENTITY", "input_number.bedroom_matrix_vinyl_saturation"
-        ),
     )
     parser.add_argument(
         "--weather-entity",
@@ -185,8 +193,6 @@ def main() -> None:
             weather_entity=args.weather_entity,
             music_mode_entity=args.music_mode_entity,
             cycle_entity=args.cycle_entity,
-            contrast_entity=args.contrast_entity,
-            saturation_entity=args.saturation_entity,
             stale_after=args.stale_after,
         )
     except (OSError, ValueError) as error:
@@ -267,6 +273,7 @@ def main() -> None:
     started = last_tick = next_frame_at = time.monotonic()
     last_ack = last_health = 0.0
     max_frame_ms = 0.0
+    recent_frame_ms = RecentMax(FRAME_TIME_WINDOW_S)
     last_title = ""
     last_playing: bool | None = None
     last_mode: str | None = None
@@ -290,6 +297,9 @@ def main() -> None:
             art = cache.get(
                 spotify_state.artwork_url if spotify_state.available else ""
             )
+            upcoming = getattr(source, "upcoming_artwork", None)
+            if upcoming is not None:
+                cache.prefetch(upcoming())
 
             # Determine active mode
             if not ha_state.power or ha_state.mode == "Off":
@@ -345,9 +355,11 @@ def main() -> None:
                                 "artwork_ready": False,
                                 "frames": streamer.frames,
                                 "skipped_frames": streamer.skipped_frames,
+                                "dropped_frames": streamer.dropped_frames,
+                                "receiver": streamer.receiver_stats,
                                 "protocol": streamer.protocol,
                                 "failures": streamer.failures,
-                                "max_frame_ms": round(max_frame_ms, 2),
+                                "max_frame_ms": round(recent_frame_ms.value(tick), 2),
                                 "provider": getattr(
                                     source, "active_provider", "home_assistant"
                                 ),
@@ -398,7 +410,9 @@ def main() -> None:
 
             streamer.send_frame(frame, brightness=brightness)
             last_ack = streamer.last_ack
-            max_frame_ms = max(max_frame_ms, (time.monotonic() - tick) * 1000)
+            frame_ms = (time.monotonic() - tick) * 1000
+            max_frame_ms = max(max_frame_ms, frame_ms)
+            recent_frame_ms.add(tick, frame_ms)
 
             if args.health_file and tick - last_health >= 2:
                 write_private_file(
@@ -415,9 +429,11 @@ def main() -> None:
                             "artwork_ready": art is not None,
                             "frames": streamer.frames,
                             "skipped_frames": streamer.skipped_frames,
+                            "dropped_frames": streamer.dropped_frames,
+                            "receiver": streamer.receiver_stats,
                             "protocol": streamer.protocol,
                             "failures": streamer.failures,
-                            "max_frame_ms": round(max_frame_ms, 2),
+                            "max_frame_ms": round(recent_frame_ms.value(tick), 2),
                             "provider": getattr(
                                 source, "active_provider", "home_assistant"
                             ),
@@ -447,6 +463,8 @@ def main() -> None:
             "seconds": elapsed,
             "acknowledged_frames": streamer.frames,
             "skipped_frames": streamer.skipped_frames,
+            "dropped_frames": streamer.dropped_frames,
+            "receiver": streamer.receiver_stats,
             "protocol": streamer.protocol,
             "failures": streamer.failures,
             "displayed_fps": streamer.frames / elapsed if elapsed > 0 else 0,

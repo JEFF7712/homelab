@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from io import BytesIO
 from unittest.mock import Mock, patch
 
+import requests
 from PIL import Image, ImageDraw
 from websockets.exceptions import ConnectionClosed
 from websockets.sync.server import serve
@@ -60,6 +61,18 @@ class HomeAssistantTests(unittest.TestCase):
         self.assertEqual(effective_brightness("Clock & Weather", 0.35), 0.35)
         self.assertEqual(effective_brightness("Off", 0.35), 0.0)
         self.assertEqual(effective_brightness("Laptop", 0.35), 0.0)
+
+    def test_recent_frame_time_max_forgets_samples_outside_window(self) -> None:
+        from ha_matrix_streamer import RecentMax
+
+        recent = RecentMax(60.0)
+        self.assertEqual(recent.value(0.0), 0.0)
+        recent.add(0.0, 1250.0)
+        recent.add(1.0, 30.0)
+        recent.add(30.0, 45.0)
+        self.assertEqual(recent.value(59.0), 1250.0)
+        self.assertEqual(recent.value(61.0), 45.0)
+        self.assertEqual(recent.value(91.0), 0.0)
 
     def test_compact_entity_deltas_merge_attributes_and_remove_stale_art(self) -> None:
         source = HomeAssistantSource("http://127.0.0.1:8123", "test-token", ENTITY)
@@ -286,16 +299,69 @@ class HomeAssistantTests(unittest.TestCase):
         cache = ArtworkCache(source)
         try:
             self.assertIsNone(cache.get("first"))
-            wait_until(lambda: source.fetch_artwork.call_count == 1)
             self.assertIsNone(cache.get("second"))
-            self.assertEqual(source.fetch_artwork.call_count, 1)
+            wait_until(lambda: source.fetch_artwork.call_count == 2)
+            self.assertIsNone(cache.get("third"))
+            self.assertEqual(source.fetch_artwork.call_count, 2)
             release.set()
-            wait_until(lambda: cache.get("second") is not None)
-            self.assertEqual(source.fetch_artwork.call_count, 2)
+            wait_until(lambda: cache.get("third") is not None)
+            self.assertEqual(source.fetch_artwork.call_count, 3)
             self.assertIsNotNone(cache.get("first"))
-            self.assertEqual(source.fetch_artwork.call_count, 2)
+            self.assertIsNotNone(cache.get("second"))
+            self.assertEqual(source.fetch_artwork.call_count, 3)
         finally:
             release.set()
+            cache.close()
+
+    def test_prefetch_warms_next_cover_without_blocking_current(self) -> None:
+        release = threading.Event()
+        source = Mock(spec=HomeAssistantSource)
+
+        def fetch(url):
+            if url == "next" and not release.wait(3):
+                raise AssertionError("Artwork worker stalled")
+            return Image.new("RGB", (16, 16), "red")
+
+        source.fetch_artwork.side_effect = fetch
+        cache = ArtworkCache(source)
+        try:
+            cache.prefetch(["next", "later"])
+            wait_until(lambda: source.fetch_artwork.call_count == 1)
+            # A prefetch in flight leaves a worker for the cover on screen,
+            # and holds back further prefetches.
+            cache.prefetch(["next", "later"])
+            wait_until(lambda: cache.get("current") is not None)
+            self.assertEqual(
+                [call.args[0] for call in source.fetch_artwork.call_args_list],
+                ["next", "current"],
+            )
+            release.set()
+            wait_until(lambda: cache.get("next") is not None)
+            cache.prefetch(["next", "red"])
+            wait_until(lambda: source.fetch_artwork.call_count == 3)
+            self.assertEqual(source.fetch_artwork.call_args.args[0], "red")
+        finally:
+            release.set()
+            cache.close()
+
+    def test_prefetch_skips_covers_in_failure_backoff(self) -> None:
+        source = Mock(spec=HomeAssistantSource)
+
+        def fetch(url):
+            if url == "broken":
+                raise ConnectionError("down")
+            return Image.new("RGB", (16, 16), "red")
+
+        source.fetch_artwork.side_effect = fetch
+        cache = ArtworkCache(source)
+        try:
+            cache.prefetch(["broken", "next"])
+            wait_until(lambda: source.fetch_artwork.call_count == 1)
+            wait_until(lambda: all(f.done() for f in cache._pending.values()))
+            cache.prefetch(["broken", "next"])
+            wait_until(lambda: cache.get("next") is not None)
+            self.assertEqual(source.fetch_artwork.call_count, 2)
+        finally:
             cache.close()
 
 
@@ -704,6 +770,104 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         self.assertEqual(snap.title, "Spotify Paused")
         self.assertFalse(snap.playing)
 
+    def test_parse_spotify_state_prefers_smallest_sufficient_cover(self) -> None:
+        parsed = parse_spotify_state(
+            {
+                "is_playing": True,
+                "item": {
+                    "name": "Song",
+                    "album": {
+                        "images": [
+                            {"url": "https://i.scdn.co/image/640", "width": 640},
+                            {"url": "https://i.scdn.co/image/300", "width": 300},
+                            {"url": "https://i.scdn.co/image/64", "width": 64},
+                        ]
+                    },
+                },
+            }
+        )
+        self.assertEqual(parsed.artwork_url, "https://i.scdn.co/image/300")
+
+    def test_playing_poll_lands_just_after_track_end(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        spotify_mock = Mock()
+        spotify_mock.get_queue.return_value = None
+        hybrid = HybridPlaybackSource(ha_mock, spotify_mock, poll_interval_playing=5.0)
+
+        def playing(progress_ms: int) -> dict:
+            return {
+                "is_playing": True,
+                "progress_ms": progress_ms,
+                "item": {"uri": "spotify:track:a", "name": "A", "duration_ms": 200_000},
+            }
+
+        spotify_mock.get_currently_playing.return_value = playing(100_000)
+        self.assertEqual(hybrid._poll_once(), 5.0)
+        spotify_mock.get_currently_playing.return_value = playing(198_000)
+        self.assertAlmostEqual(hybrid._poll_once(), 2.5)
+        spotify_mock.get_currently_playing.return_value = playing(200_000)
+        self.assertEqual(hybrid._poll_once(), 1.0)
+
+    def test_queue_lookup_once_per_track_exposes_upcoming_covers(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        spotify_mock = Mock()
+
+        def cover(name: str) -> dict:
+            return {"album": {"images": [{"url": f"https://i.scdn.co/{name}"}]}}
+
+        spotify_mock.get_queue.return_value = {
+            "currently_playing": {"uri": "spotify:track:a"},
+            "queue": [cover("b"), cover("b"), cover("c"), cover("d")],
+        }
+        spotify_mock.get_currently_playing.return_value = {
+            "is_playing": True,
+            "item": {"uri": "spotify:track:a", "name": "A"},
+        }
+        hybrid = HybridPlaybackSource(ha_mock, spotify_mock)
+        self.assertEqual(hybrid.upcoming_artwork(), ())
+        hybrid._poll_once()
+        hybrid._poll_once()
+        self.assertEqual(spotify_mock.get_queue.call_count, 1)
+        self.assertEqual(
+            hybrid.upcoming_artwork(),
+            ("https://i.scdn.co/b", "https://i.scdn.co/c"),
+        )
+
+        spotify_mock.get_currently_playing.return_value = {
+            "is_playing": True,
+            "item": {"uri": "spotify:track:b", "name": "B"},
+        }
+        hybrid._poll_once()
+        self.assertEqual(spotify_mock.get_queue.call_count, 2)
+
+    def test_queue_permission_refusal_disables_lookup_only(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        spotify_mock = Mock()
+        refused = requests.HTTPError(response=Mock(status_code=403))
+        spotify_mock.get_queue.side_effect = refused
+        hybrid = HybridPlaybackSource(ha_mock, spotify_mock, poll_interval_playing=3.0)
+        for uri in ("spotify:track:a", "spotify:track:b"):
+            spotify_mock.get_currently_playing.return_value = {
+                "is_playing": True,
+                "item": {"uri": uri, "name": uri},
+            }
+            self.assertEqual(hybrid._poll_once(), 3.0)
+        self.assertEqual(spotify_mock.get_queue.call_count, 1)
+        self.assertEqual(hybrid.active_provider, "spotify")
+        self.assertEqual(hybrid.upcoming_artwork(), ())
+
+    def test_queue_rate_limit_falls_back_like_playback_poll(self) -> None:
+        ha_mock = Mock(spec=HomeAssistantSource)
+        spotify_mock = Mock()
+        spotify_mock.get_currently_playing.return_value = {
+            "is_playing": True,
+            "item": {"uri": "spotify:track:a", "name": "A"},
+        }
+        spotify_mock.get_queue.side_effect = SpotifyRateLimited(retry_after=30.0)
+        hybrid = HybridPlaybackSource(ha_mock, spotify_mock)
+        self.assertEqual(hybrid._poll_once(), 30.0)
+        self.assertEqual(hybrid.active_provider, "home_assistant")
+
 
 class HubModeAndRendererTests(unittest.TestCase):
     def test_hub_state_multi_entity_parsing_and_deltas(self) -> None:
@@ -815,49 +979,6 @@ class HubModeAndRendererTests(unittest.TestCase):
             }
         )
         self.assertAlmostEqual(source.hub_state().brightness, 0.05)
-
-    def test_hub_state_contrast_and_saturation(self) -> None:
-        source = HomeAssistantSource(
-            base_url="http://127.0.0.1:8123",
-            token="test-token",
-            entity=ENTITY,
-            contrast_entity="input_number.bedroom_matrix_vinyl_contrast",
-            saturation_entity="input_number.bedroom_matrix_vinyl_saturation",
-        )
-        source.handle_event(
-            {
-                "id": 1,
-                "type": "event",
-                "event": {
-                    "a": {
-                        "input_number.bedroom_matrix_vinyl_contrast": {"s": "1.35"},
-                        "input_number.bedroom_matrix_vinyl_saturation": {"s": "1.45"},
-                    }
-                },
-            }
-        )
-        self.assertAlmostEqual(source.hub_state().vinyl_contrast, 1.35)
-        self.assertAlmostEqual(source.hub_state().vinyl_saturation, 1.45)
-
-        # Delta updates and clamping
-        source.handle_event(
-            {
-                "id": 1,
-                "type": "event",
-                "event": {
-                    "c": {
-                        "input_number.bedroom_matrix_vinyl_contrast": {
-                            "+": {"s": "0.05"}
-                        },
-                        "input_number.bedroom_matrix_vinyl_saturation": {
-                            "+": {"s": "5.0"}
-                        },
-                    }
-                },
-            }
-        )
-        self.assertAlmostEqual(source.hub_state().vinyl_contrast, 0.1)
-        self.assertAlmostEqual(source.hub_state().vinyl_saturation, 3.0)
 
     def test_cycle_control_and_mode_renderers(self) -> None:
         from dataclasses import replace
@@ -1513,6 +1634,50 @@ class HubModeAndRendererTests(unittest.TestCase):
         frame2 = life.render(ctx, size=64)
         # Background color remains true black (0, 0, 0) across palettes
         self.assertEqual(frame2.getpixel((0, 0)), (0, 0, 0))
+
+    def test_life_generation_rate_is_independent_of_frame_rate(self) -> None:
+        from collections import deque
+
+        from modes import LifeRenderer
+
+        class CountingDeque(deque):
+            appended = 0
+
+            def append(self, value: int) -> None:
+                self.appended += 1
+                super().append(value)
+
+        generations = {}
+        for fps in (30, 60):
+            life = LifeRenderer(randomize=False)
+            history = CountingDeque(maxlen=24)
+            life.stagnant_history = history
+            for _ in range(fps * 10):
+                life.update(1.0 / fps)
+            generations[fps] = history.appended
+        self.assertAlmostEqual(generations[30], 111, delta=2)
+        self.assertAlmostEqual(generations[60], 111, delta=2)
+
+    def test_life_trail_fades_between_generations(self) -> None:
+        from modes import DEFAULT_PALETTES, LifeRenderer
+
+        palette = DEFAULT_PALETTES[0]
+        lut = palette.trail_lut()
+        self.assertEqual(tuple(lut[0]), palette.bg)
+        self.assertEqual(tuple(lut[-1]), palette.decay3)
+
+        life = LifeRenderer(randomize=False)
+        life.grid[:] = False
+        life.grid[10, 10:13] = True
+        life.trail[30, 30] = 1.0
+        life.step_timer = -10.0
+        levels = []
+        for _ in range(4):
+            life.update(1.0 / 60)
+            levels.append(float(life.trail[30, 30]))
+        self.assertTrue(all(a > b > 0 for a, b in zip(levels, levels[1:])))
+        life.update(1.0)
+        self.assertEqual(float(life.trail[30, 30]), 0.0)
 
     def test_life_reset_preserves_palette_timer(self) -> None:
         from modes import LifeRenderer

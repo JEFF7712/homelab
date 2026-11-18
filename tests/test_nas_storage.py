@@ -40,7 +40,7 @@ class NasStorageTest(unittest.TestCase):
               inherit (fs) device options neededForBoot;
             }) system.config.fileSystems;
             services = builtins.mapAttrs (_: service: {
-              inherit (service) after wants requires unitConfig;
+              inherit (service) after wants requires unitConfig serviceConfig;
             }) {
               inherit (system.config.systemd.services) nas-backup-local zot nfs-server registry-backup;
             };
@@ -85,6 +85,10 @@ class NasStorageTest(unittest.TestCase):
         )
         self.assertIn("tank-registry.mount", services["registry-backup"]["requires"])
         backup_mounts = services["nas-backup-local"]["unitConfig"]["RequiresMountsFor"]
+        self.assertEqual(
+            services["nas-backup-local"]["serviceConfig"]["CacheDirectory"],
+            "nas-backup-local",
+        )
         for path in (
             "/tank/cluster",
             "/tank/backups/syncthing",

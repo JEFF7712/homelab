@@ -10,6 +10,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 from spotify_matrix_streamer import (
+    R890_STATS,
+    R890_STATS_FIELDS,
     TCPMatrixStreamer,
     USBMatrixStreamer,
     decode_r889_frame,
@@ -115,11 +117,10 @@ class StreamingTests(unittest.TestCase):
             os.close(master)
             os.close(slave)
 
-    def test_tcp_keeps_sending_during_delayed_replies_but_caps_pending_frames(
+    def test_tcp_drops_frames_instead_of_blocking_when_pipeline_is_full(
         self,
     ) -> None:
         streamer = TCPMatrixStreamer("unused", max_in_flight=4)
-        result = []
         sender, receiver = socket.socketpair()
         with sender, receiver:
             sender.settimeout(1)
@@ -135,21 +136,129 @@ class StreamingTests(unittest.TestCase):
                 self.assertEqual(bytes(payload), b"\x00\xf8" * (4096 * 4))
                 self.assertEqual(streamer.frames, 0)
                 self.assertEqual(streamer.last_ack, 0)
-                worker = threading.Thread(
-                    target=lambda: result.append(streamer.send_frame(image)),
-                    daemon=True,
-                )
-                worker.start()
+
+                started = time.monotonic()
+                self.assertTrue(streamer.send_frame(image))
+                self.assertLess(time.monotonic() - started, 0.1)
+                self.assertEqual(streamer.dropped_frames, 1)
                 receiver.settimeout(0.1)
                 with self.assertRaises(socket.timeout):
                     receiver.recv(1)
+
                 receiver.sendall(b"AAAA")
-                worker.join(2)
-                self.assertFalse(worker.is_alive())
-                self.assertEqual(result, [True])
+                time.sleep(0.05)
+                self.assertTrue(streamer.send_frame(Image.new("RGB", (64, 64), "blue")))
                 self.assertEqual(streamer.frames, 4)
                 self.assertGreater(streamer.last_ack, 0)
                 self.assertEqual(streamer.failures, 0)
+            finally:
+                streamer.close()
+
+    def test_tcp_reconnects_after_ack_deadline(self) -> None:
+        streamer = TCPMatrixStreamer("unused", max_in_flight=4)
+        sender, receiver = socket.socketpair()
+        with sender, receiver:
+            streamer.sock = sender
+            image = Image.new("RGB", (64, 64), "red")
+            try:
+                self.assertTrue(streamer.send_frame(image))
+                streamer._oldest_pending_since = time.monotonic() - 2.0
+                self.assertTrue(streamer.send_frame(image))
+                self.assertEqual(streamer.failures, 0)
+                streamer._oldest_pending_since = time.monotonic() - 3.5
+                self.assertFalse(streamer.send_frame(image))
+                self.assertEqual(streamer.failures, 1)
+                self.assertIsNone(streamer.sock)
+            finally:
+                streamer.close()
+
+    def test_tcp_retries_first_failure_immediately_then_backs_off(self) -> None:
+        streamer = TCPMatrixStreamer("127.0.0.1", 9, max_in_flight=4)
+        sleeps: list[float] = []
+        image = Image.new("RGB", (64, 64), "red")
+        original_sleep = time.sleep
+        time.sleep = sleeps.append  # type: ignore[assignment]
+        try:
+            with socket.socket() as probe:
+                probe.bind(("127.0.0.1", 0))
+                streamer.port = probe.getsockname()[1]
+                self.assertFalse(streamer.send_frame(image))
+                self.assertEqual(sleeps, [])
+                self.assertFalse(streamer.send_frame(image))
+                self.assertEqual(sleeps, [0.25])
+        finally:
+            time.sleep = original_sleep
+            streamer.close()
+
+    def test_tcp_r890_queries_and_parses_receiver_stats(self) -> None:
+        stats = (12_000, 360, 2, 4_000_000, 7, 1, 0, 455, 178, -61, 3)
+        queries: list[bytes] = []
+        with socket.socket() as server:
+            server.bind(("127.0.0.1", 0))
+            server.listen()
+            server.settimeout(3)
+
+            def receive() -> None:
+                conn, _ = server.accept()
+                with conn:
+                    conn.settimeout(3)
+                    conn.sendall(b"R890")
+                    handled = 0
+                    while handled < 3:
+                        hdr = bytearray()
+                        while len(hdr) < 4:
+                            part = conn.recv(4 - len(hdr))
+                            if not part:
+                                return
+                            hdr.extend(part)
+                        _, plen = struct.unpack("<BH", hdr[1:4])
+                        if hdr[:1] == b"Q":
+                            queries.append(bytes(hdr))
+                            reply = b"S" + R890_STATS.pack(*stats)
+                            conn.sendall(reply[:10])
+                            time.sleep(0.02)
+                            conn.sendall(reply[10:])
+                            continue
+                        body = bytearray()
+                        while len(body) < plen:
+                            body.extend(conn.recv(plen - len(body)))
+                        conn.sendall(b"A")
+                        handled += 1
+
+            worker = threading.Thread(target=receive, daemon=True)
+            worker.start()
+            streamer = TCPMatrixStreamer(
+                "127.0.0.1", server.getsockname()[1], max_in_flight=1
+            )
+            try:
+                for color in ("red", "lime", "blue"):
+                    self.assertTrue(
+                        streamer.send_frame(Image.new("RGB", (64, 64), color))
+                    )
+                worker.join(3)
+                self.assertFalse(worker.is_alive())
+                self.assertEqual(streamer.protocol, "R890")
+                self.assertEqual(queries, [b"Q\x00\x00\x00"])
+                self.assertEqual((streamer.frames, streamer.failures), (3, 0))
+                self.assertEqual(
+                    streamer.receiver_stats,
+                    dict(zip(R890_STATS_FIELDS, stats, strict=True)),
+                )
+            finally:
+                streamer.close()
+
+    def test_tcp_rejects_stats_reply_on_r889(self) -> None:
+        streamer = TCPMatrixStreamer("unused", max_in_flight=4)
+        sender, receiver = socket.socketpair()
+        with sender, receiver:
+            streamer.sock = sender
+            streamer.protocol = "R889"
+            image = Image.new("RGB", (64, 64), "blue")
+            try:
+                self.assertTrue(streamer.send_frame(image))
+                receiver.sendall(b"S" + bytes(R890_STATS.size))
+                self.assertFalse(streamer.send_frame(image))
+                self.assertEqual(streamer.failures, 1)
             finally:
                 streamer.close()
 

@@ -55,11 +55,6 @@ spec:
               value: renovate-agent-approved
             - name: RENOVATE_AGENT_APPROVAL_COMMAND
               value: /renovate-agent approve
-            - name: GITHUB_TOKEN
-              valueFrom:
-                secretKeyRef:
-                  name: renovate-secrets
-                  key: github-token
             - name: FORGEJO_TOKEN
               valueFrom:
                 secretKeyRef:

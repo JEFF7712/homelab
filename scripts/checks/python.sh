@@ -44,7 +44,6 @@ pyright_paths=(
   flake/modules/bedroom-bluetooth.py flake/modules/omarchy_vm
   gitops/observability/network-monitor/monitor.py gitops/media/spotify-sync/sync.py
   gitops/automation/forgejo-dashboard/dashboard.py
-  gitops/automation/renovate-approval-webhook/renovate-approval-webhook.py
   gitops/automation/renovate-reviewer/renovate-agent.py
   gitops/media/arr-queue-hygiene/hygiene.py gitops/media/arr-secret-sync/sync.py
   gitops/media/beets/nightly.py gitops/media/jellyfin-backup/backup.py

@@ -80,33 +80,20 @@ class SpotifyVinylRenderer(ModeRenderer):
         self.angle = 0.0
         self.saturation = saturation
         self.contrast = contrast
-        self._fitted_cache: list[
-            tuple[Image.Image, int, float, float, Image.Image]
-        ] = []
+        self._fitted_cache: list[tuple[Image.Image, int, Image.Image]] = []
 
-    def _prepare_disc_art(
-        self,
-        art: Image.Image,
-        disc_size: int,
-        saturation: float,
-        contrast: float,
-    ) -> Image.Image:
-        sat_key = round(saturation, 4)
-        con_key = round(contrast, 4)
-        for cached_art, cached_size, c_sat, c_con, prepared in self._fitted_cache:
-            if (
-                cached_art is art
-                and cached_size == disc_size
-                and c_sat == sat_key
-                and c_con == con_key
-            ):
+    def _prepare_disc_art(self, art: Image.Image, disc_size: int) -> Image.Image:
+        for cached_art, cached_size, prepared in self._fitted_cache:
+            if cached_art is art and cached_size == disc_size:
                 return prepared
 
         fitted = ImageOps.fit(
             art, (disc_size, disc_size), method=Image.Resampling.LANCZOS
         )
-        prepared = compensate_disc_color(fitted, sat_key, con_key).convert("RGBA")
-        self._fitted_cache.append((art, disc_size, sat_key, con_key, prepared))
+        prepared = compensate_disc_color(
+            fitted, self.saturation, self.contrast
+        ).convert("RGBA")
+        self._fitted_cache.append((art, disc_size, prepared))
         if len(self._fitted_cache) > 6:
             self._fitted_cache.pop(0)
         return prepared
@@ -116,39 +103,17 @@ class SpotifyVinylRenderer(ModeRenderer):
         if ctx.spotify_state.available and ctx.spotify_state.playing:
             self.angle = (self.angle + ctx.dt * ctx.rotation_speed) % 360.0
 
-        saturation = (
-            ctx.ha_state.vinyl_saturation
-            if ctx.ha_state
-            and getattr(ctx.ha_state, "vinyl_saturation", None) is not None
-            else self.saturation
-        )
-        contrast = (
-            ctx.ha_state.vinyl_contrast
-            if ctx.ha_state
-            and getattr(ctx.ha_state, "vinyl_contrast", None) is not None
-            else self.contrast
-        )
-
         art = ctx.spotify_art if ctx.spotify_state.available else None
-        return self._render_record(
-            art, self.angle, size, saturation=saturation, contrast=contrast
-        )
+        return self._render_record(art, self.angle, size)
 
     def _render_record(
-        self,
-        art: Image.Image | None,
-        angle: float,
-        size: int = 64,
-        saturation: float | None = None,
-        contrast: float | None = None,
+        self, art: Image.Image | None, angle: float, size: int = 64
     ) -> Image.Image:
         if art is None:
             return self._render_idle_disc(size)
 
         margin, disc_size, disc_mask, overlay = _disc_geometry(size)
-        sat = self.saturation if saturation is None else saturation
-        con = self.contrast if contrast is None else contrast
-        art_square = self._prepare_disc_art(art, disc_size, sat, con)
+        art_square = self._prepare_disc_art(art, disc_size)
         rotated = art_square.rotate(angle, resample=Image.Resampling.BICUBIC)
 
         frame = Image.new("RGBA", (size, size), (0, 0, 0, 255))

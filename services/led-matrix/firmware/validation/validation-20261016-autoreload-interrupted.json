@@ -1,0 +1,11 @@
+{
+  "transport": "usb",
+  "requested_fps": 20.0,
+  "seconds": 60.020748545997776,
+  "acknowledged_frames": 1089,
+  "failures": 2,
+  "displayed_fps": 18.143725734533767,
+  "mean_frame_ms": 33.46873476221102,
+  "max_frame_ms": 40.67396599566564,
+  "receiver_log": "10.0.20.131 | code.py | 10.3.1\u001b\\\u001b]0;\ud83d\udc0d10.0.20.131 | code.py | 10.3.1\u001b\\STATS fps=1.40 frames=7 incomplete=3 refresh_ms=9.37\r\nSTATS fps=20.00 frames=100 incomplete=0 refresh_ms=8.33\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.54\r\nSTATS fps=19.98 frames=100 incomplete=0 refresh_ms=8.64\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.35\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.33\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.23\r\nSTATS fps=19.98 frames=100 incomplete=0 refresh_ms=8.31\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.36\r\n\u001b]0;\ud83d\udc0d10.0.20.131 | Done | 10.3.1\u001b\\\r\nCode stopped by auto-reload. Reloading soon.\r\nsoft reboot\r\n\u001b[2K\u001b[0Gcode.py output:\r\n\u001b]0;\ud83d\udc0d10.0.20.131 | code.py | 10.3.1\u001b\\=== Starting Pico W Matrix Receiver (V3.9 Dual Stream) ===\r\nWi-Fi connected. IP: 10.0.20.131\r\nReady: USB CDC data (S565 + 8192 bytes) or TCP :9999 (8192 bytes), RGB565 LE\r\n\u001b]0;\ud83d\udc0d10.0.20.131 | code.py | 10.3.1\u001b\\\u001b]0;\ud83d\udc0d10.0.20.131 | code.py | 10.3.1\u001b\\STATS fps=13.76 frames=69 incomplete=50 refresh_ms=8.49\r\nSTATS fps=19.96 frames=100 incomplete=0 refresh_ms=8.40\r\n"
+}
