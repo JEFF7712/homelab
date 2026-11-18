@@ -157,10 +157,14 @@ sequence:
               by_parts: >-
                 {{ clean_track_query | regex_findall('^(.+?)\s+by\s+(.+)$', ignorecase=True)
                   | first | default([], true) }}
+          # One step per dependency level: each variable reads only earlier steps.
+          - variables:
               by_song: "{{ (by_parts[0] | trim) if by_parts | length == 2 else '' }}"
               by_artist: "{{ (by_parts[1] | trim) if by_parts | length == 2 else '' }}"
+          - variables:
               use_by_search: >-
                 {{ (by_song | string | length > 2) and (by_artist | string | length > 2) }}
+          - variables:
               search_name: >-
                 {{ ((by_song | string) ~ ' ' ~ (by_artist | string)) if use_by_search | bool else clean_track_query }}
           - action: music_assistant.search

@@ -188,15 +188,24 @@ PREFERRED_KEY_ORDER: tuple[str, ...] = (
 )
 
 
-def _order_mapping_keys(obj: Any) -> Any:
-    """Recursively order mapping keys. Never reorder lists/arrays."""
+def _order_mapping_keys(obj: Any, *, keep_order: bool = False) -> Any:
+    """Recursively order mapping keys. Never reorder lists/arrays.
+
+    Variables mappings keep their order: HA renders them in sequence.
+    """
     if isinstance(obj, dict):
         keys = list(obj.keys())
-        # Sort keys with preferred order first, then alphabetical
-        preferred = [k for k in PREFERRED_KEY_ORDER if k in obj]
-        rest = sorted([k for k in keys if k not in PREFERRED_KEY_ORDER])
-        ordered_keys = preferred + rest
-        return {k: _order_mapping_keys(obj[k]) for k in ordered_keys}
+        if keep_order:
+            ordered_keys = keys
+        else:
+            # Sort keys with preferred order first, then alphabetical
+            preferred = [k for k in PREFERRED_KEY_ORDER if k in obj]
+            rest = sorted([k for k in keys if k not in PREFERRED_KEY_ORDER])
+            ordered_keys = preferred + rest
+        return {
+            k: _order_mapping_keys(obj[k], keep_order=k == "variables")
+            for k in ordered_keys
+        }
     if isinstance(obj, list):
         return [_order_mapping_keys(item) for item in obj]
     return obj
@@ -239,7 +248,11 @@ def strip_volatile(obj: Any, path: tuple[str, ...] = ()) -> Any:
 
 
 def to_json_compatible(obj: Any) -> Any:
-    """Convert objects to JSON-serializable types, preserving tags deterministically."""
+    """Convert objects to JSON-serializable types, preserving tags and key order.
+
+    Key order is semantic in HA: a variables step renders its keys in order, so
+    a later variable can read an earlier one. Hashing sorts keys separately.
+    """
     if isinstance(obj, SecretTag):
         return {"!secret": obj.value}
     if isinstance(obj, IncludeTag):
@@ -247,10 +260,7 @@ def to_json_compatible(obj: Any) -> Any:
     if isinstance(obj, IncludeDirTag):
         return {"!include_dir_merge_named": obj.value}
     if isinstance(obj, dict):
-        return {
-            k: to_json_compatible(v)
-            for k, v in sorted(obj.items(), key=lambda x: str(x[0]))
-        }
+        return {k: to_json_compatible(v) for k, v in obj.items()}
     if isinstance(obj, list):
         return [to_json_compatible(item) for item in obj]
     return obj

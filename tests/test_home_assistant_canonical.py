@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import unittest
 
 from scripts.home_assistant.canonical import (
@@ -68,6 +69,30 @@ class TestHomeAssistantCanonical(unittest.TestCase):
         data2 = {"a": 1, "b": 2, "nested": {"x": 1, "y": 2}}
         self.assertEqual(canonical_json(data1), canonical_json(data2))
         self.assertEqual(canonical_hash(data1), canonical_hash(data2))
+
+    def test_variables_keep_source_order_through_plan_and_dump(self) -> None:
+        # HA renders a variables step in order; sorting broke live automations.
+        from scripts.home_assistant.models import ActionType, PlanAction
+
+        variables = {"owners": {"b": 1, "a": 2}, "candidates": "{{ owners }}"}
+        config = {"alias": "x", "actions": [{"variables": variables}]}
+        action = PlanAction(
+            kind="automation",
+            key="x",
+            action=ActionType.UPDATE,
+            before=None,
+            after=config,
+        )
+        restored = PlanAction.from_dict(json.loads(json.dumps(action.to_dict())))
+        payload = restored.after["actions"][0]["variables"]
+        self.assertEqual(list(payload), ["owners", "candidates"])
+        self.assertEqual(list(payload["owners"]), ["b", "a"])
+        dumped = parse_yaml(dump_yaml(config))["actions"][0]["variables"]
+        self.assertEqual(list(dumped), ["owners", "candidates"])
+        reordered = {"actions": [{"variables": dict(reversed(variables.items()))}]}
+        self.assertEqual(
+            canonical_hash({"actions": config["actions"]}), canonical_hash(reordered)
+        )
 
     def test_strips_volatile_timestamps(self) -> None:
         data = {
