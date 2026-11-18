@@ -25,6 +25,7 @@ LAPTOP_OBSERVER_KEY = (
     " agent-observer@laptop-nixos"
 )
 LAPTOP_OBSERVER_SOURCES = "10.0.10.0/24,10.0.20.0/24,100.64.0.0/10"
+LAPTOP_OBSERVER_MASQUERADE = "10.0.30.10"
 OBSERVER = "agent-observer"
 # Source each host's sshd saw for the agent VM on 2026-11-16: homelab-04 sees
 # the VM's routed address, every other host sees homelab-04's masquerade.
@@ -153,13 +154,18 @@ class FleetSshAccessTest(unittest.TestCase):
         for host, settings in self.hosts.items():
             with self.subTest(host=host):
                 source = AGENT_VM_SOURCES.get(host, AGENT_VM_MASQUERADE)
+                laptop_source = (
+                    LAPTOP_OBSERVER_SOURCES
+                    if host == "adguard-netbird-01"
+                    else f"{LAPTOP_OBSERVER_SOURCES},{LAPTOP_OBSERVER_MASQUERADE}"
+                )
                 observer = settings["observer"]
                 self.assertEqual(observer["keyFiles"], [])
                 self.assertEqual(
                     observer["keys"],
                     [
                         f'restrict,pty,from="{source}" {AGENT_VM_KEY}',
-                        f'restrict,pty,from="{LAPTOP_OBSERVER_SOURCES}" {LAPTOP_OBSERVER_KEY}',
+                        f'restrict,pty,from="{laptop_source}" {LAPTOP_OBSERVER_KEY}',
                     ],
                 )
 
