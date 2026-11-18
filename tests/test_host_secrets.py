@@ -78,23 +78,33 @@ class HostSecretsTest(unittest.TestCase):
                 unitConfig = s.unitConfig;
               }) cfg.systemd.services;
             };
-          in lib.genAttrs HOSTS (host: describe flake.nixosConfigurations.${host}.config)
+          in describe flake.nixosConfigurations.HOST.config
         """
         expression = expression.replace(
             "ROOT_FLAKE", json.dumps(f"git+file://{ROOT}?dir=flake")
         )
-        expression = expression.replace("HOSTS", json.dumps(HOSTS).replace(",", " "))
-        result = subprocess.run(
-            ["nix", "eval", "--impure", "--json", "--expr", expression],
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            timeout=600,
-            check=False,
-        )
-        if result.returncode:
-            raise RuntimeError(result.stderr)
-        cls.evaluated = json.loads(result.stdout)
+        # One evaluator per host: all hosts in one process peaked near 2.3 GB,
+        # beside the CI flake lane's evaluator under the 8 GiB job limit.
+        cls.evaluated = {}
+        for host in HOSTS:
+            result = subprocess.run(
+                [
+                    "nix",
+                    "eval",
+                    "--impure",
+                    "--json",
+                    "--expr",
+                    expression.replace("HOST", json.dumps(host)),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=600,
+                check=False,
+            )
+            if result.returncode:
+                raise RuntimeError(result.stderr)
+            cls.evaluated[host] = json.loads(result.stdout)
 
     def test_hosts_decrypt_their_own_file_with_the_persisted_host_key(self) -> None:
         for host in HOSTS:
