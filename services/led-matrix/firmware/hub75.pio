@@ -1,0 +1,92 @@
+.program hub75_data
+.side_set 1
+
+; SM0: Shifts 64 RGB1/RGB2 column bytes (packed 4 bytes per 32-bit DMA word)
+; out on GP2..GP7 while toggling CLK (GP13) via side-set, overlapped in parallel
+; while SM1 displays the previously latched bitplane.
+; Y is initialized once to 63 (for 64 columns).
+
+.wrap_target
+    mov x, y           side 0  ; x = 63
+pix_loop:
+    out pins, 6        side 0  ; Present RGB1/RGB2 on GP2..GP7 with CLK low (autopulls 32b)
+    out null, 2        side 1  ; Discard upper 2 pad bits while rising CLK latches pixel
+    jmp x-- pix_loop   side 0  ; Loop 64 columns with CLK low
+    irq 4              side 0  ; Notify SM1 that 64 pixels are ready in shift register
+    wait 1 irq 5       side 0  ; Wait until SM1 latches before shifting next bitplane
+.wrap
+
+.program hub75_row
+.side_set 2
+
+; SM1: Controls row address GP8..GP12 (5 out pins) and LAT/OE GP14..GP15 (2 side-set pins).
+; Side-set bit 0 = LAT (GP14), bit 1 = OE (GP15, active-low: 1=blanked, 0=lit).
+; Each 32-bit DMA control word: bits [4:0] = row (0..31), bits [31:5] = oe_cycles (10ns ticks).
+
+.wrap_target
+    wait 1 irq 4       side 0b10 ; OE=1, LAT=0: wait until SM0 finishes shifting 64 pixels
+    out pins, 5 [3]    side 0b10 ; OE=1, LAT=0: drive row address A..E + 40ns setup
+    nop [5]            side 0b11 ; OE=1, LAT=1: 60ns latch pulse into output drivers
+    out x, 27          side 0b10 ; OE=1, LAT=0: load 27-bit oe_cycles into X (OSR empty)
+    irq 5              side 0b10 ; Release SM0 immediately to shift NEXT bitplane in parallel
+    jmp !x skip_oe     side 0b10 ; Keep OE=1 if oe_cycles == 0 (brightness 0)
+oe_loop:
+    jmp x-- oe_loop    side 0b00 ; OE=0, LAT=0: illuminate row for oe_cycles * 10ns
+skip_oe:
+    nop [3]            side 0b10 ; OE=1, LAT=0: >=40ns anti-ghosting blanking deadtime
+.wrap
+
+% c-sdk {
+#include "hardware/clocks.h"
+
+static inline void hub75_data_program_init(PIO pio, uint sm, uint offset, uint rgb_base_pin, uint clk_pin) {
+    pio_sm_set_pins_with_mask(pio, sm, 0u, (0x3Fu << rgb_base_pin) | (1u << clk_pin));
+    pio_sm_set_consecutive_pindirs(pio, sm, rgb_base_pin, 6, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, clk_pin, 1, true);
+    for (uint i = rgb_base_pin; i < rgb_base_pin + 6; ++i) {
+        pio_gpio_init(pio, i);
+    }
+    pio_gpio_init(pio, clk_pin);
+
+    pio_sm_config c = hub75_data_program_get_default_config(offset);
+    sm_config_set_out_pins(&c, rgb_base_pin, 6);
+    sm_config_set_sideset_pins(&c, clk_pin);
+    sm_config_set_in_shift(&c, false, false, 32);
+    sm_config_set_out_shift(&c, true, true, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+    // At 200 MHz sys_clk: 200 / 3.0 = 66.67 MHz SM clock -> 22.22 MHz HUB75 pixel clock
+    sm_config_set_clkdiv(&c, 3.0f);
+
+    pio_sm_init(pio, sm, offset, &c);
+
+    // Preload Y = 63 ((31 << 1) | 1) via ISR without touching TX FIFO or OSR
+    pio_sm_exec(pio, sm, pio_encode_set(pio_y, 31));
+    pio_sm_exec(pio, sm, pio_encode_in(pio_y, 5));
+    pio_sm_exec(pio, sm, pio_encode_set(pio_y, 1));
+    pio_sm_exec(pio, sm, pio_encode_in(pio_y, 1));
+    pio_sm_exec(pio, sm, pio_encode_mov(pio_y, pio_isr));
+}
+
+static inline void hub75_row_program_init(PIO pio, uint sm, uint offset, uint addr_base_pin, uint lat_pin) {
+    // Start with OE (lat_pin + 1) HIGH (blanked) and LAT LOW
+    uint32_t mask = (0x1Fu << addr_base_pin) | (3u << lat_pin);
+    pio_sm_set_pins_with_mask(pio, sm, (1u << (lat_pin + 1)), mask);
+    pio_sm_set_consecutive_pindirs(pio, sm, addr_base_pin, 5, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, lat_pin, 2, true);
+    for (uint i = addr_base_pin; i < addr_base_pin + 5; ++i) {
+        pio_gpio_init(pio, i);
+    }
+    pio_gpio_init(pio, lat_pin);
+    pio_gpio_init(pio, lat_pin + 1);
+
+    pio_sm_config c = hub75_row_program_get_default_config(offset);
+    sm_config_set_out_pins(&c, addr_base_pin, 5);
+    sm_config_set_sideset_pins(&c, lat_pin);
+    sm_config_set_out_shift(&c, true, true, 32);
+    sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+    // At 200 MHz sys_clk: 200 / 2.0 = 100 MHz SM clock (exact 10 ns OE resolution)
+    sm_config_set_clkdiv(&c, 2.0f);
+
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}

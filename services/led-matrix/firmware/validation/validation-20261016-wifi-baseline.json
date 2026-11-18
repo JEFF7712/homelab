@@ -1,0 +1,11 @@
+{
+  "transport": "tcp",
+  "requested_fps": 20.0,
+  "seconds": 15.026965833036229,
+  "acknowledged_frames": 273,
+  "failures": 1,
+  "displayed_fps": 18.167340169218964,
+  "mean_frame_ms": 34.95674845510957,
+  "max_frame_ms": 289.60697195725515,
+  "receiver_log": "10.0.20.131 | code.py | 10.3.1\u001b\\TCP connected\r\nTCP disconnected: [Errno 116] ETIMEDOUT\r\nTCP connected\r\nSTATS fps=14.00 frames=70 incomplete=1 refresh_ms=8.59\r\nSTATS fps=19.88 frames=100 incomplete=0 refresh_ms=8.56\r\nSTATS fps=19.91 frames=100 incomplete=0 refresh_ms=8.63\r\n"
+}
