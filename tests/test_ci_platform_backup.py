@@ -17,7 +17,6 @@ from scripts.ci.platform_backup import (
     snapshot_couchdb,
     snapshot_home_assistant_config,
     snapshot_sqlite_tree,
-    stop_active_services,
     verify_restored_backup,
 )
 
@@ -188,9 +187,10 @@ class PlatformBackupStagingTests(unittest.TestCase):
 
             staged_niks3 = []
 
+            commands = []
+
             def fake_run(command, **kwargs):
-                if command[:2] == ["systemctl", "is-active"]:
-                    return subprocess.CompletedProcess(command, 3, "inactive\n", "")
+                commands.append(command)
                 if command[0] == "restic" and "backup" in command:
                     staged_niks3.append(
                         (kwargs["cwd"] / "niks3/signing-key").read_text()
@@ -200,6 +200,14 @@ class PlatformBackupStagingTests(unittest.TestCase):
             run.side_effect = fake_run
             run_backup("nas-01", persist_root=persist)
             self.assertEqual(staged_niks3, ["homelab-niks3-1:secret\n"])
+            self.assertFalse([c for c in commands if c[0] == "systemctl"])
+            snapshot_calls = [c for c in commands if c[:2] == ["zfs", "snapshot"]]
+            self.assertEqual(len(snapshot_calls), 2)
+            self.assertTrue(snapshot_calls[0][2].startswith("zroot/persist@"))
+            self.assertEqual(
+                [name.split("@")[0] for name in snapshot_calls[1][2:]],
+                ["tank/forgejo", "tank/s3"],
+            )
 
     @patch("scripts.ci.platform_backup.subprocess.run")
     def test_failed_upload_cleans_persistent_stage(self, run):
@@ -213,42 +221,6 @@ class PlatformBackupStagingTests(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
                 run_backup("homelab-04", persist_root=persist)
             self.assertEqual(list((persist / "platform-backup").iterdir()), [])
-
-
-class PlatformBackupServiceTests(unittest.TestCase):
-    @patch("scripts.ci.platform_backup.subprocess.run")
-    def test_outage_service_is_not_scheduled_for_restart(self, run):
-        run.side_effect = [
-            subprocess.CompletedProcess([], 3, "inactive\n"),
-            subprocess.CompletedProcess([], 0, "active\n"),
-            subprocess.CompletedProcess([], 0),
-        ]
-        stopped = []
-        stop_active_services(["forgejo", "garage"], stopped)
-        self.assertEqual(stopped, ["garage"])
-        self.assertEqual(
-            run.call_args_list[-1].args[0], ["systemctl", "stop", "garage"]
-        )
-
-    @patch("scripts.ci.platform_backup.subprocess.run")
-    def test_transition_fails_before_backup_or_restart(self, run):
-        run.return_value = subprocess.CompletedProcess([], 3, "deactivating\n")
-        stopped = []
-        with self.assertRaisesRegex(RuntimeError, "deactivating"):
-            stop_active_services(["forgejo"], stopped)
-        self.assertEqual(stopped, [])
-        self.assertEqual(run.call_count, 1)
-
-    @patch("scripts.ci.platform_backup.subprocess.run")
-    def test_stop_failure_retains_cleanup_obligation(self, run):
-        run.side_effect = [
-            subprocess.CompletedProcess([], 0, "active\n"),
-            subprocess.CalledProcessError(1, ["systemctl", "stop", "forgejo"]),
-        ]
-        stopped = []
-        with self.assertRaises(subprocess.CalledProcessError):
-            stop_active_services(["forgejo"], stopped)
-        self.assertEqual(stopped, ["forgejo"])
 
 
 class PlatformBackupMaintenanceTests(unittest.TestCase):
