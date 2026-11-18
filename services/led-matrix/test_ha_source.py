@@ -1635,6 +1635,50 @@ class HubModeAndRendererTests(unittest.TestCase):
         # Background color remains true black (0, 0, 0) across palettes
         self.assertEqual(frame2.getpixel((0, 0)), (0, 0, 0))
 
+    def test_life_generation_rate_is_independent_of_frame_rate(self) -> None:
+        from collections import deque
+
+        from modes import LifeRenderer
+
+        class CountingDeque(deque):
+            appended = 0
+
+            def append(self, value: int) -> None:
+                self.appended += 1
+                super().append(value)
+
+        generations = {}
+        for fps in (30, 60):
+            life = LifeRenderer(randomize=False)
+            history = CountingDeque(maxlen=24)
+            life.stagnant_history = history
+            for _ in range(fps * 10):
+                life.update(1.0 / fps)
+            generations[fps] = history.appended
+        self.assertAlmostEqual(generations[30], 111, delta=2)
+        self.assertAlmostEqual(generations[60], 111, delta=2)
+
+    def test_life_trail_fades_between_generations(self) -> None:
+        from modes import DEFAULT_PALETTES, LifeRenderer
+
+        palette = DEFAULT_PALETTES[0]
+        lut = palette.trail_lut()
+        self.assertEqual(tuple(lut[0]), palette.bg)
+        self.assertEqual(tuple(lut[-1]), palette.decay3)
+
+        life = LifeRenderer(randomize=False)
+        life.grid[:] = False
+        life.grid[10, 10:13] = True
+        life.trail[30, 30] = 1.0
+        life.step_timer = -10.0
+        levels = []
+        for _ in range(4):
+            life.update(1.0 / 60)
+            levels.append(float(life.trail[30, 30]))
+        self.assertTrue(all(a > b > 0 for a, b in zip(levels, levels[1:])))
+        life.update(1.0)
+        self.assertEqual(float(life.trail[30, 30]), 0.0)
+
     def test_life_reset_preserves_palette_timer(self) -> None:
         from modes import LifeRenderer
 
