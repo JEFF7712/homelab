@@ -8,8 +8,10 @@ client copy when changing its protocol. There is no local sending fallback.
 The control Deployment accepts commands through authenticated Kubernetes exec,
 with no Service, public endpoint, or mounted Kubernetes token. The laptop's
 `~/.config/outreach/remote.json` selects the existing Kubernetes context and
-kubectl command. The sender CronJob runs every minute independently of the
-laptop. Both serialize workspace access with NFS-supported file locks.
+kubectl command. The same pod runs `send-due` every minute
+(`OUTREACH_SEND_INTERVAL`, 0 disables) in a fresh interpreter, independently
+of the laptop. Exec commands and sends serialize workspace access with
+NFS-supported file locks.
 
 Mail egress adds public TCP 465 and 993 for the outreach pods to the existing
 automation namespace policy. DNS uses the namespace's existing DNS rules.
@@ -62,9 +64,8 @@ them before importing. Keep the upstream wheel license files inside the wheels.
 No runtime dependency download, pip installation, or new image publisher is
 required.
 
-Requests: control 25m CPU/64 MiB, sender 50m/128 MiB, daily backup 100m/128 MiB.
-Memory limits total at most 1 GiB if all three overlap; ordinary idle usage is
-the control process. The PVC requests 1 GiB on existing NFS. Existing R2 backup
+Requests: control (with the sender loop) 50m CPU/128 MiB, daily backup
+100m/128 MiB. Memory limits total at most 640 MiB if both overlap. The PVC requests 1 GiB on existing NFS. Existing R2 backup
 credentials and bucket own the separate `restic-outreach` prefix.
 
 ## Backup and recovery
@@ -81,7 +82,7 @@ The backup ExternalSecret uses the existing `homelab-automation` trust domain;
 the three backup properties are projected from the existing encrypted
 `homelab-values` source. Do not create a second plaintext credential source.
 
-Before restore, suspend the sender CronJob and stop the control pod. Restore
+Before restore, scale `outreach-control` to zero, which also stops sending. Restore
 the archive into a new PVC, inspect its queue and reconcile uncertain sends
 against Gmail Sent. Source configuration alone cannot recover queue mutations
 after the most recent offsite backup. Do not resume an old queue without checking
@@ -93,13 +94,14 @@ Run `python -m unittest tests.test_outreach_sender tests.test_outreach_remote -v
 for offline crash, concurrency, transport and tracker-conflict tests. Use the
 pinned flake shell for Kubernetes commands.
 
-Check the outreach Flux Kustomization, Deployment readiness, sender CronJob's
-last successful run, and the `outreach-state` PVC. `bin/outreach doctor` verifies
-IMAP/SMTP authentication from the homelab and all uploaded resumes. The existing
-cluster CronJob failure alerts cover sender and backup failures; the engine
-also pushes send summaries, uncertain attempts and failures to ntfy.
+Check the outreach Flux Kustomization, Deployment readiness, the sender's
+last successful run (`/state/outreach/last-success`), and the `outreach-state` PVC. `bin/outreach doctor` verifies
+IMAP/SMTP authentication from the homelab and all uploaded resumes. The sender loop
+pushes to ntfy when `send-due` starts failing, the cluster CronJob failure
+alerts cover the backup, and the engine also pushes send summaries, uncertain
+attempts and failures to ntfy.
 
 Cutover order: ship and converge the workload, import state once, run doctor
-and a sender Job, verify backup/restore, install the client at the existing
+and a dry-run send, verify backup/restore, install the client at the existing
 laptop CLI path, then disable `outreach-sender.timer`. Keep the original laptop
 state and sender code as recovery artifacts. Never enable both senders.
