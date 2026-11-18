@@ -321,10 +321,7 @@ in
           valuesContent = builtins.toJSON {
             bgpControlPlane.enabled = true;
             envoy.image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium-envoy@sha256:75b8094c7127736a2ffd2dce3945e0931cb6df21b0372ff661940eca26730b91";
-            gatewayAPI.enabled = true;
-            gatewayAPI.gatewayClass.create = false;
             image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium@sha256:ae9ea21f7427fe24bc6ea7247eb552157a1b0a431744045d3f641545ca71d11b";
-            ingressController.enabled = true;
             ipam.operator.clusterPoolIPv4PodCIDRList = [ "10.42.0.0/16" ];
             ipv4NativeRoutingCIDR = "10.42.0.0/16";
             k8sServiceHost = "127.0.0.1";
