@@ -90,7 +90,7 @@ class AllGateTest(unittest.TestCase):
 
 
 class PythonCheckTest(unittest.TestCase):
-    def test_both_nix_integration_suites_are_required(self) -> None:
+    def test_nix_integration_lane_runs_every_nix_module_unskipped(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             repo = Path(temporary)
             (repo / "scripts/checks").mkdir(parents=True)
@@ -101,20 +101,16 @@ class PythonCheckTest(unittest.TestCase):
                 "ruff": "exit 0\n",
                 "pyright": "exit 0\n",
                 "python": (
-                    'printf "%s\\n" "$*" >> "$CALLS"\n'
-                    'case "$*" in\n'
-                    '  *scripts.ci.tests*) exit "$ZOT_STATUS" ;;\n'
-                    '  *tests.test_agent_workspace_sources*) exit "$SOURCE_STATUS" ;;\n'
-                    "  *) exit 99 ;;\n"
-                    "esac\n"
+                    'printf "SKIP_NIX_EVAL=%s %s\\n" "$SKIP_NIX_EVAL" "$*" >> "$CALLS"\n'
+                    'exit "$UNIT_STATUS"\n'
                 ),
             }.items():
                 binary = binaries / name
                 binary.write_text(f"#!{shutil.which('bash')}\n" + body)
                 binary.chmod(0o755)
             calls = repo / "calls"
-            for zot, source in ((0, 0), (5, 0), (0, 7)):
-                with self.subTest(zot=zot, source=source):
+            for status in (0, 5):
+                with self.subTest(status=status):
                     calls.unlink(missing_ok=True)
                     env = dict(
                         os.environ,
@@ -122,10 +118,12 @@ class PythonCheckTest(unittest.TestCase):
                         CI_UNIT_TESTS_EXTERNAL="1",
                         CI_LINT_EXTERNAL="1",
                         CALLS=str(calls),
-                        ZOT_STATUS=str(zot),
-                        SOURCE_STATUS=str(source),
+                        UNIT_STATUS=str(status),
+                        # all.sh exports this; the lane must not inherit it.
+                        SKIP_NIX_EVAL="1",
                     )
                     env.pop("CI_SCOPED_TEST_MODULES", None)
+                    env.pop("CI_TEST_REPORT", None)
                     result = subprocess.run(
                         ["bash", "scripts/checks/python.sh"],
                         cwd=repo,
@@ -134,12 +132,15 @@ class PythonCheckTest(unittest.TestCase):
                         text=True,
                         check=False,
                     )
-                    self.assertEqual(result.returncode, zot or source, result.stderr)
-                    self.assertIn("test_zot_registry_module.py", calls.read_text())
-                    if not zot:
-                        self.assertIn(
-                            "tests.test_agent_workspace_sources", calls.read_text()
-                        )
+                    self.assertEqual(result.returncode, status, result.stderr)
+                    self.assertEqual(
+                        calls.read_text().splitlines(),
+                        [
+                            "SKIP_NIX_EVAL=0 -m scripts.ci.tests --start tests"
+                            " --nix-integration --output"
+                            " artifacts/ci/nix-integration.xml"
+                        ],
+                    )
 
 
 class GitopsCheckTest(unittest.TestCase):

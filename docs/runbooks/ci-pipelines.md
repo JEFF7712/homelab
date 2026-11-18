@@ -152,7 +152,14 @@ scan uses the incremental range scan in `scripts/checks/secrets.sh` instead of
 rescanning all history (full scans remain for schedules, tags, and local runs),
 and when the flake lane will run, `repository-contract` executes the full
 unit suite in the Nix sandbox so the local Python lane shrinks to the
-Nix-integration subset rather than running the suite twice.
+Nix-integration subset rather than running the suite twice. The sandbox has no
+`nix` binary, so every module that gates on `shutil.which("nix")` skips there;
+`python -m scripts.ci.tests --nix-integration` selects exactly those modules
+and the Python lane runs them with `SKIP_NIX_EVAL=0`. Before this, only the Zot
+and agent-workspace modules ran, and a stale `tests.test_host_secrets`
+assertion stayed red on `main` for days without failing CI. The subset takes
+about 95 s and peaks near 0.8 GB; keep each module's `nix eval` to one host at
+a time so it fits beside the flake lane's evaluators.
 
 The flake lane evaluates every check and every host configuration with
 `nix-eval-jobs` (two workers, each restarted past 2048 MiB) instead of
@@ -185,7 +192,7 @@ Package data and both initializers remain inputs; unrelated scripts, Git
 metadata and Python bytecode do not invalidate this VM result. Keep imports
 inside that package, or extend the source boundary when adding an external
 repository dependency. The Nix-integration lane runs
-`tests.test_agent_workspace_sources` beside the Zot integration tests. Its
+`tests.test_agent_workspace_sources` with the other Nix-gated modules. Its
 real-Nix fixture checks copied files and source identity after relevant and
 unrelated mutations without building a VM.
 

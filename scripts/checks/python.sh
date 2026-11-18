@@ -61,10 +61,11 @@ if [[ -n "${CI_SCOPED_TEST_MODULES:-}" ]]; then
   read -ra scoped_modules <<< "$CI_SCOPED_TEST_MODULES"
   python -m unittest "${scoped_modules[@]}" -v &
 elif [[ "${CI_UNIT_TESTS_EXTERNAL:-0}" == "1" ]]; then
-  (
-    python -m scripts.ci.tests --start tests --pattern test_zot_registry_module.py --output "${CI_TEST_REPORT:-artifacts/ci/nix-integration.xml}"
-    python -m unittest tests.test_agent_workspace_sources -v
-  ) &
+  # repository-contract runs the suite in the Nix sandbox, where every module
+  # that needs a real nix (shutil.which("nix")) skips, so run those here.
+  # all.sh's SKIP_NIX_EVAL=1 spares the nix lane's host evaluation that the
+  # flake lane repeats; it must not skip these tests as well.
+  SKIP_NIX_EVAL=0 python -m scripts.ci.tests --start tests --nix-integration --output "${CI_TEST_REPORT:-artifacts/ci/nix-integration.xml}" &
 elif [[ -n "${CI_TEST_REPORT:-}" ]]; then
   python -m scripts.ci.tests --output "$CI_TEST_REPORT" &
 else
