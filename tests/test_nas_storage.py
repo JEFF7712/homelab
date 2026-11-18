@@ -42,7 +42,7 @@ class NasStorageTest(unittest.TestCase):
             services = builtins.mapAttrs (_: service: {
               inherit (service) after wants requires unitConfig;
             }) {
-              inherit (system.config.systemd.services) nas-backup-2tb zot nfs-server registry-backup;
+              inherit (system.config.systemd.services) nas-backup-local zot nfs-server registry-backup;
             };
             exports = system.config.services.nfs.server.exports;
           }
@@ -84,8 +84,14 @@ class NasStorageTest(unittest.TestCase):
             "/tank/registry", services["zot"]["unitConfig"]["RequiresMountsFor"]
         )
         self.assertIn("tank-registry.mount", services["registry-backup"]["requires"])
-        backup_mounts = services["nas-backup-2tb"]["unitConfig"]["RequiresMountsFor"]
-        for path in ("/tank/photos", "/tank/documents", "/mnt/backup-2tb"):
+        backup_mounts = services["nas-backup-local"]["unitConfig"]["RequiresMountsFor"]
+        for path in (
+            "/tank/cluster",
+            "/tank/backups/syncthing",
+            "/tank/photos",
+            "/tank/documents",
+            "/mnt/backup-local",
+        ):
             self.assertIn(path, backup_mounts)
 
     def test_nfs_writes_are_limited_to_explicit_storage_consumers(self) -> None:
@@ -142,7 +148,7 @@ if [ "$mount" = "$WRONG_SOURCE" ]; then printf 'tank/wrong\\n'; exit 0; fi
 if [ "$mount" != destination ]; then printf 'tank/%s\\n' "$mount"; fi
 if [ "$mount" = destination ]; then
     case "$*" in
-        *--types*xfs*--source*/dev/disk/by-id/ata-ST2000DM008-2FR102_ZFL60NJG-part1*) exit 0 ;;
+        *--types*xfs*--source*/dev/disk/by-id/ata-WDC_WD1003FBYZ-010FB0_WD-WCAW37790774-part1*) exit 0 ;;
         *) exit 2 ;;
     esac
 fi

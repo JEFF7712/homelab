@@ -120,6 +120,7 @@ class NasSyncthingTest(unittest.TestCase):
         for folder_id, folder_cfg in folders.items():
             with self.subTest(folder=folder_id):
                 self.assertEqual(folder_cfg["type"], "receiveonly")
+                self.assertTrue(folder_cfg["ignorePerms"])
                 self.assertEqual(folder_cfg["devices"], ["laptop-nixos"])
                 self.assertTrue(
                     folder_cfg["path"].startswith("/tank/backups/syncthing/laptop/")

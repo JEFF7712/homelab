@@ -80,6 +80,8 @@ in
               path = "${cfg.storagePath}/laptop/${subpath}";
               devices = [ "laptop-nixos" ];
               type = "receiveonly";
+              # The laptop's 0600 bits would hide files from backup-reader.
+              ignorePerms = true;
               versioning = {
                 type = "staggered";
                 params = {

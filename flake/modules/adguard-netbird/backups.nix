@@ -355,6 +355,12 @@ let
         done
         echo "Found all required application PVCs in frozen ZFS snapshot"
 
+        # Restic exit 3 tolerates unreadable files, so an access regression
+        # would silently drop the folders; require the tree to be listable.
+        if ! ${pkgs.coreutils}/bin/ls "$NAS_MOUNT/backups/syncthing/laptop" >/dev/null 2>&1; then
+          fail "Syncthing backup folders are not readable at $NAS_MOUNT/backups/syncthing/laptop"
+        fi
+
         # Local Infrastructure state paths
         LOCAL_PATHS=(
           "/var/lib/private/AdGuardHome/AdGuardHome.yaml"
@@ -394,6 +400,7 @@ let
           "$NAS_MOUNT/forgejo/repositories"
           "$FORGEJO_BACKUPS_DIR"
           "$PLATFORM_STATE_DIR"
+          "$NAS_MOUNT/backups/syncthing"
           "$NAS_MOUNT/s3"
           "$BOOKSHELF_DIR"
           "$CALIBRE_DIR"

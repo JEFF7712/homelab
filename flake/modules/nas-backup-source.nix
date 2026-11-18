@@ -6,7 +6,10 @@
   users.users.backup-reader = {
     isSystemUser = true;
     group = "backup-reader";
-    extraGroups = [ "forgejo" ];
+    extraGroups = [
+      "forgejo"
+      "syncthing"
+    ];
     shell = "${pkgs.shadow}/bin/nologin";
     openssh.authorizedKeys.keys = [
       "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIX4TNlD6vmGfSi+IZL4qkvg8gUzhEuRM+W3H1eZqZXT backup-reader@adguard-netbird-01"
