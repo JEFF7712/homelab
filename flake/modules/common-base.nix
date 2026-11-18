@@ -33,10 +33,15 @@ let
   # laptop-nixos) use a separate read-only observer key bounded to client/VPN
   # subnets rather than falling back to passwordless wheel access.
   laptopObserverKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGPgdA467aAFq4re73+3yM3Tws4F7GkecGh3LlN6S7/ agent-observer@laptop-nixos";
+  # NetBird peers arrive directly as 100.64.0.0/10 on adguard-netbird-01 and are
+  # masqueraded by adguard-netbird-01 (10.0.30.10) to the rest of the fleet.
   laptopObserverSources = [
     fleetInventory.networks.management.cidr
     fleetInventory.networks.clients.cidr
     "100.64.0.0/10"
+  ]
+  ++ lib.optionals (config.networking.hostName != "adguard-netbird-01") [
+    fleetInventory.hosts.adguard-netbird-01.address
   ];
 in
 {
