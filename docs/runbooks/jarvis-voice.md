@@ -348,6 +348,22 @@ automation referencing them.
      awake. The TTS player keeps upstream's 0.8 s so short prompts are not clipped.
      `satellite-patch-code` is unhashed: after Flux applies a change, run
      `kubectl -n voice rollout restart deployment/linux-voice-assistant`.
+   - Music plays to the soundbar over Sendspin, MA's native protocol:
+     `flake/modules/sendspin-player.nix` runs `sendspin daemon` as the kiosk
+     user on `homelab-05`, connected to `ws://127.0.0.1:8927/sendspin`, and MA
+     shows it as "Homelab 05 Speaker". One persistent stream replaces the
+     HA `play_media` → satellite mpv path, so skip and pause are applied by MA
+     directly. Volume is software (`--hardware-volume false`): MA's slider scales
+     only this stream, never the sink Jarvis speaks through. The client identity
+     in `/home/kiosk/.config/sendspin` is MA's player id and is persisted; losing
+     it registers a new player and HA entity. During a voice turn the satellite
+     ducks the stream to 50% with `pactl` (`stream_ducker.py`, matched by
+     `MUSIC_STREAM_MATCH=sendspin` against the `Sendspin` stream name set in the
+     module). Check with `systemctl status sendspin-player` and, from the
+     satellite pod, `pactl list sink-inputs`.
+   - MA's Wikipedia metadata provider is disabled (live MA setting, changed
+     2026-11-17 through `config/providers/save`): it failed every request
+     every 30 s.
    - YouTube Music streaming requires a Proof-of-Origin (PO) token server; the
      `pot-provider` companion container (`brainicism/bgutil-ytdlp-pot-provider:1.2.1`)
      runs on `homelab-05` at `http://127.0.0.1:4416`.
