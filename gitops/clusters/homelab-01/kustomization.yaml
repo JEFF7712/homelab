@@ -12,7 +12,6 @@ resources:
   - flux-webhook.yaml
   - home-assistant.yaml
   - immich.yaml
-  - ingress-crds.yaml
   - media.yaml
   - music-assistant.yaml
   - observability.yaml
