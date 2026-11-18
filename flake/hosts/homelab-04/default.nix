@@ -25,7 +25,6 @@ in
     ../../modules/persist-capacity.nix
     ../../modules/moonlight-client.nix
     ../../modules/nvidia.nix
-    ../../modules/github-runner-nixos.nix
     ../../modules/woodpecker.nix
     ../../modules/woodpecker-backup-source.nix
     ../../modules/approvals.nix

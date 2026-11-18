@@ -40,15 +40,15 @@ spec:
       containers:
         - name: outreach
           image: registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d  # yamllint disable-line rule:line-length
-          command: [python, /app/runner.py, idle]
+          command: [python, /app/runner.py, serve]
           env:
             - {name: OUTREACH_ROOT, value: /state/outreach}
             - {name: OUTREACH_CREDS, value: /credentials/gmail.env}
             - {name: OUTREACH_NOTIFIER_ENV, value: /credentials/notifier.env}
             - {name: PYTHONDONTWRITEBYTECODE, value: '1'}
           resources:
-            requests: {cpu: 25m, memory: 64Mi}
-            limits: {cpu: '1', memory: 256Mi}
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: '1', memory: 384Mi}
           readinessProbe:
             exec:
               command: [python, /app/runner.py, health]
@@ -77,71 +77,6 @@ spec:
         - name: tmp
           emptyDir: {sizeLimit: 128Mi}
 ---
-apiVersion: batch/v1
-kind: CronJob
-metadata:
-  name: outreach-sender
-  namespace: automation
-spec:
-  schedule: '* * * * *'
-  timeZone: America/Chicago
-  concurrencyPolicy: Forbid
-  startingDeadlineSeconds: 120
-  successfulJobsHistoryLimit: 2
-  failedJobsHistoryLimit: 3
-  jobTemplate:
-    spec:
-      backoffLimit: 0
-      activeDeadlineSeconds: 900
-      template:
-        metadata:
-          labels:
-            app: outreach-sender
-        spec:
-          automountServiceAccountToken: false
-          restartPolicy: Never
-          securityContext:
-            runAsUser: 1000
-            runAsGroup: 1000
-            fsGroup: 1000
-            runAsNonRoot: true
-            seccompProfile:
-              type: RuntimeDefault
-          containers:
-            - name: outreach
-              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:be8ccd085666c34273c9dc5607c9842f8b2e3116128aae45148ce164c07ce09d  # yamllint disable-line rule:line-length
-              command: [python, /app/runner.py, send-due]
-              env:
-                - {name: OUTREACH_ROOT, value: /state/outreach}
-                - {name: OUTREACH_CREDS, value: /credentials/gmail.env}
-                - {name: OUTREACH_NOTIFIER_ENV, value: /credentials/notifier.env}
-                - {name: PYTHONDONTWRITEBYTECODE, value: '1'}
-              resources:
-                requests: {cpu: 50m, memory: 128Mi}
-                limits: {cpu: '1', memory: 256Mi}
-              securityContext:
-                allowPrivilegeEscalation: false
-                readOnlyRootFilesystem: true
-                capabilities:
-                  drop: [ALL]
-              volumeMounts:
-                - {name: code, mountPath: /app, readOnly: true}
-                - {name: dependencies, mountPath: /deps, readOnly: true}
-                - {name: credentials, mountPath: /credentials, readOnly: true}
-                - {name: state, mountPath: /state}
-                - {name: tmp, mountPath: /tmp}
-          volumes:
-            - name: code
-              configMap: {name: outreach-code}
-            - name: dependencies
-              configMap: {name: outreach-dependencies}
-            - name: credentials
-              secret: {secretName: outreach-credentials, defaultMode: 0440}
-            - name: state
-              persistentVolumeClaim: {claimName: outreach-state}
-            - name: tmp
-              emptyDir: {sizeLimit: 128Mi}
----
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
@@ -152,7 +87,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [outreach-control, outreach-sender]
+        values: [outreach-control]
   egress:
     - toCIDRSet:
         - cidr: 0.0.0.0/0

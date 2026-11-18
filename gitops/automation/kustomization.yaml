@@ -10,16 +10,14 @@ resources:
   - rbac.yaml
   - registry-advance-access.yaml
   - cluster-sentinel.yaml
-  - dockerhub-retention.yaml
   - website-monitors.yaml
   - renovate-agent.yaml
   - renovate-dashboard.yaml
   - renovate-forgejo.yaml
-  - renovate-github.yaml
 
 # Script ConfigMaps are generated from the source files beside this file.
 # Unhashed names keep today's behaviour: a script edit does not roll pods by
-# itself (the renovate dashboard and approval webhook pods carry
+# itself (the renovate dashboard pod carries
 # reloader.stakater.com/auto). Edit the source files, not YAML.
 configMapGenerator:
   - name: cluster-sentinel-config
@@ -28,12 +26,6 @@ configMapGenerator:
       disableNameSuffixHash: true
     files:
       - cluster-sentinel/cluster-sentinel.sh
-  - name: dockerhub-retention-config
-    namespace: automation
-    options:
-      disableNameSuffixHash: true
-    files:
-      - dockerhub-retention/dockerhub-retention.sh
   - name: website-monitor-config
     namespace: automation
     options:
@@ -47,12 +39,6 @@ configMapGenerator:
       disableNameSuffixHash: true
     files:
       - renovate-reviewer/renovate-agent.py
-  - name: renovate-approval-webhook-script
-    namespace: automation
-    options:
-      disableNameSuffixHash: true
-    files:
-      - renovate-approval-webhook/renovate-approval-webhook.py
   - name: forgejo-dashboard-script
     namespace: automation
     options:
