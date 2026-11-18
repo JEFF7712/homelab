@@ -52,6 +52,11 @@
         "observed:bus-display/website-deploy-5566655bfb-dm7mr/web"
       ],
       "destination_repository": "apps/bus-display",
+      "destination_tags": [
+        "ci-2793-21e2fba8fa3f",
+        "retention-candidate-6106c04d1cb634a0"
+      ],
+      "digest": "sha256:6106c04d1cb634a0ea0c4383c51ce260cafd28236155cf2b73b19f323dc0a961",
       "id": "first-party-apps-bus-display-244cb03cb790",
       "kind": "first-party",
       "producer": {
@@ -66,12 +71,7 @@
         "registry": "registry.rupan.dev",
         "repository": "apps/bus-display",
         "tag": "ci-2793-21e2fba8fa3f"
-      },
-      "digest": "sha256:6106c04d1cb634a0ea0c4383c51ce260cafd28236155cf2b73b19f323dc0a961",
-      "destination_tags": [
-        "ci-2793-21e2fba8fa3f",
-        "retention-candidate-6106c04d1cb634a0"
-      ]
+      }
     },
     {
       "consumers": [
@@ -376,11 +376,12 @@
         "gitops/pod-agent/cronjobs-frequent.yaml:389",
         "gitops/pod-agent/cronjobs-frequent.yaml:49",
         "gitops/pod-agent/cronjobs-weekly.yaml:118",
-        "gitops/pod-agent/cronjobs-weekly.yaml:188",
-        "gitops/pod-agent/cronjobs-weekly.yaml:207",
-        "gitops/pod-agent/cronjobs-weekly.yaml:280",
-        "gitops/pod-agent/cronjobs-weekly.yaml:299",
+        "gitops/pod-agent/cronjobs-weekly.yaml:189",
+        "gitops/pod-agent/cronjobs-weekly.yaml:208",
+        "gitops/pod-agent/cronjobs-weekly.yaml:281",
+        "gitops/pod-agent/cronjobs-weekly.yaml:300",
         "gitops/pod-agent/cronjobs-weekly.yaml:31",
+        "gitops/pod-agent/cronjobs-weekly.yaml:372",
         "gitops/pod-agent/cronjobs-weekly.yaml:99",
         "gitops/pod-agent/dashboard.yaml:29",
         "gitops/pod-agent/dashboard.yaml:51",
@@ -389,7 +390,7 @@
         "gitops/pod-agent/product-feed.yaml:55"
       ],
       "destination_repository": "apps/pod-agent",
-      "id": "first-party-apps-pod-agent-500a9066ec9d",
+      "id": "first-party-apps-pod-agent-5d2932eaddfe",
       "kind": "first-party",
       "producer": {
         "local_publisher": "forgejo-pod-agent",
@@ -399,8 +400,8 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae",
-        "reference": "registry.rupan.dev/apps/pod-agent@sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae",
+        "digest": "sha256:f97222c02e471b99c3f856ce3de1023d44b666d855f88e4e7e422dd38605fb47",
+        "reference": "registry.rupan.dev/apps/pod-agent@sha256:f97222c02e471b99c3f856ce3de1023d44b666d855f88e4e7e422dd38605fb47",
         "registry": "registry.rupan.dev",
         "repository": "apps/pod-agent",
         "tag": null
@@ -582,6 +583,11 @@
         "observed:soluble-rupan/website-deploy-7bfbbc4f97-z54gh/web"
       ],
       "destination_repository": "apps/solubility-gnn",
+      "destination_tags": [
+        "0.0.1000022",
+        "retention-deployed-7a9561dbf2501a87"
+      ],
+      "digest": "sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab",
       "id": "first-party-apps-solubility-gnn-82f91661a241",
       "kind": "first-party",
       "producer": {
@@ -596,12 +602,7 @@
         "registry": "registry.rupan.dev",
         "repository": "apps/solubility-gnn",
         "tag": "0.0.1000022"
-      },
-      "digest": "sha256:7a9561dbf2501a874f39d38c1fdac7858faee83bb27d51d844d59bdd8eb8b0ab",
-      "destination_tags": [
-        "0.0.1000022",
-        "retention-deployed-7a9561dbf2501a87"
-      ]
+      }
     },
     {
       "consumers": [
@@ -2300,25 +2301,23 @@
       }
     },
     {
-      "id": "upstream-upstream-ghcr-io-renovatebot-renovate-b14d3a2c9ccf",
-      "kind": "upstream",
-      "source": {
-        "registry": "registry.rupan.dev",
-        "repository": "upstream/ghcr.io/renovatebot/renovate",
-        "tag": null,
-        "digest": "sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130",
-        "reference": "registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130"
-      },
-      "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate",
       "consumers": [
         "gitops/automation/renovate-agent.yaml:23"
       ],
+      "destination_repository": "upstream/registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate",
+      "id": "upstream-upstream-ghcr-io-renovatebot-renovate-b14d3a2c9ccf",
+      "kind": "upstream",
       "producer": null,
-      "retention_class": "deployed"
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130",
+        "reference": "registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:97006d85961032ad4a991d70c1a8b8255038f4cd17c8bae732a263f735261130",
+        "registry": "registry.rupan.dev",
+        "repository": "upstream/ghcr.io/renovatebot/renovate",
+        "tag": null
+      }
     },
     {
-      "id": "first-party-apps-spotify-matrix",
-      "kind": "first-party",
       "consumers": [
         "gitops/led-matrix/deployment.yaml:29"
       ],
@@ -2328,18 +2327,20 @@
         "retention-candidate-94b4e9cb8fd45f88"
       ],
       "digest": "sha256:94b4e9cb8fd45f883ea1dccc06f255fa0e20f28b77e30bfb83588b52731c9f45",
-      "retention_class": "candidate",
+      "id": "first-party-apps-spotify-matrix",
+      "kind": "first-party",
       "producer": {
-        "owner": "JEFF7712/homelab",
         "location": "services/led-matrix/Dockerfile",
+        "owner": "JEFF7712/homelab",
         "pipeline_status": "verified-ci-build-published"
       },
+      "retention_class": "candidate",
       "source": {
+        "digest": "sha256:94b4e9cb8fd45f883ea1dccc06f255fa0e20f28b77e30bfb83588b52731c9f45",
+        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-16944-e97d7f61b363@sha256:94b4e9cb8fd45f883ea1dccc06f255fa0e20f28b77e30bfb83588b52731c9f45",
         "registry": "registry.rupan.dev",
         "repository": "apps/spotify-matrix",
-        "tag": "ci-16944-e97d7f61b363",
-        "digest": "sha256:94b4e9cb8fd45f883ea1dccc06f255fa0e20f28b77e30bfb83588b52731c9f45",
-        "reference": "registry.rupan.dev/apps/spotify-matrix:ci-16944-e97d7f61b363@sha256:94b4e9cb8fd45f883ea1dccc06f255fa0e20f28b77e30bfb83588b52731c9f45"
+        "tag": "ci-16944-e97d7f61b363"
       }
     },
     {
@@ -3474,6 +3475,11 @@
         "config/orchestrator/images.json:2"
       ],
       "destination_repository": "apps/orchestrator",
+      "destination_tags": [
+        "ci-11923-02d1fe901074",
+        "retention-candidate-65a5205a07d8be3f"
+      ],
+      "digest": "sha256:65a5205a07d8be3fe6101c3d7e34d361ea7b8b9162a1208e4de996b362e69731",
       "id": "first-party-apps-orchestrator",
       "kind": "first-party",
       "producer": {
@@ -3488,18 +3494,18 @@
         "registry": "registry.rupan.dev",
         "repository": "apps/orchestrator",
         "tag": "ci-11923-02d1fe901074"
-      },
-      "digest": "sha256:65a5205a07d8be3fe6101c3d7e34d361ea7b8b9162a1208e4de996b362e69731",
-      "destination_tags": [
-        "ci-11923-02d1fe901074",
-        "retention-candidate-65a5205a07d8be3f"
-      ]
+      }
     },
     {
       "consumers": [
         "config/orchestrator/images.json:3"
       ],
       "destination_repository": "apps/orchestrator-worker",
+      "destination_tags": [
+        "ci-11923-02d1fe901074",
+        "retention-candidate-67fb70edc6fcda7c"
+      ],
+      "digest": "sha256:67fb70edc6fcda7c6bbdadf2b48da8c681216fcd1dd27da39e7eb8fcf33b9dd9",
       "id": "first-party-apps-orchestrator-worker",
       "kind": "first-party",
       "producer": {
@@ -3514,12 +3520,7 @@
         "registry": "registry.rupan.dev",
         "repository": "apps/orchestrator-worker",
         "tag": "ci-11923-02d1fe901074"
-      },
-      "digest": "sha256:67fb70edc6fcda7c6bbdadf2b48da8c681216fcd1dd27da39e7eb8fcf33b9dd9",
-      "destination_tags": [
-        "ci-11923-02d1fe901074",
-        "retention-candidate-67fb70edc6fcda7c"
-      ]
+      }
     },
     {
       "consumers": [
