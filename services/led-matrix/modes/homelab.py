@@ -165,7 +165,7 @@ class HomelabRenderer(ModeRenderer):
     def render(self, ctx: RenderContext, size: int = 64) -> Image.Image:
         view = self.VIEWS[int(ctx.tick / self.PERIOD) % len(self.VIEWS)]
         values, fresh = self.source.snapshot(view)
-        frame = Image.new("RGB", (size, size), (2, 6, 15))
+        frame = Image.new("RGB", (size, size), (0, 0, 0))
         draw = ImageDraw.Draw(frame)
         draw.text((2, 1), view, font=self.font, fill=(95, 181, 255))
         draw.line((1, 12, 62, 12), fill=(24, 70, 116))

@@ -1505,14 +1505,14 @@ class HubModeAndRendererTests(unittest.TestCase):
         # Render first palette (Cyberpunk)
         frame1 = life.render(ctx, size=64)
         self.assertEqual(frame1.size, (64, 64))
-        # Top-left corner is background (3, 5, 10)
-        self.assertEqual(frame1.getpixel((0, 0)), (3, 5, 10))
+        # Top-left corner is true black background (0, 0, 0)
+        self.assertEqual(frame1.getpixel((0, 0)), (0, 0, 0))
 
         # Rotate to Amber CRT palette
         life.set_palette("Amber CRT")
         frame2 = life.render(ctx, size=64)
-        # Background color should now match Amber CRT bg (8, 4, 1)
-        self.assertEqual(frame2.getpixel((0, 0)), (8, 4, 1))
+        # Background color remains true black (0, 0, 0) across palettes
+        self.assertEqual(frame2.getpixel((0, 0)), (0, 0, 0))
 
     def test_life_reset_preserves_palette_timer(self) -> None:
         from modes import LifeRenderer

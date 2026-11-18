@@ -98,7 +98,7 @@ class Fibonacci128Effect(VisualizerEffect):
         self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
     ) -> None:
         cx, cy = self.center
-        draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(2, 1, 6))
+        draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(0, 0, 0))
 
         # Fibonacci arms (e.g. 8 and 13)
         arm1, arm2 = 8, 13
@@ -255,7 +255,7 @@ class AuroraDropMandalaEffect(VisualizerEffect):
     def draw(
         self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
     ) -> None:
-        draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(3, 1, 8))
+        draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(0, 0, 0))
         cx, cy = self.center
 
         # 1. Falling aurora drops with short neon tails
@@ -383,7 +383,7 @@ class SpectrumAnalyzerEffect(VisualizerEffect):
     def draw(
         self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
     ) -> None:
-        draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(2, 2, 8))
+        draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(0, 0, 0))
         baseline = size - 10
 
         # Sub-bass bottom floor glow
@@ -482,7 +482,7 @@ class BeatWarpTunnelEffect(VisualizerEffect):
     def draw(
         self, frame: Image.Image, draw: ImageDraw.ImageDraw, size: int = 64
     ) -> None:
-        draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(3, 2, 7))
+        draw.rectangle([(0, 0), (size - 1, size - 1)], fill=(0, 0, 0))
         cx, cy = self.center
 
         # 1. Warp starfield streaks
@@ -668,7 +668,7 @@ class VisualizerRenderer(ModeRenderer):
         )
         self.update(ctx.dt, beat, bands=bands, should_cycle=should_cycle)
 
-        frame = Image.new("RGB", (size, size), (2, 2, 6))
+        frame = Image.new("RGB", (size, size), (0, 0, 0))
         draw = ImageDraw.Draw(frame)
         self.current_effect.draw(frame, draw, size=size)
         return frame

@@ -205,6 +205,7 @@ class PhysicsRenderer(ModeRenderer):
                 self.pendulum_trail.fill(0)
             elif scene == 4:
                 self.sand_grid.fill(0)
+                self.sand_grid[2, (16, 32, 48)] = (1, 2, 4)
             elif scene == 5:
                 self._reset_galaxy(size)
                 self.galaxy_trail.fill(0)
@@ -289,7 +290,7 @@ class PhysicsRenderer(ModeRenderer):
             self.vel += push * 25 * dt
         if scene == 1:
             self.vel *= 0.999
-        frame = Image.new("RGB", (size, size), (2, 5, 13))
+        frame = Image.new("RGB", (size, size), (0, 0, 0))
         draw = ImageDraw.Draw(frame)
         if scene == 0:
             draw.ellipse((29, 29, 35, 35), fill=(255, 195, 70))
@@ -369,7 +370,7 @@ class PhysicsRenderer(ModeRenderer):
         """Granular sand piles and hourglass drain (Adafruit PixelDust cellular automaton)."""
         palette = np.array(
             [
-                [4, 5, 12],  # 0: Empty background
+                [0, 0, 0],  # 0: Empty background
                 [255, 195, 60],  # 1: Amber Gold sand
                 [235, 120, 40],  # 2: Copper Ochre sand
                 [240, 75, 65],  # 3: Coral Sunset sand
@@ -467,7 +468,7 @@ class PhysicsRenderer(ModeRenderer):
 
         cx, cy = int(center[0]), int(center[1])
         draw.ellipse((cx - 3, cy - 3, cx + 3, cy + 3), fill=(255, 210, 110))
-        draw.ellipse((cx - 1, cy - 1, cx + 1, cy + 1), fill=(10, 12, 20))
+        draw.ellipse((cx - 1, cy - 1, cx + 1, cy + 1), fill=(0, 0, 0))
 
         return frame
 
