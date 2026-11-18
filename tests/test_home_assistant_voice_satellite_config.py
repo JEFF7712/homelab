@@ -1,5 +1,8 @@
+import ast
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import yaml
 
@@ -72,6 +75,66 @@ class VoiceSatelliteConfigTests(unittest.TestCase):
         self.assertEqual(env["ACOUSTIC_TAIL_SECONDS"], "0.35")
         self.assertEqual(env["AUDIO_STALL_TIMEOUT"], "6.0")
         self.assertEqual(env["HEALTH_PORT"], "10202")
+
+
+def load_music_player_tuning() -> dict:
+    """Execute only the tuning constants and helper; the module needs hardware."""
+    source = (
+        Path(__file__).resolve().parents[1] / "gitops/voice/satellite/__main__.py"
+    ).read_text()
+    tree = ast.parse(source)
+    nodes = [
+        node
+        for node in tree.body
+        if (
+            isinstance(node, ast.FunctionDef)
+            and node.name == "_low_latency_music_player"
+        )
+        or (
+            isinstance(node, ast.Assign)
+            and any(
+                isinstance(target, ast.Name) and target.id == "MUSIC_MPV_OPTIONS"
+                for target in node.targets
+            )
+        )
+    ]
+    namespace: dict = {"MpvMediaPlayer": object, "_LOGGER": Mock()}
+    exec(compile(ast.Module(nodes, []), "__main__.py", "exec"), namespace)
+    return namespace
+
+
+class MusicPlayerBufferingTests(unittest.TestCase):
+    def test_music_player_uses_short_mpv_buffers(self) -> None:
+        tuning = load_music_player_tuning()
+        mpv: dict = {}
+        player = SimpleNamespace(_player=SimpleNamespace(_mpv=mpv))
+        self.assertIs(tuning["_low_latency_music_player"](player), player)
+        self.assertLessEqual(mpv["audio-buffer"], 0.2)
+        self.assertLessEqual(mpv["cache-secs"], 2)
+        self.assertLessEqual(mpv["demuxer-readahead-secs"], 2)
+        self.assertEqual(mpv["demuxer-max-bytes"], "2MiB")
+
+    def test_changed_upstream_layout_keeps_player_and_warns(self) -> None:
+        tuning = load_music_player_tuning()
+        player = SimpleNamespace()
+        self.assertIs(tuning["_low_latency_music_player"](player), player)
+        tuning["_LOGGER"].warning.assert_called_once()
+
+    def test_only_music_player_is_tuned(self) -> None:
+        source = (
+            Path(__file__).resolve().parents[1] / "gitops/voice/satellite/__main__.py"
+        ).read_text()
+        calls = {
+            keyword.arg: keyword.value
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Call)
+            for keyword in node.keywords
+            if keyword.arg in ("music_player", "tts_player")
+        }
+        wrapper = calls["music_player"]
+        self.assertIsInstance(wrapper, ast.Call)
+        self.assertEqual(wrapper.func.id, "_low_latency_music_player")
+        self.assertEqual(calls["tts_player"].func.id, "MpvMediaPlayer")
 
 
 if __name__ == "__main__":

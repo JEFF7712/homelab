@@ -51,9 +51,9 @@ class SpotifyConnectRelayTest(unittest.TestCase):
             ready, _, _ = select.select([proc.stdout], [], [], 0.05)
             if ready:
                 total += len(os.read(proc.stdout.fileno(), 65536))
-        # A half-second startup burst plus elapsed realtime, with scheduler slack.
+        # A 0.2 s startup burst plus elapsed realtime, with scheduler slack.
         self.assertGreater(total, 44100 * 4 // 4)
-        self.assertLess(total, 44100 * 4 * 1.4)
+        self.assertLess(total, 44100 * 4 * 1.05)
 
     def test_stalled_ma_reader_does_not_block_daemon_control_or_cleanup(self) -> None:
         proc = self.launch(

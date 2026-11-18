@@ -39,6 +39,30 @@ _REPO_DIR = _MODULE_DIR.parent
 _WAKEWORDS_DIR = _REPO_DIR / "wakewords"
 _SOUNDS_DIR = _REPO_DIR / "sounds"
 
+# Upstream LibMpvPlayer pre-buffers 0.8 s so short prompts survive a cold sink
+# and caches 20 s ahead. homelab-05 keeps its sink awake, so the music player
+# only needs a small buffer; a large one delays every skip, pause and new track.
+# The TTS player keeps upstream defaults so short prompts are never clipped.
+MUSIC_MPV_OPTIONS = {
+    "audio-buffer": 0.2,
+    "cache-secs": 2,
+    "demuxer-readahead-secs": 1,
+    "demuxer-max-bytes": "2MiB",
+}
+
+
+def _low_latency_music_player(player: MpvMediaPlayer) -> MpvMediaPlayer:
+    """Apply MUSIC_MPV_OPTIONS before the first play opens the audio output."""
+    mpv = getattr(getattr(player, "_player", None), "_mpv", None)
+    if mpv is None:
+        _LOGGER.warning(
+            "Upstream mpv player layout changed; music keeps default buffering"
+        )
+        return player
+    for option, value in MUSIC_MPV_OPTIONS.items():
+        mpv[option] = value
+    return player
+
 
 # -----------------------------------------------------------------------------
 
@@ -436,8 +460,8 @@ async def main() -> None:
         wake_words=wake_models,
         active_wake_words=active_wake_words,
         stop_word=stop_model,
-        music_player=MpvMediaPlayer(
-            device=args.music_output_device or args.audio_output_device
+        music_player=_low_latency_music_player(
+            MpvMediaPlayer(device=args.music_output_device or args.audio_output_device)
         ),
         tts_player=MpvMediaPlayer(device=args.audio_output_device),
         wakeup_sound=args.wakeup_sound,

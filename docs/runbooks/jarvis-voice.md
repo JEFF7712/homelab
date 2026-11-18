@@ -335,6 +335,19 @@ automation referencing them.
      these checks when upgrading MA, and remove it once upstream guarantees
      reconciliation. Roll back the recovery change through Git/Flux if startup
      fails; the hook never modifies `/data` or stored provider settings.
+   - The same startup hook caps MA's queue next/previous debounce at 0.15 s
+     (`install_skip_debounce`). Upstream 2.10.4 waits a hardcoded second under
+     task id `queue_play_index_<queue>` before starting the chosen track. MA logs
+     nothing for this hook. When upgrading MA, confirm `next()`/`previous()` still
+     schedule `play_index` through `mass.call_later` with that task id; if not, the
+     hook does nothing and skips are slow again.
+   - The satellite's music player (`_low_latency_music_player` in
+     `gitops/voice/satellite/__main__.py`) runs mpv with a 0.2 s audio buffer and
+     a 2 s cache, down from upstream's 0.8 s and 20 s, so skips and pauses are not
+     delayed by stale buffered audio. This relies on `homelab-05` keeping its sink
+     awake. The TTS player keeps upstream's 0.8 s so short prompts are not clipped.
+     `satellite-patch-code` is unhashed: after Flux applies a change, run
+     `kubectl -n voice rollout restart deployment/linux-voice-assistant`.
    - YouTube Music streaming requires a Proof-of-Origin (PO) token server; the
      `pot-provider` companion container (`brainicism/bgutil-ytdlp-pot-provider:1.2.1`)
      runs on `homelab-05` at `http://127.0.0.1:4416`.

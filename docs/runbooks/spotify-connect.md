@@ -46,9 +46,10 @@ MA stops reading stdout when detaching the stream, so a full pipe can wedge
 the control loop. A living process does not prove this API is responsive.
 
 `gitops/music-assistant/spotify-connect-relay.py` continuously drains the child
-at stereo s16le / 44.1 kHz with a half-second startup burst. Its nonblocking
-downstream buffer holds at most half a second; it drops oldest buffered audio
-only when MA stops reading. This bounds memory and latency, prevents decoding
+at stereo s16le / 44.1 kHz with a 0.2-second startup burst (`BURST_SECONDS`).
+Its nonblocking downstream buffer holds at most 0.2 seconds; it drops oldest
+buffered audio only when MA stops reading. Every buffered second delays skip,
+pause and resume, so keep it small. This bounds memory and latency, prevents decoding
 the entire track ahead, and keeps pause/stop requests responsive. The wrapper
 retains the existing distinct discovery/API port ranges and LAN interface.
 Kustomize generates a hashed ConfigMap so relay edits replace the pod.

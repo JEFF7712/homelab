@@ -15,11 +15,17 @@ import subprocess
 import sys
 import time
 
+# Startup burst and downstream buffer bound. Every buffered second delays
+# skip, pause and resume, so keep only enough to absorb scheduler jitter.
+BURST_SECONDS = 0.2
+
 
 def relay(command: list[str], *, byte_rate: int = 44100 * 2 * 2) -> int:
     frame_size = 4  # stereo s16le, as configured by MA
     chunk_size = max(frame_size, byte_rate // 100 // frame_size * frame_size)
-    capacity = max(chunk_size, byte_rate // 2 // frame_size * frame_size)
+    capacity = max(
+        chunk_size, int(byte_rate * BURST_SECONDS) // frame_size * frame_size
+    )
     pending = bytearray()
     child = subprocess.Popen(command, stdout=subprocess.PIPE, start_new_session=True)
     assert child.stdout is not None
@@ -39,7 +45,7 @@ def relay(command: list[str], *, byte_rate: int = 44100 * 2 * 2) -> int:
     old_handlers = {
         sig: signal.signal(sig, stop) for sig in (signal.SIGINT, signal.SIGTERM)
     }
-    next_read = time.monotonic() - 0.5
+    next_read = time.monotonic() - BURST_SECONDS
     eof_at: float | None = None
     try:
         while not stopped:
@@ -62,9 +68,11 @@ def relay(command: list[str], *, byte_rate: int = 44100 * 2 * 2) -> int:
                     eof_at = now
                 else:
                     pending.extend(data)
-                    # Match MA's initial burst, then keep a realtime clock.
+                    # Allow a short initial burst, then keep a realtime clock.
                     # Never catch up an idle clock with a whole track's PCM.
-                    next_read = max(next_read, now - 0.5) + len(data) / byte_rate
+                    next_read = (
+                        max(next_read, now - BURST_SECONDS) + len(data) / byte_rate
+                    )
                     if len(pending) > capacity:
                         drop = (
                             (len(pending) - capacity + frame_size - 1)
