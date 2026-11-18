@@ -42,7 +42,7 @@ This runbook documents the dedicated 1 TB external HDD backup architecture hoste
 - **Mountpoint:** `/mnt/backups`
 - **Repository Path:** `/mnt/backups/restic-repo`
 - **Schedule:** Nightly at `03:30:00` (after Immich at 02:00, Home Assistant at 02:30, and Forgejo at 02:50).
-- **Syncthing folders:** `/tank/backups/syncthing` is pulled live (not from a snapshot); `backup-reader` reads it through the `syncthing` group, and the run fails closed if the folders are not listable.
+- **Syncthing folders:** `/tank/backups/syncthing` is pulled live (not from a snapshot) after the critical snapshot succeeds, as Restic host `adguard-netbird-01-syncthing` (its own prune group), time-boxed to the unit timeout. An interrupted run keeps its uploaded data and resumes the next night; `syncthing_backup_last_success_timestamp_seconds` records completion. `backup-reader` reads the folders through the `syncthing` group, and the run fails closed if they are not listable.
 - **Registry:** not pulled off-host (zot keeps it `0700`); it is rebuildable from Forgejo sources and upstream mirrors, and has a local copy on nas-01 (see below).
 - **Local copy on nas-01:** `nas-backup-local.service` keeps a second, same-host Restic copy of tank's non-media data (`nas-restic`) and the registry (`registry-restic`) on `/mnt/backup-local` (1 TB WD RE4). It is the fast restore path; this external disk is the off-host one.
 - **Retention Policy:**

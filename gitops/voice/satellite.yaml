@@ -64,6 +64,9 @@ spec:
               value: '6.0'
             - name: HEALTH_PORT
               value: '10202'
+            # Duck the host Sendspin music stream (flake/modules/sendspin-player.nix).
+            - name: MUSIC_STREAM_MATCH
+              value: sendspin
           args:
             - --mic-volume
             - '75'
@@ -113,6 +116,9 @@ spec:
             - name: satellite-patches
               mountPath: /app/linux_voice_assistant/satellite.py
               subPath: satellite.py
+            - name: satellite-patches
+              mountPath: /app/linux_voice_assistant/stream_ducker.py
+              subPath: stream_ducker.py
             - name: satellite-patches
               mountPath: /app/healthcheck.py
               subPath: healthcheck.py

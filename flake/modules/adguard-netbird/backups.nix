@@ -9,6 +9,7 @@ let
   inherit (fleetInventory) hosts;
   backupScript = pkgs.writeShellScript "run-immich-external-backup" ''
         set -euo pipefail
+        SCRIPT_START=$(${pkgs.coreutils}/bin/date +%s)
 
         TEXTFILE_DIR="/var/lib/node-exporter-textfile"
         PROM_FILE="$TEXTFILE_DIR/immich_backup.prom"
@@ -400,7 +401,6 @@ let
           "$NAS_MOUNT/forgejo/repositories"
           "$FORGEJO_BACKUPS_DIR"
           "$PLATFORM_STATE_DIR"
-          "$NAS_MOUNT/backups/syncthing"
           "$NAS_MOUNT/s3"
           "$BOOKSHELF_DIR"
           "$CALIBRE_DIR"
@@ -463,6 +463,37 @@ let
           echo "==> [5/5] Backup completed successfully (status: $RC) at $(date -d @$NOW)!"
         else
           fail "Restic backup failed with exit code $RC"
+        fi
+
+        # Syncthing holds ~200k files that SSHFS reads slowly. It runs after the
+        # critical snapshot under its own host name (a separate prune group) and
+        # a time box inside the unit timeout; an interrupted run keeps its
+        # uploaded data, so the next night resumes instead of starting over.
+        BUDGET=$((13800 - ($(${pkgs.coreutils}/bin/date +%s) - SCRIPT_START)))
+        if [ "$BUDGET" -lt 600 ]; then
+          echo "WARNING: no time left for the Syncthing backup this run" >&2
+          exit 0
+        fi
+        echo "==> Backing up Syncthing folders (time box ''${BUDGET}s)..."
+        SYNC_RC=0
+        ${pkgs.coreutils}/bin/timeout --signal=INT "$BUDGET" ${pkgs.restic}/bin/restic backup \
+          --host adguard-netbird-01-syncthing \
+          --tag syncthing \
+          --exclude 'node_modules' \
+          --exclude '.venv' \
+          --exclude '__pycache__' \
+          --exclude '.direnv' \
+          "$NAS_MOUNT/backups/syncthing" || SYNC_RC=$?
+        if [ "$SYNC_RC" -eq 0 ] || [ "$SYNC_RC" -eq 3 ]; then
+          cat << EOF > "$TEXTFILE_DIR/syncthing_backup.prom.tmp"
+    # HELP syncthing_backup_last_success_timestamp_seconds Timestamp of the last completed off-host Syncthing snapshot
+    # TYPE syncthing_backup_last_success_timestamp_seconds gauge
+    syncthing_backup_last_success_timestamp_seconds $(date +%s)
+    EOF
+          ${pkgs.coreutils}/bin/mv -f "$TEXTFILE_DIR/syncthing_backup.prom.tmp" "$TEXTFILE_DIR/syncthing_backup.prom"
+          echo "Syncthing backup completed (status: $SYNC_RC)"
+        else
+          echo "WARNING: Syncthing backup incomplete (exit $SYNC_RC); the next run resumes from uploaded data" >&2
         fi
   '';
 

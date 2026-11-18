@@ -348,14 +348,6 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
   log. Source changes still require a fresh contract build, and publication
   must succeed for subsequent disposable containers to reuse its output.
 
-The server wraps the pinned default clone plugin with at most three
-attempts, 60 seconds per attempt plus a five-second kill grace, and five-
-then ten-second backoff. Only transient connection errors, HTTP 429 and
-selected HTTP 5xx responses retry. Credential rejection, missing content
-and certificate validation failures fail immediately. Retries retain the
-dedicated read-only clone identity and TLS verification and do not rerun
-release or deployment commands.
-
 A current main push additionally runs opnsense-plan and cloudflare-plan
 after validation, the plans that apply operations consume. GitHub sync and
 cache publication run on the maintenance schedule instead, so a merge's
