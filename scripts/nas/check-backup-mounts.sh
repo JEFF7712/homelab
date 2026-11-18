@@ -11,8 +11,8 @@ for dataset in photos documents; do
     fi
 done
 
-findmnt --noheadings --mountpoint /mnt/backup-2tb --types xfs \
-    --source /dev/disk/by-id/ata-ST2000DM008-2FR102_ZFL60NJG-part1 >/dev/null || {
-    printf 'Backup refused: /mnt/backup-2tb is not the expected XFS disk\n' >&2
+findmnt --noheadings --mountpoint /mnt/backup-local --types xfs \
+    --source /dev/disk/by-id/ata-WDC_WD1003FBYZ-010FB0_WD-WCAW37790774-part1 >/dev/null || {
+    printf 'Backup refused: /mnt/backup-local is not the expected XFS disk\n' >&2
     exit 1
 }

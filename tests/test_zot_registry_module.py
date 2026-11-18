@@ -221,7 +221,7 @@ class ZotRegistryModuleTests(unittest.TestCase):
     def test_backup_sandbox_can_write_its_success_marker(self) -> None:
         nas_data = (ROOT / "flake/modules/nas-data.nix").read_text()
 
-        self.assertIn('"/mnt/backup-2tb/registry-restic"', nas_data)
+        self.assertIn('"/mnt/backup-local/registry-restic"', nas_data)
         self.assertIn('"/persist/zot/status"', nas_data)
         import shlex
 

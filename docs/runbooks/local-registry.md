@@ -572,7 +572,7 @@ consumer together. Keep recovery artifacts until their replacements are verified
 
 The `registry-backup` timer in `flake/modules/nas-data.nix` snapshots
 `tank/registry` and backs up that snapshot, `/persist/zot` and `/var/lib/acme`
-to encrypted Restic on `/mnt/backup-2tb/registry-restic`. It prunes with
+to encrypted Restic on `/mnt/backup-local/registry-restic`. It prunes with
 `--keep-daily 7 --keep-weekly 5 --keep-monthly 6` and runs
 `restic check --read-data-subset=5%` before recording success. Keep the password
 independently. This separate disk and local sanoid snapshots do not cover loss

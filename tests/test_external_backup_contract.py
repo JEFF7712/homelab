@@ -116,6 +116,13 @@ class ExternalBackupContractTests(unittest.TestCase):
         content = (REPO_ROOT / "flake/modules/nas-data.nix").read_text()
         self.assertIn('"tank/forgejo".useTemplate = [ "operational" ];', content)
 
+    def test_syncthing_folders_are_backed_up_off_host(self) -> None:
+        content = (REPO_ROOT / "flake/modules/adguard-netbird/backups.nix").read_text()
+        self.assertIn('"$NAS_MOUNT/backups/syncthing"', content)
+        self.assertIn("Syncthing backup folders are not readable", content)
+        source = (REPO_ROOT / "flake/modules/nas-backup-source.nix").read_text()
+        self.assertIn('"syncthing"', source)
+
     def test_offline_recovery_kit_script_exists(self) -> None:
         script = REPO_ROOT / "scripts/backups/export-offline-recovery-kit.sh"
         self.assertTrue(script.is_file())
