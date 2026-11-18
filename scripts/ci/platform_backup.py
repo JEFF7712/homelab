@@ -202,20 +202,6 @@ def cluster_pvc_relative(path: Path, label: str) -> Path:
     return relative
 
 
-def stop_active_services(services: list[str], stopped: list[str]) -> None:
-    for service in services:
-        status = subprocess.run(
-            ["systemctl", "is-active", service], capture_output=True, text=True
-        )
-        state = status.stdout.strip()
-        if state in {"inactive", "failed"} and status.returncode == 3:
-            continue
-        if state != "active" or status.returncode != 0:
-            raise RuntimeError(f"Cannot safely snapshot {service}: {state}")
-        stopped.append(service)
-        subprocess.run(["systemctl", "stop", service], check=True)
-
-
 def rotate_check_partition(state_file: Path) -> int:
     current = 1
     if state_file.is_file():
@@ -583,24 +569,24 @@ def run_backup(
         stage = Path(temporary)
         datasets: list[str] = []
         snapshots: list[str] = []
-        stopped: list[str] = []
         try:
             if host == "nas-01":
-                stop_active_services(["forgejo", "garage"], stopped)
                 suffix = "platform-backup-" + datetime.datetime.now(
                     datetime.UTC
                 ).strftime("%Y%m%dT%H%M%S")
-                selected_datasets = ["zroot/persist", "tank/forgejo", "tank/s3"]
+                # Forgejo and Garage keep metadata on zroot and data on tank.
+                # Metadata is captured first so the data snapshot is never older
+                # than what the metadata references; datasets sharing a pool
+                # are snapshotted atomically.
+                tank_datasets = ["tank/forgejo", "tank/s3"]
                 if cluster_snapshot:
-                    selected_datasets.append("tank/cluster")
-                for dataset in selected_datasets:
-                    snapshot = dataset + "@" + suffix
-                    subprocess.run(["zfs", "snapshot", snapshot], check=True)
-                    snapshots.append(snapshot)
-
-                for service in stopped.copy():
-                    subprocess.run(["systemctl", "start", service], check=True)
-                    stopped.remove(service)
+                    tank_datasets.append("tank/cluster")
+                for pool_datasets in (["zroot/persist"], tank_datasets):
+                    pool_snapshots = [
+                        dataset + "@" + suffix for dataset in pool_datasets
+                    ]
+                    subprocess.run(["zfs", "snapshot", *pool_snapshots], check=True)
+                    snapshots.extend(pool_snapshots)
 
                 persist_snap = persist_root / ".zfs" / "snapshot" / suffix
                 for directory in ["forgejo", "garage"]:
@@ -676,11 +662,6 @@ def run_backup(
             )
         finally:
             failures: list[Exception] = []
-            for service in stopped:
-                try:
-                    subprocess.run(["systemctl", "start", service], check=True)
-                except Exception as error:
-                    failures.append(error)
             for snapshot in snapshots:
                 try:
                     subprocess.run(["zfs", "destroy", snapshot], check=True)
