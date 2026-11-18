@@ -41,8 +41,7 @@ check_kustomization() {
   local allow_skipped=false
   case "$file" in
     gitops/clusters/homelab-01/kustomization.yaml | \
-      gitops/clusters/homelab-01/flux-system/kustomization.yaml | \
-      gitops/ingress/crds/kustomization.yaml) allow_skipped=true ;;
+      gitops/clusters/homelab-01/flux-system/kustomization.yaml) allow_skipped=true ;;
   esac
   if grep -Eq 'Skipped: [1-9]' <<<"$output" && [[ $allow_skipped == false ]]; then
     echo "missing Kubernetes schemas in $file; refresh and commit the required CRD schemas" >&2
