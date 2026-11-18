@@ -5,6 +5,29 @@
   fleetInventory,
   ...
 }:
+let
+  localBackupDatasets = [
+    "tank/cluster"
+    "tank/forgejo"
+    "tank/backups"
+    "tank/backups/syncthing"
+    "tank/photos"
+    "tank/documents"
+    "tank/s3"
+  ];
+  # Rebuildable caches, metrics, logs and models stay out of the backup.
+  localBackupExcludes = [
+    "observability-prometheus-*"
+    "observability-storage-loki-*"
+    "voice-ollama-models-*"
+    "voice-whisper-models-*"
+    "immich-immich-model-cache-*"
+    "media-clamav-db-*"
+    "nix-nix-iso-data-*"
+    "thumbs"
+    "encoded-video"
+  ];
+in
 {
   networking.firewall.allowedTCPPorts = [
     2049
@@ -23,6 +46,15 @@
 
   fileSystems."/mnt/backup-2tb" = {
     device = "/dev/disk/by-id/ata-ST2000DM008-2FR102_ZFL60NJG-part1";
+    fsType = "xfs";
+    options = [
+      "nofail"
+      "x-systemd.device-timeout=30s"
+    ];
+  };
+
+  fileSystems."/mnt/backup-local" = {
+    device = "/dev/disk/by-id/ata-WDC_WD1003FBYZ-010FB0_WD-WCAW37790774-part1";
     fsType = "xfs";
     options = [
       "nofail"
@@ -148,47 +180,78 @@
     };
   };
 
-  systemd.services.nas-backup-2tb = {
-    description = "Copy photos and documents to the independent 2 TB disk";
+  systemd.services.nas-backup-local = {
+    description = "Encrypted backup of irreplaceable tank data to the local backup disk";
     after = [
-      "mnt-backup\\x2d2tb.mount"
+      "mnt-backup\\x2dlocal.mount"
       "tank-cluster.mount"
     ];
     requires = [
-      "mnt-backup\\x2d2tb.mount"
+      "mnt-backup\\x2dlocal.mount"
       "tank-cluster.mount"
     ];
-    unitConfig.RequiresMountsFor = [
-      "/tank/photos"
-      "/tank/documents"
-      "/mnt/backup-2tb"
+    unitConfig.RequiresMountsFor = map (dataset: "/${dataset}") localBackupDatasets ++ [
+      "/mnt/backup-local"
     ];
-    path = [ pkgs.util-linux ];
+    path = [
+      pkgs.restic
+      pkgs.zfs
+      pkgs.coreutils
+      pkgs.util-linux
+    ];
     serviceConfig = {
       Type = "oneshot";
+      PrivateTmp = true;
       ExecStartPre = pkgs.writeShellScript "check-nas-backup-mounts" (
         builtins.readFile ../../scripts/nas/check-backup-mounts.sh
       );
-      ExecStart = pkgs.writeShellScript "nas-backup-2tb" ''
-        set -eu
-        immich_dir=$(${pkgs.findutils}/bin/find /tank/cluster -maxdepth 1 -name "immich-immich-library-pvc-*" | head -n 1)
-        if [ -n "$immich_dir" ] && [ -d "$immich_dir" ]; then
-          ${pkgs.rsync}/bin/rsync -a --delete "$immich_dir/" /mnt/backup-2tb/photos/
-        elif [ -d /tank/photos ]; then
-          ${pkgs.rsync}/bin/rsync -a --delete /tank/photos/ /mnt/backup-2tb/photos/
-        fi
-        if [ -d /tank/documents ]; then
-          ${pkgs.rsync}/bin/rsync -a --delete /tank/documents/ /mnt/backup-2tb/documents/
-        fi
-      '';
     };
+    script = ''
+      export RESTIC_REPOSITORY=/mnt/backup-local/nas-restic
+      export RESTIC_PASSWORD_FILE=${config.sops.secrets.registry-restic-password.path}
+      if [ ! -f "$RESTIC_REPOSITORY/config" ]; then
+        restic init
+      fi
+      restic snapshots >/dev/null
+
+      # A fixed snapshot name keeps restic source paths stable, so each run
+      # finds its parent snapshot and skips unchanged files.
+      snapshots=()
+      sources=()
+      for dataset in ${lib.escapeShellArgs localBackupDatasets}; do
+        snapshots+=("$dataset@local-backup")
+        sources+=("/$dataset/.zfs/snapshot/local-backup")
+      done
+      for snapshot in "''${snapshots[@]}"; do
+        if zfs list -t snapshot "$snapshot" >/dev/null 2>&1; then
+          zfs destroy "$snapshot"
+        fi
+      done
+      zfs snapshot "''${snapshots[@]}"
+      cleanup() {
+        for snapshot in "''${snapshots[@]}"; do
+          zfs destroy "$snapshot" || true
+        done
+      }
+      trap cleanup EXIT
+
+      restic backup --host nas-01 --tag nas-data --group-by host,tags \
+        ${
+          lib.concatMapStringsSep " " (pattern: "--exclude ${lib.escapeShellArg pattern}") localBackupExcludes
+        } \
+        "''${sources[@]}"
+      restic forget --host nas-01 --tag nas-data --group-by host,tags \
+        --prune --keep-daily 7 --keep-weekly 5 --keep-monthly 6
+      restic check --read-data-subset=5%
+    '';
   };
-  systemd.timers.nas-backup-2tb = {
-    description = "Daily copy of photos and documents to the 2 TB disk";
+  systemd.timers.nas-backup-local = {
+    description = "Daily encrypted backup of tank data to the local backup disk";
     wantedBy = [ "timers.target" ];
     timerConfig = {
       OnCalendar = "daily";
       Persistent = true;
+      RandomizedDelaySec = "30m";
     };
   };
 
@@ -198,11 +261,11 @@
     description = "Encrypted backup of the local container registry";
     after = [
       "tank-registry.mount"
-      "mnt-backup\\x2d2tb.mount"
+      "mnt-backup\\x2dlocal.mount"
     ];
     requires = [
       "tank-registry.mount"
-      "mnt-backup\\x2d2tb.mount"
+      "mnt-backup\\x2dlocal.mount"
     ];
     serviceConfig = {
       Type = "oneshot";
@@ -211,7 +274,7 @@
       PrivateTmp = true;
       ProtectSystem = "strict";
       ReadWritePaths = [
-        "/mnt/backup-2tb/registry-restic"
+        "/mnt/backup-local/registry-restic"
         "/persist/zot/status"
       ];
     };
@@ -221,7 +284,7 @@
       pkgs.coreutils
     ];
     script = ''
-      export RESTIC_REPOSITORY=/mnt/backup-2tb/registry-restic
+      export RESTIC_REPOSITORY=/mnt/backup-local/registry-restic
       export RESTIC_PASSWORD_FILE=${config.sops.secrets.registry-restic-password.path}
       if [ ! -f "$RESTIC_REPOSITORY/config" ]; then
         restic init
@@ -260,9 +323,8 @@
 
   systemd.tmpfiles.rules = [
     "d /persist/keys 0700 root root -"
-    "d /mnt/backup-2tb/registry-restic 0700 zot zot -"
-    "d /mnt/backup-2tb/photos 0755 root root -"
-    "d /mnt/backup-2tb/documents 0755 root root -"
+    "d /mnt/backup-local/registry-restic 0700 zot zot -"
+    "d /mnt/backup-local/nas-restic 0700 root root -"
     "d /tank/media/games 0775 rupan users -"
   ];
 
