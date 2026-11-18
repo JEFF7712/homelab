@@ -115,9 +115,40 @@ class RemoteTests(unittest.TestCase):
         self.assertEqual(self.master.read_bytes(), edited)
 
     def test_rpc_does_not_allow_live_sends(self):
-        with self.assertRaisesRegex(ValueError, "only in the homelab"):
+        with self.assertRaisesRegex(ValueError, "only in the outreach-control"):
             runner.rpc({"version": 1, "args": ["send-due", "--force"]})
         runner.invoke.assert_not_called()
+
+    def test_send_loop_notifies_only_when_sending_starts_failing(self):
+        codes = [0, 1, 1, 0, 2]
+        calls = []
+        shutdown = Mock()
+        shutdown.is_set.side_effect = lambda: len(calls) == len(codes)
+        shutdown.wait.return_value = None
+
+        def fake_run(command):
+            calls.append(command)
+            return Mock(returncode=codes[len(calls) - 1])
+
+        with (
+            patch.object(runner.subprocess, "run", side_effect=fake_run),
+            patch.object(runner.engine, "notify") as notify,
+            patch.object(runner, "SEND_INTERVAL", 60),
+        ):
+            runner.send_loop(shutdown)
+        self.assertEqual(len(calls), len(codes))
+        self.assertEqual(calls[0][-1], "send-due")
+        self.assertEqual(notify.call_count, 2)
+
+    def test_send_loop_disabled_by_zero_interval(self):
+        shutdown = Mock()
+        with (
+            patch.object(runner.subprocess, "run") as run,
+            patch.object(runner, "SEND_INTERVAL", 0),
+        ):
+            runner.send_loop(shutdown)
+        run.assert_not_called()
+        shutdown.wait.assert_called_once_with()
 
     def test_batch_spec_is_materialized_on_server(self):
         runner.rpc(self.request)

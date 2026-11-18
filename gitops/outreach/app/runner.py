@@ -9,6 +9,7 @@ import io
 import json
 import os
 import signal
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -26,6 +27,7 @@ for dependency in json.loads((DEPS / "manifest.json").read_text()):
     sys.path.insert(0, str(wheel))
 os.environ["OUTREACH_ROOT"] = str(STATE)
 os.environ["OUTREACH_RESUMES"] = str(STATE / "resumes")
+SEND_INTERVAL = int(os.environ.get("OUTREACH_SEND_INTERVAL", "60"))
 engine = importlib.import_module("outreach")
 
 
@@ -127,7 +129,7 @@ def rpc(request: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(args, list) or not args or args[0] not in allowed:
         raise ValueError("unsupported outreach command")
     if args[0] == "send-due" and "--dry-run" not in args:
-        raise ValueError("live send-due runs only in the homelab CronJob")
+        raise ValueError("live send-due runs only in the outreach-control sender loop")
     if args[0] == "bootstrap":
         if engine.MASTER.exists() or engine.QUEUE.exists():
             raise ValueError(
@@ -189,13 +191,29 @@ def rpc(request: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def send_loop(shutdown: threading.Event) -> None:
+    # Each pass runs in a fresh interpreter so engine module state never
+    # carries over between sends. Only a transition into failure notifies.
+    failing = False
+    while SEND_INTERVAL > 0 and not shutdown.is_set():
+        code = subprocess.run([sys.executable, __file__, "send-due"]).returncode
+        if code and not failing:
+            engine.notify(
+                "Outreach sender failed",
+                f"send-due exited {code}; check outreach-control logs",
+            )
+        failing = code != 0
+        shutdown.wait(SEND_INTERVAL)
+    shutdown.wait()
+
+
 def main() -> int:
     command = sys.argv[1]
-    if command == "idle":
+    if command == "serve":
         shutdown = threading.Event()
         for signum in (signal.SIGTERM, signal.SIGINT):
             signal.signal(signum, lambda *_: shutdown.set())
-        shutdown.wait()
+        send_loop(shutdown)
         return 0
     if command == "health":
         STATE.mkdir(parents=True, exist_ok=True)
@@ -224,9 +242,6 @@ def main() -> int:
                 atomic_write(STATE / "last-success", engine.now().isoformat().encode())
                 return code
             except Exception:
-                engine.notify(
-                    "Outreach sender failed", "Check outreach-sender CronJob logs"
-                )
                 traceback.print_exc()
                 return 1
             finally:
