@@ -311,7 +311,7 @@ class AutomationTest(unittest.TestCase):
         scope = embedded("forgejo-dashboard-script", "dashboard.py")
         self.assertIn("status_payload", scope)
         self.assertIn("reviewer_run_status", scope)
-        self.assertIn("github_status", scope)
+        self.assertNotIn("github_status", scope)
         pr = {
             "state": "open",
             "head": {"sha": SHA, "ref": "renovate/nix"},

@@ -13,7 +13,6 @@ from zoneinfo import ZoneInfo
 
 NAMESPACE = os.getenv("POD_NAMESPACE", "automation")
 STATE_CM = os.getenv("RENOVATE_AGENT_STATE_CONFIGMAP", "renovate-agent-state")
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN", "")
 FORGEJO_TOKEN = os.getenv("FORGEJO_TOKEN", "")
 FORGEJO_APPROVAL_TOKEN = os.getenv("FORGEJO_APPROVAL_TOKEN", "")
 FORGEJO_ENDPOINT = os.getenv("FORGEJO_ENDPOINT", "https://git.rupan.dev/api/v1")
@@ -64,15 +63,6 @@ def request_text(method, url, headers=None, body=None, timeout=25, context=None)
     raw = exc.read().decode("utf-8", errors="replace")
     raise HttpError(exc.code, raw) from exc
 
-def github(method, path, body=None):
-  headers = {
-    "Authorization": f"Bearer {GITHUB_TOKEN}",
-    "Accept": "application/vnd.github+json",
-    "X-GitHub-Api-Version": "2022-11-28",
-    "User-Agent": "homelab-renovate-dashboard",
-  }
-  return request(method, f"https://api.github.com{path}", headers, body)
-
 def forgejo(method, path, body=None):
   headers = {
     "Authorization": f"token {FORGEJO_TOKEN}",
@@ -113,12 +103,6 @@ def load_repo_file(path):
       left, right = line.split("|", 1)
       repos.append((left.strip(), right.strip()))
   return repos
-
-def github_allowlist():
-  return {
-    (owner.lower(), repo.lower())
-    for owner, repo in load_repo_file("/config/renovate-agent-repositories.txt")
-  }
 
 def forgejo_allowlist():
   return {
@@ -205,44 +189,6 @@ def latest_forgejo_state(state_data, namespace, project, number, sha=None):
     return {}
   return max(candidates, key=lambda item: item.get("processed_at", 0))
 
-def checks_for(owner, repo, sha):
-  failures = []
-  pending = []
-  successes = []
-  try:
-    statuses = github("GET", f"/repos/{owner}/{repo}/commits/{sha}/status").get("statuses", [])
-    for status in statuses:
-      name = status.get("context", "status")
-      if status.get("state") == "success":
-        successes.append(name)
-      elif status.get("state") in ("pending", "expected"):
-        pending.append(name)
-      else:
-        failures.append(f"{name}: {status.get('state')}")
-  except Exception:
-    pass
-  try:
-    runs = github("GET", f"/repos/{owner}/{repo}/commits/{sha}/check-runs?per_page=100").get("check_runs", [])
-    for run in runs:
-      name = run.get("name", "check")
-      if run.get("status") != "completed":
-        pending.append(name)
-      elif run.get("conclusion") in ("success", "neutral", "skipped"):
-        successes.append(name)
-      else:
-        failures.append(f"{name}: {run.get('conclusion')}")
-  except Exception:
-    pass
-  if failures:
-    state = "failure"
-  elif pending:
-    state = "pending"
-  elif successes:
-    state = "success"
-  else:
-    state = "unknown"
-  return {"state": state, "failures": failures[:5], "pending": pending[:5], "successes": successes[:5]}
-
 def forgejo_checks(owner, repo, sha):
   statuses = forgejo("GET", f"/repos/{owner}/{repo}/commits/{sha}/statuses?limit=100")
   status = next((entry for entry in statuses if entry.get("context") == "ci/woodpecker/validation-v2"), {})
@@ -251,105 +197,6 @@ def forgejo_checks(owner, repo, sha):
     state = "failure"
   return {"state": state, "failures": [], "pending": [], "successes": []}
 
-
-def merge_status(owner, repo, number):
-  pr = github("GET", f"/repos/{owner}/{repo}/pulls/{number}")
-  mergeable = pr.get("mergeable")
-  mergeable_state = pr.get("mergeable_state") or "unknown"
-  if mergeable is None and mergeable_state == "unknown":
-    time.sleep(1)
-    pr = github("GET", f"/repos/{owner}/{repo}/pulls/{number}")
-    mergeable = pr.get("mergeable")
-    mergeable_state = pr.get("mergeable_state") or "unknown"
-  return {
-    "mergeable": mergeable,
-    "mergeable_state": mergeable_state,
-    "has_conflicts": mergeable is False and mergeable_state == "dirty",
-  }
-
-def bucket_for(pr, state_item, checks, merge):
-  action = state_item.get("action", "")
-  decision = state_item.get("decision", {}) or {}
-  approval = state_item.get("approval", {}) or {}
-  if merge.get("has_conflicts"):
-    return "conflict"
-  if action == "repaired":
-    return "repaired"
-  if action in ("repair_failed", "repair_skipped", "merge_failed") or decision.get("decision") == "blocked":
-    return "blocked"
-  if decision.get("decision") == "wait" or checks["state"] in ("pending", "unknown"):
-    return "waiting"
-  if decision.get("requires_permission") and not approval.get("approved"):
-    return "approval"
-  if approval.get("approved"):
-    return "approved"
-  if checks["state"] == "success":
-    return "green"
-  return "unreviewed"
-
-def github_status(state_data):
-  rows = []
-  merged_recent = []
-  now = datetime.datetime.now(ZoneInfo("America/New_York"))
-  midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-  since = now - datetime.timedelta(days=7)
-  for owner, repo in load_repo_file("/config/renovate-agent-repositories.txt"):
-    pulls = github("GET", f"/repos/{owner}/{repo}/pulls?state=open&per_page=100")
-    for pr in pulls:
-      if not renovate_pr(pr):
-        continue
-      sha = pr.get("head", {}).get("sha", "")
-      state_item = latest_state(state_data, owner, repo, pr["number"], sha)
-      checks = checks_for(owner, repo, sha)
-      merge = merge_status(owner, repo, pr["number"])
-      decision = state_item.get("decision", {}) or {}
-      approval = state_item.get("approval", {}) or {}
-      reason = decision.get("reason", "")
-      display_decision = decision.get("decision", "unreviewed")
-      if merge["has_conflicts"]:
-        display_decision = "merge_conflict"
-        reason = "GitHub reports this PR has merge conflicts with the base branch."
-      rows.append({
-        "platform": "github",
-        "owner": owner,
-        "repo": repo,
-        "number": pr["number"],
-        "title": pr.get("title"),
-        "url": pr.get("html_url"),
-        "sha": sha,
-        "short_sha": sha[:12],
-        "branch": pr.get("head", {}).get("ref"),
-        "bucket": bucket_for(pr, state_item, checks, merge),
-        "checks": checks["state"],
-        "mergeable": merge["mergeable"],
-        "mergeable_state": merge["mergeable_state"],
-        "decision": display_decision,
-        "approval": approval.get("method") or "",
-        "action": state_item.get("action", ""),
-        "reason": reason,
-        "processed_at": state_item.get("processed_at", 0),
-        "can_approve": checks["state"] == "success" and not approval.get("approved") and not merge["has_conflicts"],
-      })
-    closed = github("GET", f"/repos/{owner}/{repo}/pulls?state=closed&sort=updated&direction=desc&per_page=100")
-    for pr in closed:
-      merged_at = pr.get("merged_at")
-      if not merged_at:
-        continue
-      merged_dt = datetime.datetime.fromisoformat(merged_at.replace("Z", "+00:00")).astimezone(ZoneInfo("America/New_York"))
-      if merged_dt < since:
-        continue
-      if not renovate_pr(pr):
-        continue
-      merged_recent.append({
-        "platform": "github",
-        "repo": repo,
-        "number": pr["number"],
-        "title": pr.get("title"),
-        "url": pr.get("html_url"),
-        "merged_at": merged_dt.isoformat(timespec="minutes"),
-        "is_today": merged_dt >= midnight,
-      })
-  return rows, merged_recent
 
 def forgejo_status(state_data):
   rows = []
@@ -595,10 +442,9 @@ def status_payload():
     return CACHE["data"]
   state_cm = kube_configmap(STATE_CM)
   state_data = state_cm.get("data", {})
-  github_rows, github_merged = github_status(state_data)
   forgejo_rows, forgejo_merged = forgejo_status(state_data)
-  rows = sorted(github_rows + forgejo_rows, key=lambda item: (item["bucket"], item["repo"], item["number"]))
-  merged_recent = sorted(github_merged + forgejo_merged, key=lambda item: item["merged_at"], reverse=True)
+  rows = sorted(forgejo_rows, key=lambda item: (item["bucket"], item["repo"], item["number"]))
+  merged_recent = sorted(forgejo_merged, key=lambda item: item["merged_at"], reverse=True)
   merged_today = [item for item in merged_recent if item.get("is_today")]
   counts = {}
   for row in rows:
@@ -617,40 +463,13 @@ def status_payload():
   return payload
 
 def approve_pr(body):
-  platform = str(body.get("platform", "github")).strip().lower()
   owner = str(body.get("owner", "")).strip()
   repo = str(body.get("repo", "")).strip()
   number = int(body.get("number", 0))
   expected_sha = str(body.get("sha", "")).strip()
   if not owner or not repo or number <= 0 or not expected_sha:
     raise ValueError("owner, repo, number, and sha are required")
-  if platform == "forgejo":
-    return approve_forgejo_mr(owner, repo, number, expected_sha)
-  if platform != "github":
-    raise ValueError("unsupported approval platform")
-  if (owner.lower(), repo.lower()) not in github_allowlist():
-    raise PermissionError("repository is not in the Renovate agent allowlist")
-
-  pr = github("GET", f"/repos/{owner}/{repo}/pulls/{number}")
-  if pr.get("state") != "open":
-    raise ValueError("pull request is not open")
-  current_sha = pr.get("head", {}).get("sha", "")
-  if current_sha != expected_sha:
-    raise ValueError("pull request head changed; refresh before approving")
-  if not renovate_pr(pr):
-    raise ValueError("pull request does not look like a Renovate PR")
-  mergeable = pr.get("mergeable")
-  mergeable_state = pr.get("mergeable_state") or "unknown"
-  if mergeable is False and mergeable_state == "dirty":
-    raise ValueError("pull request has merge conflicts")
-
-  github("POST", f"/repos/{owner}/{repo}/issues/{number}/labels", {"labels": [APPROVAL_LABEL]})
-  github("POST", f"/repos/{owner}/{repo}/issues/{number}/comments", {"body": APPROVAL_COMMAND})
-  CACHE["expires"] = 0
-  return {
-    "ok": True,
-    "message": f"Approved {owner}/{repo}#{number}. The reviewer will merge it on the next run once checks are green.",
-  }
+  return approve_forgejo_mr(owner, repo, number, expected_sha)
 
 def approve_forgejo_mr(namespace, project, number, expected_sha):
   if not FORGEJO_APPROVAL_TOKEN:
@@ -1046,7 +865,7 @@ def page():
       if (event.target.tagName !== 'BUTTON') return;
       const button = event.target;
       approve({
-        platform: button.dataset.platform || 'github',
+        platform: button.dataset.platform || 'forgejo',
         owner: button.dataset.owner,
         repo: button.dataset.repo,
         number: button.dataset.number,
