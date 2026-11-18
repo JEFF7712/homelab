@@ -352,6 +352,46 @@ class ReportsTest(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(ET.parse(output).getroot().get("tests"), "2")
 
+    def test_nix_integration_selects_modules_that_need_nix(self) -> None:
+        # repository-contract has no nix, so these modules skip there; the
+        # lane with Nix must run them (test_host_secrets went stale unseen).
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "test_needs_nix.py").write_text(
+                "import shutil, unittest\n"
+                "class NeedsNix(unittest.TestCase):\n"
+                "    def test_eval(self):\n"
+                "        shutil.which('nix')\n"
+            )
+            (directory / "test_plain.py").write_text(
+                "import unittest\nclass Plain(unittest.TestCase):\n"
+                "    def test_ok(self):\n        pass\n"
+            )
+            (directory / "test_broken.py").write_text("import missing_module\n")
+            output = directory / "report.xml"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "scripts.ci.tests",
+                    "--start",
+                    temporary,
+                    "--output",
+                    str(output),
+                    "--nix-integration",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            # The import failure stays selected, so the lane fails on it.
+            self.assertEqual(result.returncode, 1, result.stderr)
+            names = {
+                case.get("name") for case in ET.parse(output).getroot().iter("testcase")
+            }
+            self.assertEqual(names, {"test_eval", "test_broken"})
+
     def test_runner_returns_failure_and_writes_report(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)

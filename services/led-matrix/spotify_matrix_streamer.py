@@ -10,6 +10,7 @@ import os
 import secrets
 import select
 import socket
+import struct
 import sys
 import tempfile
 import threading
@@ -159,6 +160,153 @@ def frame_to_rgb888(image: Image.Image, brightness: float = 1.0) -> bytes:
     return lut[np.asarray(rgb, dtype=np.uint8)].tobytes()
 
 
+def encode_r889_frame(
+    image: Image.Image,
+    brightness: float = 1.0,
+    *,
+    prev_rgb: bytes | None = None,
+) -> tuple[bytes, bytes, int]:
+    """Encode an unscaled 24-bit frame with hardware OE brightness and delta+RLE."""
+    if image.size != (64, 64):
+        raise ValueError("Matrix frames must be 64x64")
+    clamped_b = max(0.0, min(1.0, float(brightness)))
+    hw_bright = max(0, min(255, round(clamped_b * 255.0)))
+    rgb_bytes = (image if image.mode == "RGB" else image.convert("RGB")).tobytes()
+
+    if prev_rgb is None:
+        return (
+            b"F" + struct.pack("<BH", hw_bright, 12288) + rgb_bytes,
+            rgb_bytes,
+            hw_bright,
+        )
+
+    if rgb_bytes == prev_rgb:
+        return b"R" + struct.pack("<BH", hw_bright, 0), rgb_bytes, hw_bright
+
+    curr = np.frombuffer(rgb_bytes, dtype=np.uint8).reshape(4096, 3)
+    prev = np.frombuffer(prev_rgb, dtype=np.uint8).reshape(4096, 3)
+    curr_key = (
+        (curr[:, 0].astype(np.uint32) << 16)
+        | (curr[:, 1].astype(np.uint32) << 8)
+        | curr[:, 2].astype(np.uint32)
+    )
+    prev_key = (
+        (prev[:, 0].astype(np.uint32) << 16)
+        | (prev[:, 1].astype(np.uint32) << 8)
+        | prev[:, 2].astype(np.uint32)
+    )
+    unchanged = curr_key == prev_key
+    span_edges = [
+        0,
+        *(np.flatnonzero(unchanged[1:] != unchanged[:-1]) + 1).tolist(),
+        4096,
+    ]
+
+    out = bytearray()
+
+    def flush_literal(px_start: int, px_end: int) -> None:
+        pos = px_start
+        while pos < px_end:
+            chunk = min(64, px_end - pos)
+            out.append(0x80 | (chunk - 1))
+            out.extend(rgb_bytes[pos * 3 : (pos + chunk) * 3])
+            pos += chunk
+
+    for idx in range(len(span_edges) - 1):
+        s = span_edges[idx]
+        e = span_edges[idx + 1]
+        if bool(unchanged[s]):
+            rem = e - s
+            while rem > 0:
+                chunk = min(128, rem)
+                out.append(chunk - 1)
+                rem -= chunk
+        else:
+            seg_keys = curr_key[s:e]
+            run_edges = [
+                0,
+                *(np.flatnonzero(seg_keys[1:] != seg_keys[:-1]) + 1).tolist(),
+                e - s,
+            ]
+            lit_start: int | None = None
+            for r_idx in range(len(run_edges) - 1):
+                rs = run_edges[r_idx]
+                re = run_edges[r_idx + 1]
+                rlen = re - rs
+                if rlen >= 2:
+                    if lit_start is not None:
+                        flush_literal(s + lit_start, s + rs)
+                        lit_start = None
+                    px_off = (s + rs) * 3
+                    color3 = rgb_bytes[px_off : px_off + 3]
+                    rem = rlen
+                    while rem > 0:
+                        chunk = min(64, rem)
+                        out.append(0xC0 | (chunk - 1))
+                        out.extend(color3)
+                        rem -= chunk
+                elif lit_start is None:
+                    lit_start = rs
+            if lit_start is not None:
+                flush_literal(s + lit_start, e)
+
+    if len(out) >= 12288:
+        return (
+            b"F" + struct.pack("<BH", hw_bright, 12288) + rgb_bytes,
+            rgb_bytes,
+            hw_bright,
+        )
+    return (
+        b"R" + struct.pack("<BH", hw_bright, len(out)) + bytes(out),
+        rgb_bytes,
+        hw_bright,
+    )
+
+
+def decode_r889_frame(
+    packet: bytes, canvas: bytearray | None = None
+) -> tuple[bytearray, int]:
+    """Reference R889 decoder matching the RP2040 C firmware state machine."""
+    if len(packet) < 4:
+        raise ValueError("Truncated R889 header")
+    ftype = packet[0:1]
+    hw_bright, plen = struct.unpack("<BH", packet[1:4])
+    payload = packet[4:]
+    if len(payload) != plen:
+        raise ValueError("Mismatched R889 payload length")
+    if ftype == b"F":
+        if plen != 12288:
+            raise ValueError("Full R889 frame must be 12288 bytes")
+        return bytearray(payload), hw_bright
+    if ftype != b"R" or canvas is None or len(canvas) != 12288:
+        raise ValueError("Invalid R889 delta state")
+    if plen == 0:
+        return canvas, hw_bright
+    px = 0
+    pos = 0
+    while pos < plen and px < 4096:
+        op = payload[pos]
+        pos += 1
+        if (op & 0x80) == 0:
+            count = op + 1
+            px += count
+        elif (op & 0x40) != 0:
+            count = (op & 0x3F) + 1
+            color3 = payload[pos : pos + 3]
+            pos += 3
+            canvas[px * 3 : (px + count) * 3] = color3 * count
+            px += count
+        else:
+            count = (op & 0x3F) + 1
+            nbytes = count * 3
+            canvas[px * 3 : (px + count) * 3] = payload[pos : pos + nbytes]
+            pos += nbytes
+            px += count
+    if pos != plen or px != 4096:
+        raise ValueError("Corrupt R889 delta stream")
+    return canvas, hw_bright
+
+
 class USBMatrixStreamer:
     def __init__(
         self,
@@ -167,8 +315,8 @@ class USBMatrixStreamer:
         pixel_format: str = "rgb565",
         keepalive_interval: float | None = None,
     ) -> None:
-        if pixel_format not in ("rgb565", "rgb888"):
-            raise ValueError("pixel_format must be 'rgb565' or 'rgb888'")
+        if pixel_format not in ("rgb565", "rgb888", "r889"):
+            raise ValueError("pixel_format must be 'rgb565', 'rgb888', or 'r889'")
         self.port = port
         self.pixel_format = pixel_format
         self.keepalive_interval = keepalive_interval
@@ -178,15 +326,13 @@ class USBMatrixStreamer:
         self.failures = 0
         self.last_error = 0.0
         self._last_payload: bytes | None = None
+        self._last_r889_rgb: bytes | None = None
+        self._last_r889_bright = -1
         self._last_send_time = 0.0
 
     def send_frame(self, image: Image.Image, brightness: float = 1.0) -> bool:
-        if self.pixel_format == "rgb888":
-            header = b"S888"
-            raw_bytes = frame_to_rgb888(image, brightness)
-        else:
-            header = b"S565"
-            raw_bytes = frame_to_rgb565(image, brightness)
+        if image.size != (64, 64):
+            raise ValueError("Matrix frames must be 64x64")
         try:
             if self.serial is None:
                 port = self.port
@@ -207,7 +353,38 @@ class USBMatrixStreamer:
                 )
                 self.serial.reset_input_buffer()
                 self._last_payload = None
+                self._last_r889_rgb = None
+                self._last_r889_bright = -1
             now = time.monotonic()
+            if self.pixel_format == "r889":
+                r889_body, rgb_bytes, hw_bright = encode_r889_frame(
+                    image, brightness, prev_rgb=self._last_r889_rgb
+                )
+                if (
+                    self.keepalive_interval is not None
+                    and self._last_r889_rgb == rgb_bytes
+                    and self._last_r889_bright == hw_bright
+                    and (now - self._last_send_time) < self.keepalive_interval
+                ):
+                    self.skipped_frames += 1
+                    return True
+                packet = b"S889" + r889_body
+                if self.serial.write(packet) != len(packet):
+                    raise OSError("Incomplete USB frame write")
+                if self.serial.read(1) != b"A":
+                    raise OSError("Pico did not acknowledge the USB frame")
+                self._last_r889_rgb = rgb_bytes
+                self._last_r889_bright = hw_bright
+                self._last_send_time = time.monotonic()
+                self.frames += 1
+                return True
+
+            if self.pixel_format == "rgb888":
+                header = b"S888"
+                raw_bytes = frame_to_rgb888(image, brightness)
+            else:
+                header = b"S565"
+                raw_bytes = frame_to_rgb565(image, brightness)
             if (
                 self.keepalive_interval is not None
                 and self._last_payload == raw_bytes
@@ -242,10 +419,12 @@ class USBMatrixStreamer:
             self.serial.close()
             self.serial = None
         self._last_payload = None
+        self._last_r889_rgb = None
+        self._last_r889_bright = -1
 
 
 class TCPMatrixStreamer:
-    """Send RGB565 or RGB888 frames with bounded pipelining and static deduplication."""
+    """Send R565, R888, or compressed R889 frames with pipelining and deduplication."""
 
     def __init__(
         self,
@@ -268,6 +447,8 @@ class TCPMatrixStreamer:
         self._pending_frames = 0
         self._oldest_pending_since = 0.0
         self._last_payload: bytes | None = None
+        self._last_r889_rgb: bytes | None = None
+        self._last_r889_bright = -1
         self._last_send_time = 0.0
         self.frames = 0
         self.skipped_frames = 0
@@ -315,18 +496,47 @@ class TCPMatrixStreamer:
                             "Pico disconnected before the ready handshake"
                         )
                     ready.extend(part)
-                if ready not in (b"R565", b"R888"):
+                if ready not in (b"R565", b"R888", b"R889"):
                     raise ConnectionError("Pico returned an invalid ready handshake")
                 self.protocol = ready.decode("ascii")
                 self._last_payload = None
+                self._last_r889_rgb = None
+                self._last_r889_bright = -1
+
+            while self._receive_acknowledgements():
+                pass
+            now = time.monotonic()
+
+            if self.protocol == "R889":
+                wire_bytes, rgb_bytes, hw_bright = encode_r889_frame(
+                    image, brightness, prev_rgb=self._last_r889_rgb
+                )
+                if (
+                    self.keepalive_interval is not None
+                    and self._last_r889_rgb == rgb_bytes
+                    and self._last_r889_bright == hw_bright
+                    and (now - self._last_send_time) < self.keepalive_interval
+                ):
+                    self.skipped_frames += 1
+                    return True
+                while self._pending_frames >= self.max_in_flight:
+                    self._receive_acknowledgements(wait=True)
+                self.sock.sendall(wire_bytes)
+                send_t = time.monotonic()
+                if self._pending_frames == 0:
+                    self._oldest_pending_since = send_t
+                self._pending_frames += 1
+                self._last_r889_rgb = rgb_bytes
+                self._last_r889_bright = hw_bright
+                self._last_send_time = send_t
+                self._receive_acknowledgements(wait=self.max_in_flight == 1)
+                return True
+
             raw_bytes = (
                 frame_to_rgb888(image, brightness)
                 if self.protocol == "R888"
                 else frame_to_rgb565(image, brightness)
             )
-            while self._receive_acknowledgements():
-                pass
-            now = time.monotonic()
             effective_keepalive = (
                 min(self.keepalive_interval, 0.35)
                 if (self.keepalive_interval is not None and self.protocol == "R565")
@@ -369,6 +579,8 @@ class TCPMatrixStreamer:
         self._pending_frames = 0
         self._oldest_pending_since = 0.0
         self._last_payload = None
+        self._last_r889_rgb = None
+        self._last_r889_bright = -1
 
 
 # --- Album Art Rendering (Spinning Record) ---

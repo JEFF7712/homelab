@@ -615,7 +615,7 @@ class PythonGateTest(unittest.TestCase):
         for status in (0, 7):
             code, args = self.run_gate("1", status)
             self.assertEqual(code, status)
-            self.assertIn("test_zot_registry_module.py", args)
+            self.assertIn("--nix-integration", args)
             self.assertNotIn("discover", args)
 
     def test_scoped_gate_runs_only_named_test_modules(self) -> None:
