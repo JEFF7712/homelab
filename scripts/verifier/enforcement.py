@@ -55,7 +55,6 @@ ENFORCEMENT_PATHS = (
     "config/ci/forgejo-protection.json",
     "config/ci/woodpecker-repository.json",
     "flake/modules/woodpecker.nix",
-    "flake/modules/woodpecker-clone-retry.sh",
     "flake/modules/woodpecker_retention.py",
     "flake/patches/woodpecker-",
     # Secret recipients.
