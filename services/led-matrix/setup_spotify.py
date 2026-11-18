@@ -145,7 +145,7 @@ in private files. You will then continue to Spotify to approve access to your cu
                         "SPOTIFY_CLIENT_ID": setup.client_id,
                         "SPOTIFY_CLIENT_SECRET": setup.client_secret,
                         "SPOTIFY_REDIRECT_URI": REDIRECT_URI,
-                        "PICO_MATRIX_IP": "10.0.20.131",
+                        "PICO_MATRIX_IP": "10.0.20.136",
                     }
                     write_private_file(
                         setup.env_path,
