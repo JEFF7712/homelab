@@ -146,5 +146,42 @@ class RecoveryTest(unittest.IsolatedAsyncioTestCase):
         await provider.unload()
 
 
+class SkipDebounceTest(unittest.TestCase):
+    def test_caps_only_queue_skip_delay_and_installs_once(self) -> None:
+        calls: list[tuple[float, str | None, tuple, dict]] = []
+
+        class Mass:
+            def call_later(self, delay, target, *args, task_id=None, **kwargs):
+                calls.append((delay, task_id, args, kwargs))
+                return "handle"
+
+        recovery.install_skip_debounce(Mass)
+        recovery.install_skip_debounce(Mass)
+        mass = Mass()
+        target = object()
+        self.assertEqual(
+            mass.call_later(1, target, "queue", 3, task_id="queue_play_index_queue"),
+            "handle",
+        )
+        mass.call_later(5, target, "queue", task_id="fill_autoplay_tracks_queue")
+        mass.call_later(0.05, target, task_id="queue_play_index_queue")
+        mass.call_later(1, target, extra=True)
+        self.assertEqual(
+            calls,
+            [
+                (
+                    recovery.SKIP_DEBOUNCE_SECONDS,
+                    "queue_play_index_queue",
+                    ("queue", 3),
+                    {},
+                ),
+                (5, "fill_autoplay_tracks_queue", ("queue",), {}),
+                (0.05, "queue_play_index_queue", (), {}),
+                (1, None, (), {"extra": True}),
+            ],
+        )
+        self.assertLess(recovery.SKIP_DEBOUNCE_SECONDS, 0.2)
+
+
 if __name__ == "__main__":
     unittest.main()

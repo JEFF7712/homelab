@@ -1,9 +1,13 @@
-"""Recover HA imports whose availability got stuck during a reconnect.
+"""Startup hooks for the pinned Music Assistant server.
 
-The pinned upstream provider relies on websocket updates after its startup
-snapshot. Reconcile unavailable imports only; healthy players keep their normal
+Recover HA imports whose availability got stuck during a reconnect. The pinned
+upstream provider relies on websocket updates after its startup snapshot.
+Reconcile unavailable imports only; healthy players keep their normal
 push-driven playback tracking. Remove this hook when upstream provides the same
 reconciliation guarantee.
+
+Shorten the queue next/previous debounce. Upstream waits a full second before
+starting the chosen track; a short window still coalesces double taps.
 """
 
 from __future__ import annotations
@@ -15,6 +19,10 @@ from typing import Any
 INTERVAL_SECONDS = 30
 FETCH_TIMEOUT_SECONDS = 15
 UNAVAILABLE_STATES = {"unknown", "unavailable"}
+# Upstream next()/previous() schedule play_index under this task id with a
+# hardcoded 1 s delay; no other caller schedules it.
+SKIP_TASK_PREFIX = "queue_play_index_"
+SKIP_DEBOUNCE_SECONDS = 0.15
 
 
 async def reconcile_unavailable(provider: Any) -> None:
@@ -98,11 +106,37 @@ def install_recovery(provider_type: Any) -> None:
     provider_type._homelab_recovery_installed = True
 
 
+def install_skip_debounce(mass_type: Any) -> None:
+    """Cap the queue skip debounce without touching other delayed tasks."""
+    if getattr(mass_type, "_homelab_skip_debounce_installed", False):
+        return
+    original_call_later = mass_type.call_later
+
+    def call_later(
+        self: Any,
+        delay: float,
+        target: Any,
+        *args: Any,
+        task_id: str | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        if task_id and task_id.startswith(SKIP_TASK_PREFIX):
+            delay = min(delay, SKIP_DEBOUNCE_SECONDS)
+        return original_call_later(
+            self, delay, target, *args, task_id=task_id, **kwargs
+        )
+
+    mass_type.call_later = call_later
+    mass_type._homelab_skip_debounce_installed = True
+
+
 if __name__ == "__main__":
     from music_assistant.__main__ import main
+    from music_assistant.mass import MusicAssistant
     from music_assistant.providers.hass_players.provider import (
         HomeAssistantPlayerProvider,
     )
 
     install_recovery(HomeAssistantPlayerProvider)
+    install_skip_debounce(MusicAssistant)
     raise SystemExit(main())

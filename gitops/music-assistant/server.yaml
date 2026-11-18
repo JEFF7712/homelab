@@ -24,6 +24,8 @@ spec:
           type: RuntimeDefault
       containers:
         - name: server
+          # runtime/recovery.py patches this 2.10.4 digest at startup (HA import
+          # recovery, 0.15 s queue skip debounce); recheck both when upgrading.
           image: registry.rupan.dev/upstream/ghcr.io/music-assistant/server@sha256:37a9a2776e838a754c9f5b38c432567389952304e7cb8f6b44b6cd28043de6de  # yamllint disable-line rule:line-length
           command:
             - /app/venv/bin/python
