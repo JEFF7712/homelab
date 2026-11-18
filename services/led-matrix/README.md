@@ -38,9 +38,11 @@ delivery run independently at 20 FPS.
 
 `input_select.bedroom_matrix_mode` controls the display. Cycling modes rotate their scenes,
 effects, games, and palettes in randomized order. Physics rotates orbiting particles,
-bouncing particles, wave propagation, harmonic pendulum waves, granular sand dunes,
-spiral galaxy accretion, curl vector flow fields, convective fire, and volcanic
-particle fountains in randomized order every 20 seconds. Visualizer and Game of Life
+bouncing particles, raindrop ripples, harmonic pendulum waves, draining sand,
+fire, a volcanic particle fountain, and fireworks in randomized order every 20
+seconds; with Auto-Cycle off, the current scene keeps animating. Its grid
+simulations step at a fixed 30 Hz and trails fade by elapsed time, so scenes look
+the same at any frame rate. Visualizer and Game of Life
 similarly cycle their effects and palettes in randomized order. Homelab Dashboards
 rotates Kubernetes nodes and pods, Forgejo/Woodpecker CI with deployment replica
 readiness, NAS traffic, and server health every 12 seconds. Its read-only

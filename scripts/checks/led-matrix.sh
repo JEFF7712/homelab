@@ -16,4 +16,4 @@ unittest.main(module=None, argv=["unittest", "discover", "-v"])
 # root; a matrix-only change runs this gate instead of that one.
 ruff check --select E,F,I,UP --ignore E501 .
 ruff format --check .
-env -u PYTHONPATH uv run --offline --frozen --no-dev pyright --pythonpath .venv/bin/python ha_source.py ha_matrix_streamer.py
+env -u PYTHONPATH uv run --offline --frozen --no-dev pyright --pythonpath .venv/bin/python ha_source.py ha_matrix_streamer.py modes/physics.py
