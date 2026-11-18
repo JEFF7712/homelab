@@ -17,15 +17,7 @@ spec:
       kind: Deployment
       name: renovate-dashboard
       namespace: automation
-    - apiVersion: apps/v1
-      kind: Deployment
-      name: renovate-approval-webhook
-      namespace: automation
     - apiVersion: helm.toolkit.fluxcd.io/v2
       kind: HelmRelease
       name: renovate-forgejo
-      namespace: automation
-    - apiVersion: helm.toolkit.fluxcd.io/v2
-      kind: HelmRelease
-      name: renovate-github
       namespace: automation
