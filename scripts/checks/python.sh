@@ -50,7 +50,7 @@ pyright_paths=(
   gitops/media/soularr/run.py gitops/media/navidrome-lookup/lookup.py
   gitops/media/lidarr-extended/10-render-extended-conf
   gitops/voice/exporter/exporter.py gitops/voice/satellite/__init__.py
-  gitops/voice/satellite/healthcheck.py
+  gitops/voice/satellite/healthcheck.py gitops/voice/satellite/stream_ducker.py
   opnsense_reconciler
 )
 pyright "${pyright_paths[@]}" &

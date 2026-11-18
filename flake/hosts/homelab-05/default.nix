@@ -21,6 +21,7 @@ in
     ../../modules/kiosk.nix
     ../../modules/moonlight-client.nix
     ../../modules/jarvis-spectrum.nix
+    ../../modules/sendspin-player.nix
     ../../modules/apollo-ble-bridge.nix
     ../../modules/omarchy-vm.nix
     ../../modules/woodpecker-sandbox.nix
@@ -236,6 +237,14 @@ in
   };
 
   homelab.jarvis-spectrum.enable = true;
+
+  # Music Assistant plays here over Sendspin, its native protocol, instead of
+  # through Home Assistant and the satellite's mpv: skip/pause act on one
+  # persistent stream, and the satellite ducks it via pactl.
+  homelab.sendspin-player = {
+    enable = true;
+    name = "Homelab 05 Speaker";
+  };
 
   homelab.kiosk = {
     enable = true;

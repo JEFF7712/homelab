@@ -23,6 +23,7 @@ from .models import Preferences, ServerState, WakeWordType
 from .mpv_player import MpvMediaPlayer
 from .peripheral_api import LVAEvent, PeripheralAPIServer
 from .satellite import VoiceSatelliteProtocol
+from .stream_ducker import StreamDucker
 from .util import (
     get_default_interface,
     get_default_ipv4,
@@ -680,6 +681,8 @@ async def main() -> None:
     state.last_audio_frame_time = time.monotonic()
     state.playback_inhibited = False
     state.acoustic_tail_seconds = float(os.environ.get("ACOUSTIC_TAIL_SECONDS", "0.35"))
+    if music_stream := os.environ.get("MUSIC_STREAM_MATCH"):
+        state.music_stream_ducker = StreamDucker(music_stream)
 
     async def audio_watchdog() -> None:
         stall_timeout = float(os.environ.get("AUDIO_STALL_TIMEOUT", "6.0"))
