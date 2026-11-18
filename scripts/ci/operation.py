@@ -29,9 +29,9 @@ class SupersededSource(ValueError):
 def _fetch(request: urllib.request.Request, attempts: int = 6) -> bytes:
     """Read a Forgejo API response, riding out its brief proxy and restart gaps.
 
-    The scheduled platform backup stops Forgejo for about a minute, and the
-    reverse proxy answers 502 meanwhile; an operation that lands there should
-    wait, not fail before doing any work.
+    A Forgejo restart or deployment makes the reverse proxy answer 502 for a
+    while; an operation that lands there should wait, not fail before doing
+    any work.
     """
     for attempt in range(attempts):
         try:

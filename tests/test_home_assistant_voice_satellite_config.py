@@ -45,7 +45,12 @@ class VoiceSatelliteConfigTests(unittest.TestCase):
         self.assertIn("__main__.py", configmap["data"])
         self.assertIn("satellite.py", configmap["data"])
         self.assertIn("healthcheck.py", configmap["data"])
-        for name in ("__main__.py", "satellite.py", "healthcheck.py"):
+        for name in (
+            "__main__.py",
+            "satellite.py",
+            "healthcheck.py",
+            "stream_ducker.py",
+        ):
             self.assertEqual(
                 configmap["data"][name],
                 (root / "gitops/voice/satellite" / name).read_text(),
@@ -60,6 +65,9 @@ class VoiceSatelliteConfigTests(unittest.TestCase):
         self.assertIn("__main__.py", subpaths)
         self.assertIn("satellite.py", subpaths)
         self.assertIn("healthcheck.py", subpaths)
+        self.assertIn("stream_ducker.py", subpaths)
+        env = {item["name"]: item["value"] for item in container["env"]}
+        self.assertEqual(env["MUSIC_STREAM_MATCH"], "sendspin")
 
     def test_satellite_environment_inhibition_and_stall(self) -> None:
         root = Path(__file__).resolve().parents[1]

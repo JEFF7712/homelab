@@ -118,7 +118,8 @@ class ExternalBackupContractTests(unittest.TestCase):
 
     def test_syncthing_folders_are_backed_up_off_host(self) -> None:
         content = (REPO_ROOT / "flake/modules/adguard-netbird/backups.nix").read_text()
-        self.assertIn('"$NAS_MOUNT/backups/syncthing"', content)
+        self.assertIn('"$NAS_MOUNT/backups/syncthing" || SYNC_RC=$?', content)
+        self.assertIn("--host adguard-netbird-01-syncthing", content)
         self.assertIn("Syncthing backup folders are not readable", content)
         source = (REPO_ROOT / "flake/modules/nas-backup-source.nix").read_text()
         self.assertIn('"syncthing"', source)
