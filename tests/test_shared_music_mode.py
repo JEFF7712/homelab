@@ -243,6 +243,40 @@ class TestSharedMusicMode(unittest.TestCase):
             ],
         )
 
+    def test_variables_steps_only_read_earlier_steps(self) -> None:
+        # Each variable must render with only earlier steps defined, so the
+        # result never depends on key order within a step.
+        for path, steps in (
+            (
+                "automations/music_mode_device_alert.yaml",
+                lambda doc: doc["actions"],
+            ),
+            (
+                "scripts/jarvis_play_media.yaml",
+                lambda doc: next(
+                    choice["sequence"]
+                    for step in doc["sequence"]
+                    if "choose" in step
+                    for choice in step["choose"]
+                    if any("by_parts" in str(s) for s in choice["sequence"])
+                ),
+            ),
+        ):
+            doc = yaml.load(
+                (REPO_ROOT / "home-assistant" / path).read_text(encoding="utf-8"),
+                Loader=HaLoader,
+            )
+            defined: set[str] = set()
+            for step in steps(doc):
+                names = set(step.get("variables", {}))
+                for name, value in step.get("variables", {}).items():
+                    for other in names - {name}:
+                        self.assertNotRegex(
+                            str(value), rf"(?<![\w.]){other}(?!\w)", f"{path}: {name}"
+                        )
+                defined |= names
+            self.assertTrue(defined)
+
     def test_automation_joins_leaves_and_repaints_taking_part_areas(self) -> None:
         automation = self._automation()
         self.assertEqual(automation["id"], "shared_music_mode")

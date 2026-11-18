@@ -46,8 +46,11 @@ actions:
         light.living_room_floor_lamp: input_boolean.music_mode_floor_lamp
         light.living_room_tulip_lamp: input_boolean.music_mode_tulip_lamp
         light.apollo_led_strip_apollo_led_strip: input_boolean.music_mode_ceiling_strip
+  # One step per dependency level: each variable reads only earlier steps.
+  - variables:
       candidates: >-
         {{ [trigger.entity_id] if trigger.id == 'light' else owners.keys() | list }}
+  - variables:
       lights: >-
         {% set ns = namespace(names=[]) %}
         {% for entity in candidates
