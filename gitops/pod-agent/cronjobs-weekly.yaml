@@ -28,7 +28,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: privacy-purge
-              image: registry.rupan.dev/apps/pod-agent@sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:f97222c02e471b99c3f856ce3de1023d44b666d855f88e4e7e422dd38605fb47  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - privacy
@@ -96,7 +96,7 @@ spec:
               type: RuntimeDefault
           initContainers:
             - name: wait-for-network
-              image: registry.rupan.dev/apps/pod-agent@sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:f97222c02e471b99c3f856ce3de1023d44b666d855f88e4e7e422dd38605fb47  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               command: [python, /app/wait-for-network.py]
               resources:
@@ -115,7 +115,7 @@ spec:
                 runAsUser: 101
           containers:
             - name: learn
-              image: registry.rupan.dev/apps/pod-agent@sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:f97222c02e471b99c3f856ce3de1023d44b666d855f88e4e7e422dd38605fb47  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - learn
@@ -164,6 +164,7 @@ metadata:
   namespace: pod-agent
 spec:
   schedule: "30 9 * * 1"
+  suspend: true
   timeZone: America/Chicago
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 3
@@ -185,7 +186,7 @@ spec:
               type: RuntimeDefault
           initContainers:
             - name: wait-for-network
-              image: registry.rupan.dev/apps/pod-agent@sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:f97222c02e471b99c3f856ce3de1023d44b666d855f88e4e7e422dd38605fb47  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               command: [python, /app/wait-for-network.py]
               resources:
@@ -204,7 +205,7 @@ spec:
                 runAsUser: 101
           containers:
             - name: discover
-              image: registry.rupan.dev/apps/pod-agent@sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:f97222c02e471b99c3f856ce3de1023d44b666d855f88e4e7e422dd38605fb47  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - catalog
@@ -277,7 +278,7 @@ spec:
               type: RuntimeDefault
           initContainers:
             - name: wait-for-network
-              image: registry.rupan.dev/apps/pod-agent@sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:f97222c02e471b99c3f856ce3de1023d44b666d855f88e4e7e422dd38605fb47  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               command: [python, /app/wait-for-network.py]
               resources:
@@ -296,7 +297,7 @@ spec:
                 runAsUser: 101
           containers:
             - name: shipping
-              image: registry.rupan.dev/apps/pod-agent@sha256:ed6b68a2a4694d872346e8a4763f3fc06a3020eb7438a2093e144fb48c33f0ae  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/apps/pod-agent@sha256:f97222c02e471b99c3f856ce3de1023d44b666d855f88e4e7e422dd38605fb47  # yamllint disable-line rule:line-length
               imagePullPolicy: IfNotPresent
               args:
                 - shipping
@@ -316,6 +317,78 @@ spec:
                   memory: 256Mi
                 limits:
                   memory: 1Gi
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                - name: home
+                  mountPath: /home/podagent
+                - name: tmp
+                  mountPath: /tmp
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                runAsUser: 101
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: pod-agent-data
+            - name: home
+              emptyDir: {}
+            - name: tmp
+              emptyDir: {}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pod-agent-weekly-review
+  namespace: pod-agent
+spec:
+  schedule: "15 8 * * 0"
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 600
+      template:
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          nodeSelector:
+            kubernetes.io/hostname: homelab-01
+          securityContext:
+            fsGroup: 101
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: weekly-review
+              image: registry.rupan.dev/apps/pod-agent@sha256:f97222c02e471b99c3f856ce3de1023d44b666d855f88e4e7e422dd38605fb47  # yamllint disable-line rule:line-length
+              imagePullPolicy: IfNotPresent
+              args:
+                - governor
+                - weekly-review
+                - --shop
+                - distrojeff
+                - --notify
+              workingDir: /data
+              envFrom:
+                - secretRef:
+                    name: pod-agent-weekly-review-env
+                - configMapRef:
+                    name: pod-agent-config
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
               volumeMounts:
                 - name: data
                   mountPath: /data
