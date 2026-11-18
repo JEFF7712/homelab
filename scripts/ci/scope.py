@@ -110,9 +110,7 @@ _PYTHON_GITOPS_PREFIXES = (
 )
 
 
-_RELEASE_RECORDS = frozenset(
-    {"registry/images.inventory.json", "registry/images.lock.json"}
-)
+_RELEASE_RECORDS = frozenset({"registry/images.lock.json"})
 
 
 def _test_module(name: str) -> str:

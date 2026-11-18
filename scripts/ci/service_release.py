@@ -437,7 +437,6 @@ def promotion_patch(release: Release, root: Path, receipt: dict[str, Any]) -> st
     for name in (
         *release.consumers,
         "registry/images.lock.json",
-        "registry/images.inventory.json",
     ):
         old = (root / name).read_text()
         if name.endswith(".yaml"):

@@ -361,7 +361,7 @@ after validation, the plans that apply operations consume. GitHub sync and
 cache publication run on the maintenance schedule instead, so a merge's
 pipeline, which deployment operations require to have succeeded, ends a
 minute or two after validation. A push that changes
-registry/images.lock.json or registry/images.inventory.json also runs
+registry/images.lock.json also runs
 registry-lock-import after validation, so a reviewed lock entry is copied
 into the registry by the same pipeline that lands it; when the push diff
 cannot be read, the import runs anyway.

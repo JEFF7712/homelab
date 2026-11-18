@@ -135,12 +135,11 @@ def _assert_digest_only(path: str) -> None:
 def _assert_first_party_digests_only(changed: list[str]) -> None:
     """Automatic first-party promotion may only move first-party digests.
 
-    GitOps consumers must differ from HEAD only in digests, the lock only in
-    records for first-party (apps/) repositories, and the inventory, which
-    is derived from both, only in digests and tags. Anything else, such as a
+    GitOps consumers must differ from HEAD only in digests and the lock only
+    in records for first-party (apps/) repositories. Anything else, such as a
     new repository, a policy field, or another image, needs a human.
     """
-    allowed_static = {"registry/images.lock.json", "registry/images.inventory.json"}
+    allowed_static = {"registry/images.lock.json"}
     for path in changed:
         if path in allowed_static:
             continue

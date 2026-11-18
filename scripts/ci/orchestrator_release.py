@@ -39,7 +39,6 @@ from scripts.ci.service_release import (
 
 PINS = "config/orchestrator/images.json"
 LOCK = "registry/images.lock.json"
-INVENTORY = "registry/images.inventory.json"
 PRODUCER = "flake/packages/orchestrator-images.nix"
 OWNER = "JEFF7712/homelab"
 TAG = re.compile(r"ci-[1-9][0-9]*-[0-9a-f]{12}")
@@ -169,19 +168,6 @@ def lock_record(receipt: dict[str, Any], line: int) -> dict[str, Any]:
     }
 
 
-INVENTORY_KEYS = (
-    "consumers",
-    "destination_repository",
-    "id",
-    "kind",
-    "producer",
-    "retention_class",
-    "source",
-    "digest",
-    "destination_tags",
-)
-
-
 def upsert(document: dict[str, Any], record: dict[str, Any]) -> dict[str, Any]:
     """Replace the record with this id, or append it; other records keep
     their order and content (the inventory must only change minimally)."""
@@ -226,16 +212,11 @@ def promotion_patch(root: Path, receipts: dict[str, dict[str, Any]]) -> str:
     patch: list[str] = []
     pins_path = root / PINS
     patch += diff(PINS, pins_path.read_text() if pins_path.exists() else "", pins)
-    for name in (LOCK, INVENTORY):
-        old = (root / name).read_text()
-        document = json.loads(old)
-        for role, receipt in sorted(receipts.items()):
-            record = lock_record(receipt, lines[role])
-            if name == INVENTORY:
-                record = {key: record[key] for key in INVENTORY_KEYS}
-            document = upsert(document, record)
-        new = json.dumps(document, indent=2) + "\n"
-        patch += diff(name, old, new)
+    old = (root / LOCK).read_text()
+    document = json.loads(old)
+    for role, receipt in sorted(receipts.items()):
+        document = upsert(document, lock_record(receipt, lines[role]))
+    patch += diff(LOCK, old, json.dumps(document, indent=2) + "\n")
     return "".join(patch)
 
 

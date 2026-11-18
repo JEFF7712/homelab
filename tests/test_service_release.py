@@ -195,7 +195,6 @@ class MatrixReleaseTests(unittest.TestCase):
             names = (
                 "gitops/led-matrix/deployment.yaml",
                 "registry/images.lock.json",
-                "registry/images.inventory.json",
             )
             originals = {}
             for name in names:
@@ -297,7 +296,6 @@ class MatrixReleaseTests(unittest.TestCase):
                 for name in (
                     *release.consumers,
                     "registry/images.lock.json",
-                    "registry/images.inventory.json",
                 ):
                     (root / name).parent.mkdir(parents=True, exist_ok=True)
                     (root / name).write_bytes((ROOT / name).read_bytes())

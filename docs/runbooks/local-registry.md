@@ -237,9 +237,15 @@ credential, installs the deployment-scoped Woodpecker secret
 The snapshot command is read-only against the cluster. Review the generated
 snapshot diff before updating or resolving the lock.
 
+`registry/images.lock.json` is the only committed image record. The inventory
+is regenerated from the repository whenever it is needed and written under
+`artifacts/registry/`; never commit it. Promotion leaves the lock's
+`generated_at` header untouched so concurrent lock changes do not conflict on
+it.
+
 ```sh
-python -m scripts.registry inventory --output registry/images.inventory.json
-python -m scripts.registry resolve --inventory registry/images.inventory.json --output registry/images.lock.candidate.json
+python -m scripts.registry inventory --output artifacts/registry/images.inventory.json
+python -m scripts.registry resolve --inventory artifacts/registry/images.inventory.json --output registry/images.lock.candidate.json
 python -m scripts.registry plan --lock registry/images.lock.json
 python -m scripts.registry copy --lock registry/images.lock.json --concurrency 3 --image-timeout 900 --report artifacts/registry/copy.json
 python -m scripts.registry verify --lock registry/images.lock.json --report artifacts/registry/verify.json
@@ -279,7 +285,7 @@ still fails with the check's exit status.
 and its retention plan. The candidate is a proposal: importing it without
 retention tags can leave content unreferenced and eligible for collection. The Woodpecker `registry-lock-import` operation is the
 opposite case: it runs on the maintenance cron and on any main push that
-changes the lock or inventory (when the push diff cannot be read, it runs
+changes the lock (when the push diff cannot be read, it runs
 anyway). It
 re-imports the lock that is already committed and reviewed, so no decision is
 involved; it exists to heal a partial import or a manifest the collector took.
@@ -302,7 +308,7 @@ Key rules:
 - **Constraints:** `--constraint patch`, `--constraint minor` (default), or `--constraint major`.
 - **Non-automerge policy:** In `renovate.json`, container images managed by `flux`, `kubernetes`, and `dockerfile` have `"automerge": false`. Discovered candidates report `"automerge_permitted": false` because container image updates require manual review and mirroring to `registry.rupan.dev` before gitops manifests can consume them.
 - **No mirror lookups:** Renovate skips every `registry.rupan.dev/**` reference. Mirror tags never repoint (below), so a lookup could never find a newer digest, and Renovate holds no registry credential. An image is tracked only through its tagged upstream declaration in a `registry-sources.yaml` or `base-images.yaml`; images used across several areas are declared in `gitops/shared-images/registry-sources.yaml`. A pin whose upstream tag has since moved is declared under that tag with the pinned digest, so Renovate proposes the current build. Its lock record carries only the retention tag, because the digest is already mirrored and the floating tag may already point elsewhere. LinuxServer images use regex versioning in `renovate.json`, because docker versioning never moves past their `-lsN` suffix. PostgreSQL majors are disabled, including the CNPG `postgresql` and `cloudnative-vectorchord` images.
-- **Declaration bumps carry their lock records:** a Renovate bump to a declaration file runs `python3 -m scripts.registry.declarations` as a post-upgrade task. It resolves each newly declared reference from its upstream registry and appends its inventory and lock records to the same branch, leaving every existing record in place, and omits a destination tag the mirror already holds on another digest. Without this, a bump fails the registry check ("consumer is not an exact locked local digest"), and declaration PRs piled up unmerged. Merging such a PR mirrors the image through the main push's `registry-lock-import`; moving the workload to the new mirror digest is still a separate change, made after that import succeeds. Run the same command locally after editing a declaration by hand.
+- **Declaration bumps carry their lock records:** a Renovate bump to a declaration file runs `python3 -m scripts.registry.declarations` as a post-upgrade task. It resolves each newly declared reference from its upstream registry and appends its lock records to the same branch, leaving every existing record in place, and omits a destination tag the mirror already holds on another digest. Without this, a bump fails the registry check ("consumer is not an exact locked local digest"), and declaration PRs piled up unmerged. Merging such a PR mirrors the image through the main push's `registry-lock-import`; moving the workload to the new mirror digest is still a separate change, made after that import succeeds. Run the same command locally after editing a declaration by hand.
 - **One PR per chart or image:** Flux and Kubernetes manifest updates are not grouped. A `registry-sources.yaml` or `base-images.yaml` bump needs its import and consumer digest before it does anything, so a combined PR (#95) stalled on its slowest item. Producer base images also stay on Python 3.12 and Node 24; their release pins live outside `base-images.yaml` and move together. No Helm chart bump automerges, and the observability and platform `registry-sources.yaml` files are not tracked at all, because each chart upgrade moves with its images (below).
 
 ### Advancing an upstream image (agents)
@@ -315,7 +321,7 @@ with `scripts/registry/advance.py`:
    force-pushes), then run
    `python -m scripts.registry.advance mirror --base origin/main`. It resolves
    only the declarations the change added and merges their records into the
-   inventory and lock, keeping every other record ID. Commit and `just ship`;
+   lock, keeping every other record ID. Commit and `just ship`;
    the `registry-import` route waits for `registry-lock-import`. Renovate
    closes its PR once main carries the update.
 2. Branch from the new main and run `python -m scripts.registry.advance adopt`.
@@ -415,8 +421,7 @@ had drifted to app v2.10 under chart 2.12). For each chart upgrade:
 1. Generate the new components with the matching CLI:
    `flux install --version=<v2.x.y> --components=source-controller,kustomize-controller,helm-controller,notification-controller --export > gotk-components.yaml`.
 2. Mirror the four controller images at the tags that manifest names, merging
-   only their new records into `registry/images.inventory.json` and
-   `registry/images.lock.json`, and confirm `registry-lock-import` copied them.
+   only their new records into `registry/images.lock.json`, and confirm `registry-lock-import` copied them.
 3. Replace each `ghcr.io/fluxcd/<controller>:<tag>` in the manifest with its
    `registry.rupan.dev/upstream/ghcr.io/fluxcd/<controller>@sha256:...` mirror
    digest, then review the CRD and RBAC diff before shipping. The
@@ -495,7 +500,7 @@ read-only work also shares the bounded schedule group.
 
 Every ordinary Woodpecker operation requires successful `validation-v2` for its
 source and the catalog's declared prerequisite. `registry-lock-import` runs on
-lock/inventory-changing main pushes and maintenance to restore the committed
+lock-changing main pushes and maintenance to restore the committed
 lock. `registry-update-import` is an explicitly selected candidate import.
 Drift checks notify and fail their own workflow; they do not replace source
 validation or exact-digest verification. See [CI pipelines](ci-pipelines.md).
@@ -510,7 +515,7 @@ that proves a wrong digest remains drift.
 First-party sites (`0.0.N` tags, plus `ism` on `latest`) roll out without a
 manual pin. The scheduled `registry-promote-first-party` Woodpecker operation lists producer
 tags and, when the producer has already published the candidate to
-`registry.rupan.dev/apps/<project>`, commits the lock, inventory, and consumer
+`registry.rupan.dev/apps/<project>`, commits the lock and consumer
 digest updates together so `check-registry` stays green. Promotion is
 verification-only: it never mirrors content, because only `publisher-<project>`
 holds a write grant on its destination repository. Candidates the producer has
@@ -537,9 +542,9 @@ build, then the promotion schedule interval, then Flux reconciliation
 (GitRepository `1m`, Kustomizations `10m`).
 
 ```bash
-python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json
-python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json --dry-run
-python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json --only apps/rupan-dev
+python -m scripts.registry promote --lock registry/images.lock.json
+python -m scripts.registry promote --lock registry/images.lock.json --dry-run
+python -m scripts.registry promote --lock registry/images.lock.json --only apps/rupan-dev
 ```
 
 The maintenance promotion uses the catalog's scoped Forgejo publication
@@ -565,7 +570,7 @@ They no longer depend on the old custom-image producer.
 
 Producer changes belong in their owning repositories and must remain within the
 requested scope. Build once, use the producer's exact repository grant, verify
-the remote digest, and let the promotion update the lock, inventory and Flux
+the remote digest, and let the promotion update the lock and Flux
 consumer together. Keep recovery artifacts until their replacements are verified.
 
 ## Backup and restore

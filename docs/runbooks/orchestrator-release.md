@@ -15,8 +15,7 @@ validated main commit:
    `retention-candidate-*` tag;
 3. prints a promotion patch that pins both digests in
    `config/orchestrator/images.json` and inserts or updates their
-   first-party records in `registry/images.lock.json` and
-   `registry/images.inventory.json`. `just ship` merges it as its own PR.
+   first-party records in `registry/images.lock.json`. `just ship` merges it as its own PR.
 
 Both repositories are listed in `RESERVED_FIRST_PARTY`
 (`scripts/registry/core.py`), so the registry access policy grants each one

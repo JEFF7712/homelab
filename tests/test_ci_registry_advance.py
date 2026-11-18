@@ -108,7 +108,6 @@ class RenovateBumpTest(unittest.TestCase):
     def test_reads_the_one_declaration_and_ignores_record_files(self) -> None:
         files = [
             DECLARATION,
-            "registry/images.inventory.json",
             "registry/images.lock.json",
         ]
         self.assertEqual(
@@ -244,8 +243,7 @@ class RebuildMirrorTest(unittest.TestCase):
             f"items:\n  - image: {self.OLD_REF}\n  - image: docker.io/other:1@{OLD}\n"
         )
         (root / "registry").mkdir()
-        for name in ("images.inventory.json", "images.lock.json"):
-            (root / "registry" / name).write_text("{}\n")
+        (root / "registry/images.lock.json").write_text("{}\n")
         git("add", "-A")
         git("commit", "-q", "-m", "main")
         return root

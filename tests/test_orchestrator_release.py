@@ -6,7 +6,6 @@ import unittest
 
 from scripts.ci.orchestrator_release import (
     IMAGES,
-    INVENTORY,
     LOCK,
     PINS,
     PUSH_POLICY,
@@ -46,11 +45,11 @@ class PromotionTests(unittest.TestCase):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.root = pathlib.Path(directory.name)
-        # Start from the real lock and inventory without the orchestrator
+        # Start from the real lock without the orchestrator
         # records, so the tests model a first publication whether or not one
         # has been promoted already.
         self.before: dict[str, dict] = {}
-        for name in (LOCK, INVENTORY):
+        for name in (LOCK,):
             (self.root / name).parent.mkdir(parents=True, exist_ok=True)
             document = json.loads((ROOT / name).read_text())
             document["images"] = [
@@ -101,12 +100,6 @@ class PromotionTests(unittest.TestCase):
             self.assertEqual(
                 record["producer"]["location"], "flake/packages/orchestrator-images.nix"
             )
-        inventory = json.loads((self.root / INVENTORY).read_text())
-        self.assertEqual(
-            {r["id"] for r in inventory["images"]}
-            >= {r["id"] for r in records.values()},
-            True,
-        )
 
     def test_republishing_updates_records_in_place_and_leaves_others(self) -> None:
         before = self.before[LOCK]

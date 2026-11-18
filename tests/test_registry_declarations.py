@@ -94,7 +94,7 @@ class DeclarationTests(unittest.TestCase):
         )
         discovered = {"images": [new, locked, workload]}
         lock = {"images": [{**locked, "digest": digest, "destination_tags": []}]}
-        pending = pending_declarations(discovered, {"images": []}, lock)
+        pending = pending_declarations(discovered, lock)
         self.assertEqual([item["id"] for item in pending], ["upstream-couchdb-new"])
 
     def test_a_tag_the_mirror_holds_on_another_digest_is_dropped(self) -> None:
@@ -135,14 +135,6 @@ class LockDeclarationsTests(unittest.TestCase):
         self.digest = "sha256:" + hashlib.sha256(self.body).hexdigest()
         (self.root / "registry").mkdir()
         (self.root / "gitops/obsidian").mkdir(parents=True)
-        self.inventory = {
-            "generated_at": "2026-11-01T00:00:00+00:00",
-            "images": [],
-            "kind": "registry-inventory",
-            "schema_version": 1,
-            "source_revision": "unavailable",
-            "unresolved_inputs": [],
-        }
         self.lock = {
             "destination_registry": "registry.rupan.dev",
             "generated_at": "2026-11-01T00:00:00+00:00",
@@ -153,7 +145,6 @@ class LockDeclarationsTests(unittest.TestCase):
             "source_revision": "unavailable",
             "unresolved_inputs": [],
         }
-        self.write("registry/images.inventory.json", self.inventory)
         self.write("registry/images.lock.json", self.lock)
 
     def tearDown(self) -> None:
@@ -168,7 +159,7 @@ class LockDeclarationsTests(unittest.TestCase):
             f"  - image: docker.io/library/couchdb:{tag}@{self.digest}\n"
         )
 
-    def test_appends_the_inventory_and_lock_records_for_a_new_declaration(self) -> None:
+    def test_appends_the_lock_record_for_a_new_declaration(self) -> None:
         self.declare("3.5.3")
         client = FakeClient(self.body)
 
@@ -177,16 +168,12 @@ class LockDeclarationsTests(unittest.TestCase):
         reference = f"docker.io/library/couchdb:3.5.3@{self.digest}"
         self.assertEqual(added, [reference])
         lock = json.loads((self.root / "registry/images.lock.json").read_text())
-        inventory = json.loads(
-            (self.root / "registry/images.inventory.json").read_text()
-        )
         (record,) = lock["images"]
         self.assertEqual(record["source"]["reference"], reference)
         self.assertEqual(record["digest"], self.digest)
         self.assertEqual(record["media_type"], INDEX)
         self.assertIn("3.5.3", record["destination_tags"])
-        self.assertEqual(inventory["images"][0]["id"], record["id"])
-        # Only the image arrays grew; the rest of each document is untouched.
+        # Only the image array grew; the rest of the document is untouched.
         self.assertEqual({**lock, "images": []}, self.lock)
 
         # A second run finds nothing new and leaves the files alone.
