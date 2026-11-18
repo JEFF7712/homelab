@@ -353,18 +353,6 @@ views:
             name: Mode
             icon: mdi:view-dashboard-outline
             icon_color: blue
-          - type: custom:mushroom-number-card
-            entity: input_number.bedroom_matrix_vinyl_contrast
-            name: Vinyl Contrast
-            icon: mdi:contrast-circle
-            icon_color: cyan
-            display_mode: slider
-          - type: custom:mushroom-number-card
-            entity: input_number.bedroom_matrix_vinyl_saturation
-            name: Vinyl Saturation
-            icon: mdi:palette
-            icon_color: purple
-            display_mode: slider
           - type: custom:mushroom-chips-card
             chips:
               - type: action

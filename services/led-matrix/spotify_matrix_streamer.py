@@ -38,7 +38,10 @@ except ImportError:
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 CURRENTLY_PLAYING_URL = "https://api.spotify.com/v1/me/player/currently-playing"
-SCOPE = "user-read-currently-playing"
+QUEUE_URL = "https://api.spotify.com/v1/me/player/queue"
+# The queue endpoint needs user-read-playback-state; the matrix prefetches the
+# covers of upcoming tracks from it.
+SCOPE = "user-read-currently-playing user-read-playback-state"
 
 
 def write_private_file(path: Path, contents: str) -> None:
@@ -903,12 +906,32 @@ class SpotifyClient:
         raise_on_rate_limit: bool = False,
         raise_on_error: bool = False,
     ) -> dict[str, Any] | None:
+        return self._api_get(
+            CURRENTLY_PLAYING_URL,
+            params={"additional_types": "track,episode"},
+            retry_auth=retry_auth,
+            raise_on_rate_limit=raise_on_rate_limit,
+            raise_on_error=raise_on_error,
+        )
+
+    def get_queue(self) -> dict[str, Any] | None:
+        """Return the playback queue; raises like a raising currently-playing."""
+        return self._api_get(QUEUE_URL, raise_on_rate_limit=True, raise_on_error=True)
+
+    def _api_get(
+        self,
+        url: str,
+        params: dict[str, str] | None = None,
+        retry_auth: bool = True,
+        raise_on_rate_limit: bool = False,
+        raise_on_error: bool = False,
+    ) -> dict[str, Any] | None:
         token = self._valid_access_token()
         headers = {"Authorization": f"Bearer {token}"}
         try:
             resp = requests.get(
-                CURRENTLY_PLAYING_URL,
-                params={"additional_types": "track,episode"},
+                url,
+                params=params,
                 headers=headers,
                 timeout=5,
             )
@@ -916,7 +939,9 @@ class SpotifyClient:
                 return None
             if resp.status_code == 401 and retry_auth:
                 self._refresh_token()
-                return self.get_currently_playing(
+                return self._api_get(
+                    url,
+                    params=params,
                     retry_auth=False,
                     raise_on_rate_limit=raise_on_rate_limit,
                     raise_on_error=raise_on_error,

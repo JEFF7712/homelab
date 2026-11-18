@@ -94,18 +94,6 @@ def main() -> None:
         default=os.getenv("BRIGHTNESS_ENTITY") or None,
     )
     parser.add_argument(
-        "--contrast-entity",
-        default=os.getenv(
-            "CONTRAST_ENTITY", "input_number.bedroom_matrix_vinyl_contrast"
-        ),
-    )
-    parser.add_argument(
-        "--saturation-entity",
-        default=os.getenv(
-            "SATURATION_ENTITY", "input_number.bedroom_matrix_vinyl_saturation"
-        ),
-    )
-    parser.add_argument(
         "--weather-entity",
         default=os.getenv("WEATHER_ENTITY", "weather.forecast_home"),
     )
@@ -205,8 +193,6 @@ def main() -> None:
             weather_entity=args.weather_entity,
             music_mode_entity=args.music_mode_entity,
             cycle_entity=args.cycle_entity,
-            contrast_entity=args.contrast_entity,
-            saturation_entity=args.saturation_entity,
             stale_after=args.stale_after,
         )
     except (OSError, ValueError) as error:
@@ -311,6 +297,9 @@ def main() -> None:
             art = cache.get(
                 spotify_state.artwork_url if spotify_state.available else ""
             )
+            upcoming = getattr(source, "upcoming_artwork", None)
+            if upcoming is not None:
+                cache.prefetch(upcoming())
 
             # Determine active mode
             if not ha_state.power or ha_state.mode == "Off":

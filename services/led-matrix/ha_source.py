@@ -6,7 +6,7 @@ import json
 import threading
 import time
 from collections import OrderedDict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -35,8 +35,6 @@ class HomeAssistantSource:
         weather_entity: str | None = None,
         music_mode_entity: str | None = None,
         cycle_entity: str | None = None,
-        contrast_entity: str | None = None,
-        saturation_entity: str | None = None,
         stale_after: float = 120,
         on_update: Callable[[PlaybackState], None] | None = None,
         on_hub_update: Callable[[HAState], None] | None = None,
@@ -87,8 +85,6 @@ class HomeAssistantSource:
         self.weather_entity = weather_entity
         self.music_mode_entity = music_mode_entity
         self.cycle_entity = cycle_entity
-        self.contrast_entity = contrast_entity
-        self.saturation_entity = saturation_entity
         self.stale_after = stale_after
         self.on_update = on_update
         self.on_hub_update = on_hub_update
@@ -226,8 +222,6 @@ class HomeAssistantSource:
             weather_unit = self._hub_state.weather_unit
             music_mode = self._hub_state.music_mode
             cycle = self._hub_state.cycle
-            vinyl_contrast = self._hub_state.vinyl_contrast
-            vinyl_saturation = self._hub_state.vinyl_saturation
 
             if entity_id == self.power_entity:
                 power = (state_val != "off") if state_val is not None else True
@@ -241,20 +235,6 @@ class HomeAssistantSource:
                 music_mode = state_val == "on"
             elif entity_id == self.cycle_entity:
                 cycle = (state_val != "off") if state_val is not None else True
-            elif entity_id == self.contrast_entity:
-                if state_val is not None:
-                    try:
-                        c = float(state_val)
-                        vinyl_contrast = max(0.1, min(3.0, c))
-                    except (ValueError, TypeError):
-                        pass
-            elif entity_id == self.saturation_entity:
-                if state_val is not None:
-                    try:
-                        s = float(state_val)
-                        vinyl_saturation = max(0.1, min(3.0, s))
-                    except (ValueError, TypeError):
-                        pass
             elif entity_id == self.brightness_entity:
                 if state_val is not None:
                     try:
@@ -286,8 +266,6 @@ class HomeAssistantSource:
                 weather_unit=weather_unit,
                 music_mode=music_mode,
                 cycle=cycle,
-                vinyl_contrast=vinyl_contrast,
-                vinyl_saturation=vinyl_saturation,
             )
             changed = new_hub_state != self._hub_state
             self._hub_state = new_hub_state
@@ -310,8 +288,6 @@ class HomeAssistantSource:
                     self.weather_entity,
                     self.music_mode_entity,
                     self.cycle_entity,
-                    self.contrast_entity,
-                    self.saturation_entity,
                 ]
                 if e
             }
@@ -404,8 +380,6 @@ class HomeAssistantSource:
                 self.weather_entity,
                 self.music_mode_entity,
                 self.cycle_entity,
-                self.contrast_entity,
-                self.saturation_entity,
             ]
             if e
         ]
@@ -532,44 +506,126 @@ class HomeAssistantSource:
 
 
 class ArtworkCache:
+    """Fetch artwork off the render thread, keeping recent images decoded.
+
+    get() serves the cover on screen; prefetch() warms covers of upcoming
+    tracks so a track change can show its cover on the next frame. A
+    prefetch only starts when no fetch is in flight, so one worker always
+    stays free for the current cover.
+    """
+
+    MAX_IMAGES = 8
+    WORKERS = 2
+
     def __init__(self, source: HomeAssistantSource | HybridPlaybackSource) -> None:
         self.source = source
-        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="artwork")
-        self._future: Future[Image.Image] | None = None
-        self._loading = ""
-        self._failed = ""
-        self._retry_at = 0.0
+        self._executor = ThreadPoolExecutor(
+            max_workers=self.WORKERS, thread_name_prefix="artwork"
+        )
+        self._pending: dict[str, Future[Image.Image]] = {}
+        self._retry_at: dict[str, float] = {}
         self._images: OrderedDict[str, Image.Image] = OrderedDict()
 
-    def get(self, url: str) -> Image.Image | None:
-        if self._future and self._future.done():
+    def _collect(self) -> None:
+        for url, future in list(self._pending.items()):
+            if not future.done():
+                continue
+            del self._pending[url]
             try:
-                self._images[self._loading] = self._future.result()
-                self._images.move_to_end(self._loading)
-                while len(self._images) > 8:
+                self._images[url] = future.result()
+                self._images.move_to_end(url)
+                while len(self._images) > self.MAX_IMAGES:
                     self._images.popitem(last=False)
             except (OSError, ValueError, requests.RequestException) as error:
-                self._failed = self._loading
-                self._retry_at = time.monotonic() + 60
+                self._retry_at[url] = time.monotonic() + 60
+                while len(self._retry_at) > self.MAX_IMAGES:
+                    self._retry_at.pop(next(iter(self._retry_at)))
                 print(
                     f"[Artwork] Fetch failed ({type(error).__name__}); retry delayed",
                     flush=True,
                 )
-            self._future = None
+
+    def _submit(self, url: str) -> bool:
+        if time.monotonic() < self._retry_at.get(url, 0.0):
+            return False
+        self._retry_at.pop(url, None)
+        self._pending[url] = self._executor.submit(self.source.fetch_artwork, url)
+        return True
+
+    def get(self, url: str) -> Image.Image | None:
+        self._collect()
         if not url:
             return None
         if url in self._images:
             self._images.move_to_end(url)
             return self._images[url]
-        if self._future is None and (
-            url != self._failed or time.monotonic() >= self._retry_at
-        ):
-            self._loading = url
-            self._future = self._executor.submit(self.source.fetch_artwork, url)
+        if url not in self._pending and len(self._pending) < self.WORKERS:
+            self._submit(url)
         return None
+
+    def prefetch(self, urls: Iterable[str]) -> None:
+        self._collect()
+        if self._pending:
+            return
+        for url in urls:
+            if url and url not in self._images and self._submit(url):
+                return
 
     def close(self) -> None:
         self._executor.shutdown(wait=True, cancel_futures=True)
+
+
+# The disc is 60 px and fetch_artwork thumbnails to 128 px, so the smallest
+# Spotify rendition at least this wide (300 px, not 640 px) loses nothing and
+# downloads and decodes several times faster.
+ARTWORK_MIN_WIDTH = 128
+# Covers of this many upcoming queue tracks are prefetched.
+UPCOMING_ARTWORK = 2
+# A playing track is re-polled this long after its expected end.
+TRACK_END_SLACK = 0.5
+MIN_TRACK_END_POLL = 1.0
+
+
+def artwork_url(item: dict[str, Any]) -> str:
+    images = item.get("album", {}).get("images") or item.get("images") or []
+    images = [image for image in images if image.get("url")]
+    if not images:
+        return ""
+    wide_enough = [
+        image
+        for image in images
+        if isinstance(image.get("width"), int) and image["width"] >= ARTWORK_MIN_WIDTH
+    ]
+    if wide_enough:
+        return str(min(wide_enough, key=lambda image: image["width"])["url"])
+    return str(images[0]["url"])
+
+
+def upcoming_artwork(queue: dict[str, Any] | None) -> tuple[str, ...]:
+    """Distinct cover URLs of the next queue entries, in play order."""
+    if not isinstance(queue, dict):
+        return ()
+    urls: list[str] = []
+    for item in queue.get("queue") or []:
+        if not isinstance(item, dict):
+            continue
+        url = artwork_url(item)
+        if url and url not in urls:
+            urls.append(url)
+            if len(urls) == UPCOMING_ARTWORK:
+                break
+    return tuple(urls)
+
+
+def seconds_remaining(data: dict[str, Any] | None) -> float | None:
+    """Seconds until the playing item ends, from a currently-playing reply."""
+    if not data or not data.get("item"):
+        return None
+    progress = data.get("progress_ms")
+    duration = data["item"].get("duration_ms")
+    if not isinstance(progress, int) or not isinstance(duration, int):
+        return None
+    return max(0.0, (duration - progress) / 1000.0)
 
 
 def parse_spotify_state(
@@ -605,14 +661,12 @@ def parse_spotify_state(
         artist = str(item.get("show", {}).get("name") or "")
     else:
         artist = ""
-    images = item.get("album", {}).get("images") or item.get("images") or []
-    artwork_url = str(images[0].get("url") or "") if images else ""
     return PlaybackState(
         available=True,
         playing=is_playing,
         title=title,
         artist=artist,
-        artwork_url=artwork_url,
+        artwork_url=artwork_url(item),
         updated_at=timestamp,
     )
 
@@ -644,6 +698,9 @@ class HybridPlaybackSource:
         self._fallback_until = 0.0
         self._fallback_reason = ""
         self._active_provider = "home_assistant"
+        self._upcoming_artwork: tuple[str, ...] = ()
+        self._queue_item = ""
+        self._queue_enabled = True
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._wake_event = threading.Event()
@@ -723,6 +780,53 @@ class HybridPlaybackSource:
     def fetch_artwork(self, picture: str) -> Image.Image:
         return self.ha_source.fetch_artwork(picture)
 
+    def upcoming_artwork(self) -> tuple[str, ...]:
+        """Cover URLs of the next queued tracks, for ArtworkCache.prefetch."""
+        with self._lock:
+            if not self._spotify_available:
+                return ()
+            return self._upcoming_artwork
+
+    def _refresh_queue(self, data: dict[str, Any] | None) -> None:
+        """Look up the queue once per playing track. Rate limits propagate to
+        the caller's fallback handling; any other failure only skips the
+        lookup, and a missing scope disables it."""
+        item = (data or {}).get("item") or {}
+        item_key = str(item.get("uri") or item.get("id") or "")
+        if (
+            not self._queue_enabled
+            or not (data or {}).get("is_playing")
+            or not item_key
+            or item_key == self._queue_item
+        ):
+            return
+        from spotify_matrix_streamer import SpotifyQuotaExceeded, SpotifyRateLimited
+
+        self._queue_item = item_key
+        try:
+            upcoming = upcoming_artwork(self.spotify_client.get_queue())
+        except (SpotifyQuotaExceeded, SpotifyRateLimited):
+            raise
+        except requests.HTTPError as error:
+            status = error.response.status_code if error.response is not None else 0
+            if status in (401, 403):
+                self._queue_enabled = False
+                print(
+                    f"[Spotify] Queue lookup refused (HTTP {status}); "
+                    "cover prefetch disabled until the token grants "
+                    "user-read-playback-state",
+                    flush=True,
+                )
+            upcoming = ()
+        except Exception as error:
+            print(
+                f"[Spotify] Queue lookup failed ({type(error).__name__})",
+                flush=True,
+            )
+            upcoming = ()
+        with self._lock:
+            self._upcoming_artwork = upcoming
+
     def _should_poll_spotify(self) -> bool:
         """Poll Spotify only for a music mode, and only while Home Assistant
         shows something playing or playback stopped within active_window.
@@ -772,8 +876,18 @@ class HybridPlaybackSource:
                 self._switch_provider("spotify")
                 if new_state.playing:
                     self._last_active_at = now
+            self._refresh_queue(data)
 
             if new_state.playing:
+                # Poll again just after the track should end, so the next
+                # track (and its prefetched cover) shows without waiting out
+                # the regular interval.
+                remaining = seconds_remaining(data)
+                if remaining is not None:
+                    return min(
+                        self.poll_interval_playing,
+                        max(MIN_TRACK_END_POLL, remaining + TRACK_END_SLACK),
+                    )
                 return self.poll_interval_playing
             elif new_state.available:
                 if self.poll_interval_paused is not None:
