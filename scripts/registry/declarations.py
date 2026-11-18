@@ -4,8 +4,8 @@ Renovate bumps the tagged upstream references in the inventory-only
 declaration files (`gitops/**/registry-sources.yaml` and
 `gitops/producer-base-images/base-images.yaml`). A bump alone fails the
 registry check, because every declared image must be an exact locked digest.
-Run as a Renovate post-upgrade task, this appends the inventory and lock
-records for the new references to the same branch, so merging it lets the
+Run as a Renovate post-upgrade task, this appends lock records for the
+new references to the same branch, so merging it lets the
 main push's `registry-lock-import` mirror the image. Workloads still move to
 the new mirror digest in their own change.
 
@@ -28,13 +28,11 @@ from .core import (
     OciClient,
     RegistryError,
     discover_inventory,
-    load_inventory,
     load_lock,
     resolve_inventory,
     validate_lock,
 )
 
-INVENTORY = pathlib.Path("registry/images.inventory.json")
 LOCK = pathlib.Path("registry/images.lock.json")
 BASE_IMAGES = "gitops/producer-base-images/base-images.yaml"
 
@@ -47,13 +45,10 @@ def is_declaration(consumer: str) -> bool:
 
 
 def pending_declarations(
-    discovered: Mapping[str, Any],
-    inventory: Mapping[str, Any],
-    lock: Mapping[str, Any],
+    discovered: Mapping[str, Any], lock: Mapping[str, Any]
 ) -> list[dict[str, Any]]:
     """Discovered upstream records only declaration files name, not yet locked."""
-    known = {item["source"]["reference"] for item in inventory["images"]}
-    known |= {record["source"]["reference"] for record in lock["images"]}
+    known = {record["source"]["reference"] for record in lock["images"]}
     locked_ids = {record["id"] for record in lock["images"]}
     pending = []
     for item in discovered["images"]:
@@ -90,10 +85,9 @@ def without_conflicting_tags(
 
 def lock_declarations(root: pathlib.Path, client: OciClient) -> list[str]:
     """Append records for newly declared images; return their references."""
-    inventory_path, lock_path = root / INVENTORY, root / LOCK
-    inventory = load_inventory(inventory_path)
+    lock_path = root / LOCK
     lock = load_lock(lock_path)
-    pending = pending_declarations(discover_inventory(root), inventory, lock)
+    pending = pending_declarations(discover_inventory(root), lock)
     if not pending:
         return []
     candidate, unresolved = resolve_inventory(
@@ -111,7 +105,6 @@ def lock_declarations(root: pathlib.Path, client: OciClient) -> list[str]:
         raise RegistryError(
             "lock with new declarations is invalid: " + "; ".join(errors)
         )
-    _append_json(inventory_path, inventory, pending)
     _append_json(lock_path, lock, records)
     return [item["source"]["reference"] for item in pending]
 

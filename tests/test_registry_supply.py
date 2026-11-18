@@ -2526,8 +2526,12 @@ class PromoteFirstPartyTests(unittest.TestCase):
             },
             {"ghcr.io/jeff7712/rupan-dev": ["0.0.11", "0.0.12"]},
         )
+        generated_at = lock["generated_at"]
         summary = promote_first_party_lock(client, lock, smoke_test=False)
         self.assertEqual(len(summary["promoted"]), 1)
+        # Promotion leaves the header alone so concurrent lock changes do not
+        # all conflict on it.
+        self.assertEqual(lock["generated_at"], generated_at)
         item = summary["promoted"][0]
         self.assertEqual(item["tag"], "0.0.12")
         self.assertEqual(item["digest"], new_digest)
@@ -2584,8 +2588,6 @@ class PromoteFirstPartyTests(unittest.TestCase):
             observed.write_text(json.dumps(snapshot))
             lock_path = root / "registry/images.lock.json"
             lock_path.write_text(json.dumps(lock))
-            inventory_path = root / "registry/images.inventory.json"
-            inventory_path.write_text("{}")
             with (
                 patch("scripts.registry.cli._client", return_value=client),
                 patch("scripts.registry.core.smoke_test_image"),
@@ -2598,8 +2600,6 @@ class PromoteFirstPartyTests(unittest.TestCase):
                         "promote",
                         "--lock",
                         str(lock_path),
-                        "--inventory",
-                        str(inventory_path),
                         "--allow-observed-drift",
                     ]
                 )
@@ -2768,9 +2768,7 @@ class PromoteFirstPartyTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory:
             lock_path = pathlib.Path(directory) / "lock.json"
-            inventory_path = pathlib.Path(directory) / "inventory.json"
             lock_path.write_text(json.dumps(lock), encoding="utf-8")
-            inventory_path.write_text("{}", encoding="utf-8")
             with patch("scripts.registry.cli.OciClient", return_value=client):
                 result = main(
                     [
@@ -2779,8 +2777,6 @@ class PromoteFirstPartyTests(unittest.TestCase):
                         "promote",
                         "--lock",
                         str(lock_path),
-                        "--inventory",
-                        str(inventory_path),
                         "--dry-run",
                     ]
                 )
@@ -2791,7 +2787,6 @@ class PromoteFirstPartyTests(unittest.TestCase):
                 ]["tag"],
                 "0.0.11",
             )
-            self.assertEqual(inventory_path.read_text(encoding="utf-8"), "{}")
 
     def test_transient_observed_errors_are_tolerated(self) -> None:
         previous = "sha256:" + "a" * 64
@@ -2897,8 +2892,6 @@ class PromoteFirstPartyTests(unittest.TestCase):
                 "promote",
                 "--lock",
                 "registry/images.lock.json",
-                "--inventory",
-                "registry/images.inventory.json",
                 "--allow-observed-drift",
             ]
         )

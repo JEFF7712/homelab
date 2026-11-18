@@ -112,7 +112,6 @@ def _parser() -> argparse.ArgumentParser:
         help="promote first-party images to newest producer tags and update consumers",
     )
     promote.add_argument("--lock", type=pathlib.Path, required=True)
-    promote.add_argument("--inventory", type=pathlib.Path, required=True)
     promote.add_argument(
         "--only",
         action="append",
@@ -390,7 +389,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                         previous_digest=item["previous_digest"],
                         digest=item["digest"],
                     )
-                atomic_write_json(args.inventory, discover_inventory(args.root))
                 report = check_consumers(args.root, lock)
                 errors = report["errors"]
                 # The observed snapshot is committed evidence, not a live read.

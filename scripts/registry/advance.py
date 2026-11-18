@@ -6,8 +6,8 @@ consumers point at the mirror, and those must land in order
 (scripts/registry/ordering.py):
 
 `mirror --base <ref>` resolves only the declarations the change added since
-<ref> and merges their records into `registry/images.inventory.json` and
-`registry/images.lock.json`. A full regeneration rewrites unrelated record IDs
+<ref> and merges their records into `registry/images.lock.json`.
+A full regeneration rewrites unrelated record IDs
 (#570), so nothing else is touched. A destination tag another record already
 holds is dropped, because `registry-lock-import` never repoints a tag; the
 retention tag still names the digest.
@@ -29,7 +29,6 @@ import tempfile
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-INVENTORY = "registry/images.inventory.json"
 LOCK = "registry/images.lock.json"
 DECLARATIONS = re.compile(r"(^|/)(registry-sources|base-images)\.ya?ml$")
 SOURCE = re.compile(
@@ -102,7 +101,7 @@ def mirror(root: pathlib.Path, base: str) -> list[str]:
     )
     if not sources:
         return []
-    committed_inventory = json.loads((root / INVENTORY).read_text())
+    lock = json.loads((root / LOCK).read_text())
     with tempfile.TemporaryDirectory(prefix="registry-advance-") as scratch:
         work = pathlib.Path(scratch)
         run = [sys.executable, "-m", "scripts.registry", "--root", str(root)]
@@ -112,9 +111,7 @@ def mirror(root: pathlib.Path, base: str) -> list[str]:
             stdout=subprocess.DEVNULL,
         )
         fresh = json.loads((work / "inventory.json").read_text())
-        records = select(
-            fresh, {r["id"] for r in committed_inventory["images"]}, sources
-        )
+        records = select(fresh, {r["id"] for r in lock["images"]}, sources)
         missing = sources - {r["source"]["reference"] for r in records}
         if missing:
             raise SystemExit(
@@ -137,9 +134,6 @@ def mirror(root: pathlib.Path, base: str) -> list[str]:
         resolved = json.loads((work / "lock.json").read_text())["images"]
     if {r["id"] for r in resolved} != {r["id"] for r in records}:
         raise SystemExit("resolve did not return every selected record")
-    committed_inventory["images"].extend(records)
-    (root / INVENTORY).write_text(json.dumps(committed_inventory, indent=2) + "\n")
-    lock = json.loads((root / LOCK).read_text())
     added = merge_lock(lock, resolved)
     (root / LOCK).write_text(json.dumps(lock, indent=2, sort_keys=True) + "\n")
     return added

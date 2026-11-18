@@ -2105,8 +2105,6 @@ def promote_first_party_lock(
             }
         )
     lock["images"] = sorted(records, key=lambda item: item["id"])
-    if promoted or migrated:
-        lock["generated_at"] = _timestamp()
     errors = validate_lock(lock)
     if errors:
         raise RegistryError("promoted lock is invalid: " + "; ".join(errors))

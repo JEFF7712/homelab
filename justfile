@@ -147,19 +147,20 @@ check-registry:
     bash scripts/checks/registry.sh
 
 registry-inventory:
-    python -m scripts.registry inventory --output registry/images.inventory.json
+    mkdir -p artifacts/registry
+    python -m scripts.registry inventory --output artifacts/registry/images.inventory.json
 
 registry-snapshot-live:
     python -m scripts.registry snapshot-live
 
-registry-resolve:
-    python -m scripts.registry resolve --inventory registry/images.inventory.json --output registry/images.lock.json
+registry-resolve: registry-inventory
+    python -m scripts.registry resolve --inventory artifacts/registry/images.inventory.json --output registry/images.lock.json
 
 registry-plan:
     python -m scripts.registry plan --lock registry/images.lock.json
 
 registry-promote *args="":
-    python -m scripts.registry promote --lock registry/images.lock.json --inventory registry/images.inventory.json {{args}}
+    python -m scripts.registry promote --lock registry/images.lock.json {{args}}
 
 registry-check:
     bash scripts/checks/registry-refresh.sh

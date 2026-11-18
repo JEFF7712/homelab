@@ -191,7 +191,6 @@
           "python3 -m scripts.registry.declarations"
         ],
         "fileFilters": [
-          "registry/images.inventory.json",
           "registry/images.lock.json"
         ],
         "executionMode": "branch"

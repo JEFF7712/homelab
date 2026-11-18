@@ -97,11 +97,6 @@ class ScopeTest(unittest.TestCase):
                 ("python", "registry"),
                 ("tests.test_service_release",),
             ),
-            (
-                ["registry/images.inventory.json"],
-                ("python", "registry"),
-                ("tests.test_service_release",),
-            ),
             (["registry/observed-images.json"], ("registry",), ()),
             (
                 ["scripts/registry/__init__.py"],

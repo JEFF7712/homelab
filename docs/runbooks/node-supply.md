@@ -90,8 +90,7 @@ therefore does not propose Node majors for
 
 1. Mirror the new `node:<major>-slim` and `node:<major>-alpine` images next to
    the current ones: append them to `base-images.yaml`, and merge only their
-   two new records into `registry/images.inventory.json` and
-   `registry/images.lock.json` (a full regeneration renames unrelated IDs).
+   two new records into `registry/images.lock.json` (a full regeneration renames unrelated IDs).
    Confirm `registry-lock-import` copied both.
 2. Operator: build `node-toolchain/<n+1>` (`node.tar.gz`, `node-musl.tar.gz`,
    `node-libs.tar.gz`) from the Node release that the pinned nixpkgs ships as
@@ -106,4 +105,4 @@ therefore does not propose Node majors for
 5. Update each producer Dockerfile (rupan.dev, rupanism, distrojeff-site,
    obsidian-vault `quartz/Dockerfile`), release and promote each application.
 6. Move the `config/ci/projectctl-contracts.json` images, then remove the old
-   major's entries from `base-images.yaml`, the inventory and the lock.
+   major's entries from `base-images.yaml` and the lock.

@@ -1,7 +1,7 @@
 """Advance eligible upstream image updates on a schedule, one step per run.
 
 Renovate proposes image updates as PRs that change one declaration and carry
-their own inventory and lock records. Those records overlap every other
+their own lock records. Those records overlap every other
 registry change, so a Renovate branch goes stale as soon as anything else
 merges and the merge policy refuses it (35 sat for a week in 2026-11). The
 schedule therefore takes only Renovate's declaration change and rebuilds it
@@ -76,7 +76,7 @@ POLICY = Path("config/registry/advance-policy.json")
 DECLARATION = re.compile(r"^gitops/[^/]+/(registry-sources|base-images)\.ya?ml$")
 BASE_IMAGES = Path("gitops/producer-base-images/base-images.yaml")
 CONTRACTS = "config/ci/projectctl-contracts.json"
-RECORDS = {"registry/images.inventory.json", "registry/images.lock.json"}
+RECORDS = {"registry/images.lock.json"}
 IDENTITY = ["-c", "user.name=Homelab CI", "-c", "user.email=ci@rupan.dev"]
 ADOPT_BRANCH = "registry-advance/adopt-"
 REVERT_BRANCH = "registry-advance/revert-"
@@ -398,7 +398,7 @@ def publish_mirror(
     title = f"registry: declare {new.split('@')[0].removeprefix('docker.io/')}"
     body = (
         f"Renovate #{number}'s declaration change, rebuilt on current main with "
-        "only its new inventory and lock records (scheduled registry-advance, "
+        "only its new lock records (scheduled registry-advance, "
         "scripts/ci/registry_advance.py). Renovate closes its PR once main "
         "declares the new image."
     )
