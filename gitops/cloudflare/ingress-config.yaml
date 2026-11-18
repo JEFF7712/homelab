@@ -44,8 +44,6 @@ data:
         service: http://couchdb.obsidian.svc.cluster.local:5984
       - hostname: renovate-status.rupan.dev
         service: http://renovate-dashboard.automation.svc.cluster.local:80
-      - hostname: renovate-approve.rupan.dev
-        service: http://renovate-approval-webhook.automation.svc.cluster.local:80
       - hostname: ha.rupan.dev
         service: http://home-assistant.home-assistant:8123
       - hostname: ma.rupan.dev

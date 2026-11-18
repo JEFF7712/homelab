@@ -59,7 +59,6 @@ Cloudflare Access public bypass configured.
 16. `ntfy.rupan.dev -> http://ntfy-ntfy.observability.svc.cluster.local:80`
 17. `obsidian.rupan.dev -> http://couchdb.obsidian.svc.cluster.local:5984`
 18. `renovate-status.rupan.dev -> http://renovate-dashboard.automation.svc.cluster.local:80`
-19. `renovate-approve.rupan.dev -> http://renovate-approval-webhook.automation.svc.cluster.local:80`
 20. `ha.rupan.dev -> http://home-assistant.home-assistant:8123`
 21. `ma.rupan.dev -> http://music-assistant.music-assistant:8095`
 22. `ledfx.rupan.dev -> http://ledfx.music-assistant:8888`
@@ -311,7 +310,7 @@ were preserved; this cleanup did not change who can reach a hostname.
 | `Bypass - Arcade controller` | `arcade.rupan.dev` |
 | `Bypass - Music Assistant` | `ma.rupan.dev` |
 | `Bypass - Flux webhook` | `flux-wh-33b0c8004348.rupan.dev` |
-| `Bypass - Websites and automation` | `demo.rupan.dev`, `ntfy.rupan.dev`, `renovate-approve.rupan.dev`, `nix-agent.rupan.dev`, `photo.rupan.dev`, `majorfinder.rupan.dev`, `www.rupan.dev`, `rupan.dev` |
+| `Bypass - Websites and automation` | `demo.rupan.dev`, `ntfy.rupan.dev`, `nix-agent.rupan.dev`, `photo.rupan.dev`, `majorfinder.rupan.dev`, `www.rupan.dev`, `rupan.dev` |
 | `Bypass - Home Assistant` | `ha.rupan.dev` |
 | `Bypass - Notes and project sites` | `rupanism.rupan.dev`, `ism.rupan.dev`, `notes.rupan.dev`, `pulse.rupan.dev`, `spatia.rupan.dev` |
 | `Bypass - Photos, files and dashboards` | `books.rupan.dev`, `grafana.rupan.dev`, `photos.rupan.dev`, `media.rupan.dev`, `jellyfin.rupan.dev` |
@@ -352,12 +351,6 @@ The existing destination groups include some historical aliases and mixed uses.
 Keep them explicit in this inventory until each alias is reviewed against DNS,
 tunnel routes, and clients; removing a destination can change which Access
 application handles it.
-
-`renovate-approve.rupan.dev/approve` remains in use by Renovate's ntfy Approve
-buttons. The receiver validates a bearer token, repository allowlist, open PR,
-and exact current commit before recording approval. Browser Access login would
-interrupt those notification POSTs. PR-comment approval is an alternative, but
-retiring this endpoint also requires updating the notification action producer.
 
 ## Known gaps
 
