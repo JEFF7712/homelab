@@ -1,0 +1,3 @@
+name: Spotify Queue Request
+icon: mdi:playlist-plus
+entity_id: input_text.spotify_queue_request

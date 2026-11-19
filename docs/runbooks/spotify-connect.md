@@ -70,3 +70,15 @@ only the affected process after verifying its executable and per-player
 `--config_dir`. The provider supervises it. Keep credentials and state files.
 Roll back the relay by reverting its deployment/configuration commit through
 `just ship`; this restores the original streaming path without changing data.
+
+## Queueing songs during a Spotify Connect session
+
+While Spotify Connect plays, the Spotify app owns the queue; Music Assistant
+only plays the stream. MA's "Add to queue" lands in MA's own (inactive) queue,
+and "Play now"/"Replace" takes the speaker away from Spotify Connect. To add to
+Spotify's queue from Home Assistant, use the Shared Spaces "Add to Spotify
+queue" card (`input_text.spotify_queue_request` + `script.spotify_add_to_queue`):
+it finds the track on Spotify through MA's search and calls `play_media` with
+`enqueue: add` on `media_player.spotify_rupan`. It only reaches sessions on
+Rupan's Spotify account, and posts a notification when nothing is playing or
+nothing matches. Guests on their own accounts use a Spotify Jam instead.

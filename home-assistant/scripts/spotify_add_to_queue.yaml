@@ -1,0 +1,91 @@
+alias: Spotify — add to queue
+mode: queued
+max: 5
+icon: mdi:playlist-plus
+description: >-
+  Add a song to the queue of the Spotify session on Rupan's account (Spotify
+  Connect on the soundbar, the app, or a Jam). Music Assistant's own queue
+  never reaches a Spotify Connect stream, so this searches Spotify through
+  Music Assistant and enqueues the track with the Spotify integration. Reads
+  input_text.spotify_queue_request when no query is passed.
+fields:
+  query:
+    description: Song to add, optionally as "song by artist".
+    example: Stargazing by Travis Scott
+    required: false
+    selector:
+      text:
+sequence:
+  - variables:
+      search_query: >-
+        {{ (query | default(states('input_text.spotify_queue_request'), true)
+            | default('', true) | string | trim) }}
+  - condition: template
+    value_template: "{{ search_query not in ['', 'unknown', 'unavailable'] }}"
+  - if:
+      - condition: not
+        conditions:
+          - condition: state
+            entity_id: media_player.spotify_rupan
+            state:
+              - playing
+              - paused
+    then:
+      - action: persistent_notification.create
+        data:
+          notification_id: spotify_add_to_queue
+          title: Spotify queue
+          message: >-
+            Nothing is playing on Spotify right now, so "{{ search_query }}"
+            was not queued. Start Spotify (or Spotify Connect) first.
+      - stop: No active Spotify session.
+  - action: music_assistant.search
+    data:
+      config_entry_id: 01M2PW1ZWNQ31HTTG69TBVKSV3
+      name: "{{ search_query | regex_replace('\\s+by\\s+', ' ', ignorecase=True) }}"
+      media_type: track
+      limit: 10
+    response_variable: mass_search
+    continue_on_error: true
+  # Music Assistant returns provider URIs like spotify--<instance>://track/<id>;
+  # the Spotify integration needs spotify:track:<id>.
+  - variables:
+      spotify_uri: >-
+        {% set tracks = (mass_search | default({}, true)).tracks | default([], true) %}
+        {% set match = tracks | selectattr('uri', 'defined')
+           | selectattr('uri', 'search', '^spotify[^:]*://track/') | first | default({}, true) %}
+        {{ ('spotify:track:' ~ (match.uri | regex_findall('://track/([A-Za-z0-9]+)') | first))
+           if match.uri is defined else '' }}
+      label: >-
+        {% set tracks = (mass_search | default({}, true)).tracks | default([], true) %}
+        {% set match = tracks | selectattr('uri', 'defined')
+           | selectattr('uri', 'search', '^spotify[^:]*://track/') | first | default({}, true) %}
+        {% set artists = match.artists | default([], true) | map(attribute='name') | join(', ') %}
+        {{ match.name | default(search_query, true) }}{{ (' by ' ~ artists) if artists else '' }}
+  - if:
+      - condition: template
+        value_template: "{{ spotify_uri == '' }}"
+    then:
+      - action: persistent_notification.create
+        data:
+          notification_id: spotify_add_to_queue
+          title: Spotify queue
+          message: No Spotify track found for "{{ search_query }}".
+      - stop: No Spotify match.
+  - action: media_player.play_media
+    target:
+      entity_id: media_player.spotify_rupan
+    data:
+      media_content_type: track
+      media_content_id: "{{ spotify_uri }}"
+      enqueue: add
+  - action: input_text.set_value
+    target:
+      entity_id: input_text.spotify_queue_request
+    data:
+      value: ""
+  - action: persistent_notification.create
+    data:
+      notification_id: spotify_add_to_queue
+      title: Spotify queue
+      message: Added {{ label }} to the Spotify queue.

@@ -36,6 +36,18 @@ custom_integrations:
     install_path: /config/custom_components/adaptive_lighting
     connection: local
     status: installed
+  # Queue view for the Mediocre card (it calls mass_queue.get_queue_items etc.).
+  # HACS is not configured; the tag's custom_components/mass_queue was copied
+  # into /config directly. 0.10.4 rather than 0.11.0 (two days old at install).
+  - domain: mass_queue
+    name: Music Assistant Queue Actions
+    source: https://github.com/droans/mass_queue
+    version: v0.10.4
+    artifact: https://github.com/droans/mass_queue/archive/refs/tags/v0.10.4.tar.gz
+    sha256: 5de3974d85ea647bd935acbd71b98a372d9bebd3e7880290d01eedc69d5e14e7
+    install_path: /config/custom_components/mass_queue
+    connection: local
+    status: installed
   - domain: spook
     name: Spook
     source: https://github.com/frenck/spook

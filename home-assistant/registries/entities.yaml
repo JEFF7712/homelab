@@ -157,6 +157,10 @@
   icon: mdi:cellphone-charging
   labels: []
   name: Phone Bedtime Battery Threshold
+- entity_id: input_text.spotify_queue_request
+  icon: mdi:playlist-plus
+  labels: []
+  name: Spotify Queue Request
 - area_id: living_room
   entity_id: light.apollo_led_strip_apollo_led_strip
   labels:
