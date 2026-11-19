@@ -81,7 +81,14 @@ only when main's changes since its merge base could interact with the PR's
 share a scope with what they render. Documentation and `tests/test_*.py`
 overlap only with the same file. CI machinery, `config/`, `registry/`,
 `inventory/`, `secrets/`, the flake inputs and unknown paths overlap with
-everything. Independent heads merge as they are, overlapping heads are
+everything, except that `registry/images.lock.json` and
+`registry/images.inventory.json` are judged by content: a change that only
+adds, removes or edits image records is scoped to each record's destination
+repository and its consumers' components (cluster-observed consumers add
+none), and also overlaps any change to `scripts/registry/`. Promotions of
+different images therefore no longer revalidate each other or every open PR;
+any other change to those files, or unreadable content, is still global.
+Independent heads merge as they are, overlapping heads are
 updated from main and revalidated under the lease. The `policy/merge` status
 enforces the same rule for every merger (`behind main with overlapping
 changes`), so branch protection no longer blocks outdated branches
