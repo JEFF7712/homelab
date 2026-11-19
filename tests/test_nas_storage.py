@@ -42,7 +42,7 @@ class NasStorageTest(unittest.TestCase):
             services = builtins.mapAttrs (_: service: {
               inherit (service) after wants requires unitConfig serviceConfig;
             }) {
-              inherit (system.config.systemd.services) nas-backup-local zot nfs-server registry-backup;
+              inherit (system.config.systemd.services) nas-backup-local zot nfs-server registry-backup media-extra-branches;
             };
             exports = system.config.services.nfs.server.exports;
           }
@@ -108,16 +108,20 @@ class NasStorageTest(unittest.TestCase):
     def test_media_merges_both_pools_for_nfs_export(self) -> None:
         media = self.configuration["filesystems"]["/tank/media"]
         self.assertEqual(media["fsType"], "fuse.mergerfs")
-        self.assertEqual(
-            media["device"], "/mnt/media-tank:/mnt/media-2tb:/mnt/media-3tb"
-        )
+        # A device change restarts the mount on switch, which fails under
+        # NFS clients; later disks attach at runtime instead.
+        self.assertEqual(media["device"], "/mnt/media-tank:/mnt/media-2tb")
+        branches = self.configuration["services"]["media-extra-branches"]
+        self.assertIn("/mnt/media-3tb", branches["unitConfig"]["RequiresMountsFor"])
+        self.assertIn("tank-media.mount", branches["requires"])
+        nfs = self.configuration["services"]["nfs-server"]
+        self.assertIn("media-extra-branches.service", nfs["after"])
         for option in (
             "noforget",
             "inodecalc=path-hash",
             "category.create=mfs",
             "x-systemd.requires-mounts-for=/mnt/media-tank",
             "x-systemd.requires-mounts-for=/mnt/media-2tb",
-            "x-systemd.requires-mounts-for=/mnt/media-3tb",
         ):
             self.assertIn(option, media["options"])
         for line in self.configuration["exports"].splitlines():

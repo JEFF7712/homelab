@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
+
 SCRIPT = (
     Path(__file__).resolve().parents[1]
     / "gitops/automation/cluster-sentinel/cluster-sentinel.sh"
@@ -62,6 +64,23 @@ check_change cronjobs "$1" "CronJob failure" "CronJobs recovered" "$2"
         (self.state / "cronjobs").write_text("bad")
         self.assertEqual(self.run_check("bad", "a/b: Failed"), ["CronJob failure|high"])
         self.assertEqual(self.run_check("bad", "a/b: Failed"), [])
+
+
+class StateConfigMapTests(unittest.TestCase):
+    def test_flux_only_creates_runtime_state(self) -> None:
+        # Regression (2026-11-19): a Flux re-apply dropped every key the
+        # sentinel had patched into cluster-sentinel-state.
+        state = SCRIPT.parents[1] / "state.yaml"
+        maps = [doc for doc in yaml.safe_load_all(state.read_text()) if doc]
+        self.assertTrue(maps)
+        for document in maps:
+            with self.subTest(document["metadata"]["name"]):
+                self.assertEqual(
+                    document["metadata"]["annotations"][
+                        "kustomize.toolkit.fluxcd.io/ssa"
+                    ],
+                    "IfNotPresent",
+                )
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ import os
 import re
 import ssl
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.error
@@ -65,18 +66,10 @@ def current_source(
     current = json.loads(_fetch(request))["commit"]["id"]
     if current != sha:
         if operation and catalog is not None:
-            auth = base64.b64encode(
-                (
-                    "homelab-ci-source:" + environment["FORGEJO_SOURCE_READ_TOKEN"]
-                ).encode()
-            ).decode()
-            git_env = {
-                **os.environ,
-                "GIT_TERMINAL_PROMPT": "0",
-                "GIT_CONFIG_COUNT": "1",
-                "GIT_CONFIG_KEY_0": "http.extraHeader",
-                "GIT_CONFIG_VALUE_0": "Authorization: Basic " + auth,
-            }
+            # The job clone is shallow and tree-filtered, so ancestry and diff
+            # fetch missing commits and trees lazily from the private origin:
+            # every git command here needs the read identity, not only fetch.
+            git_env = _source_git_env(environment["FORGEJO_SOURCE_READ_TOKEN"])
             try:
                 subprocess.run(
                     ["git", "fetch", "--quiet", "--no-tags", "origin", current],
@@ -87,9 +80,10 @@ def current_source(
                 )
                 subprocess.run(
                     ["git", "merge-base", "--is-ancestor", sha, current],
+                    env=git_env,
                     check=True,
                     capture_output=True,
-                    timeout=10,
+                    timeout=60,
                 )
                 changed = (
                     subprocess.check_output(
@@ -102,7 +96,9 @@ def current_source(
                             sha,
                             current,
                         ],
-                        timeout=30,
+                        env=git_env,
+                        stderr=subprocess.PIPE,
+                        timeout=60,
                     )
                     .decode()
                     .split("\0")
@@ -114,9 +110,28 @@ def current_source(
                     [path for path in changed if path], operation, catalog, routes
                 ):
                     return
-            except (OSError, subprocess.SubprocessError):
-                pass
+            except (OSError, subprocess.SubprocessError) as error:
+                # Still superseded, but say why: a git failure here once
+                # rejected every operation whose source main had moved past.
+                detail = getattr(error, "stderr", b"") or b""
+                if isinstance(detail, bytes):
+                    detail = detail.decode(errors="replace")
+                print(
+                    f"Source compatibility check failed: {error} {detail.strip()}",
+                    file=sys.stderr,
+                )
         raise SupersededSource("Operation source must be the current main commit")
+
+
+def _source_git_env(token: str) -> dict[str, str]:
+    auth = base64.b64encode(f"homelab-ci-source:{token}".encode()).decode()
+    return {
+        **os.environ,
+        "GIT_TERMINAL_PROMPT": "0",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "http.extraHeader",
+        "GIT_CONFIG_VALUE_0": "Authorization: Basic " + auth,
+    }
 
 
 def artifact_url(environment: dict[str, str], operation: str) -> str:
