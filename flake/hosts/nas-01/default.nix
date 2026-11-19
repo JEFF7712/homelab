@@ -80,6 +80,7 @@
         [
           "tank"
           "media2"
+          "media3"
         ]
     )
     // {

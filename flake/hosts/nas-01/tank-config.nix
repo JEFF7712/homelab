@@ -33,6 +33,22 @@
           };
         };
       };
+      media3 = {
+        type = "disk";
+        device = "/dev/disk/by-id/ata-WDC_WD3000FYYZ-01UL1B2_WD-WCC130665104";
+        content = {
+          type = "gpt";
+          partitions = {
+            data = {
+              size = "100%";
+              content = {
+                type = "zfs";
+                pool = "media3";
+              };
+            };
+          };
+        };
+      };
     };
     zpool.tank = {
       type = "zpool";
@@ -132,6 +148,25 @@
       datasets.media = {
         type = "zfs_fs";
         mountpoint = "/mnt/media-2tb";
+        options = {
+          mountpoint = "legacy";
+          recordsize = "1M";
+        };
+      };
+    };
+    zpool.media3 = {
+      type = "zpool";
+      options.ashift = "12";
+      rootFsOptions = {
+        acltype = "posixacl";
+        atime = "off";
+        compression = "zstd";
+        mountpoint = "none";
+        xattr = "sa";
+      };
+      datasets.media = {
+        type = "zfs_fs";
+        mountpoint = "/mnt/media-3tb";
         options = {
           mountpoint = "legacy";
           recordsize = "1M";
