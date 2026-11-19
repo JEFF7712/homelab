@@ -24,6 +24,7 @@ class HealthRunner:
     def __init__(self) -> None:
         self.slice_calls = 0
         self.nft_calls = 0
+        self.postgres_primaries = "home-assistant-cluster-1"
         self.commands: list[list[str]] = []
 
     def __call__(self, command, **kwargs):
@@ -59,7 +60,11 @@ class HealthRunner:
             return subprocess.CompletedProcess(command, 0, json.dumps(output), "")
         if "--raw=/readyz" in command:
             return subprocess.CompletedProcess(command, 0, "ok\n", "")
-        if "deployment/home-assistant-postgres" in command:
+        if any("cnpg.io/instanceRole=primary" in part for part in command):
+            return subprocess.CompletedProcess(command, 0, self.postgres_primaries, "")
+        if command[2:4] == ["exec", "-n"] and "psql" in command:
+            if command[5] != "home-assistant-cluster-1":
+                return subprocess.CompletedProcess(command, 1, "", "pod not found")
             return subprocess.CompletedProcess(command, 0, "1\n", "")
         if command[0] == "curl":
             return subprocess.CompletedProcess(command, 0, "200", "")
@@ -150,6 +155,32 @@ class AcceptanceTests(unittest.TestCase):
         self.assertEqual(health["home_assistant"]["http_status"], 200)
         self.assertEqual(health["workspace_slice"]["cpu_quota_per_second"], "2s")
         self.assertEqual(health["workspace_slice"]["memory_peak_bytes"], 2000)
+
+    def test_collect_health_queries_the_current_cnpg_primary(self) -> None:
+        runner = HealthRunner()
+        collect_host_health(runner)
+        query = next(command for command in runner.commands if "psql" in command)
+        self.assertEqual(
+            query[2:9],
+            [
+                "exec",
+                "-n",
+                "home-assistant",
+                "home-assistant-cluster-1",
+                "-c",
+                "postgres",
+                "--",
+            ],
+        )
+
+    def test_collect_health_requires_exactly_one_cnpg_primary(self) -> None:
+        for primaries in ("", "home-assistant-cluster-1 home-assistant-cluster-2"):
+            with self.subTest(primaries=primaries):
+                runner = HealthRunner()
+                runner.postgres_primaries = primaries
+                with self.assertRaisesRegex(WorkspaceError, "primary pod"):
+                    collect_host_health(runner)
+                self.assertFalse(any("psql" in command for command in runner.commands))
 
     def test_two_guest_acceptance_records_health_and_deprovisions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
