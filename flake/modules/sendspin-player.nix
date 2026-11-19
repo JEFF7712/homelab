@@ -10,6 +10,40 @@ let
   # The satellite matches this name to duck the stream during voice turns
   # (MUSIC_STREAM_MATCH in gitops/voice/satellite.yaml).
   streamName = "Sendspin";
+
+  # The client's aiosendspin must match the server's: Music Assistant 2.10.4
+  # (gitops/music-assistant/server.yaml) bundles aiosendspin 9.1.1, and the
+  # nixpkgs sendspin 9.1.0 on aiosendspin 10.x fails its Noise handshake
+  # (HandshakeAbortedError). sendspin 8.0.0 pins aiosendspin ~=9.1.1. Move both
+  # with the next Music Assistant upgrade.
+  dropVersionPatchHook =
+    old: builtins.filter (p: !(lib.hasInfix "version-patch" (p.name or ""))) old.nativeBuildInputs;
+  python = pkgs.python3.override {
+    packageOverrides = _final: prev: {
+      aiosendspin = prev.aiosendspin.overridePythonAttrs (old: rec {
+        version = "9.1.1";
+        src = pkgs.fetchPypi {
+          pname = "aiosendspin";
+          inherit version;
+          hash = "sha256-Hpoz7Ftty8FrTwPAdYYZW+qoDrLlukJUuXl5rg4OxLc=";
+        };
+        # The 10.x test suite does not apply to the 9.1.1 sources.
+        doCheck = false;
+        nativeBuildInputs = dropVersionPatchHook old;
+      });
+      sendspin = prev.sendspin.overridePythonAttrs (old: rec {
+        version = "8.0.0";
+        src = pkgs.fetchPypi {
+          pname = "sendspin";
+          inherit version;
+          hash = "sha256-giz68TVlqSDfUTK4RbCqTjl49sV6D/il7jP8BR/JaKI=";
+        };
+        doCheck = false;
+        nativeBuildInputs = dropVersionPatchHook old;
+      });
+    };
+  };
+  sendspin = python.pkgs.toPythonApplication python.pkgs.sendspin;
 in
 {
   options.homelab.sendspin-player = {
@@ -58,7 +92,7 @@ in
         # Software volume: Music Assistant's volume scales only this stream,
         # never the shared sink that also carries Jarvis speech.
         ExecStart = lib.escapeShellArgs [
-          "${pkgs.sendspin}/bin/sendspin"
+          "${sendspin}/bin/sendspin"
           "daemon"
           "--url"
           cfg.serverUrl
