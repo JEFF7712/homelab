@@ -206,6 +206,9 @@
   name: Living Room Tulip Lamp
 - entity_id: media_player.homelab_05_satellite_media_player_2
   labels: []
+  name: Satellite Relay
+- entity_id: media_player.homelab_05_speaker
+  labels: []
   name: Soundbar
 - disabled_by: integration
   entity_id: select.0xb4e8428fcc940000_effect

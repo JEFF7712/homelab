@@ -5,7 +5,7 @@
   const config = {
     satelliteEntity: 'assist_satellite.homelab_05_satellite_assist_satellite',
     muteEntity: 'switch.homelab_05_satellite_mute',
-    mediaPlayerEntity: 'media_player.homelab_05_satellite_media_player_2',
+    mediaPlayerEntity: 'media_player.homelab_05_speaker',
     responseEntity: 'sensor.jarvis_response',
     host: location.host,
     token: null,

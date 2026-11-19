@@ -127,7 +127,7 @@ and `home-assistant/www/jarvis/app.js` defaults together:
 
 - `assist_satellite.homelab_05_satellite_assist_satellite`
 - `switch.homelab_05_satellite_mute`
-- `media_player.homelab_05_satellite_media_player_2`
+- `media_player.homelab_05_speaker`
 - `switch.homelab_05_satellite_thinking_sound`
 - `number.homelab_05_satellite_mic_volume`
 - `select.homelab_05_satellite_wake_word`
@@ -351,7 +351,11 @@ automation referencing them.
    - Music plays to the soundbar over Sendspin, MA's native protocol:
      `flake/modules/sendspin-player.nix` runs `sendspin daemon` as the kiosk
      user on `homelab-05`, connected to `ws://127.0.0.1:8927/sendspin`, and MA
-     shows it as "Homelab 05 Speaker". One persistent stream replaces the
+     shows it as "Homelab 05 Speaker" (universal player `up25ac6335`, HA entity
+     `media_player.homelab_05_speaker`, named "Soundbar"). Jarvis, the face,
+     dashboards and the living-room Spotify Connect binding all target it; the
+     old HA-relayed `media_player.homelab_05_satellite_media_player_2` is kept as
+     "Satellite Relay" for the import health check. One persistent stream replaces the
      HA `play_media` → satellite mpv path, so skip and pause are applied by MA
      directly. Volume is software (`--hardware-volume false`): MA's slider scales
      only this stream, never the sink Jarvis speaks through. The client identity
@@ -423,7 +427,7 @@ The router sends the unmatched transcript to TypeSafe's hosted API using the
 pinned `jev-1.13.0` model. This is a cloud disclosure and is not zero-retention
 by default. It sends the full target allowlist as `criteria` (real entity IDs
 including `climate.living_room_ac_living_room_ac_thermostat`,
-`media_player.homelab_05_satellite_media_player_2`,
+`media_player.homelab_05_speaker`,
 `scene.movie_low_living_room`); no entity registry, HA state dump, prompt,
 or chat history.
 The API key comes from SOPS-managed property `TYPESAFE_API_KEY` through the

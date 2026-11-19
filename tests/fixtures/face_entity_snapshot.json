@@ -9,12 +9,12 @@
       "lc": 1790194423.3324065,
       "s": "idle"
     },
-    "media_player.homelab_05_satellite_media_player_2": {
+    "media_player.homelab_05_speaker": {
       "a": {
-        "active_queue": "media_player.homelab_05_satellite_media_player",
+        "active_queue": "up25ac6335",
         "app_id": "music_assistant",
         "device_class": "speaker",
-        "entity_picture": "/api/media_player_proxy/media_player.homelab_05_satellite_media_player_2?token=fea5260eda29f7e7876b51e8747af9338ccf7c21f3fe29d107281462350f0ba4&cache=a1184577e556798b",
+        "entity_picture": "/api/media_player_proxy/media_player.homelab_05_speaker?token=fea5260eda29f7e7876b51e8747af9338ccf7c21f3fe29d107281462350f0ba4&cache=a1184577e556798b",
         "friendly_name": "Soundbar",
         "icon": "mdi:speaker",
         "is_volume_muted": false,

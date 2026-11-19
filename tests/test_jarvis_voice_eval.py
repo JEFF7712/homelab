@@ -63,7 +63,7 @@ ROUTINES_AUTOMATION = (
 )
 CLIMATE_INTENT = "JarvisClimateControl"
 ROUTINES_INTENT = "JarvisRoutines"
-SATELLITE_MEDIA_PLAYER = "media_player.homelab_05_satellite_media_player_2"
+SATELLITE_MEDIA_PLAYER = "media_player.homelab_05_speaker"
 VOICE_EXTRA_TARGETS = frozenset({SATELLITE_MEDIA_PLAYER})
 MUSIC_INTENTS = {
     "MusicArtist": "artist",
@@ -106,7 +106,7 @@ ALIAS_FILE = (
     REPO_ROOT / "home-assistant" / "custom_sentences" / "en" / "jarvis_alias.yaml"
 )
 TEMPLATE_QUERIES = {
-    "JarvisWhatsPlaying": "media_player.homelab_05_satellite_media_player_2",
+    "JarvisWhatsPlaying": "media_player.homelab_05_speaker",
     "JarvisTempDownstairs": "sensor.living_room_ac_ambient_temperature_degf",
     "JarvisKitchenLightsState": "light.kitchen_lights",
     "JarvisAcState": "sensor.living_room_ac_mode",
