@@ -4,7 +4,7 @@
   "face_color_music": "#00f0ff",
   "satellite_entity": "assist_satellite.homelab_05_satellite_assist_satellite",
   "mute_entity": "switch.homelab_05_satellite_mute",
-  "media_player_entity": "media_player.homelab_05_satellite_media_player_2",
+  "media_player_entity": "media_player.homelab_05_speaker",
   "face_color_idle": "#00f0ff",
   "face_color_listening": "#00f0ff",
   "face_color_processing": "#00f0ff",

@@ -5,14 +5,14 @@ triggers:
   - trigger: state
     entity_id:
       - assist_satellite.homelab_05_satellite_assist_satellite
-      - media_player.homelab_05_satellite_media_player_2
+      - media_player.homelab_05_speaker
     to: "unavailable"
     for: "00:10:00"
     id: "satellite"
   - trigger: state
     entity_id:
       - assist_satellite.homelab_05_satellite_assist_satellite
-      - media_player.homelab_05_satellite_media_player_2
+      - media_player.homelab_05_speaker
     to: "unknown"
     for: "00:10:00"
     id: "satellite_unknown"

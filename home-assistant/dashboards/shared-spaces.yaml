@@ -367,8 +367,8 @@ views:
                     entity_id: script.effects_night_light
       - cards:
           - type: custom:mediocre-massive-media-player-card
-            entity_id: media_player.homelab_05_satellite_media_player_2
-            ma_entity_id: media_player.homelab_05_satellite_media_player_2
+            entity_id: media_player.homelab_05_speaker
+            ma_entity_id: media_player.homelab_05_speaker
             ma_favorite_button_entity_id: button.homelab_05_satellite_media_player_favorite_current_song
             use_art_colors: true
             mode: card
@@ -376,7 +376,7 @@ views:
               entities:
                 - media_player.bedroom_speaker
             media_browser:
-              - entity_id: media_player.homelab_05_satellite_media_player_2
+              - entity_id: media_player.homelab_05_speaker
                 name: Soundbar
           - type: custom:mushroom-template-card
             entity: input_boolean.spotify_connect

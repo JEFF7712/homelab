@@ -47,5 +47,5 @@ conditions: []
 actions:
   - action: media_player.media_pause
     target:
-      entity_id: media_player.homelab_05_satellite_media_player_2
+      entity_id: media_player.homelab_05_speaker
   - set_conversation_response: Paused.

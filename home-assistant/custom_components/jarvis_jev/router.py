@@ -131,7 +131,7 @@ TARGETS = {
         ),
     ),
     "satellite_media_player": Target(
-        "media_player.homelab_05_satellite_media_player_2",
+        "media_player.homelab_05_speaker",
         frozenset({"pause_media", "play_music"}),
     ),
     "movie_mode": Target("scene.movie_low_living_room", frozenset({"activate_scene"})),

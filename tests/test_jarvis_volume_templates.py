@@ -34,7 +34,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 AUTOMATION_FILE = (
     REPO_ROOT / "home-assistant" / "automations" / "jarvis_music_volume.yaml"
 )
-SATELLITE = "media_player.homelab_05_satellite_media_player_2"
+SATELLITE = "media_player.homelab_05_speaker"
 
 
 def make_env() -> jinja2.Environment:

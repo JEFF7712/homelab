@@ -2,7 +2,7 @@
 
 Music Mode (`input_boolean.shared_music_mode`) lights the shared spaces from
 the track playing on the soundbar
-(`media_player.homelab_05_satellite_media_player_2`). Once per track it
+(`media_player.homelab_05_speaker`). Once per track it
 picks a palette from the album art and a LedFx effect from the song's genre,
 tempo and energy.
 
