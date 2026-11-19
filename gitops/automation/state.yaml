@@ -1,9 +1,15 @@
 ---
+# Runtime state the monitors and the Renovate reviewer write with kubectl
+# patch. Flux only creates these: re-applying them dropped every key the
+# writers had patched in (cluster-sentinel-state, 2026-11-19), so persistent
+# failures alerted again and recoveries went unreported.
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: website-health-state
   namespace: automation
+  annotations:
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
 data:
   cloudflare-tunnel: ok
   initialized: 'true'
@@ -13,6 +19,8 @@ kind: ConfigMap
 metadata:
   name: cluster-sentinel-state
   namespace: automation
+  annotations:
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
 data:
   initialized: 'true'
 ---
@@ -21,6 +29,8 @@ kind: ConfigMap
 metadata:
   name: website-image-state
   namespace: automation
+  annotations:
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
 data:
   initialized: 'true'
 ---
@@ -29,5 +39,7 @@ kind: ConfigMap
 metadata:
   name: renovate-agent-state
   namespace: automation
+  annotations:
+    kustomize.toolkit.fluxcd.io/ssa: IfNotPresent
 data:
   initialized: 'true'

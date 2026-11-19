@@ -15,6 +15,7 @@ let
     "tank/documents"
     "tank/s3"
   ];
+  mediaExtraBranches = [ "/mnt/media-3tb" ];
   # Rebuildable caches, metrics, logs and models stay out of the backup.
   localBackupExcludes = [
     "observability-prometheus-*"
@@ -49,7 +50,7 @@ in
   # files go to the branch with the most free space; link and rename clone the
   # parent path onto the source branch, so *arr hardlink imports keep working.
   fileSystems."/tank/media" = {
-    device = "/mnt/media-tank:/mnt/media-2tb:/mnt/media-3tb";
+    device = "/mnt/media-tank:/mnt/media-2tb";
     fsType = "fuse.mergerfs";
     options = [
       "nofail"
@@ -63,10 +64,36 @@ in
       "fsname=media"
       "x-systemd.requires-mounts-for=/mnt/media-tank"
       "x-systemd.requires-mounts-for=/mnt/media-2tb"
-      "x-systemd.requires-mounts-for=/mnt/media-3tb"
     ];
   };
   system.fsPackages = [ pkgs.mergerfs ];
+
+  # Changing the /tank/media device restarts the mount on switch, which fails
+  # while NFS clients hold it. Later disks join the running union through the
+  # mergerfs control file instead, so adding one needs no downtime.
+  systemd.services.media-extra-branches = {
+    description = "Attach extra disks to the /tank/media mergerfs union";
+    after = [ "tank-media.mount" ];
+    requires = [ "tank-media.mount" ];
+    before = [ "nfs-server.service" ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig.RequiresMountsFor = mediaExtraBranches;
+    path = [ pkgs.attr ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      control=/tank/media/.mergerfs
+      for branch in ${lib.escapeShellArgs mediaExtraBranches}; do
+        current=$(getfattr --only-values -n user.mergerfs.branches "$control")
+        case ":$current:" in
+          *":$branch=RW:"*) ;;
+          *) setfattr -n user.mergerfs.branches -v "+>$branch" "$control" ;;
+        esac
+      done
+    '';
+  };
 
   fileSystems."/mnt/backup-local" = {
     device = "/dev/disk/by-id/ata-WDC_WD1003FBYZ-010FB0_WD-WCAW37790774-part1";
@@ -152,11 +179,13 @@ in
 
   systemd.services.nfs-server = {
     wants = [
+      "media-extra-branches.service"
       "tank-media.mount"
       "tank-backups.mount"
       "tank-cluster.mount"
     ];
     after = [
+      "media-extra-branches.service"
       "tank-media.mount"
       "tank-backups.mount"
       "tank-cluster.mount"
