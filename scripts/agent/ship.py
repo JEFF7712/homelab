@@ -30,7 +30,7 @@ from typing import Any
 import yaml
 
 from scripts.ci.deployment_risk import APPROVAL_REQUIRED, authority_digest
-from scripts.verifier.freshness import OUTDATED, overlap
+from scripts.verifier.freshness import OUTDATED, narrowed, overlap
 
 ROOT = Path(__file__).resolve().parents[2]
 OWNER_REPO = "JEFF7712/homelab"
@@ -919,7 +919,22 @@ class Shipper:
                 "diff", "--name-only", "--no-renames", base, target
             ).splitlines()
 
-        return overlap(changed(head), changed(main))
+        def reader(commit: str) -> Callable[[str], str | None]:
+            def read(path: str) -> str | None:
+                try:
+                    return self.git("show", f"{commit}:{path}")
+                except subprocess.CalledProcessError:
+                    return None
+
+            return read
+
+        branch, moved = changed(head), changed(main)
+        return overlap(
+            branch,
+            moved,
+            narrowed(branch, reader(base), reader(head)),
+            narrowed(moved, reader(base), reader(main)),
+        )
 
     def update_branch(self, number: int, reason: str) -> None:
         self.say(f"{reason}; updating the PR branch and revalidating")

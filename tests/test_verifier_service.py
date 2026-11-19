@@ -191,6 +191,54 @@ class MergePolicyService(unittest.TestCase):
         self.assertIn("gitops/media", state["description"])
         self.assertNotIn(8, forge.comments, "a branch update fixes it, not a repair")
 
+    def test_registry_promotions_of_different_images_stay_independent(self) -> None:
+        def records(**digests: str) -> str:
+            return json.dumps(
+                {
+                    "kind": "registry-image-lock",
+                    "images": [
+                        {
+                            "id": f"{name}-{digest}",
+                            "destination_repository": f"apps/{name}",
+                            "digest": f"sha256:{digest}",
+                            "consumers": [f"gitops/{name}/deployment.yaml:20"],
+                        }
+                        for name, digest in sorted(digests.items())
+                    ],
+                },
+                indent=2,
+            )
+
+        lock = self.remote / "registry/images.lock.json"
+        lock.parent.mkdir()
+        lock.write_text(records(matrix="aa", bus="bb"))
+        git(self.remote, "add", "-A")
+        git(self.remote, "commit", "-q", "-m", "records")
+        self.base = git(self.remote, "rev-parse", "HEAD")
+
+        head = self.branch(
+            9,
+            lambda repo: (repo / "registry/images.lock.json").write_text(
+                records(matrix="cc", bus="bb")
+            ),
+        )
+        forge = FakeForge([self.pull(9, head)])
+        judged: dict[int, tuple[str, str, str, str]] = {}
+        run_once(forge, self.mirror, self.approvals, judged)
+        self.assertEqual(forge.statuses[-1][1]["state"], "success")
+
+        lock.write_text(records(matrix="aa", bus="dd"))
+        git(self.remote, "commit", "-q", "-am", "promote bus")
+        run_once(forge, self.mirror, self.approvals, judged)
+        self.assertEqual(len(forge.statuses), 1, "another image's promotion keeps it")
+
+        lock.write_text(records(matrix="ee", bus="dd"))
+        git(self.remote, "commit", "-q", "-am", "promote matrix")
+        run_once(forge, self.mirror, self.approvals, judged)
+        state = forge.statuses[-1][1]
+        self.assertEqual(state["state"], "failure")
+        self.assertIn("both change apps/matrix", state["description"])
+
     def test_operator_approval_of_the_exact_head_overrides(self) -> None:
         def eject(repo: Path) -> None:
             # Removing a site that holds stored data needs an operator.
