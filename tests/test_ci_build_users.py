@@ -11,6 +11,7 @@ from scripts.ci.build_users import (
     COUNT,
     GID,
     GROUP,
+    NIX_CONF,
     NIX_SETTING,
     entries,
     setup_command,
@@ -22,6 +23,12 @@ IMAGE_PASSWD = (
     "nixbld1:x:30001:30000:Nix build user 1:/var/empty:/bin/false\n"
 )
 IMAGE_GROUP = "root:x:0:\nnixbld:x:30000:nixbld1\n"
+# The nixos/nix image's nix.conf, from Nix's docker.nix.
+IMAGE_NIX_CONF = (
+    "build-users-group = nixbld\n"
+    "sandbox = false\n"
+    "trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=\n"
+)
 
 
 class BuildUsersTest(unittest.TestCase):
@@ -38,15 +45,21 @@ class BuildUsersTest(unittest.TestCase):
         # Woodpecker expands $VAR and ${VAR} in step commands.
         self.assertNotIn("$", setup_command())
 
+    def run_setup(self, directory: Path, times: int = 1) -> None:
+        command = setup_command().replace(NIX_CONF, str(directory / "nix.conf"))
+        command = command.replace("/etc/passwd", str(directory / "passwd"))
+        command = command.replace("/etc/group", str(directory / "group"))
+        for _ in range(times):
+            subprocess.run(["sh", "-c", command], check=True)
+
     def test_setup_command_adds_the_users(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             passwd = Path(temporary) / "passwd"
             group = Path(temporary) / "group"
             passwd.write_text(IMAGE_PASSWD)
             group.write_text(IMAGE_GROUP)
-            command = setup_command().replace("/etc/passwd", str(passwd))
-            command = command.replace("/etc/group", str(group))
-            subprocess.run(["sh", "-c", command], check=True)
+            (Path(temporary) / "nix.conf").write_text(IMAGE_NIX_CONF)
+            self.run_setup(Path(temporary))
             expected_passwd, expected_group = entries()
             self.assertEqual(
                 passwd.read_text().splitlines(),
@@ -56,6 +69,25 @@ class BuildUsersTest(unittest.TestCase):
             self.assertEqual(
                 group.read_text().splitlines(),
                 IMAGE_GROUP.splitlines() + [expected_group],
+            )
+
+    def test_setup_command_makes_cibld_the_image_build_users_group(self) -> None:
+        # A root Nix that loses NIX_CONFIG reads this file and re-chowns
+        # /nix/store to its group, so it must name cibld, not nixbld.
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            (directory / "passwd").write_text(IMAGE_PASSWD)
+            (directory / "group").write_text(IMAGE_GROUP)
+            (directory / "nix.conf").write_text(IMAGE_NIX_CONF)
+            self.run_setup(directory, times=2)
+            lines = (directory / "nix.conf").read_text().splitlines()
+            self.assertEqual(
+                [line for line in lines if line.startswith("build-users-group")],
+                [NIX_SETTING],
+            )
+            self.assertEqual(
+                [line for line in lines if not line.startswith("build-users-group")],
+                IMAGE_NIX_CONF.splitlines()[1:],
             )
 
 

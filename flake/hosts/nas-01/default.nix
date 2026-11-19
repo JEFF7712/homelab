@@ -69,8 +69,18 @@
   };
 
   fileSystems =
-    lib.mapAttrs' (_: dataset: lib.nameValuePair dataset.mountpoint { options = [ "nofail" ]; }) (
-      lib.filterAttrs (_: dataset: dataset.mountpoint != null) config.disko.devices.zpool.tank.datasets
+    lib.listToAttrs (
+      lib.concatMap
+        (
+          pool:
+          lib.mapAttrsToList (_: dataset: lib.nameValuePair dataset.mountpoint { options = [ "nofail" ]; }) (
+            lib.filterAttrs (_: dataset: dataset.mountpoint != null) config.disko.devices.zpool.${pool}.datasets
+          )
+        )
+        [
+          "tank"
+          "media2"
+        ]
     )
     // {
       "/var/log".neededForBoot = true;

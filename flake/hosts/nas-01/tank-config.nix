@@ -17,6 +17,22 @@
           };
         };
       };
+      media2 = {
+        type = "disk";
+        device = "/dev/disk/by-id/ata-ST2000DM008-2FR102_ZFL60NJG";
+        content = {
+          type = "gpt";
+          partitions = {
+            data = {
+              size = "100%";
+              content = {
+                type = "zfs";
+                pool = "media2";
+              };
+            };
+          };
+        };
+      };
     };
     zpool.tank = {
       type = "zpool";
@@ -32,9 +48,10 @@
         xattr = "sa";
       };
       datasets = {
+        # nas-data.nix merges this with media2 at /tank/media.
         media = {
           type = "zfs_fs";
-          mountpoint = "/tank/media";
+          mountpoint = "/mnt/media-tank";
           options = {
             mountpoint = "legacy";
             recordsize = "1M";
@@ -99,6 +116,25 @@
           type = "zfs_fs";
           mountpoint = "/tank/s3";
           options.mountpoint = "legacy";
+        };
+      };
+    };
+    zpool.media2 = {
+      type = "zpool";
+      options.ashift = "12";
+      rootFsOptions = {
+        acltype = "posixacl";
+        atime = "off";
+        compression = "zstd";
+        mountpoint = "none";
+        xattr = "sa";
+      };
+      datasets.media = {
+        type = "zfs_fs";
+        mountpoint = "/mnt/media-2tb";
+        options = {
+          mountpoint = "legacy";
+          recordsize = "1M";
         };
       };
     };

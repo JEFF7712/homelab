@@ -35,3 +35,20 @@ Verify independent backup freshness.
 If clients lose access, restore the prior export
 configuration and reload exports; no data ownership or contents are changed by
 this policy update.
+
+## Media pool layout
+
+`/tank/media` is a mergerfs union of `tank/media` (mounted at
+`/mnt/media-tank`) and the single-disk `media2/media` pool (mounted at
+`/mnt/media-2tb`). New files land on the branch with the most free space;
+mergerfs keeps hardlinks and renames on the source branch, so *arr imports still
+hardlink. The export carries a fixed `fsid` because FUSE has no stable device
+id. A file lives on exactly one disk: losing the 2 TB disk loses the media on
+it, not the rest of the library. Operate on files through `/tank/media`; the
+branch mounts are for diagnosis.
+
+Changing the `/tank/media` mount (type, device or branches) restarts
+`tank-media.mount` on switch, which fails while NFS clients hold it. Before such
+a deployment, suspend the `media` and `music-assistant` Flux Kustomizations,
+scale their workloads to zero, run `exportfs -u` for the `/tank/media` clients,
+deploy, then resume Flux.
