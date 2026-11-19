@@ -150,6 +150,8 @@ class DirectorConfig:
     effect_select: str
     transition_time: float
     overrides: tuple[SongOverride, ...] = ()
+    # Seconds between the player's title change and the song being audible.
+    audio_delay: float = 0.0
     lastfm_key: str | None = field(default=None, repr=False)
 
 
@@ -658,6 +660,10 @@ class Director:
                 await self._push_strip(decision)
 
     async def _run(self, force: bool) -> None:
+        # The player's title changes when the next song starts decoding; the
+        # soundbar plays it about audio_delay seconds later.
+        observed = time.monotonic()
+        new_track = False
         if not self._transition_set:
             self._transition_set = await self._ensure_transition()
         player = self.hass.states.get(self.config.player)
@@ -672,14 +678,20 @@ class Director:
                 return
             new_track = key != self._track_key
             if new_track:
-                # A new song: a new loudness baseline.
-                self.sections.reset(time.monotonic())
-                self.drops.reset(time.monotonic())
                 self.section = NORMAL
                 self.next_ready = None
             self._track_key = key
             assert player is not None
             decision = await self._decide(player, key)
+        if new_track:
+            # Hold the new song's look until it is audible (a newer track or
+            # Music Mode turning off cancels this task), then start its
+            # loudness baseline from there.
+            hold = self.config.audio_delay - (time.monotonic() - observed)
+            if hold > 0:
+                await asyncio.sleep(hold)
+            self.sections.reset(time.monotonic())
+            self.drops.reset(time.monotonic())
         # Repeat avoidance follows the automatic choice, not the override.
         self._last_effect = decision.natural_effect
         await self._apply(decision)

@@ -71,6 +71,9 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional("transition_time", default=1.5): vol.All(
                     vol.Coerce(float), vol.Range(min=0, max=5)
                 ),
+                vol.Optional("audio_delay", default=0.0): vol.All(
+                    vol.Coerce(float), vol.Range(min=0, max=10)
+                ),
             }
         )
     },
@@ -94,6 +97,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             effect_select=conf["effect_select"],
             overrides=tuple(SongOverride(**item) for item in conf["overrides"]),
             transition_time=conf["transition_time"],
+            audio_delay=conf["audio_delay"],
             lastfm_key=os.environ.get("LASTFM_API_KEY") or None,
         ),
     )

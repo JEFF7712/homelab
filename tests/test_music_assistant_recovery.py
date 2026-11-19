@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import importlib.util
 import unittest
 from pathlib import Path
@@ -181,6 +182,46 @@ class SkipDebounceTest(unittest.TestCase):
             ],
         )
         self.assertLess(recovery.SKIP_DEBOUNCE_SECONDS, 0.2)
+
+
+class SpotifyConnectPacingTest(unittest.IsolatedAsyncioTestCase):
+    async def test_live_input_gets_a_short_explicit_burst_once(self) -> None:
+        @dataclasses.dataclass(frozen=True)
+        class Source:
+            stream_type: str
+            extra_input_args: list[str] = dataclasses.field(default_factory=list)
+
+        class Backend:
+            async def get_stream_source(self) -> Source:
+                return Source("custom", ["-fflags", "nobuffer"])
+
+        recovery.install_spotify_connect_pacing(Backend)
+        recovery.install_spotify_connect_pacing(Backend)
+        source = await Backend().get_stream_source()
+        self.assertEqual(
+            source.extra_input_args,
+            [
+                "-fflags",
+                "nobuffer",
+                "-readrate",
+                "1",
+                "-readrate_initial_burst",
+                "0.1",
+            ],
+        )
+
+    async def test_existing_pacing_is_left_alone(self) -> None:
+        @dataclasses.dataclass(frozen=True)
+        class Source:
+            extra_input_args: list[str]
+
+        class Backend:
+            async def get_stream_source(self) -> Source:
+                return Source(["-re"])
+
+        recovery.install_spotify_connect_pacing(Backend)
+        source = await Backend().get_stream_source()
+        self.assertEqual(source.extra_input_args, ["-re"])
 
 
 if __name__ == "__main__":
