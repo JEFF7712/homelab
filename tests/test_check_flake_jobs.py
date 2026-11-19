@@ -300,9 +300,15 @@ class FlakeSourceTest(unittest.TestCase):
                 "source = ../.; }; }; }\n"
             )
             (repo / ".gitignore").write_text("artifacts/\nbin/\n")
+            # Extend, never replace, the inherited NIX_CONFIG. In a CI job a
+            # root Nix that loses `build-users-group = cibld` falls back to
+            # the image's nixbld group and re-chowns /nix/store to it, which
+            # fails concurrent cibld builds in other gate lanes with
+            # "Permission denied".
             env = dict(
                 os.environ,
-                NIX_CONFIG="experimental-features = nix-command flakes\n",
+                NIX_CONFIG=os.environ.get("NIX_CONFIG", "")
+                + "\nexperimental-features = nix-command flakes\n",
                 GIT_AUTHOR_NAME="Fixture",
                 GIT_AUTHOR_EMAIL="fixture@example.test",
                 GIT_COMMITTER_NAME="Fixture",

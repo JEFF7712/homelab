@@ -42,7 +42,11 @@ bouncing particles, raindrop ripples, harmonic pendulum waves, draining sand,
 fire, a volcanic particle fountain, and fireworks in randomized order every 20
 seconds; with Auto-Cycle off, the current scene keeps animating. Its grid
 simulations step at a fixed 30 Hz and trails fade by elapsed time, so scenes look
-the same at any frame rate. Visualizer and Game of Life
+the same at any frame rate. Fireworks plays an endless directed show over a city
+skyline: peony, chrysanthemum, willow, palm, ring, crossette, crackle, strobe,
+heart, multi-break, and salute shells, plus ground mines and comets, arranged in
+segments (singles, mirrored pairs, sweeps, colour themes, barrages) with a
+finale every two to three minutes. Visualizer and Game of Life
 similarly cycle their effects and palettes in randomized order. Homelab Dashboards
 rotates Kubernetes nodes and pods, Forgejo/Woodpecker CI with deployment replica
 readiness, NAS traffic, and server health every 12 seconds. Its read-only

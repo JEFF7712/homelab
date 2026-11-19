@@ -15,6 +15,7 @@ from ha_source import ArtworkCache, HomeAssistantSource, HybridPlaybackSource
 from modes import (
     BlankRenderer,
     ClockWeatherRenderer,
+    FireworksRenderer,
     HomelabRenderer,
     LedFxReceiver,
     LedFxRenderer,
@@ -251,6 +252,7 @@ def main() -> None:
         "Visualizer": ledfx_mode,
         "LedFx": ledfx_mode,
         "Physics": PhysicsRenderer(),
+        "Fireworks": FireworksRenderer(),
         "Homelab Dashboards": HomelabRenderer(prometheus),
     }
 
