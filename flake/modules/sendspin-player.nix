@@ -62,10 +62,13 @@ in
       description = "Player name shown in Music Assistant and Home Assistant.";
     };
 
-    serverUrl = lib.mkOption {
-      type = lib.types.str;
-      default = "ws://127.0.0.1:8927/sendspin";
-      description = "Music Assistant Sendspin server WebSocket URL.";
+    listenPort = lib.mkOption {
+      type = lib.types.port;
+      default = 8928;
+      description = ''
+        Loopback port Music Assistant connects to. Must match MA's Sendspin
+        manual_discovery_ip_addresses entry (ws://127.0.0.1:<port>/sendspin).
+      '';
     };
   };
 
@@ -95,11 +98,16 @@ in
         User = cfg.user;
         # Software volume: Music Assistant's volume scales only this stream,
         # never the shared sink that also carries Jarvis speech.
+        # Server-initiated: MA dials this listener the moment it starts, where
+        # a client dialing MA backs off up to 5 minutes across MA restarts.
+        # Loopback only, so nothing else on the LAN can play here.
         ExecStart = lib.escapeShellArgs [
           "${sendspin}/bin/sendspin"
           "daemon"
-          "--url"
-          cfg.serverUrl
+          "--interface"
+          "127.0.0.1"
+          "--port"
+          (toString cfg.listenPort)
           "--name"
           cfg.name
           "--audio-device"
