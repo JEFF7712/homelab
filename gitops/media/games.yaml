@@ -245,7 +245,8 @@ spec:
             - sh
             - -c
             - |
-              for d in db data backups plugindata plugins-installed logs; do
+              [ "$(stat -c '%u:%g' /state)" = "1337:1337" ] || chown 1337:1337 /state
+              for d in db data backups plugins plugindata plugins-installed logs; do
                 mkdir -p "/state/$d"
                 [ "$(stat -c '%u:%g' "/state/$d")" = "1337:1337" ] || chown -R 1337:1337 "/state/$d"
               done
@@ -279,24 +280,11 @@ spec:
             - containerPort: 8081
               name: management
           volumeMounts:
+            # Since 2.7.0 the entrypoint chowns /opt/gameyfin itself and
+            # creates new state directories there, so the whole tree is the
+            # writable state volume.
             - name: state
-              mountPath: /opt/gameyfin/db
-              subPath: db
-            - name: state
-              mountPath: /opt/gameyfin/data
-              subPath: data
-            - name: state
-              mountPath: /opt/gameyfin/backups
-              subPath: backups
-            - name: state
-              mountPath: /opt/gameyfin/plugindata
-              subPath: plugindata
-            - name: state
-              mountPath: /opt/gameyfin/plugins-installed
-              subPath: plugins-installed
-            - name: state
-              mountPath: /opt/gameyfin/logs
-              subPath: logs
+              mountPath: /opt/gameyfin
             - name: media
               mountPath: /library
               subPath: games
