@@ -7,7 +7,7 @@ barrage, a closing salute volley, then darkness before the next show.
 
 Shell types follow real pyrotechnics: peony, chrysanthemum, willow, palm,
 ring, double ring, crossette, crackle, strobe, heart, multi-break bouquet,
-and salute, plus ground mines and comets.
+and salute, plus ground fountains, mines, and comets.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ from __future__ import annotations
 import heapq
 import itertools
 from collections.abc import Callable
+from dataclasses import dataclass
 
 import numpy as np
 from PIL import Image
@@ -175,6 +176,20 @@ class Shells:
         self.bursts = list(itertools.compress(self.bursts, mask))
 
 
+@dataclass
+class Fountain:
+    """A ground fountain (gerb): a steady cone of sparks for a few seconds."""
+
+    x: float
+    seconds: float
+    rgb: np.ndarray
+    speed: float
+    spread: float  # half-angle of the cone, radians
+    rate: float  # stars per second at full strength
+    crackle: bool
+    age: float = 0.0
+
+
 class FireworksShow:
     """Particle physics, shell catalogue, and rendering for one show."""
 
@@ -184,6 +199,7 @@ class FireworksShow:
         self.ground = size - 1.0
         self.stars = Particles()
         self.shells = Shells()
+        self.fountains: list[Fountain] = []
         self.sky = np.zeros((size, size, 3), dtype=np.float32)
         self.flash = 0.0
         self.bursts = 0  # total bursts, for tests and pacing
@@ -399,6 +415,55 @@ class FireworksShow:
         )
         self._flash(0.15)
 
+    def fountain(
+        self,
+        x: float,
+        seconds: float,
+        rgb: np.ndarray | None = None,
+        crackle: bool | None = None,
+    ) -> None:
+        """Start a ground fountain at column x."""
+        if rgb is None:
+            name = self.rng.choice(["gold", "gold", "silver", *VIVID])
+            rgb = color(str(name))
+        if crackle is None:
+            crackle = bool(self.rng.random() < 0.25)
+        self.fountains.append(
+            Fountain(
+                x=x,
+                seconds=seconds,
+                rgb=rgb,
+                speed=float(self.rng.uniform(50, 62)),
+                spread=float(self.rng.uniform(0.25, 0.45)),
+                rate=float(self.rng.uniform(55, 80)),
+                crackle=crackle,
+            )
+        )
+
+    def _update_fountains(self, dt: float) -> None:
+        for f in self.fountains:
+            f.age += dt
+            # Quick ramp up and down, with a little flicker.
+            envelope = min(1.0, f.age / 0.4, (f.seconds - f.age) / 0.5)
+            strength = max(0.0, envelope) * self.rng.uniform(0.7, 1.0)
+            n = int(self.rng.poisson(f.rate * strength * dt))
+            if n == 0 or len(self.stars) >= MAX_PARTICLES:
+                continue
+            angles = -np.pi / 2 + self.rng.normal(0, f.spread / 2, n)
+            speed = f.speed * self.rng.uniform(0.7, 1.0, (n, 1))
+            vel = np.column_stack((np.cos(angles), np.sin(angles))) * speed
+            self.stars.add(
+                np.array([f.x, self.ground]) + self.rng.normal(0, 0.4, (n, 2)),
+                vel,
+                f.rgb,
+                # Long enough to peak (about v/g = 1.1 s) and fall back.
+                self.rng.uniform(1.3, 1.8, n),
+                drag=0.5,
+                gravity=40,
+                crackle=f.crackle,
+            )
+        self.fountains = [f for f in self.fountains if f.age < f.seconds]
+
     def comet(self, x: float) -> None:
         """A single heavy-sparking star rising from the ground."""
         self.stars.add(
@@ -520,6 +585,7 @@ class FireworksShow:
         self._plot(stars.pos, rgb * level[:, None])
 
     def step(self, dt: float) -> None:
+        self._update_fountains(dt)
         self._update_shells(dt)
         self._update_stars(dt)
 
@@ -577,8 +643,9 @@ class ShowDirector:
                 "theme": self._theme,
                 "crossettes": self._crossettes,
                 "barrage": self._barrage,
+                "fountains": self._fountains,
             }
-            weights = np.array([3, 2, 2, 1.2, 1.2, 1.5, 1, 0.8])
+            weights = np.array([3, 2, 2, 1.2, 1.2, 1.5, 1, 0.8, 1.2])
             options = list(segments)
             # Avoid repeating the previous segment.
             if self.segments and self.segments[-1] in options:
@@ -620,6 +687,10 @@ class ShowDirector:
         t = start
         for _ in range(int(self.rng.integers(4, 8))):
             self._launch(t, kind=self._random_kind())
+            # Now and then a fountain plays below.
+            if self.rng.random() < 0.2:
+                x = self._x(8)
+                self.cue(t, lambda x=x: self.show.fountain(x, 3.0))
             t += self.rng.uniform(1.0, 2.0)
         return t - start
 
@@ -673,6 +744,26 @@ class ShowDirector:
             t += self.rng.uniform(0.5, 1.1)
         return t - start + 1.0
 
+    def _fountains(self, start: float) -> float:
+        """A line of matching fountains, lit together or one after another,
+        with a few shells bursting above them."""
+        n = int(self.rng.integers(3, 6))
+        xs = np.linspace(8, self.show.size - 8, n)
+        name = str(self.rng.choice(["gold", "silver", *VIVID]))
+        crackle = bool(self.rng.random() < 0.3)
+        seconds = float(self.rng.uniform(5, 7))
+        stagger = 0.35 if self.rng.random() < 0.5 else 0.0
+        for i, x in enumerate(xs):
+            self.cue(
+                start + i * stagger,
+                lambda x=float(x): self.show.fountain(x, seconds, color(name), crackle),
+            )
+        t = start + 1.2
+        for _ in range(int(self.rng.integers(1, 4))):
+            self._launch(t, kind=self._random_kind(), apex=self.rng.uniform(8, 18))
+            t += self.rng.uniform(1.2, 2.0)
+        return n * stagger + seconds + 0.5
+
     def _theme(self, start: float) -> float:
         theme = THEMES[int(self.rng.integers(len(THEMES)))]
         t = start
@@ -700,8 +791,11 @@ class ShowDirector:
         return seconds + 1.0
 
     def _finale(self, start: float) -> float:
-        # Build: launches come faster and faster.
+        # Build: launches come faster and faster, sometimes over fountains.
         t = start
+        if self.rng.random() < 0.5:
+            for x in np.linspace(10, self.show.size - 10, 4):
+                self.cue(t, lambda x=float(x): self.show.fountain(x, 10.0))
         interval = 0.9
         while t < start + 10:
             self._launch(t, kind=self._random_kind(finale=True), scale=0.8)
