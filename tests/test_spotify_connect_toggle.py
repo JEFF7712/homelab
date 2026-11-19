@@ -108,7 +108,7 @@ class TestSpotifyConnectToggle(unittest.TestCase):
                 )
                 expected = []
                 if living_room:
-                    expected.append("media_player.homelab_05_satellite_media_player")
+                    expected.append("up25ac6335")
                 if bedroom:
                     expected.append("up4f07df12")
                 self.assertEqual(
@@ -125,7 +125,7 @@ class TestSpotifyConnectToggle(unittest.TestCase):
             True,
             [
                 "up4f07df12",
-                "media_player.homelab_05_satellite_media_player",
+                "up25ac6335",
             ],
         )
         self.assertEqual([r["command"] for r in requests], ["config/providers/get"])
@@ -215,7 +215,7 @@ class TestSpotifyConnectToggle(unittest.TestCase):
         content = core_file.read_text(encoding="utf-8")
         self.assertIn("shell_command:", content)
         self.assertIn("set_music_assistant_spotify_connect:", content)
-        self.assertIn("media_player.homelab_05_satellite_media_player", content)
+        self.assertIn("up25ac6335", content)
         self.assertIn("up4f07df12", content)
 
     def test_dashboard_cards(self) -> None:

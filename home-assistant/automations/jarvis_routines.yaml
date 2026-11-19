@@ -52,7 +52,7 @@ actions:
               entity_id: light.downstairs_lights
           - action: media_player.media_pause
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             continue_on_error: true
           - set_conversation_response: "Goodnight."
       - conditions:
@@ -64,7 +64,7 @@ actions:
               entity_id: light.downstairs_lights
           - action: media_player.media_pause
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             continue_on_error: true
           - set_conversation_response: "Goodbye."
       - conditions:

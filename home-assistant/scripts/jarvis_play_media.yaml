@@ -95,7 +95,7 @@ sequence:
         {% else %}
           {{ media_content_type in ['music', 'track'] }}
         {% endif %}
-      satellite_player: media_player.homelab_05_satellite_media_player_2
+      satellite_player: media_player.homelab_05_speaker
   - choose:
       - conditions:
           - condition: template
@@ -140,7 +140,7 @@ sequence:
               - stop: No artist result was found on {{ target_platform }}.
           - action: music_assistant.play_media
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             data:
               media_type: artist
               media_id: "{{ artist_uri }}"
@@ -221,7 +221,7 @@ sequence:
               - stop: No track result was found on {{ target_platform }}.
           - action: music_assistant.play_media
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             data:
               media_type: track
               media_id: "{{ track_uri }}"
@@ -232,7 +232,7 @@ sequence:
             then:
               - action: music_assistant.play_media
                 target:
-                  entity_id: media_player.homelab_05_satellite_media_player_2
+                  entity_id: media_player.homelab_05_speaker
                 data:
                   media_type: artist
                   media_id: "{{ artist_uri }}"
@@ -280,7 +280,7 @@ sequence:
               - stop: No YouTube Music result was found.
           - action: media_player.play_media
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             data:
               media_content_type: "{{ media_content_type }}"
               media_content_id: "{{ yt_uri }}"
@@ -292,7 +292,7 @@ sequence:
           confirm_needle: "{{ (media_content_id | default('', true) | string).split(':')[-1].split('/')[-1] }}"
       - action: media_player.play_media
         target:
-          entity_id: media_player.homelab_05_satellite_media_player_2
+          entity_id: media_player.homelab_05_speaker
         data:
           media_content_type: "{{ media_content_type }}"
           media_content_id: "{{ media_content_id }}"
@@ -329,7 +329,7 @@ sequence:
           sequence:
             - wait_for_trigger:
                 - platform: state
-                  entity_id: media_player.homelab_05_satellite_media_player_2
+                  entity_id: media_player.homelab_05_speaker
               timeout:
                 seconds: 1
               continue_on_timeout: true

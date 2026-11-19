@@ -162,7 +162,7 @@ actions:
         sequence:
           - action: media_player.volume_mute
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             data:
               is_volume_muted: true
           - set_conversation_response: Done.
@@ -172,14 +172,14 @@ actions:
         sequence:
           - action: media_player.volume_mute
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             data:
               is_volume_muted: false
           - set_conversation_response: Done.
     default:
       - variables:
           current_vol: >-
-            {{ state_attr('media_player.homelab_05_satellite_media_player_2',
+            {{ state_attr('media_player.homelab_05_speaker',
                           'volume_level') | float(0.5) }}
           target_vol: >-
             {% if trigger.id == 'volume_max' %}
@@ -211,7 +211,7 @@ actions:
               - stop: Invalid volume level.
       - action: media_player.volume_set
         target:
-          entity_id: media_player.homelab_05_satellite_media_player_2
+          entity_id: media_player.homelab_05_speaker
         data:
           volume_level: "{{ target_vol }}"
       - set_conversation_response: Done.

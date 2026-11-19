@@ -44,7 +44,7 @@ actions:
         sequence:
           - action: media_player.shuffle_set
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             data:
               shuffle: true
       - conditions:
@@ -53,7 +53,7 @@ actions:
         sequence:
           - action: media_player.shuffle_set
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             data:
               shuffle: false
       - conditions:
@@ -62,7 +62,7 @@ actions:
         sequence:
           - action: media_player.repeat_set
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             data:
               repeat: "one"
       - conditions:
@@ -71,7 +71,7 @@ actions:
         sequence:
           - action: media_player.repeat_set
             target:
-              entity_id: media_player.homelab_05_satellite_media_player_2
+              entity_id: media_player.homelab_05_speaker
             data:
               repeat: "off"
   - set_conversation_response: Done.
