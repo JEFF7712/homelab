@@ -383,7 +383,7 @@ spec:
               mountPath: /config
       containers:
         - name: prowlarr
-          image: registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr@sha256:ab91301778251f82a31bbfc87f0497376d59e84439d9a1ceff6a61d594d1e3d7  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr@sha256:6660787a99b2e58203539583663c973b48979fc00ff2cb78dc0ea17429e1f6ef  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
