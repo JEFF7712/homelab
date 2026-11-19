@@ -44,14 +44,28 @@ in
     "10.0.30.14" = [ "ci.internal" ];
   };
 
-  fileSystems."/mnt/backup-2tb" = {
-    device = "/dev/disk/by-id/ata-ST2000DM008-2FR102_ZFL60NJG-part1";
-    fsType = "xfs";
+  # tank/media and the media2 pool appear as one tree at the original path,
+  # so NFS clients, Samba and the static PV are unchanged. New files go to the
+  # branch with the most free space; link and rename clone the parent path
+  # onto the source branch, so *arr hardlink imports keep working.
+  fileSystems."/tank/media" = {
+    device = "/mnt/media-tank:/mnt/media-2tb";
+    fsType = "fuse.mergerfs";
     options = [
       "nofail"
-      "x-systemd.device-timeout=30s"
+      "category.create=mfs"
+      "minfreespace=100G"
+      "moveonenospc=true"
+      # NFS reopens files by handle after FUSE forgets them and needs
+      # inodes that stay stable when a file lands on another branch.
+      "noforget"
+      "inodecalc=path-hash"
+      "fsname=media"
+      "x-systemd.requires-mounts-for=/mnt/media-tank"
+      "x-systemd.requires-mounts-for=/mnt/media-2tb"
     ];
   };
+  system.fsPackages = [ pkgs.mergerfs ];
 
   fileSystems."/mnt/backup-local" = {
     device = "/dev/disk/by-id/ata-WDC_WD1003FBYZ-010FB0_WD-WCAW37790774-part1";
@@ -120,13 +134,18 @@ in
         # trusts those nodes: the provisioner and existing root-owned service
         # data require UID 0. Do not broaden this exception to the whole VLAN.
         nodes = lib.filter (host: host.k3s or false) (lib.attrValues fleetInventory.hosts);
-        nodeExports = lib.concatMapStringsSep " " (
-          host: "${host.address}(rw,sync,no_subtree_check,no_root_squash,mountpoint)"
-        ) nodes;
+        nodeExports =
+          extra:
+          lib.concatMapStringsSep " " (
+            host: "${host.address}(rw,sync,no_subtree_check,no_root_squash,mountpoint${extra})"
+          ) nodes;
+        # FUSE filesystems have no stable device id, so the mergerfs export
+        # needs a fixed fsid or client handles go stale across remounts.
+        mediaFsid = ",fsid=a04d0ea3-d3a5-4665-afb5-8543d0dcd404";
       in
       ''
-        /tank/media ${nodeExports} 10.0.10.0/24(ro,sync,no_subtree_check,root_squash,mountpoint)
-        /tank/cluster ${nodeExports}
+        /tank/media ${nodeExports mediaFsid} 10.0.10.0/24(ro,sync,no_subtree_check,root_squash,mountpoint${mediaFsid})
+        /tank/cluster ${nodeExports ""}
       '';
   };
 
@@ -176,6 +195,7 @@ in
       "tank/cluster".useTemplate = [ "operational" ];
       "tank/forgejo".useTemplate = [ "operational" ];
       "tank/media".useTemplate = [ "media" ];
+      "media2/media".useTemplate = [ "media" ];
       "tank/registry".useTemplate = [ "operational" ];
     };
   };
