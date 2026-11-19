@@ -39,6 +39,13 @@ in
 
   networking.hostName = "homelab-04";
 
+  # Bind i915 in initrd so it claims the Intel iGPU before simpledrm creates
+  # a firmware-framebuffer card0. Otherwise the stale
+  # pci-*-platform-simple-framebuffer.0-card by-path symlink survives the
+  # handoff and containerd fails every i915 pod with
+  # 'failed to mkdir ...: file exists' (jellyfin outage 2026-10-19).
+  boot.initrd.kernelModules = [ "i915" ];
+
   homelab.kubernetesCiCredentials.client = true;
 
   # A boot service avoids restarting networkd and its dependent guests.
