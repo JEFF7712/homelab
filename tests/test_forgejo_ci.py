@@ -139,6 +139,85 @@ class CurrentSourceTest(unittest.TestCase):
                 self.assertEqual(git.call_count, 2)
                 self.assertIn("--is-ancestor", git.call_args.args[0])
 
+    @unittest.skipUnless(shutil.which("git"), "git is required")
+    def test_moved_main_is_judged_in_a_ci_shaped_clone(self) -> None:
+        """A depth-1, tree-filtered clone reaches the private origin only with
+        the read identity; ancestry and diff must carry it to fetch trees."""
+        catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def git(*args: str, cwd: Path = root, **kwargs: Any) -> str:
+                return subprocess.run(
+                    ["git", *args],
+                    cwd=cwd,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    **kwargs,
+                ).stdout.strip()
+
+            source = root / "source"
+            source.mkdir()
+            git("init", "-q", "-b", "main", cwd=source)
+            git("config", "user.email", "ci@example.invalid", cwd=source)
+            git("config", "user.name", "ci", cwd=source)
+            (source / "services/led-matrix").mkdir(parents=True)
+            (source / "services/led-matrix/app.py").write_text("one\n")
+            (source / "flake/modules").mkdir(parents=True)
+            (source / "flake/modules/kiosk.nix").write_text("{ }\n")
+            git("add", ".", cwd=source)
+            git("commit", "-q", "-m", "validated", cwd=source)
+            validated = git("rev-parse", "HEAD", cwd=source)
+            (source / "services/led-matrix/app.py").write_text("two\n")
+            git("commit", "-q", "-am", "unrelated main change", cwd=source)
+            moved = git("rev-parse", "HEAD", cwd=source)
+
+            server = root / "server.git"
+            git("clone", "-q", "--bare", str(source), str(server))
+            git("config", "uploadpack.allowFilter", "true", cwd=server)
+            git("config", "uploadpack.allowAnySHA1InWant", "true", cwd=server)
+            private = "https://forge.invalid/homelab.git"
+            identity = {
+                **os.environ,
+                "GIT_CONFIG_COUNT": "1",
+                "GIT_CONFIG_KEY_0": f"url.{server.as_uri()}.insteadOf",
+                "GIT_CONFIG_VALUE_0": private,
+            }
+            clone = root / "clone"
+            clone.mkdir()
+            git("init", "-q", "-b", "main", cwd=clone)
+            git("remote", "add", "origin", private, cwd=clone)
+            git(
+                "fetch",
+                "-q",
+                "--no-tags",
+                "--depth=1",
+                "--filter=tree:0",
+                "origin",
+                f"+{validated}:",
+                cwd=clone,
+                env=identity,
+            )
+            git("reset", "-q", "--hard", validated, cwd=clone, env=identity)
+
+            environment = {"CI_COMMIT_SHA": validated, "FORGEJO_SOURCE_READ_TOKEN": "x"}
+            tip = json.dumps({"commit": {"id": moved}}).encode()
+            cwd = os.getcwd()
+            os.chdir(clone)
+            try:
+                with (
+                    patch("scripts.ci.operation._fetch", return_value=tip),
+                    patch(
+                        "scripts.ci.operation._source_git_env", return_value=identity
+                    ),
+                ):
+                    current_source(environment, "deploy-fleet", catalog)
+                    with self.assertRaises(SupersededSource):
+                        current_source(environment, "matrix-publish", catalog)
+            finally:
+                os.chdir(cwd)
+
     def test_forgejo_gateway_errors_are_retried(self) -> None:
         environment = {
             "CI_COMMIT_SHA": SHA,
