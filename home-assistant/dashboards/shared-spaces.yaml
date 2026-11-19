@@ -369,7 +369,7 @@ views:
           - type: custom:mediocre-massive-media-player-card
             entity_id: media_player.homelab_05_speaker
             ma_entity_id: media_player.homelab_05_speaker
-            ma_favorite_button_entity_id: button.homelab_05_satellite_media_player_favorite_current_song
+            ma_favorite_button_entity_id: button.homelab_05_speaker_favorite_current_song
             use_art_colors: true
             mode: card
             speaker_group:
@@ -398,6 +398,21 @@ views:
               action: toggle
             hold_action:
               action: more-info
+          # The card's queue and "Add to queue" act on Music Assistant's queue,
+          # which a Spotify Connect stream does not use. This adds to Spotify's.
+          - type: entities
+            title: Add to Spotify queue
+            state_color: false
+            entities:
+              - entity: input_text.spotify_queue_request
+                name: Song
+              - type: button
+                name: Add to Spotify queue
+                icon: mdi:playlist-plus
+                action_name: Add
+                tap_action:
+                  action: perform-action
+                  perform_action: script.spotify_add_to_queue
       - cards:
           - heading: Music Mode
             icon: mdi:music
