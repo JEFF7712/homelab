@@ -6,8 +6,8 @@ and builds to a finale every couple of minutes: a quickening build, a
 barrage, a closing salute volley, then darkness before the next show.
 
 Shell types follow real pyrotechnics: peony, chrysanthemum, willow, palm,
-ring, double ring, crossette, crackle, strobe, heart, multi-break bouquet,
-and salute, plus ground fountains, mines, and comets.
+crossette, crackle, strobe, heart, multi-break bouquet, and salute, plus
+ground fountains, mines, and comets.
 """
 
 from __future__ import annotations
@@ -206,21 +206,19 @@ class FireworksShow:
 
     # ---- geometry -------------------------------------------------------
 
-    def _sphere(self, n: int, speed: float) -> np.ndarray:
-        """Directions of a 3D sphere projected to 2D: dense at the rim like
-        a real shell seen from the side."""
+    def _sphere(self, n: int, speed: float, filled: bool = True) -> np.ndarray:
+        """A 3D burst projected to 2D. Filled bursts spread speeds through
+        the ball (cube root of a uniform draw), so on a 64 px panel they read
+        as a full sphere rather than a rim-lit ring; a thin shell suits a
+        sharp report like the salute."""
         v = self.rng.normal(size=(n, 3))
         v /= np.linalg.norm(v, axis=1, keepdims=True)
-        return v[:, :2] * speed * self.rng.uniform(0.92, 1.05, (n, 1))
-
-    def _ring(self, n: int, speed: float) -> np.ndarray:
-        """A ring tilted toward or away from the viewer: an ellipse."""
-        angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
-        tilt = self.rng.uniform(0.25, 1.0)
-        spin = self.rng.uniform(0, np.pi)
-        x, y = np.cos(angles), np.sin(angles) * tilt
-        c, s = np.cos(spin), np.sin(spin)
-        return np.column_stack((x * c - y * s, x * s + y * c)) * speed
+        if filled:
+            # 1.15 keeps the outer edge where a thin shell would reach.
+            depth = 1.15 * np.cbrt(self.rng.uniform(0.25, 1.0, (n, 1)))
+        else:
+            depth = self.rng.uniform(0.92, 1.05, (n, 1))
+        return v[:, :2] * speed * depth
 
     def _heart(self, n: int, speed: float) -> np.ndarray:
         t = np.linspace(0, 2 * np.pi, n, endpoint=False)
@@ -274,18 +272,6 @@ class FireworksShow:
             at, vel, rgb[0], self.rng.uniform(1.6, 2.0, n), drag=1.2, spark_rate=45
         )
         self._flash(0.3 * scale)
-
-    def ring(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
-        n = int(44 * scale)
-        self.stars.add(at, self._ring(n, 26 * scale), rgb[0], 1.5, drag=1.4)
-        self._flash(0.2 * scale)
-
-    def double_ring(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
-        outer = rgb[0]
-        inner = rgb[1 % len(rgb)]
-        self.stars.add(at, self._ring(int(44 * scale), 28 * scale), outer, 1.5)
-        self.stars.add(at, self._ring(int(28 * scale), 15 * scale), inner, 1.4)
-        self._flash(0.25 * scale)
 
     def crossette(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
         n = 8
@@ -346,7 +332,7 @@ class FireworksShow:
         n = int(45 * scale)
         self.stars.add(
             at,
-            self._sphere(n, 22 * scale),
+            self._sphere(n, 22 * scale, filled=False),
             color("white"),
             self.rng.uniform(0.25, 0.45, n),
             drag=3.0,
@@ -359,8 +345,6 @@ class FireworksShow:
         "chrysanthemum",
         "willow",
         "palm",
-        "ring",
-        "double_ring",
         "crossette",
         "crackle",
         "strobe",
@@ -671,8 +655,6 @@ class ShowDirector:
             "chrysanthemum": 3,
             "willow": 1.5,
             "palm": 2,
-            "ring": 2,
-            "double_ring": 1.5,
             "crossette": 1.5,
             "crackle": 1.0 if finale else 1.5,
             "strobe": 0.5 if finale else 1.0,
@@ -712,7 +694,7 @@ class ShowDirector:
         xs = np.linspace(8, self.show.size - 8, n)
         if self.rng.random() < 0.5:
             xs = xs[::-1]
-        kind = str(self.rng.choice(["peony", "ring", "chrysanthemum", "palm"]))
+        kind = str(self.rng.choice(["peony", "chrysanthemum", "palm"]))
         rgb = self.show.pick_colors()
         apexes = np.linspace(22, 12, n) if self.rng.random() < 0.5 else np.full(n, 16.0)
         for i, (x, apex) in enumerate(zip(xs, apexes, strict=True)):
@@ -769,9 +751,7 @@ class ShowDirector:
         t = start
         for i in range(int(self.rng.integers(5, 8))):
             rgb = [color(theme[i % len(theme)]), color(theme[(i + 1) % len(theme)])]
-            kind = str(
-                self.rng.choice(["peony", "double_ring", "chrysanthemum", "ring"])
-            )
+            kind = str(self.rng.choice(["peony", "peony", "chrysanthemum"]))
             self._launch(t, kind=kind, rgb=rgb)
             t += self.rng.uniform(0.7, 1.3)
         return t - start

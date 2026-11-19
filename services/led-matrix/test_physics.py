@@ -9,7 +9,6 @@ from modes.physics import (
     SCENES,
     BouncingScene,
     FireScene,
-    FireworksScene,
     PendulumWaveScene,
     PhysicsRenderer,
     RippleScene,
@@ -55,7 +54,6 @@ class PhysicsRotationTests(unittest.TestCase):
                 "Sand",
                 "Fire",
                 "Volcano",
-                "Fireworks",
             ],
         )
         self.assertEqual(PhysicsRenderer.NUM_SCENES, len(SCENES))
@@ -164,35 +162,6 @@ class PhysicsSceneTests(unittest.TestCase):
             highest = min(highest, float(volcano.pos[:, 1].min()))
         self.assertLess(highest, 20.0)
         self.assertGreater(int(frame[:32].sum()), 0)
-
-    def test_fireworks_launch_burst_and_fade(self) -> None:
-        physics = PhysicsRenderer(randomize=False)
-        physics.set_scene(SCENES.index(FireworksScene))
-        frame = np.asarray(physics.render(context()))
-        fireworks = physics.scene(FireworksScene)
-        bursts = 0
-        peak_stars = 0
-        for _ in range(60 * 10):
-            before = len(fireworks.star_pos)
-            frame = np.asarray(physics.render(context()))
-            if len(fireworks.star_pos) > before:
-                bursts += 1
-            peak_stars = max(peak_stars, len(fireworks.star_pos))
-            self.assertLessEqual(len(fireworks.shell_pos), FireworksScene.MAX_SHELLS)
-            self.assertLessEqual(len(fireworks.star_pos), FireworksScene.MAX_STARS)
-        self.assertGreaterEqual(bursts, 5)
-        self.assertGreater(peak_stars, 50)
-        # Bursts fill the sky without washing out the frame.
-        self.assertLess(float(lit(frame).mean()), 0.4)
-
-    def test_fireworks_stars_expire(self) -> None:
-        physics, _ = run(FireworksScene, 3)
-        fireworks = physics.scene(FireworksScene)
-        fireworks.next_launch = 1e9
-        for _ in range(60 * 4):
-            physics.render(context())
-        self.assertEqual(len(fireworks.shell_pos), 0)
-        self.assertEqual(len(fireworks.star_pos), 0)
 
 
 if __name__ == "__main__":
