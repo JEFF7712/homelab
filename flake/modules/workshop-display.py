@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import io
 import itertools
 import json
@@ -415,6 +416,11 @@ class Workshop:
         key_file: Path | None = None,
     ):
         self.ha, self.token, self.assets = ha.rstrip("/"), token, assets
+        # The kiosk reloads itself when this changes, so deploys reach the open tab.
+        page = assets / "display.html"
+        self.version = (
+            hashlib.sha256(page.read_bytes()).hexdigest()[:16] if page.is_file() else ""
+        )
         self.key = load_key(key_file)
         self.control_url = control_url + "/control?k=" + self.key
         self.lock = threading.Lock()
@@ -611,6 +617,7 @@ def handler(app: Workshop):
                             "mode": mode,
                             "demo": app.demo_active(now),
                             "control": app.control_url,
+                            "version": app.version,
                             "model": {
                                 "file": app.model["file"],
                                 "status": app.model["status"],

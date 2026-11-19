@@ -649,8 +649,14 @@ recovery before intended persistent-data destruction.
 
 Source validation must pass for the operation's exact source SHA. Both policy
 and runner reject superseded related inputs, while known disjoint main changes
-can preserve an older validated revision. A failed unrelated main operation does
-not block deployment; exact-source prerequisites remain mandatory.
+can preserve an older validated revision. The runner's job clone is depth-1
+and tree-filtered, so its ancestry and diff commands fetch missing objects
+lazily and must all carry the read identity; before 2026-11-18 only the
+fetch did, every compatibility check failed, and any operation whose source
+main had moved past was rejected as superseded. The runner now logs
+`Source compatibility check failed:` with git's error when the check itself
+fails. A failed unrelated main operation does not block deployment;
+exact-source prerequisites remain mandatory.
 
 Triggering deployment needs the bot's own Woodpecker API token: sign in to
 Woodpecker once as `homelab-agent` via Forgejo, create a token from that

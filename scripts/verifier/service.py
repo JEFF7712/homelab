@@ -41,7 +41,7 @@ from typing import Any
 
 from scripts.ci.deployment_risk import protected
 from scripts.verifier.enforcement import enforcement
-from scripts.verifier.freshness import OUTDATED, overlap
+from scripts.verifier.freshness import OUTDATED, narrowed, overlap
 from scripts.verifier.gitops import GITOPS, covered_yaml, verify_gitops
 from scripts.verifier.websites import (
     SPEC,
@@ -393,9 +393,14 @@ def comment_body(head: str, decision: Decision, link: str = "") -> str:
     return "\n".join(lines)
 
 
-def freshness(branch: list[str], main: list[str]) -> Decision | None:
+def freshness(
+    branch: list[str],
+    main: list[str],
+    branch_scopes: dict[str, frozenset[str]] | None = None,
+    main_scopes: dict[str, frozenset[str]] | None = None,
+) -> Decision | None:
     """Failure for a head whose validation main's newer changes could invalidate."""
-    reasons = overlap(branch, main)
+    reasons = overlap(branch, main, branch_scopes, main_scopes)
     if not reasons:
         return None
     return Decision("failure", f"{OUTDATED}: {'; '.join(reasons)}", outdated=True)
@@ -423,7 +428,17 @@ def judge(
     if decision.escalate:
         decision.files = mirror.files(head, changed)
     if decision.state == "success" and base != main:
-        decision = freshness(changed, mirror.changed(base, main)) or decision
+        moved = mirror.changed(base, main)
+        before = mirror.reader(base)
+        decision = (
+            freshness(
+                changed,
+                moved,
+                narrowed(changed, before, mirror.reader(head)),
+                narrowed(moved, before, mirror.reader(main)),
+            )
+            or decision
+        )
     return head, decision, main
 
 
