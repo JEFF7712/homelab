@@ -22,6 +22,8 @@ MIN_CPU_SECONDS_PER_WALL_SECOND = 1.5
 MIN_DISK_BYTES_PER_GUEST = 1024 * 1024 * 1024
 MIN_NETWORK_RX_BYTES_PER_GUEST = 64 * 1024 * 1024
 MIN_DURATION_RATIO = 0.9
+HA_POSTGRES_NAMESPACE = "home-assistant"
+HA_POSTGRES_CLUSTER = "home-assistant-cluster"
 
 
 def _run(
@@ -105,22 +107,49 @@ def collect_host_health(runner: Runner = subprocess.run) -> dict[str, Any]:
     if readyz != "ok":
         raise WorkspaceError(f"Kubernetes readyz failed: {readyz}")
 
-    postgres, postgres_seconds = _run(
+    # Home Assistant's database is a CloudNativePG cluster; query whichever
+    # instance is primary now, as the postgres user over the local socket.
+    primary, primary_seconds = _run(
+        runner,
+        _kubectl(
+            [
+                "get",
+                "pod",
+                "-n",
+                HA_POSTGRES_NAMESPACE,
+                "-l",
+                f"cnpg.io/cluster={HA_POSTGRES_CLUSTER},cnpg.io/instanceRole=primary",
+                "-o",
+                "jsonpath={.items[*].metadata.name}",
+            ]
+        ),
+        timeout=15,
+    )
+    if len(primary.split()) != 1:
+        raise WorkspaceError(
+            f"expected one {HA_POSTGRES_CLUSTER} primary pod, found: {primary!r}"
+        )
+    postgres, query_seconds = _run(
         runner,
         _kubectl(
             [
                 "exec",
                 "-n",
-                "home-assistant",
-                "deployment/home-assistant-postgres",
+                HA_POSTGRES_NAMESPACE,
+                primary,
+                "-c",
+                "postgres",
                 "--",
-                "sh",
-                "-ec",
-                'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Atqc "SELECT 1"',
+                "psql",
+                "-d",
+                "homeassistant",
+                "-Atqc",
+                "SELECT 1",
             ]
         ),
         timeout=15,
     )
+    postgres_seconds = primary_seconds + query_seconds
     if postgres != "1":
         raise WorkspaceError(f"PostgreSQL query returned unexpected output: {postgres}")
 
