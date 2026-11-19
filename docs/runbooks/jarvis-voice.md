@@ -360,7 +360,11 @@ automation referencing them.
      ducks the stream to 50% with `pactl` (`stream_ducker.py`, matched by
      `MUSIC_STREAM_MATCH=sendspin` against the `Sendspin` stream name set in the
      module). Check with `systemctl status sendspin-player` and, from the
-     satellite pod, `pactl list sink-inputs`.
+     satellite pod, `pactl list sink-inputs`. The client's `aiosendspin` must
+     match MA's: MA 2.10.4 bundles 9.1.1, so the module builds `sendspin` 8.0.0
+     on `aiosendspin` 9.1.1. The nixpkgs `sendspin` 9.1.0 (on 10.x) loops on
+     `HandshakeAbortedError` in `journalctl -u sendspin-player` and MA logs
+     nothing. Bump the pin together with any MA upgrade.
    - MA's Wikipedia metadata provider is disabled (live MA setting, changed
      2026-11-17 through `config/providers/save`): it failed every request
      every 30 s.

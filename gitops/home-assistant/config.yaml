@@ -413,6 +413,7 @@ data:
           - "Visualizer"
           - "LedFx"
           - "Physics"
+          - "Fireworks"
           - "Homelab Dashboards"
           - "Laptop"
         initial: "Auto"

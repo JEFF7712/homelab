@@ -626,6 +626,7 @@ class HybridPlaybackSourceTests(unittest.TestCase):
             "2-Player Arcade",
             "Game of Life",
             "Physics",
+            "Fireworks",
             "Homelab Dashboards",
             "LedFx",
         ):
