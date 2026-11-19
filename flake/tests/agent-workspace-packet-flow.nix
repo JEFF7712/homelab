@@ -4,7 +4,11 @@
 }:
 let
   pkgs = nixpkgs.legacyPackages.${system};
-  manifest = pkgs.writeText "agent-workspace-packet-flow.json" (
+  # agent-workspace-network reads the manifest during evaluation. A
+  # writeText derivation would be built inside nix-eval-jobs, where two
+  # workers race to build it and one fails with "Permission denied";
+  # builtins.toFile writes it at evaluation time instead.
+  manifest = builtins.toFile "agent-workspace-packet-flow.json" (
     builtins.toJSON {
       schema_version = 1;
       host_limits.homelab-01 = {

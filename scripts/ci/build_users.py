@@ -7,6 +7,12 @@ builder create its home ``/homeless-shelter`` (the Go toolchain writes
 ``$HOME/.config/go/telemetry``), after which Nix refuses every later build
 in the container. Every Nix job step therefore first adds this group, whose
 UIDs no CI host allocates, and selects it with ``NIX_SETTING``.
+
+The setup also writes the setting into the image's ``nix.conf``. A root Nix
+re-chowns ``/nix/store`` to its build-users group when it opens the store, so
+any process that replaced ``NIX_CONFIG`` would otherwise fall back to the
+image's ``nixbld`` group and break concurrent ``cibld`` builds with
+"Permission denied" (pipelines 17361 and 17758).
 """
 
 from __future__ import annotations
@@ -17,6 +23,7 @@ GROUP = "cibld"
 GID = 40000
 COUNT = 8
 NIX_SETTING = f"build-users-group = {GROUP}"
+NIX_CONF = "/etc/nix/nix.conf"
 
 
 def entries(count: int = COUNT) -> tuple[list[str], str]:
@@ -30,14 +37,21 @@ def entries(count: int = COUNT) -> tuple[list[str], str]:
 
 
 def setup_command(count: int = COUNT) -> str:
-    """Shell command that adds the users to a fresh job container.
+    """Shell command that adds the users to a fresh job container and makes
+    them the image ``nix.conf``'s build-users group.
 
     It contains no ``$``, so Woodpecker's variable substitution in step
     commands leaves it unchanged.
     """
     passwd, group = entries(count)
     lines = " ".join(shlex.quote(line) for line in passwd)
+    conf = shlex.quote(NIX_CONF)
+    staged = shlex.quote(f"{NIX_CONF}.ci")
+    # The image has grep but no sed; grep -v exits 1 when nothing remains.
     return (
         f"printf '%s\\n' {lines} >> /etc/passwd && "
-        f"printf '%s\\n' {shlex.quote(group)} >> /etc/group"
+        f"printf '%s\\n' {shlex.quote(group)} >> /etc/group && "
+        f"{{ grep -v '^build-users-group' {conf} || true; "
+        f"printf '%s\\n' {shlex.quote(NIX_SETTING)}; }} > {staged} && "
+        f"mv {staged} {conf}"
     )
