@@ -470,6 +470,26 @@ G1 X0 Y5 E1
         )
         self.assertEqual(float(done["remaining_time"]), 0.0)
 
+    def test_state_version_tracks_the_display_page(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            assets = Path(tmp)
+            (assets / "display.html").write_text("old")
+            old = w.Workshop("http://unused", "t", assets, "http://workshop")
+            (assets / "display.html").write_text("new")
+            new = w.Workshop("http://unused", "t", assets, "http://workshop")
+            server = ThreadingHTTPServer(("127.0.0.1", 0), w.handler(new))
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            try:
+                url = "http://127.0.0.1:" + str(server.server_port) + "/state"
+                with urllib.request.urlopen(url) as response:
+                    served = json.load(response)["version"]
+            finally:
+                server.shutdown()
+                server.server_close()
+        self.assertTrue(old.version)
+        self.assertNotEqual(old.version, new.version)
+        self.assertEqual(served, new.version)
+
     def test_demo_needs_key_and_cached_job_and_ends(self):
         app = w.Workshop(
             "http://unused", "private-ha-token", Path("."), "http://workshop"
