@@ -57,6 +57,12 @@ CRASH_LOOP_PROBE = (
 # rescheduled from the previous node a minute earlier, stopped 128s after its
 # eviction and failed a 120s drain of homelab-03.
 DRAIN_TIMEOUT = 300.0
+# A drain evicts running Job pods mid-run: on 2026-11-17 and 11-18 it killed
+# the Immich library backup, whose restic lock then failed every retry. After
+# cordoning, the deployer waits for pods of running Jobs on the node before
+# draining; the cordon keeps new ones off. Past the limit it drains anyway.
+JOB_WAIT_TIMEOUT = 1200.0
+JOB_WAIT_INTERVAL = 30.0
 # Marks a cordon the deployer placed. The CI host's switch kills the deploy
 # job before it can uncordon, so the next run releases a marked cordon once
 # the node runs the desired system healthily. Operator cordons carry no mark.
@@ -698,6 +704,7 @@ class FleetDeployer:
         skip_cooldown: bool = False,
         cooldown_seconds: float = 0.0,
         drain_timeout: float = DRAIN_TIMEOUT,
+        job_wait_timeout: float = JOB_WAIT_TIMEOUT,
         ready_timeout: float = 180.0,
         ssh_user: str = "rupan",
         flake_path: str = "./flake",
@@ -724,6 +731,7 @@ class FleetDeployer:
         self.skip_cooldown = skip_cooldown
         self.cooldown_seconds = cooldown_seconds
         self.drain_timeout = drain_timeout
+        self.job_wait_timeout = job_wait_timeout
         self.ready_timeout = ready_timeout
         self.ssh_user = ssh_user
         self.flake_path = flake_path
@@ -899,6 +907,63 @@ class FleetDeployer:
             else:
                 kept.append(host.name)
         return {"healed": healed, "kept": kept}
+
+    def running_job_pods(self, node_name: str) -> list[str]:
+        result = run_command(
+            [
+                "kubectl",
+                "get",
+                "pods",
+                "--all-namespaces",
+                "--field-selector",
+                f"spec.nodeName={node_name},status.phase=Running",
+                "-o",
+                "json",
+            ],
+            runner=self.runner,
+            timeout=30.0,
+            check=False,
+        )
+        try:
+            if result.returncode:
+                raise ValueError(result.stderr.strip())
+            pods = json.loads(result.stdout)["items"]
+        except (ValueError, KeyError, TypeError):
+            logger.warning(
+                "[%s] Could not list pods; draining without waiting for Jobs",
+                node_name,
+            )
+            return []
+        return sorted(
+            f"{pod['metadata']['namespace']}/{pod['metadata']['name']}"
+            for pod in pods
+            if any(
+                owner.get("kind") == "Job"
+                for owner in pod["metadata"].get("ownerReferences") or []
+            )
+        )
+
+    def wait_for_jobs(self, node_name: str) -> None:
+        """Let running Job pods on a cordoned node finish before the drain."""
+        if self.dry_run:
+            return
+        waited = 0.0
+        while pods := self.running_job_pods(node_name):
+            if waited >= self.job_wait_timeout:
+                logger.warning(
+                    "[%s] Draining with Job pods still running after %.0fs: %s",
+                    node_name,
+                    waited,
+                    ", ".join(pods),
+                )
+                return
+            logger.info(
+                "[%s] Waiting for Job pods to finish before draining: %s",
+                node_name,
+                ", ".join(pods),
+            )
+            self.sleeper(JOB_WAIT_INTERVAL)
+            waited += JOB_WAIT_INTERVAL
 
     def drain_node(self, node_name: str) -> None:
         logger.info(
@@ -1491,6 +1556,7 @@ class FleetDeployer:
             if is_k3s and not self.skip_drain:
                 self.cordon_node(host.name)
                 cordoned = True
+                self.wait_for_jobs(host.name)
                 self.drain_node(host.name)
 
             # 2. Activate the already prepared closure.

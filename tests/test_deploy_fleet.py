@@ -956,9 +956,13 @@ class FleetClosureTest(unittest.TestCase):
         node=None,
         failed_units="",
         crash_loop=False,
+        job_pods=(),
+        job_wait_timeout=1200.0,
     ):
         self.commands = []
+        self.sleeps = []
         probes = iter(range(1000))
+        pod_listings = iter(job_pods)
         self.build_directories = []
         self.active = self.OLD
         host = FLEET_HOSTS["homelab-02"]
@@ -1006,6 +1010,9 @@ class FleetClosureTest(unittest.TestCase):
                 output = json.dumps(node or {})
             elif argv[:3] == ["kubectl", "get", "node"]:
                 output = "True"
+            elif argv[:3] == ["kubectl", "get", "pods"]:
+                pods = next(pod_listings, [])
+                output = json.dumps({"items": [self.pod(*pod) for pod in pods]})
             return subprocess.CompletedProcess(
                 argv, code, output, "fixture failure" if code else ""
             )
@@ -1014,8 +1021,9 @@ class FleetClosureTest(unittest.TestCase):
             targets=[host],
             runner=runner,
             skip_preflight=True,
-            sleeper=lambda _: None,
+            sleeper=self.sleeps.append,
             enable_notifications=False,
+            job_wait_timeout=job_wait_timeout,
         )
         return deployer.execute()
 
@@ -1120,6 +1128,53 @@ class FleetClosureTest(unittest.TestCase):
                 ]
             },
         }
+
+    @staticmethod
+    def pod(name, owner):
+        return {
+            "metadata": {
+                "namespace": "immich",
+                "name": name,
+                "ownerReferences": [{"kind": owner, "name": name}],
+            }
+        }
+
+    def node_steps(self):
+        steps = []
+        for cmd in self.commands:
+            if cmd[0] != "kubectl":
+                continue
+            if cmd[1:3] == ["get", "pods"]:
+                steps.append("list-pods")
+            elif cmd[1] in {"cordon", "drain", "uncordon"}:
+                steps.append(cmd[1])
+        return steps
+
+    def test_drain_waits_for_running_job_pods_on_the_cordoned_node(self):
+        # Regression (2026-11-17, 11-18): a drain evicted the Immich library
+        # backup mid-run and its leftover restic lock failed every retry.
+        backup = ("library-to-local-repo-abc", "Job")
+        self.run_deployment(job_pods=[[backup], [backup], []])
+        self.assertEqual(
+            self.node_steps(),
+            ["cordon", "list-pods", "list-pods", "list-pods", "drain", "uncordon"],
+        )
+        self.assertIn(
+            "spec.nodeName=homelab-02,status.phase=Running",
+            next(c for c in self.commands if c[1:3] == ["get", "pods"]),
+        )
+
+    def test_pods_not_owned_by_a_job_do_not_delay_the_drain(self):
+        self.run_deployment(job_pods=[[("home-assistant-0", "StatefulSet")]])
+        self.assertEqual(
+            self.node_steps(), ["cordon", "list-pods", "drain", "uncordon"]
+        )
+
+    def test_drain_proceeds_once_the_job_wait_limit_is_reached(self):
+        stuck = [("long-job-abc", "Job")]
+        self.run_deployment(job_pods=[stuck] * 10, job_wait_timeout=60.0)
+        self.assertEqual(self.node_steps().count("list-pods"), 3)
+        self.assertIn("drain", self.node_steps())
 
     def test_deploy_marks_its_cordon_and_clears_the_mark_on_uncordon(self):
         self.run_deployment()
