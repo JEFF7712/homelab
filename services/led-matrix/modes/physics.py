@@ -1,5 +1,5 @@
 """Physics scenes: orbits, bouncing particles, ripples, pendulums, sand, fire,
-volcano, and fireworks, rotated in randomized order."""
+and volcano, rotated in randomized order. Fireworks have their own mode."""
 
 from __future__ import annotations
 
@@ -520,142 +520,6 @@ class VolcanoScene(PhysicsScene):
         return frame
 
 
-class FireworksScene(PhysicsScene):
-    """Shells launch from the ground, burst near their apex into peony, ring,
-    or two-tone stars that fall, slow, fade, and sometimes crackle."""
-
-    name = "Fireworks"
-    MAX_SHELLS = 4
-    MAX_STARS = 480
-    SHELL_GRAVITY = 36.0
-    STAR_GRAVITY = 14.0
-    STAR_DRAG = 1.3  # 1/s
-    COLORS = np.array(
-        [
-            [255, 60, 60],
-            [255, 150, 30],
-            [255, 230, 60],
-            [80, 255, 90],
-            [60, 200, 255],
-            [90, 110, 255],
-            [200, 80, 255],
-            [255, 90, 200],
-            [255, 255, 255],
-        ],
-        dtype=np.float32,
-    )
-
-    def setup(self) -> None:
-        size = self.size
-        self.trail = np.zeros((size, size, 3), dtype=np.float32)
-        self.shell_pos = np.zeros((0, 2))
-        self.shell_vel = np.zeros((0, 2))
-        self.star_pos = np.zeros((0, 2))
-        self.star_vel = np.zeros((0, 2))
-        self.star_color = np.zeros((0, 3), dtype=np.float32)
-        self.star_age = np.zeros(0)
-        self.star_life = np.zeros(0)
-        self.star_crackle = np.zeros(0, dtype=bool)
-        self.next_launch = 0.0
-
-    def _launch(self) -> None:
-        count = 1 if self.rng.random() < 0.8 else int(self.rng.integers(2, 4))
-        count = min(count, self.MAX_SHELLS - len(self.shell_pos))
-        if count <= 0:
-            return
-        size = self.size
-        pos = np.column_stack(
-            (self.rng.uniform(10, size - 10, count), np.full(count, size - 1.0))
-        )
-        # Apex height v^2 / 2g lands bursts in the upper half.
-        vel = np.column_stack(
-            (self.rng.normal(0, 4, count), -self.rng.uniform(52, 62, count))
-        )
-        self.shell_pos = np.vstack((self.shell_pos, pos))
-        self.shell_vel = np.vstack((self.shell_vel, vel))
-
-    def _burst(self, at: np.ndarray) -> None:
-        rng = self.rng
-        count = int(rng.integers(60, 91))
-        count = min(count, self.MAX_STARS - len(self.star_pos))
-        if count <= 0:
-            return
-        style = rng.choice(("peony", "ring", "two-tone"), p=(0.5, 0.25, 0.25))
-        angles = rng.uniform(0, 2 * np.pi, count)
-        if style == "ring":
-            speed = rng.normal(26, 1.0, count)
-        else:
-            # sqrt spreads stars through the sphere instead of bunching at the center.
-            speed = 32 * np.sqrt(rng.uniform(0.05, 1.0, count))
-        vel = np.column_stack((np.cos(angles), np.sin(angles))) * speed[:, None]
-        primary, secondary = rng.choice(len(self.COLORS), 2, replace=False)
-        color = np.repeat(self.COLORS[primary][None, :], count, axis=0)
-        if style == "two-tone":
-            color[count // 2 :] = self.COLORS[secondary]
-
-        self.star_pos = np.vstack((self.star_pos, np.repeat(at[None, :], count, 0)))
-        self.star_vel = np.vstack((self.star_vel, vel))
-        self.star_color = np.vstack((self.star_color, color))
-        self.star_age = np.concatenate((self.star_age, np.zeros(count)))
-        self.star_life = np.concatenate((self.star_life, rng.uniform(1.5, 2.3, count)))
-        crackle = rng.random() < 0.3
-        self.star_crackle = np.concatenate((self.star_crackle, np.full(count, crackle)))
-
-    def _update_shells(self, dt: float) -> None:
-        if not len(self.shell_pos):
-            return
-        self.shell_vel[:, 1] += self.SHELL_GRAVITY * dt
-        self.shell_pos += self.shell_vel * dt
-        plot(
-            self.trail,
-            self.shell_pos,
-            np.tile([255.0, 200.0, 120.0], (len(self.shell_pos), 1)),
-        )
-        burst = self.shell_vel[:, 1] > -6
-        for at in self.shell_pos[burst]:
-            self._burst(at)
-        self.shell_pos = self.shell_pos[~burst]
-        self.shell_vel = self.shell_vel[~burst]
-
-    def _update_stars(self, dt: float) -> None:
-        if not len(self.star_pos):
-            return
-        self.star_age += dt
-        self.star_vel *= np.exp(-self.STAR_DRAG * dt)
-        self.star_vel[:, 1] += self.STAR_GRAVITY * dt
-        self.star_pos += self.star_vel * dt
-
-        alive = (self.star_age < self.star_life) & (self.star_pos[:, 1] < self.size)
-        for name in (
-            "star_pos",
-            "star_vel",
-            "star_color",
-            "star_age",
-            "star_life",
-            "star_crackle",
-        ):
-            setattr(self, name, getattr(self, name)[alive])
-
-        # A white flash that settles into the star colour, dimming with age.
-        progress = self.star_age / self.star_life
-        flash = np.clip(1 - self.star_age / 0.15, 0, 1)[:, None]
-        color = self.star_color * (1 - flash) + 255 * flash
-        brightness = (1 - progress) ** 0.8
-        twinkle = self.star_crackle & (progress > 0.6)
-        brightness[twinkle] *= self.rng.random(int(twinkle.sum())) < 0.5
-        plot(self.trail, self.star_pos, color * brightness[:, None])
-
-    def update(self, dt: float) -> Image.Image:
-        self.next_launch -= dt
-        if self.next_launch <= 0:
-            self._launch()
-            self.next_launch = self.rng.uniform(0.5, 1.3)
-        fade(self.trail, 0.8, dt)
-        self._update_shells(dt)
-        self._update_stars(dt)
-        return to_image(self.trail)
-
-
 SCENES: tuple[type[PhysicsScene], ...] = (
     OrbitScene,
     BouncingScene,
@@ -664,7 +528,6 @@ SCENES: tuple[type[PhysicsScene], ...] = (
     SandScene,
     FireScene,
     VolcanoScene,
-    FireworksScene,
 )
 
 

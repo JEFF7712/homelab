@@ -39,15 +39,13 @@ delivery run independently at 20 FPS.
 `input_select.bedroom_matrix_mode` controls the display. Cycling modes rotate their scenes,
 effects, games, and palettes in randomized order. Physics rotates orbiting particles,
 bouncing particles, raindrop ripples, harmonic pendulum waves, draining sand,
-fire, a volcanic particle fountain, and fireworks in randomized order every 20
-seconds; with Auto-Cycle off, the current scene keeps animating. Its grid
+fire, and a volcanic particle fountain in randomized order every 20 seconds; with Auto-Cycle off, the current scene keeps animating. Its grid
 simulations step at a fixed 30 Hz and trails fade by elapsed time, so scenes look
 the same at any frame rate. Fireworks plays an endless directed show: peony,
-chrysanthemum, willow, palm, ring, crossette, crackle, strobe, heart,
-multi-break, and salute shells, plus ground fountains, mines, and comets,
-arranged in segments (singles, mirrored pairs, sweeps, fountain lines, colour
-themes, barrages) with a
-finale every two to three minutes. Visualizer and Game of Life
+chrysanthemum, willow, palm, crossette, crackle, strobe, heart, multi-break,
+and salute shells, plus ground fountains, mines, and comets, arranged in
+segments (singles, mirrored pairs, sweeps, fountain lines, colour themes,
+barrages) with a finale every two to three minutes. Visualizer and Game of Life
 similarly cycle their effects and palettes in randomized order. Homelab Dashboards
 rotates Kubernetes nodes and pods, Forgejo/Woodpecker CI with deployment replica
 readiness, NAS traffic, and server health every 12 seconds. Its read-only
