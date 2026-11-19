@@ -7046,6 +7046,44 @@
       ],
       "destination_repository": "upstream/docker.io/oven/bun",
       "destination_tags": [
+        "retention-deployed-3dddea58e1f8f224"
+      ],
+      "digest": "sha256:3dddea58e1f8f2240eca906b023fedb944f9a8352515a35309fd0c879fe00aaa",
+      "id": "upstream-oven-bun-a0208c978ccc",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:3dddea58e1f8f2240eca906b023fedb944f9a8352515a35309fd0c879fe00aaa",
+        "reference": "docker.io/oven/bun:1.4-debian@sha256:3dddea58e1f8f2240eca906b023fedb944f9a8352515a35309fd0c879fe00aaa",
+        "registry": "docker.io",
+        "repository": "oven/bun",
+        "tag": "1.4-debian"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:27"
+      ],
+      "destination_repository": "upstream/docker.io/oven/bun",
+      "destination_tags": [
         "1.4-debian",
         "retention-deployed-4f6e31d1a54d6a3d"
       ],
