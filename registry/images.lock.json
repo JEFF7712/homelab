@@ -9355,6 +9355,46 @@
       ],
       "destination_repository": "upstream/docker.io/valkey/valkey",
       "destination_tags": [
+        "9.2.0",
+        "retention-deployed-1c2b25b09f354c66"
+      ],
+      "digest": "sha256:1c2b25b09f354c66fe994733acdf12fcfd4bdf6f3bd92b88a93a70378d884056",
+      "id": "upstream-valkey-valkey-17a86c675254",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:1c2b25b09f354c66fe994733acdf12fcfd4bdf6f3bd92b88a93a70378d884056",
+        "reference": "docker.io/valkey/valkey:9.2.0@sha256:1c2b25b09f354c66fe994733acdf12fcfd4bdf6f3bd92b88a93a70378d884056",
+        "registry": "docker.io",
+        "repository": "valkey/valkey",
+        "tag": "9.2.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/immich/registry-sources.yaml:25"
+      ],
+      "destination_repository": "upstream/docker.io/valkey/valkey",
+      "destination_tags": [
         "retention-deployed-c123e3715db63d06"
       ],
       "digest": "sha256:c123e3715db63d06d4ad6964884037aa0d5d4d703939b9929954112889708e1d",
