@@ -162,7 +162,11 @@ or a comma-separated list are supported. Omitting `--target` deploys the full
 configured fleet, skipping unchanged live systems.
 
 The deployer runs its connectivity and readiness preflight by default. It
-prepares changed closures, then cordons and drains affected k3s nodes. It runs
+prepares changed closures, then cordons and drains affected k3s nodes. Between
+the cordon and the drain it waits up to 20 minutes for pods of running Jobs on
+the node (backups, restore drills) to finish, so a drain does not evict them
+mid-run; past that limit, or when the pod list cannot be read, it drains
+anyway. It runs
 the prepared closure's `switch-to-configuration dry-activate` in dry-run mode
 and `switch-to-configuration switch` for apply, verifies k3s readiness, newly
 failed units and crash-looping services, then uncordons the node. Stateful k3s nodes also wait for PostgreSQL readiness.
