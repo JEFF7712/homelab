@@ -355,7 +355,7 @@ automation referencing them.
      HA `play_media` → satellite mpv path, so skip and pause are applied by MA
      directly. Volume is software (`--hardware-volume false`): MA's slider scales
      only this stream, never the sink Jarvis speaks through. The client identity
-     in `/home/kiosk/.config/sendspin` is MA's player id and is persisted; losing
+     in `/home/kiosk/.config/sendspin-player` is MA's player id and is persisted; losing
      it registers a new player and HA entity. During a voice turn the satellite
      ducks the stream to 50% with `pactl` (`stream_ducker.py`, matched by
      `MUSIC_STREAM_MATCH=sendspin` against the `Sendspin` stream name set in the

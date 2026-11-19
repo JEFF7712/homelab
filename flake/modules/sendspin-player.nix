@@ -10,6 +10,8 @@ let
   # The satellite matches this name to duck the stream during voice turns
   # (MUSIC_STREAM_MATCH in gitops/voice/satellite.yaml).
   streamName = "Sendspin";
+  # Relative to the user's home; persisted below.
+  settingsDir = ".config/sendspin-player";
 
   # The client's aiosendspin must match the server's: Music Assistant 2.10.4
   # (gitops/music-assistant/server.yaml) bundles aiosendspin 9.1.1, and the
@@ -68,10 +70,12 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    # The client identity under ~/.config/sendspin is Music Assistant's player
-    # id; losing it on the ephemeral root would register a new player.
+    # The client identity in settingsDir is Music Assistant's player id; losing
+    # it on the ephemeral root would register a new player. Not the default
+    # ~/.config/sendspin: 10.x clients wrote a pairing store there that
+    # aiosendspin 9.1.1 cannot load (KeyError: 'record_mode_psk_id').
     environment.persistence."/persist".users.${cfg.user}.directories = [
-      ".config/sendspin"
+      settingsDir
     ];
 
     systemd.services.sendspin-player = {
@@ -103,6 +107,8 @@ in
           "--hardware-volume"
           "false"
           "--disable-mpris"
+          "--settings-dir"
+          "${config.users.users.${cfg.user}.home}/${settingsDir}"
         ];
         Restart = "always";
         RestartSec = "3s";
