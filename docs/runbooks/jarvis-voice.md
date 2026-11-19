@@ -355,8 +355,12 @@ automation referencing them.
      `manual_discovery_ip_addresses = ["ws://127.0.0.1:8928/sendspin"]`, set
      2026-11-19 through `config/providers/save`; MA dials it the moment it
      starts, where a client dialing MA backed off up to 5 minutes after MA
-     restarts. If MA ever loses that setting the speaker never connects: check
-     `config/providers/get {"instance_id": "sendspin"}`. MA
+     restarts (measured 4 s from MA start to "Server connected"). If MA ever
+     loses that setting the speaker never connects: check
+     `config/providers/get {"instance_id": "sendspin"}`. Saving it reloads the
+     provider, and MA 2.10.4's Sendspin reload fails before dialing
+     (`sendspin/pair_web_player is already registered` in MA logs), so
+     restart MA after changing it. MA
      shows it as "Homelab 05 Speaker" (universal player `up25ac6335`, HA entity
      `media_player.homelab_05_speaker`, named "Soundbar"). Jarvis, the face,
      dashboards and the living-room Spotify Connect binding all target it; the

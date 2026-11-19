@@ -9,6 +9,17 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
+def _walk(node):
+    """Yield every dict and list nested in a script sequence."""
+    yield node
+    if isinstance(node, dict):
+        for value in node.values():
+            yield from _walk(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from _walk(value)
+
+
 class HaLoader(yaml.SafeLoader):
     """SafeLoader that reads Home Assistant tags such as !include as null."""
 
@@ -276,6 +287,44 @@ class TestSharedMusicMode(unittest.TestCase):
                         )
                 defined |= names
             self.assertTrue(defined)
+
+    def test_leaving_music_mode_hands_back_to_adaptive_lighting_quickly(
+        self,
+    ) -> None:
+        # adaptive_lighting.apply defaults to the entry's 45 s transition.
+        script = self._area_script()
+        applies = [
+            step
+            for step in _walk(script["sequence"])
+            if isinstance(step, dict)
+            and step.get("action") == "adaptive_lighting.apply"
+        ]
+        self.assertTrue(applies)
+        for step in applies:
+            self.assertLessEqual(step["data"]["transition"], 2)
+
+    def test_led_strip_entity_drives_both_wled_segments(self) -> None:
+        # Turning the strip off once left WLED segment 1 running its effect.
+        config = yaml.load(
+            (REPO_ROOT / "home-assistant" / "core" / "configuration.yaml").read_text(
+                encoding="utf-8"
+            ),
+            Loader=HaLoader,
+        )
+        group = next(
+            item
+            for item in config["light"]
+            if item.get("platform") == "group"
+            and item.get("name") == "Living Room LED Strip"
+        )
+        self.assertEqual(group["unique_id"], "living_room_led_strip_group")
+        self.assertEqual(
+            group["entities"],
+            [
+                "light.living_room_wled_gledopto_segment_0",
+                "light.living_room_wled_gledopto_segment_1",
+            ],
+        )
 
     def test_automation_joins_leaves_and_repaints_taking_part_areas(self) -> None:
         automation = self._automation()
