@@ -1,7 +1,10 @@
 id: bedroom_bedside_nfc_toggle
 alias: "Bedroom Lights: Bedside NFC Toggle"
 description: >-
-  Scanning the bedside NFC tag toggles the bedroom lights. When anything in
+  Scanning the bedside NFC tag toggles the bedroom lights. The tag is read
+  by an iOS Shortcuts NFC personal automation (Run Immediately) that fires
+  the bedroom_bedside_nfc event, so no notification tap is needed; the
+  Companion App tag trigger stays as a fallback. When anything in
   the bedroom is on, run "Bedroom: Lights Off" (which snapshots the current
   state); otherwise run "Bedroom: Evening Lights On" to restore it. Single
   mode plus a short hold swallows the duplicate scan a phone can report when
@@ -9,6 +12,8 @@ description: >-
 triggers:
   - trigger: tag
     tag_id: bedroom-bedside
+  - trigger: event
+    event_type: bedroom_bedside_nfc
 conditions: []
 actions:
   - if:
