@@ -9392,6 +9392,46 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/immich/registry-sources.yaml:25"
+      ],
+      "destination_repository": "upstream/docker.io/valkey/valkey",
+      "destination_tags": [
+        "9.1.4",
+        "retention-deployed-3ab0eca823ebbf0f"
+      ],
+      "digest": "sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e",
+      "id": "upstream-valkey-valkey-50086f05c9f7",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e",
+        "reference": "docker.io/valkey/valkey:9.1.4@sha256:3ab0eca823ebbf0fe352476ebac330ac9e5f14b592b9a954eab296d341e81b0e",
+        "registry": "docker.io",
+        "repository": "valkey/valkey",
+        "tag": "9.1.4"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/producer-base-images/base-images.yaml:34"
       ],
       "destination_repository": "upstream/docker.io/woodpeckerci/plugin-git",
