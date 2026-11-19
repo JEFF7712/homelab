@@ -38,7 +38,7 @@ spec:
               mountPath: /config
       containers:
         - name: sonarr
-          image: registry.rupan.dev/upstream/lscr.io/linuxserver/sonarr@sha256:c19aa4ecdf03d73e1d5c901da33744cb7eb4d921f89bafed1ca264601d7fa224  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/lscr.io/linuxserver/sonarr@sha256:44b06045a98bc1f237b9ffefc4b28dab64cb29305e4a2a94875ae93b5224e4cc  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
