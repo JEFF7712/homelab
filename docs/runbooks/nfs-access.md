@@ -39,11 +39,11 @@ this policy update.
 ## Media pool layout
 
 `/tank/media` is a mergerfs union of `tank/media` (mounted at
-`/mnt/media-tank`) and the single-disk `media2/media` pool (mounted at
-`/mnt/media-2tb`). New files land on the branch with the most free space;
+`/mnt/media-tank`) and the single-disk `media2/media` and `media3/media` pools
+(mounted at `/mnt/media-2tb` and `/mnt/media-3tb`). New files land on the branch with the most free space;
 mergerfs keeps hardlinks and renames on the source branch, so *arr imports still
 hardlink. The export carries a fixed `fsid` because FUSE has no stable device
-id. A file lives on exactly one disk: losing the 2 TB disk loses the media on
+id. A file lives on exactly one disk: losing a salvaged disk loses the media on
 it, not the rest of the library. Operate on files through `/tank/media`; the
 branch mounts are for diagnosis.
 

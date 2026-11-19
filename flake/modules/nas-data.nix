@@ -44,12 +44,12 @@ in
     "10.0.30.14" = [ "ci.internal" ];
   };
 
-  # tank/media and the media2 pool appear as one tree at the original path,
-  # so NFS clients, Samba and the static PV are unchanged. New files go to the
-  # branch with the most free space; link and rename clone the parent path
-  # onto the source branch, so *arr hardlink imports keep working.
+  # tank/media and the media2 and media3 pools appear as one tree at the
+  # original path, so NFS clients, Samba and the static PV are unchanged. New
+  # files go to the branch with the most free space; link and rename clone the
+  # parent path onto the source branch, so *arr hardlink imports keep working.
   fileSystems."/tank/media" = {
-    device = "/mnt/media-tank:/mnt/media-2tb";
+    device = "/mnt/media-tank:/mnt/media-2tb:/mnt/media-3tb";
     fsType = "fuse.mergerfs";
     options = [
       "nofail"
@@ -63,6 +63,7 @@ in
       "fsname=media"
       "x-systemd.requires-mounts-for=/mnt/media-tank"
       "x-systemd.requires-mounts-for=/mnt/media-2tb"
+      "x-systemd.requires-mounts-for=/mnt/media-3tb"
     ];
   };
   system.fsPackages = [ pkgs.mergerfs ];
@@ -196,6 +197,7 @@ in
       "tank/forgejo".useTemplate = [ "operational" ];
       "tank/media".useTemplate = [ "media" ];
       "media2/media".useTemplate = [ "media" ];
+      "media3/media".useTemplate = [ "media" ];
       "tank/registry".useTemplate = [ "operational" ];
     };
   };

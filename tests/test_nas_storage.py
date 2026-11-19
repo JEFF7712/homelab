@@ -74,6 +74,7 @@ class NasStorageTest(unittest.TestCase):
         for path, device in (
             ("/mnt/media-tank", "tank/media"),
             ("/mnt/media-2tb", "media2/media"),
+            ("/mnt/media-3tb", "media3/media"),
         ):
             self.assertEqual(filesystems[path]["device"], device)
             self.assertIn("nofail", filesystems[path]["options"])
@@ -107,13 +108,16 @@ class NasStorageTest(unittest.TestCase):
     def test_media_merges_both_pools_for_nfs_export(self) -> None:
         media = self.configuration["filesystems"]["/tank/media"]
         self.assertEqual(media["fsType"], "fuse.mergerfs")
-        self.assertEqual(media["device"], "/mnt/media-tank:/mnt/media-2tb")
+        self.assertEqual(
+            media["device"], "/mnt/media-tank:/mnt/media-2tb:/mnt/media-3tb"
+        )
         for option in (
             "noforget",
             "inodecalc=path-hash",
             "category.create=mfs",
             "x-systemd.requires-mounts-for=/mnt/media-tank",
             "x-systemd.requires-mounts-for=/mnt/media-2tb",
+            "x-systemd.requires-mounts-for=/mnt/media-3tb",
         ):
             self.assertIn(option, media["options"])
         for line in self.configuration["exports"].splitlines():
