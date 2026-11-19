@@ -4,6 +4,7 @@ from modes.arcade import RetroArcadeRenderer
 from modes.base import HAState, ModeRenderer, PlaybackState, RenderContext
 from modes.blank import BlankRenderer
 from modes.clock_weather import ClockWeatherRenderer
+from modes.fireworks import FireworksRenderer
 from modes.homelab import HomelabRenderer, PrometheusSource
 from modes.ledfx_mode import LedFxReceiver, LedFxRenderer
 from modes.life import DEFAULT_PALETTES, LifePalette, LifeRenderer
@@ -16,6 +17,7 @@ __all__ = [
     "DEFAULT_PALETTES",
     "BlankRenderer",
     "ClockWeatherRenderer",
+    "FireworksRenderer",
     "HAState",
     "HomelabRenderer",
     "LedFxReceiver",
