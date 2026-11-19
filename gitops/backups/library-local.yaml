@@ -52,10 +52,23 @@ spec:
                 - -c
                 - |
                   set -eu
+                  # A run evicted by a node drain leaves its lock behind, and
+                  # restic unlock only removes it once stale, 30 minutes after
+                  # its last refresh. Retry lock failures (exit 11) past that.
+                  locked() {
+                    for _ in 1 2 3 4 5 6 7 8; do
+                      rc=0
+                      restic "$@" || rc=$?
+                      [ "$rc" -eq 11 ] || return "$rc"
+                      sleep 300
+                      restic unlock || true
+                    done
+                    return 11
+                  }
                   restic unlock || true
-                  restic snapshots >/dev/null 2>&1 || restic init
-                  restic backup /library --host immich --exclude '/library/.storage'
-                  restic forget --host immich --keep-last 7 --prune
+                  [ -f "$RESTIC_REPOSITORY/config" ] || restic init
+                  locked backup /library --host immich --exclude '/library/.storage'
+                  locked forget --host immich --keep-last 7 --prune
               volumeMounts:
                 - name: library
                   mountPath: /library
