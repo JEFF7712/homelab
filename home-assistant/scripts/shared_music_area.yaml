@@ -116,11 +116,15 @@ sequence:
                   entity_id: "{{ config.adaptive }}"
                   lights: "{{ config.lights }}"
                   manual_control: false
+              # Without a transition this uses the entry's 45 s one, so
+              # these areas faded back for a minute while the rest switched
+              # at once.
               - action: adaptive_lighting.apply
                 data:
                   entity_id: "{{ config.adaptive }}"
                   lights: "{{ config.lights }}"
                   turn_on_lights: false
+                  transition: 1
           - stop: Area restored
   - if:
       - condition: template

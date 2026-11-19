@@ -344,7 +344,11 @@ repo:
   restores the two WLED segments matching the strip's sections, 0-51 and
   51-103, saved with segment bounds and without brightness or power, so it
   does not turn the strip on. WLED forgets segments on reboot without it.
-  LedFx's stream ignores WLED segments.
+  LedFx's stream ignores WLED segments. HA's WLED integration makes one light
+  per segment, so `light.living_room_led_strip` is a light group of
+  `light.living_room_wled_gledopto_segment_0` and `_segment_1`
+  (`home-assistant/core/configuration.yaml`); controlling one segment alone
+  leaves the other half running its effect.
 - UDP sync receive off, so other WLED devices cannot change it.
 - DNS `10.0.20.1` (OPNsense), Wi-Fi sleep off.
 - Firmware WLED 16.0.1 (official `WLED_16.0.1_ESP32.bin`, flashed over the

@@ -422,6 +422,17 @@ data:
         initial: "Auto"
 
     light:
+      # The WLED strip runs as two segments (its physical halves, restored by
+      # WLED boot preset 1) and HA's WLED integration makes one light per
+      # segment. This group is the strip: on/off, colour and effect reach both
+      # halves. It owns light.living_room_led_strip; segment 0 was renamed to
+      # light.living_room_wled_gledopto_segment_0 live on 2026-11-19.
+      - platform: group
+        name: Living Room LED Strip
+        unique_id: living_room_led_strip_group
+        entities:
+          - light.living_room_wled_gledopto_segment_0
+          - light.living_room_wled_gledopto_segment_1
       - platform: group
         name: Kitchen Lights
         entities:
