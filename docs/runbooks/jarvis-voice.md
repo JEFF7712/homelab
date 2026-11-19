@@ -350,7 +350,13 @@ automation referencing them.
      `kubectl -n voice rollout restart deployment/linux-voice-assistant`.
    - Music plays to the soundbar over Sendspin, MA's native protocol:
      `flake/modules/sendspin-player.nix` runs `sendspin daemon` as the kiosk
-     user on `homelab-05`, connected to `ws://127.0.0.1:8927/sendspin`, and MA
+     user on `homelab-05`, listening on `127.0.0.1:8928`. MA connects to it
+     (server-initiated) through the live Sendspin provider setting
+     `manual_discovery_ip_addresses = ["ws://127.0.0.1:8928/sendspin"]`, set
+     2026-11-19 through `config/providers/save`; MA dials it the moment it
+     starts, where a client dialing MA backed off up to 5 minutes after MA
+     restarts. If MA ever loses that setting the speaker never connects: check
+     `config/providers/get {"instance_id": "sendspin"}`. MA
      shows it as "Homelab 05 Speaker" (universal player `up25ac6335`, HA entity
      `media_player.homelab_05_speaker`, named "Soundbar"). Jarvis, the face,
      dashboards and the living-room Spotify Connect binding all target it; the
