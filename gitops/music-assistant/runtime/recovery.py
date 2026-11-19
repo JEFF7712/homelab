@@ -8,11 +8,16 @@ reconciliation guarantee.
 
 Shorten the queue next/previous debounce. Upstream waits a full second before
 starting the chosen track; a short window still coalesces double taps.
+
+Shrink Spotify Connect's input read-ahead. Upstream lets ffmpeg read a live
+source 0.5 s ahead of realtime, and that head start is listening delay on every
+pause and skip. The relay in front of go-librespot already absorbs jitter.
 """
 
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 from contextlib import suppress
 from typing import Any
 
@@ -23,6 +28,7 @@ UNAVAILABLE_STATES = {"unknown", "unavailable"}
 # hardcoded 1 s delay; no other caller schedules it.
 SKIP_TASK_PREFIX = "queue_play_index_"
 SKIP_DEBOUNCE_SECONDS = 0.15
+SPOTIFY_CONNECT_INPUT_BURST_SECONDS = 0.1
 
 
 async def reconcile_unavailable(provider: Any) -> None:
@@ -130,13 +136,40 @@ def install_skip_debounce(mass_type: Any) -> None:
     mass_type._homelab_skip_debounce_installed = True
 
 
+def install_spotify_connect_pacing(backend_type: Any) -> None:
+    """Pass explicit ffmpeg pacing, which upstream honours instead of its own."""
+    if getattr(backend_type, "_homelab_pacing_installed", False):
+        return
+    original_get_stream_source = backend_type.get_stream_source
+
+    async def get_stream_source(self: Any) -> Any:
+        source = await original_get_stream_source(self)
+        args = list(source.extra_input_args or [])
+        if "-re" in args or "-readrate" in args:
+            return source
+        args += [
+            "-readrate",
+            "1",
+            "-readrate_initial_burst",
+            str(SPOTIFY_CONNECT_INPUT_BURST_SECONDS),
+        ]
+        return dataclasses.replace(source, extra_input_args=args)
+
+    backend_type.get_stream_source = get_stream_source
+    backend_type._homelab_pacing_installed = True
+
+
 if __name__ == "__main__":
     from music_assistant.__main__ import main
     from music_assistant.mass import MusicAssistant
     from music_assistant.providers.hass_players.provider import (
         HomeAssistantPlayerProvider,
     )
+    from music_assistant.providers.spotify_connect.go_librespot.backend import (
+        GoLibrespotBackend,
+    )
 
     install_recovery(HomeAssistantPlayerProvider)
     install_skip_debounce(MusicAssistant)
+    install_spotify_connect_pacing(GoLibrespotBackend)
     raise SystemExit(main())

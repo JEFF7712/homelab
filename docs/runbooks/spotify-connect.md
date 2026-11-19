@@ -46,10 +46,21 @@ MA stops reading stdout when detaching the stream, so a full pipe can wedge
 the control loop. A living process does not prove this API is responsive.
 
 `gitops/music-assistant/spotify-connect-relay.py` continuously drains the child
-at stereo s16le / 44.1 kHz with a 0.2-second startup burst (`BURST_SECONDS`).
-Its nonblocking downstream buffer holds at most 0.2 seconds; it drops oldest
+at stereo s16le / 44.1 kHz with a 0.1-second startup burst (`BURST_SECONDS`).
+Its nonblocking downstream buffer holds at most 0.1 seconds; it drops oldest
 buffered audio only when MA stops reading. Every buffered second delays skip,
-pause and resume, so keep it small. This bounds memory and latency, prevents decoding
+pause and resume, so keep it small. After an idle gap (the daemon loading the
+next track) its clock may catch up only 20 ms (`CATCH_UP_SECONDS`): MA paces
+its read at exactly realtime and never drains extra lead, so a full burst per
+gap used to stack up across tracks (measured 2.3 s pause-to-silence on
+2026-11-19). The child pipe is shrunk to one page (`CHILD_PIPE_BYTES`) because
+the unpaced daemon keeps it full. MA's own 0.5 s input read-ahead for the source
+is cut to 0.1 s by `install_spotify_connect_pacing` in
+`gitops/music-assistant/runtime/recovery.py`. To measure the lag, pause
+go-librespot through its loopback API (port 38800) while recording the
+soundbar monitor from the satellite pod with `parec`; the director's
+`audio_delay` in `home-assistant/core/configuration.yaml` should match it.
+This bounds memory and latency, prevents decoding
 the entire track ahead, and keeps pause/stop requests responsive. The wrapper
 retains the existing distinct discovery/API port ranges and LAN interface.
 Kustomize generates a hashed ConfigMap so relay edits replace the pod.

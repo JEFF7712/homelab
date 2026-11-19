@@ -51,9 +51,66 @@ class SpotifyConnectRelayTest(unittest.TestCase):
             ready, _, _ = select.select([proc.stdout], [], [], 0.05)
             if ready:
                 total += len(os.read(proc.stdout.fileno(), 65536))
-        # A 0.2 s startup burst plus elapsed realtime, with scheduler slack.
+        # A 0.1 s startup burst plus elapsed realtime, with scheduler slack.
         self.assertGreater(total, 44100 * 4 // 4)
-        self.assertLess(total, 44100 * 4 * 1.05)
+        self.assertLess(total, 44100 * 4 * 0.95)
+
+    def read_all(self, proc: subprocess.Popen[bytes]) -> int:
+        assert proc.stdout is not None
+        total = 0
+        while chunk := os.read(proc.stdout.fileno(), 65536):
+            total += len(chunk)
+        return total
+
+    def test_gaps_between_tracks_do_not_accumulate_lead(self) -> None:
+        # Four 0.3 s spurts of unpaced PCM separated by idle gaps, as the
+        # daemon does around track loads. Each gap may only add the small
+        # catch-up allowance, never another startup burst.
+        proc = self.launch(
+            "import os, time\n"
+            "for _ in range(4):\n"
+            " end = time.monotonic() + 0.3\n"
+            " while time.monotonic() < end: os.write(1, b'x'*4096)\n"
+            " time.sleep(0.3)\n"
+        )
+        # 1.2 s of spurts + 0.1 s startup burst + 3 x 0.02 s catch-up + a pipe
+        # page refilled per spurt is ~1.46 s; a 0.1 s catch-up per gap is ~1.7.
+        seconds = self.read_all(proc) / (44100 * 4)
+        self.assertGreater(seconds, 1.2)
+        self.assertLess(seconds, 1.6)
+
+    def test_daemon_runs_only_a_pipe_page_ahead(self) -> None:
+        # go-librespot writes as fast as its pipe accepts; whatever that pipe
+        # holds is standing latency, so it must be one page, not 64 KiB.
+        proc = self.launch(
+            "import os, sys, time\n"
+            "written, end = 0, time.monotonic() + 0.5\n"
+            "while time.monotonic() < end: written += os.write(1, b'x'*1024)\n"
+            "print(written, time.monotonic(), file=sys.stderr, flush=True)\n"
+        )
+        assert proc.stdout is not None and proc.stderr is not None
+        received = 0
+        stopped_at: float | None = None
+        report = b""
+        while True:
+            ready, _, _ = select.select([proc.stdout, proc.stderr], [], [], 2)
+            if not ready:
+                break
+            if proc.stderr in ready and stopped_at is None:
+                report += os.read(proc.stderr.fileno(), 4096)
+                if b"\n" in report:
+                    written_text, stopped_text = report.split()[:2]
+                    stopped_at = float(stopped_text)
+                    lead = int(written_text) - received
+            if proc.stdout in ready:
+                chunk = os.read(proc.stdout.fileno(), 65536)
+                if not chunk:
+                    break
+                if stopped_at is None:
+                    received += len(chunk)
+        self.assertIsNotNone(stopped_at)
+        # Pipe page plus the relay's 0.1 s output buffer and read granularity.
+        self.assertLess(lead, 4096 + 44100 * 4 // 10 + 8192)
 
     def test_stalled_ma_reader_does_not_block_daemon_control_or_cleanup(self) -> None:
         proc = self.launch(

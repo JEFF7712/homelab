@@ -81,8 +81,10 @@
   }, 60000);
 
   // Load external config.json if available (never cached: color edits
-  // must reach the kiosk without a hard refresh)
-  fetch('config.json', { cache: 'no-store' })
+  // must reach the kiosk without a hard refresh). The websocket waits for
+  // it: subscribing first would follow this file's default entities, and a
+  // config change (e.g. a new media player) would never be subscribed.
+  const configLoaded = fetch('config.json', { cache: 'no-store' })
     .then(res => res.json())
     .then(data => {
       if (data.satellite_entity && !urlParams.get('entity')) config.satelliteEntity = data.satellite_entity;
@@ -1065,7 +1067,7 @@
   Cava.setUrl(config.spectrumUrl);
   setState('idle');
   Eyes.start();
-  connectWebSocket();
+  configLoaded.then(connectWebSocket);
 
   // Local visual testing: ?art=<url>&track=<t>&artist=<a> jumps straight
   // to the music overlay without waiting for HA entity traffic.

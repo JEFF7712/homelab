@@ -8,6 +8,7 @@ audio; the daemon remains paced and can always process control commands.
 
 from __future__ import annotations
 
+import fcntl
 import os
 import select
 import signal
@@ -17,7 +18,14 @@ import time
 
 # Startup burst and downstream buffer bound. Every buffered second delays
 # skip, pause and resume, so keep only enough to absorb scheduler jitter.
-BURST_SECONDS = 0.2
+BURST_SECONDS = 0.1
+# After the start, a late clock (the daemon idle while loading the next track)
+# may only catch up this much. Each catch-up becomes permanent lead, because
+# MA paces its own read at exactly realtime and never drains it.
+CATCH_UP_SECONDS = 0.02
+# go-librespot is not realtime-paced, so it keeps its pipe to us full: a
+# default 64 KiB pipe is ~0.37 s of standing latency. One page is the minimum.
+CHILD_PIPE_BYTES = 4096
 
 
 def relay(command: list[str], *, byte_rate: int = 44100 * 2 * 2) -> int:
@@ -30,6 +38,10 @@ def relay(command: list[str], *, byte_rate: int = 44100 * 2 * 2) -> int:
     child = subprocess.Popen(command, stdout=subprocess.PIPE, start_new_session=True)
     assert child.stdout is not None
     source = child.stdout.fileno()
+    try:
+        fcntl.fcntl(source, getattr(fcntl, "F_SETPIPE_SZ", 1031), CHILD_PIPE_BYTES)
+    except OSError:
+        pass  # not resizable; only latency suffers
     os.set_blocking(source, False)
     os.set_blocking(sys.stdout.fileno(), False)
     stopped = False
@@ -45,16 +57,18 @@ def relay(command: list[str], *, byte_rate: int = 44100 * 2 * 2) -> int:
     old_handlers = {
         sig: signal.signal(sig, stop) for sig in (signal.SIGINT, signal.SIGTERM)
     }
-    next_read = time.monotonic() - BURST_SECONDS
+    # The realtime clock starts with the first PCM, not with the daemon.
+    next_read: float | None = None
     eof_at: float | None = None
     try:
         while not stopped:
             now = time.monotonic()
+            due = next_read is None or now >= next_read
             readable, writable, _ = select.select(
-                [source] if eof_at is None and now >= next_read else [],
+                [source] if eof_at is None and due else [],
                 [sys.stdout.fileno()] if pending else [],
                 [],
-                min(0.01, max(0.0, next_read - now)) if now < next_read else 0.01,
+                0.01 if due else min(0.01, next_read - now),
             )
             if writable:
                 try:
@@ -68,11 +82,11 @@ def relay(command: list[str], *, byte_rate: int = 44100 * 2 * 2) -> int:
                     eof_at = now
                 else:
                     pending.extend(data)
-                    # Allow a short initial burst, then keep a realtime clock.
-                    # Never catch up an idle clock with a whole track's PCM.
-                    next_read = (
-                        max(next_read, now - BURST_SECONDS) + len(data) / byte_rate
-                    )
+                    if next_read is None:
+                        next_read = now - BURST_SECONDS
+                    else:
+                        next_read = max(next_read, now - CATCH_UP_SECONDS)
+                    next_read += len(data) / byte_rate
                     if len(pending) > capacity:
                         drop = (
                             (len(pending) - capacity + frame_size - 1)

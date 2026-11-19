@@ -343,6 +343,9 @@ music_director:
   strip: input_boolean.music_mode_led_strip
   ledfx_url: http://10.0.30.15:8888
   ledfx_virtual: living-room-led-strip
+  # Spotify Connect reaches the soundbar this long after the title changes
+  # (measured with a pause test, docs/runbooks/shared-music-mode.md).
+  audio_delay: 1.0
   library_url: http://navidrome-lookup.media.svc.cluster.local:4534
   areas:
     - kitchen_ceiling

@@ -258,6 +258,14 @@ LedFx schema range (`rules.dynamics`): speed scales from 70 BPM (slowest) to
 LedFx default. On start it sets the strip virtual's `transition_time`
 (crossfade between effects) to `music_director.transition_time` (1.5 s).
 
+The player's title changes when Spotify starts decoding the next song, but the
+soundbar plays it later (the Spotify Connect pipeline's buffering, see
+`docs/runbooks/spotify-connect.md`). `music_director.audio_delay` (seconds,
+default 0) holds a new song's colours, effect and loudness baseline for that
+long after the title change, so the lights change with the music. A newer
+track or Music Mode turning off cancels the hold. Re-measure and retune it
+whenever the audio path changes.
+
 ## Manual colour and per-song overrides
 
 `light.music_mode_colour` ("Colour" on the dashboard) is a virtual light

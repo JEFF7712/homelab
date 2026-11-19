@@ -68,162 +68,191 @@ global.localStorage = {
   setItem() {},
   removeItem() {},
 };
-global.fetch = () => Promise.reject(new Error('offline harness'));
+// The first fetch is the startup config.json load; hold it so the harness
+// can prove the websocket waits for it. Later fetches (the face_version
+// poll) stay offline.
+const realConfig = JSON.parse(
+  fs.readFileSync(require('path').join(require('path').dirname(appPath), 'config.json'), 'utf8'),
+);
+let releaseConfig = null;
+global.fetch = () => {
+  if (releaseConfig === null) {
+    return new Promise((resolve) => {
+      releaseConfig = () => resolve({ json: () => Promise.resolve(realConfig) });
+    });
+  }
+  return Promise.reject(new Error('offline harness'));
+};
 global.WebSocket = FakeWebSocket;
 
 eval(fs.readFileSync(appPath, 'utf8'));
 
-const T = global.Jarvis._faceTest;
-const cfg = global.Jarvis.config;
-const SAT = cfg.satelliteEntity;
-const MUTE = cfg.muteEntity;
-const MEDIA = cfg.mediaPlayerEntity;
+// Subscribing before config.json loads would follow app.js defaults and
+// miss any entity the config changes (the 2026-11-19 stale media player).
+if (wsInstance !== null) {
+  console.error('FAIL - websocket waits for config.json: opened before config loaded');
+  process.exitCode = 1;
+} else {
+  console.log('ok - websocket waits for config.json');
+}
+releaseConfig();
+setImmediate(runChecks);
 
-function check(name, fn) {
-  try {
-    fn();
-    console.log('ok - ' + name);
-  } catch (err) {
-    console.error('FAIL - ' + name + ': ' + err.message);
-    process.exitCode = 1;
+function runChecks() {
+
+  const T = global.Jarvis._faceTest;
+  const cfg = global.Jarvis.config;
+  const SAT = cfg.satelliteEntity;
+  const MUTE = cfg.muteEntity;
+  const MEDIA = cfg.mediaPlayerEntity;
+
+  function check(name, fn) {
+    try {
+      fn();
+      console.log('ok - ' + name);
+    } catch (err) {
+      console.error('FAIL - ' + name + ': ' + err.message);
+      process.exitCode = 1;
+    }
   }
-}
 
-// Subscription is restricted to the four displayed entities.
-check('subscribes to exactly the displayed entities', () => {
-  assert.ok(wsInstance, 'websocket was opened');
-  wsInstance.onopen();
-  wsInstance.onmessage({ data: JSON.stringify({ type: 'auth_required' }) });
-  const auth = sentMessages.find((m) => m.type === 'auth');
-  assert.ok(auth, 'auth message was sent');
-  wsInstance.onmessage({ data: JSON.stringify({ type: 'auth_ok' }) });
-  const sub = sentMessages.find((m) => m.type === 'subscribe_entities');
-  assert.ok(sub, 'subscribe_entities was sent');
-  assert.deepStrictEqual(
-    [...sub.entity_ids].sort(),
-    [SAT, MUTE, MEDIA, cfg.responseEntity].sort(),
-  );
-  assert.ok(
-    !sentMessages.some((m) => m.type === 'get_states' || m.type === 'subscribe_events'),
-    'no global state fetch or event firehose',
-  );
-});
-
-// Live-captured snapshot leaves the face idle and retains only tracked state.
-const snapshot = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
-check('real snapshot renders idle with bounded retention', () => {
-  T.handleEntityEvent(snapshot);
-  assert.strictEqual(global.Jarvis.getState(), 'idle');
-  assert.deepStrictEqual(
-    Object.keys(global.Jarvis.getLastStates()).sort(),
-    [SAT, MUTE, MEDIA].sort(),
-  );
-});
-
-// The pre-fix shape (bare diff.s) must not drive the face.
-check('bare diff without +/- is ignored', () => {
-  T.handleEntityEvent({ c: { [SAT]: { s: 'listening' } } });
-  assert.strictEqual(global.Jarvis.getState(), 'idle');
-});
-
-// Real change shape drives the satellite states.
-for (const [satState, faceState] of [
-  ['listening', 'listening'],
-  ['processing', 'processing'],
-  ['responding', 'responding'],
-]) {
-  check(`real diff moves face to ${faceState}`, () => {
-    T.handleEntityEvent({ c: { [SAT]: { '+': { s: satState } } } });
-    assert.strictEqual(global.Jarvis.getState(), faceState);
+  // Subscription is restricted to the four displayed entities.
+  check('subscribes to exactly the displayed entities', () => {
+    assert.ok(wsInstance, 'websocket was opened');
+    wsInstance.onopen();
+    wsInstance.onmessage({ data: JSON.stringify({ type: 'auth_required' }) });
+    const auth = sentMessages.find((m) => m.type === 'auth');
+    assert.ok(auth, 'auth message was sent');
+    wsInstance.onmessage({ data: JSON.stringify({ type: 'auth_ok' }) });
+    const sub = sentMessages.find((m) => m.type === 'subscribe_entities');
+    assert.ok(sub, 'subscribe_entities was sent');
+    assert.deepStrictEqual(
+      [...sub.entity_ids].sort(),
+      [SAT, MUTE, MEDIA, cfg.responseEntity].sort(),
+    );
+    assert.ok(
+      !sentMessages.some((m) => m.type === 'get_states' || m.type === 'subscribe_events'),
+      'no global state fetch or event firehose',
+    );
   });
-}
 
-check('satellite idle plus playing media shows music with track label', () => {
-  T.handleEntityEvent({ c: { [SAT]: { '+': { s: 'idle' } } } });
-  T.handleEntityEvent({
-    c: {
-      [MEDIA]: {
-        '+': {
-          s: 'playing',
-          a: {
-            media_title: 'Out of Time',
-            media_artist: 'The Weeknd',
-            entity_picture: '/api/media_player_proxy/x?token=abc&cache=1',
+  // Live-captured snapshot leaves the face idle and retains only tracked state.
+  const snapshot = JSON.parse(fs.readFileSync(snapshotPath, 'utf8'));
+  check('real snapshot renders idle with bounded retention', () => {
+    T.handleEntityEvent(snapshot);
+    assert.strictEqual(global.Jarvis.getState(), 'idle');
+    assert.deepStrictEqual(
+      Object.keys(global.Jarvis.getLastStates()).sort(),
+      [SAT, MUTE, MEDIA].sort(),
+    );
+  });
+
+  // The pre-fix shape (bare diff.s) must not drive the face.
+  check('bare diff without +/- is ignored', () => {
+    T.handleEntityEvent({ c: { [SAT]: { s: 'listening' } } });
+    assert.strictEqual(global.Jarvis.getState(), 'idle');
+  });
+
+  // Real change shape drives the satellite states.
+  for (const [satState, faceState] of [
+    ['listening', 'listening'],
+    ['processing', 'processing'],
+    ['responding', 'responding'],
+  ]) {
+    check(`real diff moves face to ${faceState}`, () => {
+      T.handleEntityEvent({ c: { [SAT]: { '+': { s: satState } } } });
+      assert.strictEqual(global.Jarvis.getState(), faceState);
+    });
+  }
+
+  check('satellite idle plus playing media shows music with track label', () => {
+    T.handleEntityEvent({ c: { [SAT]: { '+': { s: 'idle' } } } });
+    T.handleEntityEvent({
+      c: {
+        [MEDIA]: {
+          '+': {
+            s: 'playing',
+            a: {
+              media_title: 'Out of Time',
+              media_artist: 'The Weeknd',
+              entity_picture: '/api/media_player_proxy/x?token=abc&cache=1',
+            },
           },
         },
       },
-    },
+    });
+    assert.strictEqual(global.Jarvis.getState(), 'music');
+    assert.ok(
+      statusEl.textContent.includes('OUT OF TIME - THE WEEKND'),
+      'track label shown, got: ' + statusEl.textContent,
+    );
+    assert.ok(
+      T.musicArt().includes('/api/media_player_proxy/x?token=abc&cache=1'),
+      'album art picked up, got: ' + T.musicArt(),
+    );
   });
-  assert.strictEqual(global.Jarvis.getState(), 'music');
-  assert.ok(
-    statusEl.textContent.includes('OUT OF TIME - THE WEEKND'),
-    'track label shown, got: ' + statusEl.textContent,
-  );
-  assert.ok(
-    T.musicArt().includes('/api/media_player_proxy/x?token=abc&cache=1'),
-    'album art picked up, got: ' + T.musicArt(),
-  );
-});
 
-check('live spectrum frames mark the feed active, garbage is ignored', () => {
-  assert.strictEqual(T.spectrumActive(1000), false);
-  assert.strictEqual(
-    T.spectrumIngest(JSON.stringify({ bars: new Array(28).fill(50), max: 100 }), 1000),
-    true,
-  );
-  assert.strictEqual(T.spectrumActive(1000), true);
-  assert.strictEqual(T.spectrumActive(1000 + 750 + 1), false);
-  assert.strictEqual(T.spectrumIngest('not json', 2000), false);
-  assert.strictEqual(T.spectrumActive(2000), false);
-  assert.strictEqual(T.spectrumIngest(JSON.stringify({ bars: [] }), 3000), false);
-});
-
-check('mute switch takes priority and release returns to idle', () => {
-  T.handleEntityEvent({ c: { [MUTE]: { '+': { s: 'on' } } } });
-  assert.strictEqual(global.Jarvis.getState(), 'muted');
-  T.handleEntityEvent({
-    c: {
-      [MUTE]: { '+': { s: 'off' } },
-      [MEDIA]: { '+': { s: 'idle' } },
-    },
+  check('live spectrum frames mark the feed active, garbage is ignored', () => {
+    assert.strictEqual(T.spectrumActive(1000), false);
+    assert.strictEqual(
+      T.spectrumIngest(JSON.stringify({ bars: new Array(28).fill(50), max: 100 }), 1000),
+      true,
+    );
+    assert.strictEqual(T.spectrumActive(1000), true);
+    assert.strictEqual(T.spectrumActive(1000 + 750 + 1), false);
+    assert.strictEqual(T.spectrumIngest('not json', 2000), false);
+    assert.strictEqual(T.spectrumActive(2000), false);
+    assert.strictEqual(T.spectrumIngest(JSON.stringify({ bars: [] }), 3000), false);
   });
-  assert.strictEqual(global.Jarvis.getState(), 'idle');
-});
 
-check('partial attribute adds merge and removals delete', () => {
-  T.handleEntityEvent({ c: { [MEDIA]: { '+': { a: { volume_level: 0.5 } } } } });
-  assert.strictEqual(
-    global.Jarvis.getLastStates()[MEDIA].attributes.volume_level,
-    0.5,
-  );
-  T.handleEntityEvent({ c: { [MEDIA]: { '-': { a: ['volume_level'] } } } });
-  assert.ok(
-    !('volume_level' in global.Jarvis.getLastStates()[MEDIA].attributes),
-    'removed attribute is gone',
-  );
-});
-
-check('untracked entities are ignored and never retained', () => {
-  T.handleEntityEvent({
-    c: { 'light.kitchen_lights': { '+': { s: 'on' } } },
-    a: { 'light.kitchen_lights': { s: 'on', a: {} } },
+  check('mute switch takes priority and release returns to idle', () => {
+    T.handleEntityEvent({ c: { [MUTE]: { '+': { s: 'on' } } } });
+    assert.strictEqual(global.Jarvis.getState(), 'muted');
+    T.handleEntityEvent({
+      c: {
+        [MUTE]: { '+': { s: 'off' } },
+        [MEDIA]: { '+': { s: 'idle' } },
+      },
+    });
+    assert.strictEqual(global.Jarvis.getState(), 'idle');
   });
-  assert.ok(
-    !('light.kitchen_lights' in global.Jarvis.getLastStates()),
-    'unrelated entity retained',
-  );
-  assert.strictEqual(global.Jarvis.getState(), 'idle');
-});
 
-check('response is displayed as safe text and retained across idle', () => {
-  T.handleEntityEvent({a: {[cfg.responseEntity]: {s: 'turn-1', a: {text: '<b>Done.</b>'}}}});
-  assert.strictEqual(responseEl.textContent, '<b>Done.</b>');
-  assert.strictEqual(responseEl.hidden, false);
-  T.handleEntityEvent({c: {[SAT]: {'+': {s: 'idle'}}}});
-  assert.strictEqual(responseEl.textContent, '<b>Done.</b>');
-});
+  check('partial attribute adds merge and removals delete', () => {
+    T.handleEntityEvent({ c: { [MEDIA]: { '+': { a: { volume_level: 0.5 } } } } });
+    assert.strictEqual(
+      global.Jarvis.getLastStates()[MEDIA].attributes.volume_level,
+      0.5,
+    );
+    T.handleEntityEvent({ c: { [MEDIA]: { '-': { a: ['volume_level'] } } } });
+    assert.ok(
+      !('volume_level' in global.Jarvis.getLastStates()[MEDIA].attributes),
+      'removed attribute is gone',
+    );
+  });
 
-if (process.exitCode) {
-  console.error('face harness failed');
+  check('untracked entities are ignored and never retained', () => {
+    T.handleEntityEvent({
+      c: { 'light.kitchen_lights': { '+': { s: 'on' } } },
+      a: { 'light.kitchen_lights': { s: 'on', a: {} } },
+    });
+    assert.ok(
+      !('light.kitchen_lights' in global.Jarvis.getLastStates()),
+      'unrelated entity retained',
+    );
+    assert.strictEqual(global.Jarvis.getState(), 'idle');
+  });
+
+  check('response is displayed as safe text and retained across idle', () => {
+    T.handleEntityEvent({a: {[cfg.responseEntity]: {s: 'turn-1', a: {text: '<b>Done.</b>'}}}});
+    assert.strictEqual(responseEl.textContent, '<b>Done.</b>');
+    assert.strictEqual(responseEl.hidden, false);
+    T.handleEntityEvent({c: {[SAT]: {'+': {s: 'idle'}}}});
+    assert.strictEqual(responseEl.textContent, '<b>Done.</b>');
+  });
+
+
+  if (process.exitCode) {
+    console.error('face harness failed');
+  }
+  process.exit(process.exitCode || 0);
 }
-process.exit(process.exitCode || 0);
