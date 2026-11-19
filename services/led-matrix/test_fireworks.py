@@ -80,6 +80,19 @@ class ShellTests(unittest.TestCase):
         self.assertEqual(len(self.show.stars), 0)
         self.assertEqual(len(self.show.shells), 0)
 
+    def test_fountain_sprays_up_from_the_ground_then_stops(self) -> None:
+        self.show.fountain(32, 2.0, color("gold"), crackle=False)
+        frames = self.run_show(1.5)
+        stars = self.show.stars
+        self.assertGreater(len(stars), 20)
+        # A narrow cone: stars rise from the base near column 32.
+        self.assertLess(float(np.abs(stars.pos[:, 0] - 32).mean()), 8)
+        self.assertLess(float(stars.pos[:, 1].min()), 50)
+        self.assertGreater(lit(frames[-1]), 0.005)
+        self.run_show(2.5)
+        self.assertEqual(self.show.fountains, [])
+        self.assertEqual(len(self.show.stars), 0)
+
     def test_overlapping_bursts_keep_their_colour(self) -> None:
         # Regression: additive blending turned dense finales into white mush.
         at = np.array([32.0, 20.0])
@@ -111,6 +124,7 @@ class ShowTests(unittest.TestCase):
         renderer, coverage, timings = self.play(240)
         segments = renderer.director.segments
         self.assertIn("finale", segments)
+        self.assertIn("fountains", segments)
         self.assertGreaterEqual(len(set(segments)), 5)
         for a, b in zip(segments, segments[1:], strict=False):
             self.assertFalse(a == b != "finale", segments)
