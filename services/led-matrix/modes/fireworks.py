@@ -1,4 +1,4 @@
-"""Fireworks show: an endless, directed display over a city skyline.
+"""Fireworks show: an endless, directed display.
 
 A show director plays segments (singles, mirrored pairs, sweeps, willow
 curtains, ground mines, colour themes, crossette chains, mini barrages)
@@ -186,7 +186,6 @@ class FireworksShow:
         self.shells = Shells()
         self.sky = np.zeros((size, size, 3), dtype=np.float32)
         self.flash = 0.0
-        self.skyline, self.windows = self._build_skyline()
         self.bursts = 0  # total bursts, for tests and pacing
 
     # ---- geometry -------------------------------------------------------
@@ -520,29 +519,6 @@ class FireworksShow:
         level[blink] *= (np.floor(stars.age[blink] * 14 + stars.pos[blink, 0]) % 2) == 0
         self._plot(stars.pos, rgb * level[:, None])
 
-    def _build_skyline(self) -> tuple[np.ndarray, list[tuple[int, int]]]:
-        """Building heights per column and a few lit windows."""
-        heights = np.zeros(self.size, dtype=int)
-        x = 0
-        while x < self.size:
-            width = int(self.rng.integers(4, 10))
-            heights[x : x + width] = self.rng.integers(2, 9)
-            x += width
-        windows = []
-        for x in range(1, self.size - 1, 2):
-            for h in range(2, int(heights[x]), 2):
-                if self.rng.random() < 0.18:
-                    windows.append((x, self.size - h))
-        return heights, windows
-
-    def _draw_ground(self, frame: np.ndarray) -> None:
-        rows = np.arange(self.size)[:, None]
-        building = rows >= self.size - self.skyline[None, :]
-        lit = np.array([10, 12, 22]) + self.flash * np.array([70, 55, 45])
-        frame[building] = lit
-        for x, y in self.windows:
-            frame[y, x] = (90, 70, 25)
-
     def step(self, dt: float) -> None:
         self._update_shells(dt)
         self._update_stars(dt)
@@ -553,7 +529,6 @@ class FireworksShow:
         self.flash *= 0.5 ** (dt / 0.09)
         glow = self.flash * np.array([12, 10, 14], dtype=np.float32)
         frame = np.clip(self.sky + glow, 0, 255)
-        self._draw_ground(frame)
         return Image.fromarray(frame.astype(np.uint8), mode="RGB")
 
 
