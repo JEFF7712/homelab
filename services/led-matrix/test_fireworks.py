@@ -28,8 +28,8 @@ def context() -> RenderContext:
 
 
 def lit(frame: np.ndarray) -> float:
-    """Share of sky pixels (above the skyline) that are visibly lit."""
-    return float((frame[:54].max(axis=2) > 40).mean())
+    """Share of pixels that are visibly lit."""
+    return float((frame.max(axis=2) > 40).mean())
 
 
 class ShellTests(unittest.TestCase):
@@ -86,7 +86,7 @@ class ShellTests(unittest.TestCase):
         for _ in range(6):
             self.show.peony(at, [color("blue")], 1.0)
         self.run_show(0.5)
-        sky = np.asarray(self.show.render(1 / FPS)).astype(int)[:54]
+        sky = np.asarray(self.show.render(1 / FPS)).astype(int)
         bright = sky[sky.max(axis=2) > 80]
         self.assertGreater(len(bright), 0)
         self.assertTrue((bright[:, 2] >= bright[:, 0]).all())
