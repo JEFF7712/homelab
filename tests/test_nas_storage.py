@@ -37,7 +37,7 @@ class NasStorageTest(unittest.TestCase):
             };
           in {
             filesystems = builtins.mapAttrs (_: fs: {
-              inherit (fs) device options neededForBoot;
+              inherit (fs) device fsType options neededForBoot;
             }) system.config.fileSystems;
             services = builtins.mapAttrs (_: service: {
               inherit (service) after wants requires unitConfig serviceConfig;
@@ -61,7 +61,6 @@ class NasStorageTest(unittest.TestCase):
         for name in (
             "forgejo",
             "s3",
-            "media",
             "photos",
             "documents",
             "backups",
@@ -72,6 +71,13 @@ class NasStorageTest(unittest.TestCase):
             self.assertEqual(mount["device"], f"tank/{name}")
             self.assertIn("nofail", mount["options"])
             self.assertFalse(mount["neededForBoot"])
+        for path, device in (
+            ("/mnt/media-tank", "tank/media"),
+            ("/mnt/media-2tb", "media2/media"),
+        ):
+            self.assertEqual(filesystems[path]["device"], device)
+            self.assertIn("nofail", filesystems[path]["options"])
+        self.assertNotIn("/mnt/backup-2tb", filesystems)
         self.assertNotIn("/tank/attic", filesystems)
         self.assertNotIn("/srv/attic", filesystems)
         for path in ("/nix", "/persist", "/var/log", "/boot", "/boot-fallback"):
@@ -97,6 +103,37 @@ class NasStorageTest(unittest.TestCase):
             "/mnt/backup-local",
         ):
             self.assertIn(path, backup_mounts)
+
+    def test_media_merges_both_pools_for_nfs_export(self) -> None:
+        media = self.configuration["filesystems"]["/tank/media"]
+        self.assertEqual(media["fsType"], "fuse.mergerfs")
+        self.assertEqual(media["device"], "/mnt/media-tank:/mnt/media-2tb")
+        for option in (
+            "noforget",
+            "inodecalc=path-hash",
+            "category.create=mfs",
+            "x-systemd.requires-mounts-for=/mnt/media-tank",
+            "x-systemd.requires-mounts-for=/mnt/media-2tb",
+        ):
+            self.assertIn(option, media["options"])
+        for line in self.configuration["exports"].splitlines():
+            fields = line.split()
+            if not fields:
+                continue
+            fsids = {
+                option
+                for client in fields[1:]
+                for option in client.split("(", 1)[1].rstrip(")").split(",")
+                if option.startswith("fsid=")
+            }
+            if fields[0] == "/tank/media":
+                self.assertEqual(len(fsids), 1)
+                self.assertEqual(
+                    len(fields[1:]),
+                    sum("fsid=" in client for client in fields[1:]),
+                )
+            else:
+                self.assertEqual(fsids, set())
 
     def test_nfs_writes_are_limited_to_explicit_storage_consumers(self) -> None:
         exports = {
