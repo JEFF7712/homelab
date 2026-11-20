@@ -115,6 +115,49 @@ class AdoptStepTest(unittest.TestCase):
                 self.assertEqual(rewrites, {})
                 self.assertEqual(len(skipped), 1)
 
+    def test_several_declarations_narrow_to_the_old_digests_tag(self) -> None:
+        """python:3.14-alpine beside python:3.12-slim stranded every consumer."""
+        tags = {REPOSITORY: {OLD: "3.14-alpine", NEW: "3.14-alpine", INIT: "3.12"}}
+        rewrites, skipped = adoptions(
+            self.files(OLD),
+            {REPOSITORY: {NEW, INIT}},
+            {REPOSITORY: {OLD, NEW, INIT}},
+            tags,
+        )
+        self.assertEqual(
+            rewrites,
+            {"gitops/media/arr.yaml": {f"{MIRROR}@{OLD}": f"{MIRROR}@{NEW}"}},
+        )
+        self.assertEqual(skipped, [])
+
+    def test_no_or_unknown_tag_match_is_still_reported(self) -> None:
+        for old_tag in ("3.13-alpine", None):
+            with self.subTest(old_tag=old_tag):
+                tags = {REPOSITORY: {OLD: old_tag, NEW: "3.14-alpine", INIT: "3.12"}}
+                rewrites, skipped = adoptions(
+                    self.files(OLD),
+                    {REPOSITORY: {NEW, INIT}},
+                    {REPOSITORY: {OLD, NEW, INIT}},
+                    tags,
+                )
+                self.assertEqual(rewrites, {})
+                self.assertEqual(len(skipped), 1)
+
+    def test_source_tags_keep_the_declared_tag_over_an_untagged_consumer(
+        self,
+    ) -> None:
+        lock = {
+            "images": [
+                {
+                    "destination_repository": REPOSITORY,
+                    "digest": OLD,
+                    "source": {"tag": "6.3.0"},
+                },
+                {"destination_repository": REPOSITORY, "digest": OLD, "source": {}},
+            ]
+        }
+        self.assertEqual(advance.source_tags(lock), {REPOSITORY: {OLD: "6.3.0"}})
+
 
 class ScheduledRunTest(unittest.TestCase):
     """A CronJob is checked by its next scheduled run, never run off schedule."""

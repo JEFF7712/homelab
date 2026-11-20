@@ -11,9 +11,10 @@ Renovate closes its own PR. Workloads then move in a separate change
 (scripts/registry/ordering.py). Each run takes one step:
 
 - adopt: a consumer references an upstream mirror digest no longer declared,
-  and the single declared replacement is locked and served by the registry:
-  open a PR that moves that repository's consumers and merge it on the
-  required checks;
+  and the declared replacement (the one sharing its upstream tag, when the
+  repository is declared several times) is locked and served by the registry:
+  open a PR that moves the eligible consumers of that replacement and merge it
+  on the required checks; ineligible ones stay where they are for a person;
 - mirror: otherwise rebuild the oldest eligible open Renovate image bump on
   current main as its own PR and merge it on the required checks. Every run
   rebuilds from main and force-pushes the schedule's branch, so a PR left
@@ -27,9 +28,10 @@ is reverted by a PR that names the digest, and that digest is never adopted
 again. Nothing new is adopted while an adopt is unsettled.
 
 Eligible updates keep the same major version, outside the denied namespaces
-and repositories (config/registry/advance-policy.json). Every consumer is a
-Deployment whose main container has a readiness probe, or a CronJob, and
-none uses the image in an init container. Producer base images
+and repositories (config/registry/advance-policy.json). A mirror needs every
+consumer to be a Deployment whose main container has a readiness probe, or a
+CronJob, none using the image in an init container; an adopt applies the same
+test to each consumer file and moves only those that pass. Producer base images
 (gitops/producer-base-images/base-images.yaml) need no workload to mirror;
 their consumers here are projectctl's CI step images
 (config/ci/projectctl-contracts.json), where a bad image fails a project's
@@ -66,6 +68,7 @@ from scripts.registry.advance import (
     declared,
     mirror,
     scheduled_runs,
+    source_tags,
     verify,
 )
 
@@ -97,20 +100,8 @@ def major(tag: str | None) -> str | None:
 
 
 def tags(lock: Mapping[str, Any], repository: str) -> dict[str, str | None]:
-    """Upstream source tag of each locked digest of a mirror repository.
-
-    A consumer reference carries no tag and can appear after the declaration
-    entry for the same digest; keep the declared tag rather than overwriting it
-    with None.
-    """
-    found: dict[str, str | None] = {}
-    for entry in lock["images"]:
-        if entry.get("destination_repository") != repository:
-            continue
-        tag = (entry.get("source") or {}).get("tag")
-        if entry["digest"] not in found or tag is not None:
-            found[entry["digest"]] = tag
-    return found
+    """Upstream source tag of each locked digest of a mirror repository."""
+    return source_tags(lock).get(repository, {})
 
 
 def renovate_bump(files: list[str], diff: str) -> tuple[str, str] | None:
@@ -217,37 +208,48 @@ def adopt_candidates(
     lock: Mapping[str, Any],
     policy: Mapping[str, Any],
 ) -> list[tuple[str, dict[str, dict[str, str]], str]]:
-    """(repository, rewrites, new digest) per eligible repository, and why others wait."""
+    """(repository, rewrites, new digest) per eligible target, and why others wait.
+
+    Eligibility is judged per file: an ineligible consumer (a denied namespace,
+    an init container) stays on its digest without holding back the others.
+    A repository declared under several tags yields one candidate per target.
+    """
     locked = declared(lock)
-    rewrites, _ = adoptions(files, current, locked)
-    by_repository: dict[str, dict[str, dict[str, str]]] = {}
+    rewrites, _ = adoptions(files, current, locked, source_tags(lock))
+    by_target: dict[tuple[str, str], dict[str, dict[str, str]]] = {}
     for path, pairs in rewrites.items():
         for old, new in pairs.items():
             repository = re.sub(r"^registry\.rupan\.dev/", "", old.split("@")[0])
             repository = re.sub(r":[A-Za-z0-9._-]+$", "", repository)
-            by_repository.setdefault(repository, {}).setdefault(path, {})[old] = new
+            target = (repository, new.split("@")[1])
+            by_target.setdefault(target, {}).setdefault(path, {})[old] = new
     candidates = []
-    for repository, repository_rewrites in sorted(by_repository.items()):
+    for (repository, new), target_rewrites in sorted(by_target.items()):
         known = tags(lock, repository)
-        pairs = {(o, n) for p in repository_rewrites.values() for o, n in p.items()}
-        olds = {o.split("@")[1] for o, _ in pairs}
-        new = next(iter({n.split("@")[1] for _, n in pairs}))
-        reasons = [
-            ineligible(
-                repository,
-                known.get(old),
-                known.get(new),
-                workloads_using(files, f"{repository}@{old}"),
-                f"{repository}@{old}",
-                policy,
+        eligible: dict[str, dict[str, str]] = {}
+        for path, pairs in sorted(target_rewrites.items()):
+            reasons = (
+                ineligible(
+                    repository,
+                    known.get(old),
+                    known.get(new),
+                    [
+                        found
+                        for found in workloads_using(files, f"{repository}@{old}")
+                        if found[0] == path
+                    ],
+                    f"{repository}@{old}",
+                    policy,
+                )
+                for old in sorted({o.split("@")[1] for o in pairs})
             )
-            for old in sorted(olds)
-        ]
-        reason = next((r for r in reasons if r), None)
-        if reason:
-            print(f"adopt {repository}: not eligible: {reason}")
-            continue
-        candidates.append((repository, repository_rewrites, new))
+            reason = next((r for r in reasons if r), None)
+            if reason:
+                print(f"adopt {repository}: not eligible: {reason}")
+                continue
+            eligible[path] = pairs
+        if eligible:
+            candidates.append((repository, eligible, new))
     return candidates
 
 
