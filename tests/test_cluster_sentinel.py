@@ -66,6 +66,42 @@ check_change cronjobs "$1" "CronJob failure" "CronJobs recovered" "$2"
         self.assertEqual(self.run_check("bad", "a/b: Failed"), [])
 
 
+class RenovateVerdictTests(unittest.TestCase):
+    """Renovate 44.256.1 aborted every run on a lscr.io 429 while each Job
+    succeeded (2026-11-20); only its logged result showed it."""
+
+    def verdict(self, runs: str) -> str:
+        match = re.search(
+            r"^renovate_verdict\(\) \{\n.*?^\}\n", SCRIPT.read_text(), re.M | re.S
+        )
+        assert match, "cluster-sentinel has no renovate_verdict function"
+        return subprocess.run(
+            ["sh", "-c", match.group(0) + 'printf "%s" "$1" | renovate_verdict', "sh", runs],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+
+    def test_two_aborted_runs_in_a_row_alert(self) -> None:
+        out = self.verdict(
+            "renovate-forgejo-1 done\n"
+            "renovate-forgejo-2 external-host-error\n"
+            "renovate-forgejo-3 external-host-error\n"
+        )
+        self.assertTrue(out.startswith("automation/renovate-forgejo: "))
+        self.assertIn("external-host-error", out)
+
+    def test_one_bad_run_a_clean_one_or_too_few_runs_do_not(self) -> None:
+        for runs in (
+            "a external-host-error\nb done\n",
+            "a done\nb external-host-error\n",
+            "a external-host-error\n",
+            "",
+        ):
+            with self.subTest(runs=runs):
+                self.assertEqual(self.verdict(runs), "")
+
+
 class StateConfigMapTests(unittest.TestCase):
     def test_flux_only_creates_runtime_state(self) -> None:
         # Regression (2026-11-19): a Flux re-apply dropped every key the
