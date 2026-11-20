@@ -15,7 +15,7 @@ def input_settings(path: Path) -> dict[str, object]:
     return {
         "gamepadmouse": general.get("gamepadmouse", "true"),
         "multicontroller": general.get("multicontroller", "true"),
-        "swapgamepadbuttons": general.get("swapgamepadbuttons", "false"),
+        "swapfacebuttons": general.get("swapfacebuttons", "false"),
         "backgroundgamepad": general.get("backgroundgamepad", "false"),
         "mappings": dict(settings["gcmapping"])
         if settings.has_section("gcmapping")
