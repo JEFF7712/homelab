@@ -7,9 +7,13 @@
 }:
 let
   cfg = config.homelab.moonlight;
+  controllerMappings = lib.concatStringsSep "\n" cfg.controllerMappings;
 
   moonlightSession = pkgs.writeShellScriptBin "moonlight-session" ''
     set -euo pipefail
+    ${lib.optionalString (controllerMappings != "") ''
+      export SDL_GAMECONTROLLERCONFIG=${lib.escapeShellArg controllerMappings}
+    ''}
 
     restore_workspace() {
       if [ -n "''${SWAYSOCK:-}" ] || ${pkgs.sway}/bin/swaymsg -t get_version >/dev/null 2>&1; then
@@ -58,6 +62,12 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ cfg.user ];
       description = "User accounts permitted to run Moonlight";
+    };
+
+    controllerMappings = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "SDL controller mapping overrides, one complete mapping per exact SDL GUID.";
     };
 
     autostart = lib.mkOption {
@@ -281,6 +291,9 @@ in
       environment = {
         XDG_RUNTIME_DIR = "/run/user/${toString config.users.users.${cfg.user}.uid}";
         XDG_SESSION_TYPE = "wayland";
+      }
+      // lib.optionalAttrs (controllerMappings != "") {
+        SDL_GAMECONTROLLERCONFIG = controllerMappings;
       };
       path = [ pkgs.coreutils ];
       serviceConfig = {

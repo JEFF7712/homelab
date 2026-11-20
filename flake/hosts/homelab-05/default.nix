@@ -260,6 +260,10 @@ in
 
   homelab.moonlight = {
     enable = true;
+    # This controller's HID usages disagree with its measured physical buttons.
+    controllerMappings = [
+      "0500b0124c6963332050726f20436f00,Lic3 Pro Controller,a:b0,b:b1,x:b2,y:b3,back:b8,guide:b12,start:b9,leftstick:b10,rightstick:b11,leftshoulder:b4,rightshoulder:b5,lefttrigger:b6,righttrigger:b7,leftx:a0,lefty:a1,rightx:a2,righty:a3,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,platform:Linux,"
+    ];
     users = [
       "kiosk"
       "rupan"
