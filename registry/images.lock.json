@@ -4854,6 +4854,44 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/music-assistant/registry-sources.yaml:22"
+      ],
+      "destination_repository": "upstream/ghcr.io/ledfx/ledfx",
+      "destination_tags": [
+        "2.2.1",
+        "retention-deployed-fda3622040f6fb20"
+      ],
+      "digest": "sha256:fda3622040f6fb207440575f232826f31ded4bc5900a3d650c3ce4f31235beeb",
+      "id": "upstream-ledfx-ledfx-e94446f1f308",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:fda3622040f6fb207440575f232826f31ded4bc5900a3d650c3ce4f31235beeb",
+        "reference": "ghcr.io/ledfx/ledfx:2.2.1@sha256:fda3622040f6fb207440575f232826f31ded4bc5900a3d650c3ce4f31235beeb",
+        "registry": "ghcr.io",
+        "repository": "ledfx/ledfx",
+        "tag": "2.2.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/media/registry-sources.yaml:61"
       ],
       "destination_repository": "upstream/docker.io/library/alpine",
