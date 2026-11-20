@@ -343,11 +343,18 @@ Helm chart images and producer base images keep their own procedures below.
 The scheduled `registry-advance` operation (`promote` schedule,
 `scripts/ci/registry_advance.py`) does all three steps without an agent.
 Eligible updates keep the same major version, outside the namespaces and
-repositories in `config/registry/advance-policy.json`. Every consumer is a
+repositories `config/registry/advance-policy.json` denies (kube-system,
+flux-system, PostgreSQL). Its windowed namespaces (home-assistant,
+music-assistant, voice) restart users' services, so their adopts land only
+between 01:00 and 03:00 America/Chicago, clear of fleet-reboot's 03:00-05:00;
+their mirrors land any time. cloudflare is open: its two replicas roll. Every consumer is a
 Deployment whose main container has a readiness probe, or a CronJob that runs
-at least daily and is not suspended, and none uses the image in an init
-container. StatefulSets, DaemonSets, weekly or rarer CronJobs, majors and
-floating tags stay with a person or the controller.
+at least weekly and is not suspended; init containers count, because `verify`
+checks their digests too. StatefulSets, DaemonSets, monthly or rarer CronJobs,
+majors and floating tags stay with a person or the controller. Images used
+only outside `gitops/` (the nix image in CI and voice-supply builds) stay
+manual: their consumers include `scripts/ci/policy.py`, which is enforcement
+code.
 
 Producer base images (`gitops/producer-base-images/base-images.yaml`) need no
 consumer to be mirrored. In this repository, their adopters are projectctl's
@@ -357,10 +364,11 @@ other repositories update there. The Woodpecker clone image pinned in
 `flake/modules/woodpecker.nix` is enforcement code: it is mirrored, but the
 pin moves only with the operator's approval.
 
-Each run takes one step:
+Each run settles what is pending, then publishes at most one change:
 
-1. **Settle.** The newest adopt the schedule merged in the last day is checked
-   once the Flux Kustomization owning each changed path has applied a revision
+1. **Settle.** Every adopt the schedule merged in the last eight days without
+   a verdict is checked, oldest first, once the Flux Kustomization owning each
+   changed path has applied a revision
    at least as new as the merge. `verify` must pass for Deployments. A CronJob
    is never run off schedule: its first scheduled run on the new image after
    the merge decides (`scheduled_runs`), and until it has completed or failed
@@ -368,10 +376,13 @@ Each run takes one step:
    `registry-advance: verified` comment. A failed one is reverted by a
    `registry-advance/revert-<pr>` PR, merged on the required checks, whose body
    names the digest (`reverted: <mirror>@<digest>`). That digest is never
-   adopted again, so the next release is tried fresh. Nothing else runs while
-   an adopt is unsettled.
-2. **Adopt.** The first consumer left on an undeclared digest moves once the
-   registry serves the replacement.
+   adopted again, so the next release is tried fresh. A revert ends the run.
+   An adopt still waiting (for Flux, or for a weekly job's run) holds only the
+   repository it moves.
+2. **Adopt.** The first consumer left on an undeclared digest, in a repository
+   no pending adopt holds, moves once the registry serves the replacement.
+   Each consumer file is judged on its own, so an ineligible one stays behind
+   without holding back the rest.
 3. **Mirror.** The oldest eligible Renovate image bump is rebuilt on current
    main: only Renovate's declaration change, plus that image's records from
    `advance mirror`. It lands on a `registry-advance/mirror-*` branch and is

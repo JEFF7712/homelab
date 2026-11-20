@@ -1,14 +1,20 @@
 {
-  "note": "Scheduled registry-advance (scripts/ci/registry_advance.py) never takes these; they move by hand or through the controller.",
+  "note": "Scheduled registry-advance (scripts/ci/registry_advance.py) never takes the denied namespaces and repositories; they move by hand or through the controller. Windowed namespaces restart users' services (Recreate), so their adopts land only inside the window, clear of fleet-reboot's 03:00-05:00; mirrors land any time.",
   "deny_namespaces": [
-    "cloudflare",
-    "home-assistant",
-    "music-assistant",
-    "voice",
     "flux-system",
     "kube-system"
   ],
   "deny_repositories": [
     "upstream/docker.io/library/postgres"
-  ]
+  ],
+  "window_namespaces": {
+    "namespaces": [
+      "home-assistant",
+      "music-assistant",
+      "voice"
+    ],
+    "timezone": "America/Chicago",
+    "start_hour": 1,
+    "end_hour": 3
+  }
 }
