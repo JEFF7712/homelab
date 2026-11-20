@@ -76,7 +76,13 @@ class RenovateVerdictTests(unittest.TestCase):
         )
         assert match, "cluster-sentinel has no renovate_verdict function"
         return subprocess.run(
-            ["sh", "-c", match.group(0) + 'printf "%s" "$1" | renovate_verdict', "sh", runs],
+            [
+                "sh",
+                "-c",
+                match.group(0) + 'printf "%s" "$1" | renovate_verdict',
+                "sh",
+                runs,
+            ],
             check=True,
             capture_output=True,
             text=True,
