@@ -1,6 +1,6 @@
 alias: 'Effects: Music Mode'
-description: Toggle LedFx ambient music mode on the shared Zigbee bulbs and manage
-  the Adaptive Lighting lock.
+description: Toggle shared Music Mode (input_boolean.shared_music_mode); the
+  Lighting Shared Music Mode automation does the rest.
 mode: single
 sequence:
   - action: input_boolean.toggle

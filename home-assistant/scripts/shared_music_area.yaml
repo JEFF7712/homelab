@@ -7,9 +7,12 @@ description: >-
   and off follow the area's toggle without touching the snapshot. Leave
   restores the snapshot and hands the area back to Adaptive Lighting.
   Join and relight set the area's shade from sensor.music_director at its
-  brightness_pct (number.music_mode_brightness); paint, on every new track,
-  changes only the colour of lights that are on, so brightness set on a
-  light by hand, or a light switched off by hand, stays as it is.
+  area_brightness_pct (number.music_mode_brightness, scaled by the song
+  section); paint, on every new track, changes only the colour of lights
+  that are on, so brightness set on a light by hand, or a light switched off
+  by hand, stays as it is. Section recolours lit lights and multiplies each
+  one's brightness by scale, the ratio between the old and new section
+  levels.
 mode: parallel
 max: 20
 fields:
@@ -26,7 +29,7 @@ fields:
           - tulip_lamp
           - ceiling_strip
   step:
-    description: join, standby, paint, relight, off or leave.
+    description: join, standby, paint, section, relight, off or leave.
     required: true
     example: join
     selector:
@@ -35,9 +38,19 @@ fields:
           - join
           - standby
           - paint
+          - section
           - relight
           - "off"
           - leave
+  scale:
+    description: Brightness factor for lit lights (section step only).
+    required: false
+    example: 0.8
+    selector:
+      number:
+        min: 0.1
+        max: 10
+        step: 0.01
 sequence:
   - variables:
       areas:
@@ -66,8 +79,13 @@ sequence:
       config: "{{ areas.get(area) }}"
       snapshot: "scene.pre_music_{{ area }}"
       rgb: "{{ (state_attr('sensor.music_director', 'area_colors') or {}).get(area) }}"
+      brightness_pct: >-
+        {{ state_attr('sensor.music_director', 'area_brightness_pct')
+           or state_attr('sensor.music_director', 'brightness_pct') | int(70) }}
   - condition: template
-    value_template: "{{ config is mapping and step in ['join', 'standby', 'paint', 'relight', 'off', 'leave'] }}"
+    value_template: >-
+      {{ config is mapping
+         and step in ['join', 'standby', 'paint', 'section', 'relight', 'off', 'leave'] }}
   - choose:
       - conditions:
           - condition: template
@@ -130,27 +148,46 @@ sequence:
       - condition: template
         value_template: "{{ rgb is sequence and rgb is not string and rgb | length == 3 }}"
     then:
-      - if:
-          - condition: template
-            value_template: "{{ step == 'paint' }}"
-        then:
-          - variables:
-              lit: "{{ config.lights | select('is_state', 'on') | list }}"
-          - if:
+      - variables:
+          lit: "{{ config.lights | select('is_state', 'on') | list }}"
+      - choose:
+          - conditions:
               - condition: template
-                value_template: "{{ lit | length > 0 }}"
-            then:
-              - action: light.turn_on
-                target:
-                  entity_id: "{{ lit }}"
-                data:
-                  rgb_color: "{{ rgb }}"
-                  transition: 2
-        else:
+                value_template: "{{ step == 'paint' }}"
+            sequence:
+              - if:
+                  - condition: template
+                    value_template: "{{ lit | length > 0 }}"
+                then:
+                  - action: light.turn_on
+                    target:
+                      entity_id: "{{ lit }}"
+                    data:
+                      rgb_color: "{{ rgb }}"
+                      transition: 2
+          - conditions:
+              - condition: template
+                value_template: "{{ step == 'section' }}"
+            sequence:
+              # Per light: each keeps its own level relative to the others.
+              - repeat:
+                  for_each: "{{ lit }}"
+                  sequence:
+                    - action: light.turn_on
+                      target:
+                        entity_id: "{{ repeat.item }}"
+                      data:
+                        rgb_color: "{{ rgb }}"
+                        brightness: >-
+                          {% set current = state_attr(repeat.item, 'brightness')
+                             or (brightness_pct * 2.55) %}
+                          {{ [1, [255, (current * (scale | default(1) | float(1))) | round | int] | min] | max }}
+                        transition: 2
+        default:
           - action: light.turn_on
             target:
               entity_id: "{{ config.lights }}"
             data:
               rgb_color: "{{ rgb }}"
-              brightness_pct: "{{ state_attr('sensor.music_director', 'brightness_pct') | int(70) }}"
+              brightness_pct: "{{ brightness_pct }}"
               transition: 2
