@@ -43,9 +43,14 @@ class HomeAssistantSchedulingTests(unittest.TestCase):
         self.spec = deployment["spec"]["template"]["spec"]
 
     def test_multiple_failover_nodes_remain_eligible(self) -> None:
-        for hostname in ("homelab-01", "homelab-02", "homelab-03", "homelab-04"):
+        for hostname in ("homelab-01", "homelab-02", "homelab-03"):
             with self.subTest(hostname=hostname):
                 self.assertTrue(accepts_node(self.spec, hostname))
+
+    def test_ci_host_is_excluded(self) -> None:
+        """CI job containers on homelab-04 reach HA through its VIP; with HA's
+        hostNetwork pod on the same node that hairpin fails (0ecf9c30)."""
+        self.assertFalse(accepts_node(self.spec, "homelab-04"))
 
     def test_ledfx_host_is_excluded_even_when_ledfx_is_stopped(self) -> None:
         deployments = yaml.safe_load_all(
