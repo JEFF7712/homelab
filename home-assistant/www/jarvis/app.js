@@ -717,7 +717,10 @@
     currentState = newState;
 
     // Remove existing state classes
-    appEl.classList.remove('state-idle', 'state-listening', 'state-processing', 'state-responding', 'state-music', 'state-muted');
+    appEl.classList.remove(
+      'state-idle', 'state-listening', 'state-processing',
+      'state-responding', 'state-music', 'state-muted',
+    );
     appEl.classList.add('state-' + newState);
     appEl.style.removeProperty('--primary-color');
     appEl.style.removeProperty('--eye-bg');

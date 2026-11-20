@@ -27,11 +27,16 @@ def context(dt: float = 1 / 60, cycle: bool = False) -> RenderContext:
     )
 
 
+# Every scene draws from the renderer's RNG; a fixed seed keeps the
+# statistical checks (fire coverage, sand peaks) deterministic in CI.
+SEED = 7
+
+
 def run(
     scene_type: type, seconds: float, fps: float = 60
 ) -> tuple[PhysicsRenderer, list[np.ndarray]]:
     """Hold one scene for `seconds` at `fps`, returning every frame."""
-    physics = PhysicsRenderer(randomize=False)
+    physics = PhysicsRenderer(randomize=False, seed=SEED)
     physics.set_scene(SCENES.index(scene_type))
     ctx = context(1 / fps)
     frames = [np.asarray(physics.render(ctx)) for _ in range(int(seconds * fps))]
@@ -59,7 +64,7 @@ class PhysicsRotationTests(unittest.TestCase):
         self.assertEqual(PhysicsRenderer.NUM_SCENES, len(SCENES))
 
     def test_every_scene_renders_a_lit_frame(self) -> None:
-        physics = PhysicsRenderer(randomize=False)
+        physics = PhysicsRenderer(randomize=False, seed=SEED)
         for index in range(physics.NUM_SCENES):
             physics.set_scene(index)
             frame = physics.render(context(), size=64)
@@ -69,7 +74,7 @@ class PhysicsRotationTests(unittest.TestCase):
             self.assertGreater(int(np.asarray(frame).sum()), 0, SCENES[index].name)
 
     def test_rotation_advances_in_order_and_wraps(self) -> None:
-        physics = PhysicsRenderer(randomize=False)
+        physics = PhysicsRenderer(randomize=False, seed=SEED)
         advance = context(dt=physics.PERIOD + 0.5, cycle=True)
         visited = []
         for _ in range(physics.NUM_SCENES):
@@ -78,7 +83,7 @@ class PhysicsRotationTests(unittest.TestCase):
         self.assertEqual(visited, [*range(1, physics.NUM_SCENES), 0])
 
     def test_reentering_the_mode_restarts_the_scene(self) -> None:
-        physics = PhysicsRenderer(randomize=False)
+        physics = PhysicsRenderer(randomize=False, seed=SEED)
         physics.set_scene(SCENES.index(SandScene))
         for _ in range(300):
             physics.render(context())
@@ -118,7 +123,7 @@ class PhysicsSceneTests(unittest.TestCase):
             self.assertFalse(np.array_equal(frames[-60], frames[-1]), scene_type.name)
 
     def test_sand_drains_completely_every_loop(self) -> None:
-        physics = PhysicsRenderer(randomize=False)
+        physics = PhysicsRenderer(randomize=False, seed=SEED)
         physics.set_scene(SCENES.index(SandScene))
         sand = physics.scene(SandScene)
         ctx = context()
@@ -152,7 +157,7 @@ class PhysicsSceneTests(unittest.TestCase):
         self.assertLess(float(scene.pos[:, 1].min()), 55.0)
 
     def test_volcano_erupts_into_the_upper_half(self) -> None:
-        physics = PhysicsRenderer(randomize=False)
+        physics = PhysicsRenderer(randomize=False, seed=SEED)
         physics.set_scene(SCENES.index(VolcanoScene))
         frame = np.asarray(physics.render(context()))
         volcano = physics.scene(VolcanoScene)

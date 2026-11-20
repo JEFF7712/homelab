@@ -15,7 +15,7 @@ spec:
       labels:
         app: home-assistant
       annotations:
-        checksum/config: 5b25f29a78867510682d9ea63dfba028dce5a77d6b7efe02db504901e0310e3a
+        checksum/config: 8ce0a91b3b8d84d9eb8f0c654ea70354bc52b8c31db62cf58d7fb1b7924dd1bb
         checksum/dependencies: 8eac350ea6f0dc5b311c3b363345bb99229e5efa193aa69111e630103301751e
         reloader.stakater.com/auto: 'true'
     spec:
@@ -61,7 +61,7 @@ spec:
                 [ -f "$src" ] || continue
                 base=$(basename "$src")
                 [ "$base" = "configuration.yaml" ] && continue
-                case "$base" in component.*) continue ;; esac
+                case "$base" in component.* | www.*) continue ;; esac
                 lang=${base%%.*}
                 file=${base#*.}
                 mkdir -p "/config/custom_sentences/$lang"
@@ -75,6 +75,16 @@ spec:
                 file=${rest#*.}
                 mkdir -p "/config/custom_components/$domain"
                 cp "$src" "/config/custom_components/$domain/$file"
+              done
+              # www.<dir>.<file> -> /config/www/<dir>/<file> (Jarvis face).
+              for src in /bootstrap/www.*; do
+                [ -f "$src" ] || continue
+                base=$(basename "$src")
+                rest=${base#www.}
+                dir=${rest%%.*}
+                file=${rest#*.}
+                mkdir -p "/config/www/$dir"
+                cp "$src" "/config/www/$dir/$file"
               done
           securityContext:
             allowPrivilegeEscalation: false
@@ -128,7 +138,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: home-assistant
-          image: registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:078222f9ea47cf47b172a301c2c45a1d2344b9d666827729b71fc3f7d7a57592  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/home-assistant/home-assistant@sha256:69193f00e76147a1649a910d39673680e37ce4362dfb410a328a806a824f2000  # yamllint disable-line rule:line-length
           env:
             - name: TZ
               value: America/Chicago
