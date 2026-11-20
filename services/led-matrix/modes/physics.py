@@ -538,8 +538,9 @@ class PhysicsRenderer(ModeRenderer):
     PERIOD = 20.0
     NUM_SCENES = len(SCENES)
 
-    def __init__(self, randomize: bool = True) -> None:
-        self.rng = np.random.default_rng()
+    def __init__(self, randomize: bool = True, seed: int | None = None) -> None:
+        # Tests pass a seed so statistical assertions cannot flake.
+        self.rng = np.random.default_rng(seed)
         self.scenes = [scene(self.rng) for scene in SCENES]
         self.randomize = randomize
         self.scene_timer = 0.0
