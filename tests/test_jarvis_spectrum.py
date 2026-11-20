@@ -188,11 +188,9 @@ class DeploymentContractTest(unittest.TestCase):
             )
         )
         self.assertIn("spectrum_url", config)
-        self.assertIsInstance(config["face_version"], int)
-        # The kiosk URL reads face_version from config.json, so a bump there
-        # cannot leave the kiosk on a stale ?v= (067a9dc2 did).
-        self.assertIn("home-assistant/www/jarvis/config.json", host)
-        self.assertIn("?v=${toString jarvisFace.face_version}", host)
+        # The kiosk ?v= is a boot version that may lag face_version, because
+        # the face navigates itself forward; test_jarvis_face checks that
+        # relation (test_kiosk_boot_url_matches_face_version).
 
     def test_resolve_source_uses_pw_dump(self) -> None:
         with patch.object(

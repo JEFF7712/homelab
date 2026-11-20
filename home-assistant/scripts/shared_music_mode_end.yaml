@@ -1,0 +1,24 @@
+alias: "Shared: End Music Mode"
+description: >-
+  Turn shared Music Mode off and wait until its automation has restored
+  every area, the strip and Adaptive Lighting. Callers that snapshot or
+  switch the shared lights afterwards (Lights Off, Lights On, the empty-house
+  automation) run this first, so the restore cannot land on top of their
+  own changes. Does nothing while Music Mode is off.
+mode: queued
+max: 5
+sequence:
+  - condition: state
+    entity_id: input_boolean.shared_music_mode
+    state: "on"
+  - action: input_boolean.turn_off
+    target:
+      entity_id: input_boolean.shared_music_mode
+  # Give the automation's queued run a moment to register before waiting
+  # for its runs to finish.
+  - delay:
+      seconds: 1
+  - wait_template: >-
+      {{ state_attr('automation.lighting_shared_music_mode', 'current') | int(0) == 0 }}
+    timeout: "00:01:00"
+    continue_on_timeout: true

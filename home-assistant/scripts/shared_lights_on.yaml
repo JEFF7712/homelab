@@ -8,8 +8,10 @@ description: >-
   off. The restored lights are marked manually controlled so Adaptive
   Lighting (including sleep mode) leaves them alone until the next off/on
   cycle. Falls back to turning on everything in the shared_space label when
-  no snapshot exists yet, e.g. after a restart.
+  no snapshot exists yet, e.g. after a restart. Music Mode ends first, so
+  its next track cannot recolour the lights this turns on.
 sequence:
+  - action: script.shared_music_mode_end
   - if:
       - condition: template
         value_template: "{{ state_attr('scene.shared_last_state', 'entity_id') is not none }}"

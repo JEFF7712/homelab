@@ -7,7 +7,10 @@ description: >-
   snapshot is only taken when something in the label is on, so pressing Off
   twice (or an automation firing while already off) cannot overwrite a good
   snapshot with an all-off one that would make the next All On do nothing.
+  Music Mode ends first, so the snapshot holds the lights as they were
+  before it.
 sequence:
+  - action: script.shared_music_mode_end
   - if:
       - condition: template
         value_template: >-

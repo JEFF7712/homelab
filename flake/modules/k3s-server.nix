@@ -315,19 +315,19 @@ in
           createNamespace = false;
           repo = "https://helm.cilium.io";
           targetNamespace = "kube-system";
-          version = "1.20.1";
+          version = "1.20.5";
           # operator.replicas stays at the chart default (2): the image
           # overrides used to replace the whole operator attribute set.
           valuesContent = builtins.toJSON {
             bgpControlPlane.enabled = true;
-            envoy.image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium-envoy@sha256:75b8094c7127736a2ffd2dce3945e0931cb6df21b0372ff661940eca26730b91";
-            image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium@sha256:ae9ea21f7427fe24bc6ea7247eb552157a1b0a431744045d3f641545ca71d11b";
+            envoy.image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium-envoy@sha256:bdef13043ebaa7b9dcd8e3a86be41080bb5369e017cd759a12daf89e2b8fafe7";
+            image.override = "registry.rupan.dev/upstream/quay.io/cilium/cilium@sha256:aa72499f075ad729947ea91b026218aceba24f1a8e4534bf36b8368c7c561526";
             ipam.operator.clusterPoolIPv4PodCIDRList = [ "10.42.0.0/16" ];
             ipv4NativeRoutingCIDR = "10.42.0.0/16";
             k8sServiceHost = "127.0.0.1";
             k8sServicePort = 6443;
             kubeProxyReplacement = true;
-            operator.image.override = "registry.rupan.dev/upstream/quay.io/cilium/operator-generic@sha256:6c3885fc7b629099fdbe2a5c87869c86feb825fa18fae299eac0f61918d16ecf";
+            operator.image.override = "registry.rupan.dev/upstream/quay.io/cilium/operator-generic@sha256:c6e7de6665aa9701db86c4fe46828a75a0d167afe084a9ffb5bce34b2c4fa8c4";
             securityContext.capabilities.ciliumAgent = [
               "CHOWN"
               "KILL"
