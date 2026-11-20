@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: reloader
-      version: 2.2.19
+      version: 2.2.20
       sourceRef:
         kind: HelmRepository
         name: stakater
@@ -23,7 +23,7 @@ spec:
         images:
           - name: ghcr.io/stakater/reloader
             newName: registry.rupan.dev/upstream/ghcr.io/stakater/reloader  # yamllint disable-line rule:line-length
-            digest: sha256:def2480040adc164b3a57340e77674eadfd88fb7f0593df25e93297f29c7fd7c
+            digest: sha256:3ab43d3eb96c59798644bf826b0444a846c0197d22ab4b6c101c4da3e1d6ef23
   values:
     fullnameOverride: reloader
     reloader:
