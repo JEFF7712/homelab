@@ -38,6 +38,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
+from homeassistant.util.json import json_loads
 
 from .metadata import (
     QueuedTrack,
@@ -108,6 +109,9 @@ DEFAULT_BRIGHTNESS = 70
 RECCOBEATS_URL = "https://api.reccobeats.com/v1/audio-features"
 LASTFM_URL = "https://ws.audioscrobbler.com/2.0/"
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=8)
+# LedFx is on the LAN and answers in milliseconds; strip updates wait on each
+# other, so a hung LedFx must not hold the queue for long.
+LEDFX_TIMEOUT = aiohttp.ClientTimeout(total=3)
 # The Spotify Web API quota is shared with Home Assistant's own polling: when
 # Spotify lags the speaker, ask for at most one refresh per track change, and
 # none within SPOTIFY_REFRESH_GAP seconds of the last or while Spotify is
@@ -257,16 +261,20 @@ class Director:
         self.playlists = PlaylistStore(
             Store(hass, CACHE_STORAGE_VERSION, PLAYLIST_STORAGE_KEY)
         )
+        # The configured overrides that set an effect (colours come from pins).
+        self._effect_overrides = tuple(o for o in config.overrides if o.effect)
         self._prepare_task: asyncio.Task[None] | None = None
         self._prepare_run: asyncio.Task[None] | None = None
         # The next song, looked up ahead ("Artist - Title"), for the dashboard.
         self.next_ready: str | None = None
         self._task: asyncio.Task[None] | None = None
+        self._recheck_task: asyncio.Task[None] | None = None
         self._track_key: str | None = None
         self._last_effect: str | None = None
         self._decision: Decision | None = None
         # The decision LedFx last accepted, so updates PUT in place only
-        # while that effect is running; the lock keeps updates in order.
+        # while that effect is running and skip LedFx when nothing changed.
+        # Every strip request holds the lock, so they land in order.
         self._sent: Decision | None = None
         self._strip_lock = asyncio.Lock()
         self._transition_set = False
@@ -337,7 +345,7 @@ class Director:
                     async for msg in ws:
                         if msg.type != aiohttp.WSMsgType.TEXT:
                             continue
-                        data = msg.json()
+                        data = msg.json(loads=json_loads)
                         if data.get("event_type") != "graph_update":
                             continue
                         graph = graph or data.get("graph_id")
@@ -350,6 +358,8 @@ class Director:
                             self._set_section(changed)
                         if self.drops.add(level, now):
                             self._flash()
+                # LedFx closed the feed (it restarts this way).
+                self._set_ledfx_status("unreachable")
             except asyncio.CancelledError:
                 raise
             except Exception as error:  # noqa: BLE001 - keep listening
@@ -371,6 +381,7 @@ class Director:
             or not decision.title
             or not self._is_on(self.config.enabled)
             or not self._is_on(self.config.strip)
+            or not self._running(decision)
             or (self._flash_task is not None and not self._flash_task.done())
         ):
             return
@@ -384,54 +395,67 @@ class Director:
         colour = to_hex(solid_colour(start.palette))
         try:
             for share, seconds in FLASH_STEPS:
-                decision = self._decision
-                if decision is None or decision.title != start.title:
-                    break
-                await self._ledfx(
-                    "PUT",
-                    {
-                        "type": decision.effect,
-                        "config": {
-                            **decision.config,
-                            "brightness": 1.0,
-                            "background_color": colour,
-                            "background_brightness": share,
-                        },
-                    },
-                )
-                await asyncio.sleep(seconds)
-        finally:
-            self._flash_task = None
-            decision = self._decision
-            if (
-                decision is not None
-                and self._is_on(self.config.enabled)
-                and self._is_on(self.config.strip)
-            ):
-                if decision.title == start.title and decision.effect == start.effect:
+                async with self._strip_lock:
+                    decision = self._decision
+                    # Stop when the song or effect changed or the strip was
+                    # cleared: a PUT would land on the wrong effect.
+                    if (
+                        decision is None
+                        or decision.title != start.title
+                        or not self._running(decision)
+                    ):
+                        break
                     await self._ledfx(
                         "PUT",
                         {
                             "type": decision.effect,
                             "config": {
                                 **decision.config,
-                                "background_color": NO_BACKGROUND,
+                                "brightness": 1.0,
+                                "background_color": colour,
+                                "background_brightness": share,
                             },
                         },
                     )
-                else:
-                    await self._push_strip(decision)
+                await asyncio.sleep(seconds)
+        finally:
+            self._flash_task = None
+            if self._is_on(self.config.enabled) and self._is_on(self.config.strip):
+                async with self._strip_lock:
+                    decision = self._decision
+                    if decision is not None and self._running(decision):
+                        # Clear the background, with any change made meanwhile.
+                        if await self._ledfx(
+                            "PUT",
+                            {
+                                "type": decision.effect,
+                                "config": {
+                                    **decision.config,
+                                    "background_color": NO_BACKGROUND,
+                                },
+                            },
+                        ):
+                            self._sent = decision
+                    elif decision is not None:
+                        await self._send(decision)
 
     @callback
     def _set_ledfx_status(self, status: str) -> None:
         if status == self.ledfx_status:
             return
+        was_reachable = self.ledfx_status != "unreachable"
         self.ledfx_status = status
         if status == "ok":
             _LOGGER.info("LedFx is back")
         else:
             _LOGGER.warning("LedFx is %s", status)
-        if self._decision is not None and self._is_on(self.config.enabled):
+        if self._decision is None or not self._is_on(self.config.enabled):
+            return
+        if status == "ok" and not was_reachable:
+            # A restarted LedFx runs no effect: start it again.
+            self._sent = None
+            self._reapply()
+        else:
             self._publish(self._decision)
 
     @callback
@@ -456,6 +480,7 @@ class Director:
                 self._stop_audio()
                 self._cancel()
                 self._cancel_prepare()
+                self._cancel_recheck()
                 if self._flash_task is not None:
                     self._flash_task.cancel()
                 self.hass.async_create_task(self._stop())
@@ -467,8 +492,7 @@ class Director:
             return
         if entity_id == self.config.strip:
             if new_state is not None and new_state.state == STATE_ON:
-                if self._decision is not None:
-                    self.hass.async_create_task(self._push_strip(self._decision))
+                self.hass.async_create_task(self._strip_on())
             else:
                 self.hass.async_create_task(self._clear_strip())
             return
@@ -557,6 +581,11 @@ class Director:
             self._task.cancel()
         self._task = None
 
+    def _cancel_recheck(self) -> None:
+        if self._recheck_task is not None and not self._recheck_task.done():
+            self._recheck_task.cancel()
+        self._recheck_task = None
+
     def _cancel_prepare(self) -> None:
         if self._prepare_task is not None and not self._prepare_task.done():
             self._prepare_task.cancel()
@@ -643,6 +672,10 @@ class Director:
         )
 
     async def _apply(self, decision: Decision) -> None:
+        if not self._is_on(self.config.enabled):
+            # A late cover check or flash must not bring the sensor or the
+            # strip back after Music Mode ended.
+            return
         self._decision = decision
         self._publish(decision)
         # The pin light follows the playing track.
@@ -659,28 +692,55 @@ class Director:
             if self._decision is not decision:
                 # A newer decision is queued behind this one.
                 return
-            sent = self._sent
-            if (
-                sent is not None
-                and sent.effect == decision.effect
-                and sent.title == decision.title
+            await self._send(decision)
+
+    def _running(self, decision: Decision) -> bool:
+        """Whether LedFx runs decision's effect for its track."""
+        sent = self._sent
+        return (
+            sent is not None
+            and sent.effect == decision.effect
+            and sent.title == decision.title
+        )
+
+    async def _send(self, decision: Decision) -> None:
+        """Bring the strip to decision. Call with the strip lock held."""
+        sent = self._sent
+        if sent is not None and self._running(decision):
+            if sent.config == decision.config:
+                # A pin, the dropdown or a control set to what it already was.
+                return
+            # Same effect, new colours or brightness: update in place
+            # instead of restarting the effect.
+            if await self._ledfx(
+                "PUT", {"type": decision.effect, "config": decision.config}
             ):
-                # Same effect, new colours or brightness: update in place
-                # instead of restarting the effect.
-                if await self._ledfx(
-                    "PUT", {"type": decision.effect, "config": decision.config}
-                ):
-                    self._sent = decision
-            else:
-                await self._push_strip(decision)
+                self._sent = decision
+                return
+            if self.ledfx_status != "error":
+                return
+            # LedFx answered but runs no such effect (it restarted): start it.
+        started = await self._ledfx(
+            "POST", {"type": decision.effect, "config": decision.config}
+        )
+        self._sent = decision if started else None
+
+    async def _strip_on(self) -> None:
+        async with self._strip_lock:
+            decision = self._decision
+            if (
+                decision is not None
+                and self._flash_task is None
+                and self._is_on(self.config.enabled)
+                and self._is_on(self.config.strip)
+            ):
+                await self._send(decision)
 
     async def _run(self, force: bool) -> None:
         # The player's title changes when the next song starts decoding; the
         # soundbar plays it about audio_delay seconds later.
         observed = time.monotonic()
         new_track = False
-        if not self._transition_set:
-            self._transition_set = await self._ensure_transition()
         player = self.hass.states.get(self.config.player)
         key = _track_key(player)
         if key is None:
@@ -714,8 +774,13 @@ class Director:
         # Repeat avoidance follows the automatic choice, not the override.
         self._last_effect = decision.natural_effect
         await self._apply(decision)
+        if not self._transition_set:
+            # After the first look is out: the crossfade only matters from
+            # the next effect on, and LedFx being down must not delay it.
+            self._transition_set = await self._ensure_transition()
         if key is not None and decision.natural.source != "cover":
-            self.hass.async_create_task(self._recheck_cover(key))
+            self._cancel_recheck()
+            self._recheck_task = self.hass.async_create_task(self._recheck_cover(key))
         if key is not None and new_track:
             self._cancel_prepare()
             self._prepare_task = self.hass.async_create_background_task(
@@ -736,6 +801,8 @@ class Director:
             cover = await self._cover_for(key)
             if cover is None:
                 continue
+            if self._track_key != key:
+                return
             self.tracks.put(key, Entry(decision.info, cover))
             _LOGGER.info("Late cover colour for %s", key.replace("\n", " - "))
             await self._apply(
@@ -898,12 +965,7 @@ class Director:
                 row["family"] = family
                 row["intensity"] = round(level, 2)
                 row["genres"] = list(entry.info.genres[:3])
-                configured = find_override(
-                    tuple(o for o in self.config.overrides if o.effect),
-                    title,
-                    artist,
-                    album,
-                )
+                configured = find_override(self._effect_overrides, title, artist, album)
                 row["auto_effect"] = (
                     configured.effect
                     if configured and configured.effect
@@ -1053,9 +1115,7 @@ class Director:
         palette, family, level = _natural(entry)
         # Colours come from pins (seeded from configured overrides); the
         # configured overrides still set effects.
-        song = find_override(
-            tuple(o for o in self.config.overrides if o.effect), title, artist, album
-        )
+        song = find_override(self._effect_overrides, title, artist, album)
         if song and song.effect:
             effect = song.effect
         else:
@@ -1329,7 +1389,7 @@ class Director:
         )
         try:
             async with self._session.request(
-                method, url, json=payload, timeout=HTTP_TIMEOUT
+                method, url, json=payload, timeout=LEDFX_TIMEOUT
             ) as response:
                 if response.status >= 400:
                     _LOGGER.warning(
@@ -1355,7 +1415,7 @@ class Director:
         virtual = self.config.ledfx_virtual
         try:
             async with self._session.get(
-                f"{base}/{virtual}", timeout=HTTP_TIMEOUT
+                f"{base}/{virtual}", timeout=LEDFX_TIMEOUT
             ) as response:
                 body = await response.json(content_type=None)
             config = dict(body[virtual]["config"])
@@ -1363,7 +1423,7 @@ class Director:
                 return True
             config["transition_time"] = self.config.transition_time
             async with self._session.post(
-                base, json={"id": virtual, "config": config}, timeout=HTTP_TIMEOUT
+                base, json={"id": virtual, "config": config}, timeout=LEDFX_TIMEOUT
             ) as response:
                 if response.status >= 400:
                     _LOGGER.warning(
@@ -1381,16 +1441,10 @@ class Director:
             _LOGGER.warning("LedFx transition update failed: %s", type(error).__name__)
             return False
 
-    async def _push_strip(self, decision: Decision) -> None:
-        """Start the decision's effect on the strip."""
-        sent = await self._ledfx(
-            "POST", {"type": decision.effect, "config": decision.config}
-        )
-        self._sent = decision if sent else None
-
     async def _clear_strip(self) -> None:
-        self._sent = None
-        await self._ledfx("DELETE")
+        async with self._strip_lock:
+            self._sent = None
+            await self._ledfx("DELETE")
 
     async def _stop(self) -> None:
         self._track_key = None
