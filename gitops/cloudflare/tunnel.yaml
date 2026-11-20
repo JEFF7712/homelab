@@ -31,7 +31,7 @@ spec:
                   - /bin/sh
                   - -c
                   - sleep 15
-          image: registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/cloudflare/cloudflared@sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d  # yamllint disable-line rule:line-length
           resources:
             requests:
               cpu: 50m
