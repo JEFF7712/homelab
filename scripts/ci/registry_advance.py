@@ -66,6 +66,7 @@ from zoneinfo import ZoneInfo
 
 import yaml
 
+from scripts.ci import chart_advance
 from scripts.registry.advance import (
     SOURCE,
     adoptions,
@@ -652,6 +653,11 @@ def main() -> int:
             busy |= adopted_repositories(
                 api(token, f"/pulls/{pending['number']}.diff", raw=True)
             )
+    charts_outcome, busy_charts = chart_advance.settle_bumps(
+        root, token, closed, time.time(), api, publish
+    )
+    if charts_outcome == "reverted":
+        return 0
     blocked = reverted_digests(closed)
     for repository, rewrites, digest in adopt_candidates(
         files, declarations(root), lock, effective_policy(policy, datetime.now(UTC))
@@ -705,6 +711,18 @@ def main() -> int:
             continue
         print(f"mirror #{number} {repository}: rebuilding on main")
         publish_mirror(token, number, old, new, paths)
+        return 0
+    if chart_advance.step(
+        root,
+        token,
+        lock,
+        effective_policy(policy, datetime.now(UTC)),
+        busy_charts,
+        api,
+        publish,
+        registry_serves,
+        RENOVATE,
+    ):
         return 0
     print("nothing to advance")
     return 0
