@@ -14,7 +14,10 @@ retention tag still names the digest.
 
 `adopt` then rewrites each consumer that references an upstream mirror digest
 no longer declared, when exactly one current declaration of that repository
-is locked. Anything ambiguous is reported and left alone.
+is locked. A repository declared several times (python:3.14-alpine beside
+python:3.12-slim) moves each consumer to the one declaration whose upstream
+tag matches the tag its old digest was locked under. Anything ambiguous is
+reported and left alone.
 """
 
 from __future__ import annotations
@@ -150,6 +153,21 @@ def declared(lock: Mapping[str, Any]) -> dict[str, set[str]]:
     return found
 
 
+def source_tags(lock: Mapping[str, Any]) -> dict[str, dict[str, str | None]]:
+    """Upstream source tag of each locked digest, by mirror repository.
+
+    A consumer record carries no tag and can follow the declaration record of
+    the same digest; keep the declared tag rather than overwriting it with None.
+    """
+    found: dict[str, dict[str, str | None]] = {}
+    for entry in lock["images"]:
+        repository = found.setdefault(entry["destination_repository"], {})
+        tag = (entry.get("source") or {}).get("tag")
+        if entry["digest"] not in repository or tag is not None:
+            repository[entry["digest"]] = tag
+    return found
+
+
 def declarations(root: pathlib.Path) -> dict[str, set[str]]:
     """Currently declared upstream digests by mirror repository."""
     found: dict[str, set[str]] = {}
@@ -166,8 +184,13 @@ def adoptions(
     files: Iterable[tuple[str, str]],
     current: Mapping[str, set[str]],
     locked: Mapping[str, set[str]],
+    tags: Mapping[str, Mapping[str, str | None]] | None = None,
 ) -> tuple[dict[str, dict[str, str]], list[str]]:
-    """Per file, old -> new mirror references to rewrite, and what was skipped."""
+    """Per file, old -> new mirror references to rewrite, and what was skipped.
+
+    With `tags` (from `source_tags`), a repository declared several times
+    narrows to the declarations sharing the old digest's upstream tag.
+    """
     rewrites: dict[str, dict[str, str]] = {}
     skipped: list[str] = []
     for path, text in files:
@@ -178,11 +201,18 @@ def adoptions(
             wanted = current.get(repository, set())
             if not wanted or digest in wanted:
                 continue
+            note = ""
+            known = (tags or {}).get(repository, {})
+            if len(wanted) > 1 and known.get(digest) is not None:
+                tag = known[digest]
+                note = f", {sum(known.get(d) == tag for d in wanted)} tagged {tag}"
+                wanted = {d for d in wanted if known.get(d) == tag}
             ready = wanted & locked.get(repository, set())
             if len(wanted) != 1 or not ready:
+                count = len(current.get(repository, set()))
                 skipped.append(
-                    f"{path}: {repository}@{digest} has {len(wanted)} declarations, "
-                    f"{len(ready)} locked"
+                    f"{path}: {repository}@{digest} has {count} declarations"
+                    f"{note}, {len(ready)} locked"
                 )
                 continue
             new = next(iter(ready))
@@ -200,7 +230,9 @@ def adopt(root: pathlib.Path) -> tuple[list[str], list[str]]:
         if path.is_file() and path.suffix in (".yaml", ".yml")
     ]
     lock = json.loads((root / LOCK).read_text())
-    rewrites, skipped = adoptions(files, declarations(root), declared(lock))
+    rewrites, skipped = adoptions(
+        files, declarations(root), declared(lock), source_tags(lock)
+    )
     changed = []
     for path, pairs in rewrites.items():
         target = root / path
