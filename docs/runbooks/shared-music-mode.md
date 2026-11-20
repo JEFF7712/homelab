@@ -256,7 +256,9 @@ of the last one. On a drop the strip's background lights up in the song's
 colour under the running effect and fades out over about a second
 (`FLASH_STEPS`, LedFx `background_color` and `background_brightness` via
 `PUT`, so the effect does not restart). Strip updates wait during the flash
-and the latest decision is sent after it. Bulbs do not flash.
+and the latest decision is sent after it. The flash stops early when the
+song or effect changes, and never starts while LedFx is not running the
+song's effect. Bulbs do not flash.
 `switch.music_mode_drop_flash` ("Flash on drops") turns it off and keeps
 that across restarts.
 
@@ -267,8 +269,15 @@ energy starts from the middle when the section is not normal.
 
 The strip's effect is updated in place (`PUT …/effects`), not restarted,
 while the effect LedFx last accepted is the same; otherwise it is started
-again (`POST`). Strip updates go out one at a time, and one superseded by a
-newer decision is skipped, so the strip always ends on the latest settings.
+again (`POST`). Every strip request (updates, the flash, the strip toggle,
+clearing it when Music Mode ends) goes out one at a time, and an update
+superseded by a newer decision is skipped, so the strip always ends on the
+latest settings. An update that changes nothing (a pin, the dropdown or a
+control set to its current value) sends nothing. LedFx calls time out after
+3 s. When LedFx refuses an in-place update (it restarted and runs no effect)
+or its audio feed reconnects after a drop, the effect is started again.
+Once Music Mode is off, a late cover check or flash changes neither
+`sensor.music_director` nor the strip.
 Bulbs change at most once per section. Pins and the manual colour are not
 changed. `sensor.music_director` reports `section`; the preview card shows
 loud and quiet parts. Settings were tuned on live recordings on 2026-11-14:
@@ -295,8 +304,10 @@ LedFx schema range (`rules.dynamics`): speed scales from 70 BPM (slowest) to
 160 BPM (fastest) for `melt`, `lava_lamp` and `scroll`; energy raises
 `reactivity` (melt, lava_lamp), `sensitivity` (energy), `bass_decay_rate`
 (power) and shortens `decay` (scroll). Unknown tempo or energy keeps the
-LedFx default. On start it sets the strip virtual's `transition_time`
-(crossfade between effects) to `music_director.transition_time` (1.5 s).
+LedFx default. After the first decision is out it sets the strip
+virtual's `transition_time` (crossfade between effects) to
+`music_director.transition_time` (1.5 s), so a slow LedFx never holds back
+the first colours.
 
 The player's title changes when Spotify starts decoding the next song, but the
 soundbar plays it later (the Spotify Connect pipeline's buffering, see
