@@ -633,7 +633,14 @@ in
     description = "Pull Immich, DB dumps, and Forgejo state to 1TB external HDD";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
-    unitConfig.RequiresMountsFor = [ "/mnt/backups" ];
+    # One retry: the nightly fleet reboot (03:00-05:00) can restart a
+    # source host while this mounts it (homelab-04 at 03:31 on 2026-11-19).
+    # The 03:50 retry is still inside the 6 h dump freshness window.
+    unitConfig = {
+      RequiresMountsFor = [ "/mnt/backups" ];
+      StartLimitIntervalSec = "6h";
+      StartLimitBurst = 2;
+    };
     path = [
       pkgs.coreutils
       pkgs.util-linux
@@ -655,6 +662,8 @@ in
     serviceConfig = {
       Type = "oneshot";
       TimeoutStartSec = "4h";
+      Restart = "on-failure";
+      RestartSec = "20min";
       ExecStart = backupScript;
       CacheDirectory = "immich-external-backup";
       LoadCredential = [

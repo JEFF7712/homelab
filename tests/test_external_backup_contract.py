@@ -35,6 +35,8 @@ class ExternalBackupContractTests(unittest.TestCase):
         self.assertIn('"d /mnt/backups 0700 root root -"', content)
         # Timers and safety
         self.assertIn('OnCalendar = "03:30:00"', content)
+        self.assertIn('Restart = "on-failure";', content)
+        self.assertIn("StartLimitBurst = 2;", content)
         self.assertIn("systemd.timers.immich-external-backup-prune = {", content)
         self.assertNotIn("enable = false;", content)
         self.assertIn("--keep-last 3", content)

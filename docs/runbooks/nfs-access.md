@@ -40,15 +40,22 @@ this policy update.
 
 `/tank/media` is a mergerfs union of `tank/media` (mounted at
 `/mnt/media-tank`) and the single-disk `media2/media` and `media3/media` pools
-(mounted at `/mnt/media-2tb` and `/mnt/media-3tb`). New files land on the branch with the most free space;
-mergerfs keeps hardlinks and renames on the source branch, so *arr imports still
-hardlink. The export carries a fixed `fsid` because FUSE has no stable device
+(mounted at `/mnt/media-2tb` and `/mnt/media-3tb`). New files land on the
+branch with the most free space; mergerfs keeps hardlinks and renames on the
+source branch, so *arr imports still hardlink. The export carries a fixed `fsid` because FUSE has no stable device
 id. A file lives on exactly one disk: losing a salvaged disk loses the media on
 it, not the rest of the library. Operate on files through `/tank/media`; the
 branch mounts are for diagnosis.
 
-Changing the `/tank/media` mount (type, device or branches) restarts
-`tank-media.mount` on switch, which fails while NFS clients hold it. Before such
-a deployment, suspend the `media` and `music-assistant` Flux Kustomizations,
-scale their workloads to zero, run `exportfs -u` for the `/tank/media` clients,
-deploy, then resume Flux.
+To add a disk, create its single-disk pool, declare it in
+`flake/hosts/nas-01/tank-config.nix`, and append its mount point to
+`mediaExtraBranches` in `flake/modules/nas-data.nix`. The
+`media-extra-branches` oneshot attaches it to the running union through
+`/tank/media/.mergerfs`, before `nfs-server` at boot, with no downtime.
+
+Do not change the `/tank/media` device or options: the switch then restarts
+`tank-media.mount`, which fails while NFS clients hold it, and the deployment
+and its rollback both fail (2026-11-19). If that is unavoidable, suspend the
+parent `flux-system` Kustomization as well as `media` and `music-assistant`
+(the parent reverts their `suspend`), scale consumers to zero, confirm no pod
+mounts `media-library`, and only then unexport `/tank/media` and deploy.
