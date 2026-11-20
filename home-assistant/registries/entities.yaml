@@ -176,11 +176,10 @@
   labels:
     - shared_space
   name: Kitchen Ceiling Light 2
-- area_id: kitchen
+- area_id: sams_room
   entity_id: light.kitchen_dining_table_ceiling_light_1
-  labels:
-    - shared_space
-  name: Dining Table Ceiling Light 1
+  labels: []
+  name: Sams Room Ceiling Light
 - area_id: kitchen
   entity_id: light.kitchen_dining_table_ceiling_light_2
   labels:

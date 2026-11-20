@@ -146,7 +146,6 @@ class TestSharedMusicMode(unittest.TestCase):
                 "light.kitchen_ceiling_light_2",
                 "light.living_room_floor_lamp",
                 "light.living_room_tulip_lamp",
-                "light.kitchen_dining_table_ceiling_light_1",
                 "light.kitchen_dining_table_ceiling_light_2",
                 "light.apollo_led_strip_apollo_led_strip",
             },

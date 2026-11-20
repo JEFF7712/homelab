@@ -27,9 +27,9 @@
   name_by_user: Bose Speaker
 - area_id: living_room
   id: 88445f501cdea731a56e83e281338b05
-- area_id: kitchen
+- area_id: sams_room
   id: 9bea576dabb697ba6e18167f2953ffc9
-  name_by_user: Dining Table Ceiling Light 1
+  name_by_user: Sams Room Ceiling Light
 - area_id: kitchen
   id: a1ba1d50c624f629824c4e9b36cb0035
   name_by_user: Kitchen Mushroom Lamp
