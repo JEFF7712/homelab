@@ -1644,6 +1644,44 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/platform/registry-sources.yaml:20"
+      ],
+      "destination_repository": "upstream/quay.io/cilium/cilium",
+      "destination_tags": [
+        "retention-deployed-aa72499f075ad729",
+        "v1.20.5"
+      ],
+      "digest": "sha256:aa72499f075ad729947ea91b026218aceba24f1a8e4534bf36b8368c7c561526",
+      "id": "upstream-cilium-cilium-3ac731cb9059",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:aa72499f075ad729947ea91b026218aceba24f1a8e4534bf36b8368c7c561526",
+        "reference": "quay.io/cilium/cilium:v1.20.5@sha256:aa72499f075ad729947ea91b026218aceba24f1a8e4534bf36b8368c7c561526",
+        "registry": "quay.io",
+        "repository": "cilium/cilium",
+        "tag": "v1.20.5"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:kube-system/cilium-9l549/apply-sysctl-overwrites",
         "observed:kube-system/cilium-9l549/cilium-agent",
         "observed:kube-system/cilium-9l549/clean-cilium-state",
@@ -1693,6 +1731,44 @@
         "registry": "quay.io",
         "repository": "cilium/cilium",
         "tag": null
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/platform/registry-sources.yaml:22"
+      ],
+      "destination_repository": "upstream/quay.io/cilium/cilium-envoy",
+      "destination_tags": [
+        "retention-deployed-bdef13043ebaa7b9",
+        "v1.39.6-1794557904-dee711ff0e84b106edd0abcdd71961af1b870359"
+      ],
+      "digest": "sha256:bdef13043ebaa7b9dcd8e3a86be41080bb5369e017cd759a12daf89e2b8fafe7",
+      "id": "upstream-cilium-cilium-envoy-421fdeba8640",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:bdef13043ebaa7b9dcd8e3a86be41080bb5369e017cd759a12daf89e2b8fafe7",
+        "reference": "quay.io/cilium/cilium-envoy:v1.39.6-1794557904-dee711ff0e84b106edd0abcdd71961af1b870359@sha256:bdef13043ebaa7b9dcd8e3a86be41080bb5369e017cd759a12daf89e2b8fafe7",
+        "registry": "quay.io",
+        "repository": "cilium/cilium-envoy",
+        "tag": "v1.39.6-1794557904-dee711ff0e84b106edd0abcdd71961af1b870359"
       }
     },
     {
@@ -1770,6 +1846,44 @@
         "registry": "quay.io",
         "repository": "cilium/operator-generic",
         "tag": null
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/platform/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/quay.io/cilium/operator-generic",
+      "destination_tags": [
+        "retention-deployed-c6e7de6665aa9701",
+        "v1.20.5"
+      ],
+      "digest": "sha256:c6e7de6665aa9701db86c4fe46828a75a0d167afe084a9ffb5bce34b2c4fa8c4",
+      "id": "upstream-cilium-operator-generic-a97cc297935b",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c6e7de6665aa9701db86c4fe46828a75a0d167afe084a9ffb5bce34b2c4fa8c4",
+        "reference": "quay.io/cilium/operator-generic:v1.20.5@sha256:c6e7de6665aa9701db86c4fe46828a75a0d167afe084a9ffb5bce34b2c4fa8c4",
+        "registry": "quay.io",
+        "repository": "cilium/operator-generic",
+        "tag": "v1.20.5"
       }
     },
     {
