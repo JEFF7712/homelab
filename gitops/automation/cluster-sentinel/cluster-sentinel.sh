@@ -184,6 +184,40 @@ else
   check_change "restore-drills" "ok" "Restore drill issue" "Restore drills recovered" "Every backed-up dataset restored within eight days."
 fi
 
+# Renovate exits 0 even when it aborts the repository (44.256.1 on a lscr.io
+# 429, 2026-11-20), so a succeeded Job proves nothing: read the result each of
+# its last two finished runs logged. One bad run is a transient rate limit;
+# two in a row means Renovate has stopped updating anything.
+renovate_verdict() {
+  # stdin: "<job> <result>" per finished run, oldest first.
+  tail -n 2 | awk '
+    NF == 2 { runs++; if ($2 != "done") { bad++; job = $1; result = $2 } }
+    END {
+      if (runs == 2 && bad == 2)
+        printf "automation/renovate-forgejo: last two runs ended %s (%s)\n", result, job
+    }
+  '
+}
+
+renovate_runs="$(
+  kubectl -n "${namespace}" get jobs -o json | jq -r '
+    .items[]
+    | select((.metadata.ownerReferences // [])[0].name == "renovate-forgejo")
+    | select((.status.succeeded // 0) > 0 or (.status.failed // 0) > 0)
+    | "\(.metadata.creationTimestamp) \(.metadata.name)"
+  ' | sort | tail -n 2 | while read -r _created job; do
+    result="$(kubectl -n "${namespace}" logs "job/${job}" --tail=2000 2>/dev/null \
+      | sed -n 's/.*"result": "\([a-z-]*\)".*/\1/p' | tail -n 1)"
+    printf '%s %s\n' "${job}" "${result:-unknown}"
+  done
+)"
+renovate_bad="$(printf '%s\n' "${renovate_runs}" | sed '/^$/d' | renovate_verdict)"
+if [ -n "${renovate_bad}" ]; then
+  check_change "renovate-runs" "bad" "Renovate is not updating" "Renovate recovered" "${renovate_bad}"
+else
+  check_change "renovate-runs" "ok" "Renovate is not updating" "Renovate recovered" "Renovate's last runs finished."
+fi
+
 cert_bad="$(
   kubectl get certificates.cert-manager.io -A -o json | jq -r '
     .items[]

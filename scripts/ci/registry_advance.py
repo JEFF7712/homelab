@@ -20,25 +20,28 @@ Renovate closes its own PR. Workloads then move in a separate change
   rebuilds from main and force-pushes the schedule's branch, so a PR left
   stale by an interrupted run is refreshed rather than stuck.
 
-Before either step, a run settles the newest adopt it merged in the last day:
-once Flux has applied it, the moved workloads must roll out and run the new
-digests (scripts/registry/advance.py `verify`, through the read-only
-registry-advance identity). A healthy adopt is marked verified; a failed one
-is reverted by a PR that names the digest, and that digest is never adopted
-again. Nothing new is adopted while an adopt is unsettled.
+Before either step, a run settles every adopt it merged in the last eight days
+that has no verdict yet: once Flux has applied it, the moved workloads must
+roll out and run the new digests (scripts/registry/advance.py `verify`, through
+the read-only registry-advance identity). A healthy adopt is marked verified; a
+failed one is reverted by a PR that names the digest, and that digest is never
+adopted again. An unsettled adopt holds only its own repository, so a weekly
+CronJob waiting for its run does not stall other updates; a revert ends the
+run, which publishes at most one change.
 
 Eligible updates keep the same major version, outside the denied namespaces
 and repositories (config/registry/advance-policy.json). A mirror needs every
 consumer to be a Deployment whose main container has a readiness probe, or a
-CronJob, none using the image in an init container; an adopt applies the same
-test to each consumer file and moves only those that pass. Producer base images
+CronJob; init containers count, since verify checks their digests too. An
+adopt applies the same test to each consumer file and moves only those that
+pass. Producer base images
 (gitops/producer-base-images/base-images.yaml) need no workload to mirror;
 their consumers here are projectctl's CI step images
 (config/ci/projectctl-contracts.json), where a bad image fails a project's
 build without touching a running service. The Woodpecker clone image is
 enforcement code and stays with the operator. A RollingUpdate keeps the old pod
 serving; a Recreate restarts and is reverted if it does not come back; a
-CronJob, which must run at least daily, is verified by its next scheduled run
+CronJob, which must run at least weekly, is verified by its next scheduled run
 and reverted if that run fails (it is never run off schedule). StatefulSets, DaemonSets and everything
 else stay with a person or the controller.
 """
@@ -56,8 +59,10 @@ import time
 import urllib.error
 import urllib.request
 from collections.abc import Iterable, Mapping
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import yaml
 
@@ -85,7 +90,9 @@ ADOPT_BRANCH = "registry-advance/adopt-"
 REVERT_BRANCH = "registry-advance/revert-"
 VERIFIED = "<!-- registry-advance: verified -->"
 REVERTED = "<!-- registry-advance: reverted -->"
-SETTLE_WINDOW = 24 * 3600
+# A weekly CronJob's first scheduled run on the new image decides its adopt;
+# anything that rolls out decides within minutes.
+SETTLE_WINDOW = 8 * 24 * 3600
 MIRROR_REFERENCE = re.compile(r"registry\.rupan\.dev/[^\s\"'@]+@sha256:[0-9a-f]{64}")
 REVERTED_DIGEST = re.compile(r"^reverted: (\S+@sha256:[0-9a-f]{64})$", re.MULTILINE)
 
@@ -167,20 +174,23 @@ def ineligible(
         name = metadata.get("name")
         if metadata.get("namespace") in policy.get("deny_namespaces", []):
             return f"{path}: namespace {metadata.get('namespace')} is denied"
+        held = policy.get("held_namespaces", {})
+        if metadata.get("namespace") in held:
+            return f"{path}: namespace {metadata.get('namespace')} {held[metadata.get('namespace')]}"
         kind = document.get("kind")
         spec = document.get("spec") or {}
         if kind == "CronJob":
             # Its next scheduled run verifies it within the settle window, so
-            # it must run at least daily and not be suspended.
+            # it must run at least weekly and not be suspended.
             schedule = str(spec.get("schedule", ""))
             fields = schedule.split()
-            daily = schedule in ("@hourly", "@daily", "@midnight") or (
-                len(fields) == 5 and fields[2:] == ["*", "*", "*"]
+            weekly = schedule in ("@hourly", "@daily", "@midnight", "@weekly") or (
+                len(fields) == 5 and fields[2:4] == ["*", "*"]
             )
             if spec.get("suspend"):
                 return f"{path}: {name} is suspended, so no run can verify it"
-            if not daily:
-                return f"{path}: {name} runs less often than daily ({schedule})"
+            if not weekly:
+                return f"{path}: {name} runs less often than weekly ({schedule})"
             template = ((spec.get("jobTemplate") or {}).get("spec") or {}).get(
                 "template"
             ) or {}
@@ -189,9 +199,9 @@ def ineligible(
         else:
             return f"{path}: {name} is a {kind}"
         pod = template.get("spec") or {}
-        for container in pod.get("initContainers") or []:
-            if old_reference in str(container.get("image", "")):
-                return f"{path}: {name} uses it in an init container"
+        # Init containers are fine: verify requires the pods' init container
+        # statuses to report the new digest too, and a failing init container
+        # stalls the rollout, which is reverted.
         for container in pod.get("containers") or []:
             if kind != "Deployment":
                 continue
@@ -200,6 +210,22 @@ def ineligible(
             ):
                 return f"{path}: {name}/{container.get('name')} has no readiness probe"
     return None
+
+
+def effective_policy(policy: Mapping[str, Any], now: datetime) -> dict[str, Any]:
+    """The policy an adopt is judged by at `now`: windowed namespaces are held
+    outside their hours (start inclusive, end exclusive, in their timezone)."""
+    effective = dict(policy)
+    window = policy.get("window_namespaces") or {}
+    hour = now.astimezone(ZoneInfo(window.get("timezone", "UTC"))).hour
+    start, end = window.get("start_hour", 0), window.get("end_hour", 24)
+    if not start <= hour < end:
+        effective["held_namespaces"] = {
+            namespace: f"adopts only between {start:02d}:00 and {end:02d}:00 "
+            f"{window.get('timezone', 'UTC')}"
+            for namespace in window.get("namespaces", [])
+        }
+    return effective
 
 
 def adopt_candidates(
@@ -443,23 +469,45 @@ def reverted_digests(pulls: Iterable[Mapping[str, Any]]) -> set[str]:
     }
 
 
-def unsettled_adopt(
+def unsettled_adopts(
     pulls: Iterable[Mapping[str, Any]], comments: Any, now: float
-) -> Mapping[str, Any] | None:
-    """The newest adopt merged in the window with no verdict yet."""
-    for pull in sorted(
-        pulls, key=lambda p: str(p.get("merged_at") or ""), reverse=True
-    ):
+) -> list[Mapping[str, Any]]:
+    """Adopts merged in the window with no verdict yet, oldest first."""
+    found = []
+    for pull in pulls:
         if not str((pull.get("head") or {}).get("ref", "")).startswith(ADOPT_BRANCH):
             continue
         merged = parse_time(pull.get("merged_at"))
         if merged is None or now - merged > SETTLE_WINDOW:
-            return None
+            continue
         bodies = " ".join(c.get("body", "") for c in comments(pull["number"]))
         if VERIFIED in bodies or REVERTED in bodies:
-            return None
-        return pull
-    return None
+            continue
+        found.append(pull)
+    return sorted(found, key=lambda p: str(p.get("merged_at") or ""))
+
+
+def adopted_repositories(diff: str) -> set[str]:
+    """Mirror repositories an adopt PR moves."""
+    return {
+        repository_of(new.removeprefix("registry.rupan.dev/upstream/"))
+        for pairs in mirror_pairs(diff).values()
+        for new in pairs
+    }
+
+
+def recent_closed(token: str, now: float) -> list[dict[str, Any]]:
+    """Closed PRs updated within the settle window, newest first."""
+    pulls: list[dict[str, Any]] = []
+    for page in range(1, 21):
+        batch = api(
+            token, f"/pulls?state=closed&sort=recentupdate&limit=50&page={page}"
+        )
+        pulls += batch
+        updated = parse_time((batch[-1] if batch else {}).get("updated_at"))
+        if len(batch) < 50 or updated is None or now - updated > SETTLE_WINDOW:
+            break
+    return pulls
 
 
 def parse_time(value: Any) -> float | None:
@@ -587,18 +635,30 @@ def main() -> int:
         for path in sorted((root / "gitops").rglob("*"))
         if path.is_file() and path.suffix in (".yaml", ".yml")
     ] + [(CONTRACTS, (root / CONTRACTS).read_text())]
-    closed = api(token, "/pulls?state=closed&sort=recentupdate&limit=50")
-    pending = unsettled_adopt(
+    closed = recent_closed(token, time.time())
+    # Settle every pending adopt; one waiting on a weekly CronJob holds only
+    # its own repository. A revert publishes a commit, and each run publishes
+    # at most one, so a revert ends the run.
+    busy: set[str] = set()
+    for pending in unsettled_adopts(
         closed,
         lambda number: api(token, f"/issues/{number}/comments"),
         time.time(),
-    )
-    if pending is not None and settle(root, token, pending) != "verified":
-        return 0
+    ):
+        outcome = settle(root, token, pending)
+        if outcome == "reverted":
+            return 0
+        if outcome == "waiting":
+            busy |= adopted_repositories(
+                api(token, f"/pulls/{pending['number']}.diff", raw=True)
+            )
     blocked = reverted_digests(closed)
     for repository, rewrites, digest in adopt_candidates(
-        files, declarations(root), lock, policy
+        files, declarations(root), lock, effective_policy(policy, datetime.now(UTC))
     ):
+        if repository in busy:
+            print(f"adopt {repository}: an earlier adopt of it is still settling")
+            continue
         if f"{repository}@{digest}" in blocked:
             print(
                 f"adopt {repository}: {digest} was reverted; waiting for a newer image"
