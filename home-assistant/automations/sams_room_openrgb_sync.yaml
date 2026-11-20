@@ -1,0 +1,89 @@
+id: sams_room_openrgb_sync
+alias: "Sams Room: OpenRGB Light Sync"
+description: >-
+  Update Sam's Room ceiling bulb from OpenRGB profile changes sent over the
+  Home Assistant events API (sams_room_openrgb_sync). Expects this bulb to be
+  removed from Adaptive Lighting (Govee Dining Bulbs) so custom colours hold.
+triggers:
+  - trigger: event
+    event_type: sams_room_openrgb_sync
+conditions:
+  - condition: template
+    value_template: >-
+      {{ not is_state('light.kitchen_dining_table_ceiling_light_1', 'unavailable') }}
+actions:
+  - variables:
+      raw: "{{ trigger.event.data if trigger.event.data is mapping else {} }}"
+      req_state: "{{ raw.get('state', 'on') | string | lower }}"
+      rgb: "{{ raw.get('rgb_color', raw.get('rgb')) }}"
+      kelvin: "{{ raw.get('color_temp_kelvin') }}"
+      brightness_pct: "{{ raw.get('brightness_pct') }}"
+      has_rgb: >-
+        {{ rgb is sequence and rgb is not string and (rgb | count == 3) }}
+      is_black: >-
+        {{ has_rgb and rgb[0] | int(0) == 0 and rgb[1] | int(0) == 0
+        and rgb[2] | int(0) == 0 }}
+      clamped_rgb: >-
+        {{ [[0, [255, rgb[0] | int(0)] | min] | max,
+        [0, [255, rgb[1] | int(0)] | min] | max,
+        [0, [255, rgb[2] | int(0)] | min] | max]
+        if has_rgb else [] }}
+      clamped_kelvin: >-
+        {{ [2700, [6500, kelvin | int(3000)] | min] | max
+        if (kelvin is number or (kelvin is string and kelvin | is_number))
+        else none }}
+      clamped_brightness: >-
+        {{ [0, [100, brightness_pct | int(100)] | min] | max
+        if (brightness_pct is number
+        or (brightness_pct is string and brightness_pct | is_number))
+        else none }}
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ req_state == 'off' or is_black
+              or (clamped_brightness is not none and clamped_brightness <= 0) }}
+        sequence:
+          - action: light.turn_off
+            target:
+              entity_id: light.kitchen_dining_table_ceiling_light_1
+      - conditions:
+          - condition: template
+            value_template: "{{ has_rgb and clamped_brightness is not none }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: light.kitchen_dining_table_ceiling_light_1
+            data:
+              rgb_color: "{{ clamped_rgb }}"
+              brightness_pct: "{{ clamped_brightness }}"
+      - conditions:
+          - condition: template
+            value_template: "{{ has_rgb }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: light.kitchen_dining_table_ceiling_light_1
+            data:
+              rgb_color: "{{ clamped_rgb }}"
+      - conditions:
+          - condition: template
+            value_template: >-
+              {{ clamped_kelvin is not none and clamped_brightness is not none }}
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: light.kitchen_dining_table_ceiling_light_1
+            data:
+              color_temp_kelvin: "{{ clamped_kelvin }}"
+              brightness_pct: "{{ clamped_brightness }}"
+      - conditions:
+          - condition: template
+            value_template: "{{ clamped_kelvin is not none }}"
+        sequence:
+          - action: light.turn_on
+            target:
+              entity_id: light.kitchen_dining_table_ceiling_light_1
+            data:
+              color_temp_kelvin: "{{ clamped_kelvin }}"
+mode: restart

@@ -61,7 +61,6 @@ sequence:
           adaptive: switch.adaptive_lighting_all_dimmable_lights
         dining_table:
           lights:
-            - light.kitchen_dining_table_ceiling_light_1
             - light.kitchen_dining_table_ceiling_light_2
           adaptive: switch.adaptive_lighting_govee_dining_bulbs
         floor_lamp:

@@ -29,7 +29,6 @@ SWITCH_LIGHTS = {
         "light.living_room_tulip_lamp",
     },
     "switch.adaptive_lighting_govee_dining_bulbs": {
-        "light.kitchen_dining_table_ceiling_light_1",
         "light.kitchen_dining_table_ceiling_light_2",
     },
 }

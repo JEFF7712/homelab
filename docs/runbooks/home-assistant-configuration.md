@@ -142,6 +142,32 @@ Tool invocations are exposed through `just ha-*` or `python -m scripts.home_assi
 
 ## 7. Backup and Disaster Recovery
 
+### Sam's Room OpenRGB sync
+
+The `/sams-room` dashboard controls `light.kitchen_dining_table_ceiling_light_1`
+and `automation.sams_room_openrgb_sync`. The bulb belongs to `sams_room`, with no
+shared-space label or shared lighting/music controls. The second dining bulb
+remains in the kitchen and in the Govee Dining Bulbs Adaptive Lighting entry.
+
+Send authenticated JSON events to
+`https://ha.rupan.dev/api/events/sams_room_openrgb_sync`. Payloads accept
+`state: off`, `rgb_color` (or `rgb`) with three channels, `color_temp_kelvin`,
+and optional `brightness_pct`. RGB takes precedence over temperature. Black RGB
+or zero brightness turns the bulb off. Channels clamp to 0-255, temperature to
+2700-6500 K, and brightness to 0-100. The dashboard's OpenRGB Sync toggle pauses
+event handling. A Linux profile-change sender must post these events; this
+automation does not monitor OpenRGB itself.
+
+On Rupan's laptop, the dedicated long-lived token and `HASS_URL` are stored in
+`~/.config/home-assistant/openrgb.env` (mode 0600), outside Git. Load that file
+into the sender's environment and use `Authorization: Bearer $HASS_TOKEN`.
+Never include the token in a profile, dashboard, webhook URL, or repository.
+
+Adaptive Lighting options are live configuration, outside declarative ownership.
+In Settings, Devices & Services, Adaptive Lighting, Govee Dining Bulbs,
+Configure, keep only `light.kitchen_dining_table_ceiling_light_2` selected.
+Verify this after re-pairing or recreating the integration so custom RGB holds.
+
 ### Scheduling and Node Failure
 
 Home Assistant uses host networking for HomeKit mDNS and Govee LAN control.

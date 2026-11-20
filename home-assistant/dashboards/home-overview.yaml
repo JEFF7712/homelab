@@ -153,6 +153,12 @@ views:
             tap_action:
               action: navigate
               navigation_path: /shared-spaces
+          - type: button
+            name: Sams Room
+            icon: mdi:bed
+            tap_action:
+              action: navigate
+              navigation_path: /sams-room
           - type: weather-forecast
             entity: weather.forecast_home
             show_current: true

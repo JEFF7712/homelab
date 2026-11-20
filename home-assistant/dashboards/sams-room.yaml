@@ -1,0 +1,39 @@
+title: Sams Room
+icon: mdi:bed
+require_admin: true
+show_in_sidebar: true
+views:
+  - title: Sams Room
+    type: sections
+    sections:
+      - cards:
+          - type: custom:mushroom-light-card
+            entity: light.kitchen_dining_table_ceiling_light_1
+            name: Ceiling Light
+            show_brightness_control: true
+            show_color_temp_control: true
+            show_color_control: true
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info
+          - type: custom:mushroom-template-card
+            entity: automation.sams_room_openrgb_sync
+            primary: OpenRGB Sync
+            secondary: >-
+              {% if is_state('automation.sams_room_openrgb_sync', 'on') %}
+                Following PC profile
+              {% else %}
+                Paused
+              {% endif %}
+            icon: mdi:desktop-tower
+            icon_color: >-
+              {% if is_state('automation.sams_room_openrgb_sync', 'on') %}
+                cyan
+              {% else %}
+                disabled
+              {% endif %}
+            tap_action:
+              action: toggle
+            hold_action:
+              action: more-info

@@ -14,3 +14,7 @@
   icon: mdi:stairs
   aliases: []
   area_id: stairs
+- name: Sams Room
+  icon: mdi:bed
+  aliases: []
+  area_id: sams_room

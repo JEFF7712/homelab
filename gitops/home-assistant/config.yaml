@@ -440,7 +440,6 @@ data:
           - light.kitchen_ceiling_light_2
           - light.kitchen_mushroom_lamp
           - light.kitchen_fuck_off_sign
-          - light.kitchen_dining_table_ceiling_light_1
           - light.kitchen_dining_table_ceiling_light_2
       - platform: group
         name: Living Room Lights
@@ -455,7 +454,6 @@ data:
           - light.kitchen_ceiling_light_2
           - light.living_room_floor_lamp
           - light.living_room_tulip_lamp
-          - light.kitchen_dining_table_ceiling_light_1
           - light.kitchen_dining_table_ceiling_light_2
       - platform: group
         name: Bedroom Roku Lights
@@ -472,7 +470,6 @@ data:
           - light.kitchen_fuck_off_sign
           - light.living_room_floor_lamp
           - light.living_room_tulip_lamp
-          - light.kitchen_dining_table_ceiling_light_1
           - light.kitchen_dining_table_ceiling_light_2
           - light.living_room_led_strip
       - platform: switch
