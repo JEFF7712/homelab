@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: alloy
-      version: 1.15.0
+      version: 1.16.0
       sourceRef:
         kind: HelmRepository
         name: grafana
@@ -18,7 +18,7 @@ spec:
         images:
           - name: docker.io/grafana/alloy
             newName: registry.rupan.dev/upstream/docker.io/grafana/alloy  # yamllint disable-line rule:line-length
-            digest: sha256:51aeb9d829239345070619dad3edd6873186f913c84f45b365b74574fcb38ec0
+            digest: sha256:9acc2529bc1edb7f5b2bd801dd8334ebc80c158e3a9e5526ecd7c9a273d43189
           - name: quay.io/prometheus-operator/prometheus-config-reloader
             newName: registry.rupan.dev/upstream/quay.io/prometheus-operator/prometheus-config-reloader  # yamllint disable-line rule:line-length
             digest: sha256:7d9e4eea5f1139e602508871f422b0116c60e87c662f3dcd234d5ab60cd0d8c1

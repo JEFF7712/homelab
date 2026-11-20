@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: loki
-      version: 7.5.0
+      version: 7.7.0
       sourceRef:
         kind: HelmRepository
         name: grafana
@@ -21,7 +21,7 @@ spec:
             digest: sha256:3c8fd3570dd9219951a60d3f919c7f31923d10baee578b77bc26c4a0b32d092d
           - name: docker.io/grafana/loki-canary
             newName: registry.rupan.dev/upstream/docker.io/grafana/loki-canary  # yamllint disable-line rule:line-length
-            digest: sha256:6d53ce040b436e558936fe05514729c230e9e04edf1fe411d02701025e515924
+            digest: sha256:4f38ce9f80d0fcc2cbc2d823b14b434e46f58a4780e9500da5c5d37b7cb31621
           - name: docker.io/grafana/loki-helm-test
             newName: registry.rupan.dev/upstream/docker.io/grafana/loki-helm-test  # yamllint disable-line rule:line-length
             digest: sha256:2ed6447bbdbcd23019c3fdb02bce6db3fbef296d5a8f77a68d3dbc386bfa43fb
@@ -133,7 +133,7 @@ spec:
       # claim has verified and written its marker.
       initContainers:
         - name: require-store-migration
-          image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:44ef4942e171939b9c665a4a84beb80e2dcdb9a24330d4651cfdfd2e9deecc47  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042  # yamllint disable-line rule:line-length
           command: [/bin/sh, -ec, 'test -f /var/loki/.migration-complete']
           securityContext:
             allowPrivilegeEscalation: false
