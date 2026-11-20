@@ -59,6 +59,9 @@ actions:
             entity_id: input_boolean.guest_mode
             state: "off"
         sequence:
+          # Music Mode ends first: the snapshot then holds the lights as they
+          # were before it, and its restore cannot relight an empty house.
+          - action: script.shared_music_mode_end
           - action: scene.create
             data:
               scene_id: pre_away_shared
@@ -115,6 +118,7 @@ actions:
             entity_id: input_boolean.guest_mode
             state: "off"
         sequence:
+          - action: script.shared_music_mode_end
           - action: homeassistant.turn_off
             target:
               label_id: shared_space
