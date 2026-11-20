@@ -853,6 +853,16 @@ class TestSections(unittest.TestCase):
         self.assertGreaterEqual(min(sections.SECTION_BRIGHTNESS.values()), 0.8)
         self.assertEqual(sections.SECTION_BRIGHTNESS[sections.LOUD], 1.0)
 
+    def test_bulbs_dim_in_quiet_parts_and_lift_in_loud_ones(self) -> None:
+        pct = sections.bulb_brightness_pct
+        # Normal parts keep the Music Mode Brightness the slider shows.
+        self.assertEqual(pct(70, sections.NORMAL), 70)
+        self.assertLess(pct(70, sections.QUIET), 70)
+        self.assertGreater(pct(70, sections.LOUD), 70)
+        # Never above full or down to off.
+        self.assertEqual(pct(100, sections.LOUD), 100)
+        self.assertGreaterEqual(pct(1, sections.QUIET), 1)
+
 
 class TestDrops(unittest.TestCase):
     RATE = 30  # samples per second
