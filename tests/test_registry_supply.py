@@ -1105,6 +1105,17 @@ class RegistryCatalogContractTests(unittest.TestCase):
             operation["environment"]["NTFY_TOKEN"], {"from_secret": "ntfy_token"}
         )
 
+    def test_lock_import_is_bounded_by_a_hard_timeout(self) -> None:
+        """#18777 sat 90 minutes after its copies finished, holding every ship
+        that waited on it; per-image timeouts did not end it."""
+        script = self.script("registry-lock-import")
+        match = re.search(
+            r"timeout --kill-after=\d+ (\d+) python -m scripts\.registry copy", script
+        )
+        self.assertIsNotNone(match)
+        assert match is not None
+        self.assertLessEqual(int(match[1]), 3600)
+
     def test_gc_fixture_runs_offline_and_touches_no_real_registry(self) -> None:
         operation = self.catalog["registry-gc-fixture"]
         self.assertEqual(operation["commands"], ["just registry-gc-fixture"])

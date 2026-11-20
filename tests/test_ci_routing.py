@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.ci.contract import REPORT_BEGIN, REPORT_END, build_report
-from scripts.ci.scope import _GATE_MODULES, Scope, classify, determine
+from scripts.ci.scope import _GATE_MODULES, Scope, classify, determine, reading_tests
 from scripts.ci.validate import main
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +36,54 @@ class ScopeTest(unittest.TestCase):
             ).mode,
             "full",
         )
+
+    def test_tests_that_read_a_changed_file_join_a_scoped_lane(self) -> None:
+        """#1886 changed homelab-05 and one of its tests, and skipped the other."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "tests").mkdir()
+            (root / "tests" / "test_kiosk.py").write_text(
+                'HOST = ROOT / "flake" / "hosts" / "homelab-05" / "default.nix"\n'
+            )
+            (root / "tests" / "test_face.py").write_text(
+                'FACE = REPO_ROOT / "home-assistant" / "www" / "jarvis"\n'
+                'LOCK = ROOT / "registry/images.lock.json"\n'
+            )
+            (root / "tests" / "test_media.py").write_text('AREA = "gitops/media"\n')
+            readers = reading_tests(root)
+            self.assertEqual(
+                readers("flake/hosts/homelab-05/default.nix"), {"tests.test_kiosk"}
+            )
+            # A directory three levels deep covers its files; gitops/media
+            # is too broad to select a test for every manifest under it.
+            self.assertEqual(
+                readers("home-assistant/www/jarvis/config.json"), {"tests.test_face"}
+            )
+            self.assertEqual(readers("gitops/media/arr.yaml"), set())
+
+            scope = classify(
+                ["flake/hosts/homelab-05/default.nix", "tests/test_face.py"], readers
+            )
+            self.assertEqual(scope.checks, ("python", "nix:homelab-05"))
+            self.assertEqual(
+                scope.test_modules, ("tests.test_face", "tests.test_kiosk")
+            )
+            # A python lane without named modules runs the whole suite and
+            # must not be narrowed to the readers.
+            scope = classify(
+                ["scripts/deploy_fleet.py", "registry/images.lock.json"], readers
+            )
+            self.assertIn("python", scope.checks)
+            self.assertIn("tests.test_service_release", scope.test_modules)
+            self.assertEqual(
+                classify(["scripts/deploy_fleet.py"], readers).test_modules, ()
+            )
+            # Application and documentation scopes keep their own lanes.
+            self.assertEqual(
+                classify(["home-assistant/www/jarvis/config.json"], readers).mode,
+                "application",
+            )
+            self.assertEqual(classify(["README.md"], readers).mode, "documentation")
 
     def test_documentation_and_application_allowlist(self) -> None:
         for paths, expected in (
@@ -246,6 +294,22 @@ class CommitRangeTest(unittest.TestCase):
                 )
         for extra in ({"CI_COMMIT_TAG": "release"}, {"CI_FULL_VALIDATION": "1"}):
             self.assertEqual(determine(self.root, dict(self.env, **extra)).mode, "full")
+
+    def test_a_push_to_main_runs_the_whole_unit_suite(self) -> None:
+        scope = determine(self.root, dict(self.env, CI_COMMIT_BRANCH="main"))
+        self.assertEqual(scope.mode, "scoped")
+        self.assertEqual(scope.checks, ("python", "docs"))
+        self.assertEqual(scope.test_modules, ())
+        # A pull request's branch is its target, and other branches stay scoped.
+        for extra in (
+            {"CI_PIPELINE_SOURCE": "pull_request", "CI_COMMIT_BRANCH": "main"},
+            {"CI_COMMIT_BRANCH": "feature"},
+        ):
+            with self.subTest(extra=extra):
+                self.assertEqual(
+                    determine(self.root, dict(self.env, **extra)).mode,
+                    "documentation",
+                )
 
     def test_rename_out_of_unknown_path_and_deletion_are_not_lost(self) -> None:
         (self.root / "unknown.txt").write_text("unknown\n")
@@ -527,6 +591,35 @@ class ValidationLaneTest(unittest.TestCase):
             self.assertEqual(
                 self.invoke("repository", "scoped", paths=(path,)), (0, [], 0)
             )
+
+    def test_application_runs_the_unit_suite_in_the_repository_lane(self) -> None:
+        """No flake lane runs for an application change; deferring the suite to
+        it ran no unit tests, and 0ecf9c30 and 067a9dc2 merged broken."""
+        environments = {}
+
+        def call(command, env=None, **kwargs):
+            environments[" ".join(command)] = env or {}
+            return 0
+
+        for mode in ("application", "full"):
+            with (
+                tempfile.TemporaryDirectory() as temporary,
+                contextlib.chdir(temporary),
+                patch.dict(os.environ, {"CI_JOB_ID": "test"}),
+                patch(
+                    "scripts.ci.validate.determine", return_value=Scope(mode, "test")
+                ),
+                patch("scripts.ci.validate.subprocess.call", side_effect=call),
+                patch("scripts.ci.validate.build_report", return_value=0),
+            ):
+                self.assertEqual(main(["repository"]), 0)
+            with self.subTest(mode=mode):
+                check = environments["just check"]
+                if mode == "application":
+                    self.assertEqual(check.get("SKIP_FLAKE_CHECK"), "1")
+                    self.assertNotIn("CI_UNIT_TESTS_EXTERNAL", check)
+                else:
+                    self.assertEqual(check.get("CI_UNIT_TESTS_EXTERNAL"), "1")
 
     def test_application_keeps_sandbox_tests_and_repository_validation(self) -> None:
         self.assertEqual(self.invoke("flake", "application"), (0, [], 1))

@@ -2,7 +2,7 @@ import json
 import os
 import re
 import subprocess
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
 
@@ -117,7 +117,59 @@ def _test_module(name: str) -> str:
     return "tests." + PurePosixPath(name).stem
 
 
-def classify(paths: Sequence[str]) -> Scope:
+_STRING = re.compile(r"\"([^\"\n]+)\"|'([^'\n]+)'")
+# `ROOT / "flake" / "hosts" / "homelab-05"` names one path in parts.
+_JOINED = re.compile(r"([\"'])([^\"'\n]+)\1\s*/\s*([\"'])([^\"'\n]+)\3")
+
+
+def _path_literals(source: str) -> set[str]:
+    """Repository-relative path strings a test source names, joined parts included."""
+    previous = None
+    while previous != source:
+        previous = source
+        source = _JOINED.sub(lambda m: f'"{m[2]}/{m[4]}"', source)
+    found = set()
+    for double, single in _STRING.findall(source):
+        literal = (double or single).strip().removeprefix("./").rstrip("/")
+        if "/" in literal and " " not in literal:
+            found.add(literal)
+    return found
+
+
+def reading_tests(root: Path) -> Callable[[str], set[str]]:
+    """Map a changed path to the test modules that read it.
+
+    A test reads a path it names exactly, or a directory of it that is at
+    least three levels deep (FACE_DIR = ROOT / "home-assistant" / "www" /
+    "jarvis"); shallower directories like gitops/media would select most of
+    the suite.
+    """
+    index = {
+        _test_module(test.name): _path_literals(test.read_text(errors="replace"))
+        for test in sorted((root / "tests").glob("test_*.py"))
+    }
+
+    def readers(path: str) -> set[str]:
+        return {
+            module
+            for module, literals in index.items()
+            for literal in literals
+            if literal == path
+            or (literal.count("/") >= 2 and path.startswith(literal + "/"))
+        }
+
+    return readers
+
+
+def classify(
+    paths: Sequence[str], readers: Callable[[str], set[str]] | None = None
+) -> Scope:
+    """Choose the validation lanes for changed paths.
+
+    With `readers` (from `reading_tests`), the unit tests that read a changed
+    file run with any scoped lane, so a contract test outside the changed
+    area cannot be skipped.
+    """
     if not paths:
         return Scope("full", "no changed paths")
     application = False
@@ -125,8 +177,11 @@ def classify(paths: Sequence[str]) -> Scope:
     documentation = False
     checks: set[str] = set()
     test_modules: set[str] = set()
+    read_by: set[str] = set()
     for name in paths:
         path = PurePosixPath(name)
+        if readers is not None and not name.startswith("services/led-matrix/"):
+            read_by |= readers(name)
         if (
             path.is_absolute()
             or ".." in path.parts
@@ -216,6 +271,12 @@ def classify(paths: Sequence[str]) -> Scope:
         )
     if not checks:
         return Scope("documentation", "only documentation", tuple(paths))
+    # Application and documentation scopes keep their own lanes (application
+    # runs the whole unit suite); a scoped lane gains the tests that read it.
+    # A python lane without named modules already runs the whole suite.
+    if read_by and ("python" not in checks or test_modules):
+        checks.add("python")
+        test_modules |= read_by
     if application:
         checks.add("home-assistant")
     if documentation:
@@ -254,6 +315,41 @@ def _checked_out(root: Path, head: str) -> bool:
 
 def determine(root: Path, env: Mapping[str, str] | None = None) -> Scope:
     env = os.environ if env is None else env
+    scope = _determine(root, env)
+    source = env.get("CI_PIPELINE_SOURCE") or env.get("CI_PIPELINE_EVENT", "")
+    # A pull request's CI_COMMIT_BRANCH is its target, so only a push counts.
+    if (
+        source != "push"
+        or env.get("CI_COMMIT_BRANCH") != "main"
+        or scope.mode
+        not in {
+            "documentation",
+            "scoped",
+        }
+    ):
+        return scope
+    # Backstop for whatever path-scoped selection misses: a push to main runs
+    # the whole unit suite (a python lane without named modules), so a merge
+    # that breaks an unrelated test fails its own main pipeline at once.
+    checks = tuple(
+        sorted(
+            {
+                *scope.checks,
+                "python",
+                *(("docs",) if scope.mode == "documentation" else ()),
+            },
+            key=lambda c: _CHECK_ORDER.index(c.partition(":")[0]),
+        )
+    )
+    return Scope(
+        "scoped",
+        scope.reason + "; main runs the whole unit suite",
+        scope.paths,
+        checks=checks,
+    )
+
+
+def _determine(root: Path, env: Mapping[str, str]) -> Scope:
     source = (
         env.get("CI_PIPELINE_SOURCE")
         or env.get("CI_PIPELINE_EVENT")
@@ -280,7 +376,7 @@ def determine(root: Path, env: Mapping[str, str] | None = None) -> Scope:
         and re.fullmatch(r"[0-9a-f]{40}", head)
         and _checked_out(root, head)
     ):
-        return classify(branch_files)
+        return classify(branch_files, reading_tests(root))
     if any(
         not re.fullmatch(r"[0-9a-f]{40}", ref) or set(ref) == {"0"}
         for ref in (base, head)
@@ -291,7 +387,7 @@ def determine(root: Path, env: Mapping[str, str] | None = None) -> Scope:
             return Scope("full", "checkout does not match pipeline commit")
         pipeline_files = _file_list(env.get("CI_PIPELINE_FILES"))
         if pipeline_files is not None:
-            return classify(pipeline_files)
+            return classify(pipeline_files, reading_tests(root))
         subprocess.run(
             ["git", "merge-base", "--is-ancestor", base, head],
             cwd=root,
@@ -304,4 +400,7 @@ def determine(root: Path, env: Mapping[str, str] | None = None) -> Scope:
         )
     except (OSError, subprocess.CalledProcessError):
         return Scope("full", "commit range unavailable or unrelated")
-    return classify([os.fsdecode(path) for path in changes.split(b"\0") if path])
+    return classify(
+        [os.fsdecode(path) for path in changes.split(b"\0") if path],
+        reading_tests(root),
+    )
