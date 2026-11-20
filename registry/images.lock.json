@@ -7390,6 +7390,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/voice/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/ghcr.io/ohf-voice/linux-voice-assistant",
+      "destination_tags": [
+        "1.1.18",
+        "retention-deployed-089f321a4e7408c6"
+      ],
+      "digest": "sha256:089f321a4e7408c61fbcd1ec691eb073961be022d651139f32b0dbead9b2af58",
+      "id": "upstream-ohf-voice-linux-voice-assistant-6195f634f807",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:089f321a4e7408c61fbcd1ec691eb073961be022d651139f32b0dbead9b2af58",
+        "reference": "ghcr.io/ohf-voice/linux-voice-assistant:1.1.18@sha256:089f321a4e7408c61fbcd1ec691eb073961be022d651139f32b0dbead9b2af58",
+        "registry": "ghcr.io",
+        "repository": "ohf-voice/linux-voice-assistant",
+        "tag": "1.1.18"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/voice/satellite.yaml:25"
       ],
       "destination_repository": "upstream/ghcr.io/ohf-voice/linux-voice-assistant",
