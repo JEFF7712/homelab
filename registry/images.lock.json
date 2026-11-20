@@ -1857,6 +1857,44 @@
       ],
       "destination_repository": "upstream/docker.io/cloudflare/cloudflared",
       "destination_tags": [
+        "2026.11.1",
+        "retention-deployed-e613aadbc2d95117"
+      ],
+      "digest": "sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d",
+      "id": "upstream-cloudflare-cloudflared-9797adc36997",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d",
+        "reference": "docker.io/cloudflare/cloudflared:2026.11.1@sha256:e613aadbc2d9511785d2e67a86b0c8ac18dd63a3f9af0d06faf04cbfdcb35f2d",
+        "registry": "docker.io",
+        "repository": "cloudflare/cloudflared",
+        "tag": "2026.11.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/cloudflare/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/docker.io/cloudflare/cloudflared",
+      "destination_tags": [
         "2026.10.7",
         "retention-deployed-4955524aeaa379e1"
       ],

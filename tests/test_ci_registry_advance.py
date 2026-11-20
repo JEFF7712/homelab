@@ -206,6 +206,51 @@ class AdoptCandidatesTest(unittest.TestCase):
             ],
         )
 
+    def test_an_ineligible_consumer_does_not_hold_back_the_others(self) -> None:
+        files = [
+            ("gitops/media/arr.yaml", deployment()),
+            ("gitops/home-assistant/app.yaml", deployment(namespace="home-assistant")),
+            ("gitops/media/sweep.yaml", deployment(init=True)),
+        ]
+        found = adopt_candidates(files, {REPOSITORY: {NEW}}, self.lock(), POLICY)
+        self.assertEqual(
+            [(r, sorted(paths), new) for r, paths, new in found],
+            [(REPOSITORY, ["gitops/media/arr.yaml"], NEW)],
+        )
+
+    def test_each_tag_of_a_repository_is_its_own_candidate(self) -> None:
+        other_old, other_new = "sha256:" + "3" * 64, "sha256:" + "4" * 64
+        lock = {
+            "images": [
+                {
+                    "kind": "upstream",
+                    "destination_repository": REPOSITORY,
+                    "digest": digest,
+                    "source": {"tag": tag},
+                }
+                for digest, tag in (
+                    (OLD, "3.14-alpine"),
+                    (NEW, "3.14-alpine"),
+                    (other_old, "3.12-slim"),
+                    (other_new, "3.12-slim"),
+                )
+            ]
+        }
+        files = [
+            ("gitops/media/arr.yaml", deployment()),
+            ("gitops/media/other.yaml", deployment(digest=other_old)),
+        ]
+        found = adopt_candidates(files, {REPOSITORY: {NEW, other_new}}, lock, POLICY)
+        self.assertEqual(
+            sorted((sorted(paths), new) for _, paths, new in found),
+            sorted(
+                [
+                    (["gitops/media/arr.yaml"], NEW),
+                    (["gitops/media/other.yaml"], other_new),
+                ]
+            ),
+        )
+
     def test_ineligible_or_current_consumers_are_not_adopted(self) -> None:
         for manifest, current in (
             (deployment(kind="StatefulSet"), {NEW}),
