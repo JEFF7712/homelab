@@ -110,15 +110,20 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   markdown files, only docs and whitespace checks run, completing in ~2 seconds.
 - **Application changes**: When changes are confined to allowlisted application
   areas (e.g. Home Assistant configurations, automations, custom components),
-  repository validation runs with `SKIP_FLAKE_CHECK=1`. Linters, type checks, and
-  unit tests run in ~15 seconds while avoiding full fleet evaluation.
+  repository validation runs with `SKIP_FLAKE_CHECK=1` and the whole unit suite
+  in the Python lane, avoiding full fleet evaluation. Until 2026-11-20 this lane
+  deferred the unit suite to a flake lane that never ran for these changes, so
+  they ran no unit tests and two broke main (0ecf9c30, 067a9dc2).
 - **Scoped changes**: When every changed path maps to a narrow check, only those
   checks run: Python sources and tests (`python.sh`, with only the changed
   `tests.test_*` modules when tests are what changed), `gitops/` and `schemas/`
   (`gitops.sh`), `tofu/` (`tofu.sh` after provider provisioning), `registry/`
   and registry code (`registry.sh`), agent tooling (`agent-workflows.sh`), and
   single-host Nix changes under `flake/hosts/<host>/` (`nix.sh <host>`). Mixed
-  narrow changes run the union of their checks. Validation infrastructure
+  narrow changes run the union of their checks. A scoped lane also runs every
+  unit test that names a changed file, or a directory of it at least three
+  levels deep, including `ROOT / "flake" / "hosts" / ...` written in parts
+  (`reading_tests` in `scripts/ci/scope.py`). Validation infrastructure
   (`scripts/checks/`, CI config, flake inputs, and the gate's own
   `scripts/ci/` modules), shared Nix modules, and any unmapped path still force
   the full gate. The gate's modules are those that select, run or report
@@ -128,8 +133,11 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   release helpers and take the Python lane.
 - **Main pushes** use the policy mirror's complete first-parent Git diff with
   rename detection disabled, preserving both sides of moved files. The same
-  scoped classification applies as on branches. API display-list truncation
-  cannot omit checks; missing mirror evidence falls back to full validation.
+  scoped classification applies as on branches, except that a documentation
+  or scoped push to main also runs the whole unit suite, so a merge that
+  breaks an unrelated test fails its own main pipeline. API display-list
+  truncation cannot omit checks; missing mirror evidence falls back to full
+  validation.
 - **Full offline gate**: Periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
   full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).

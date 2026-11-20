@@ -151,7 +151,12 @@ def main(argv: list[str] | None = None) -> int:
             return code
         env = dict(os.environ, CI_UNIT_TESTS_EXTERNAL="1")
         if scope.mode == "application":
+            # No flake lane runs the sandboxed suite for an application
+            # change, so the Python lane must: deferring it here and skipping
+            # the flake check ran no unit tests at all, and two such changes
+            # (0ecf9c30, 067a9dc2) merged with tests that read them failing.
             env["SKIP_FLAKE_CHECK"] = "1"
+            del env["CI_UNIT_TESTS_EXTERNAL"]
         return subprocess.call(["just", "check"], env=env)
     code = build_report(args.flake, Path("artifacts/ci/tests.xml"))
     if code or scope.mode == "application":
