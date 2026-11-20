@@ -188,7 +188,9 @@ class DeploymentContractTest(unittest.TestCase):
             )
         )
         self.assertIn("spectrum_url", config)
-        self.assertIn(str(config["face_version"]), host)
+        # The kiosk ?v= is a boot version that may lag face_version, because
+        # the face navigates itself forward; test_jarvis_face checks that
+        # relation (test_kiosk_boot_url_matches_face_version).
 
     def test_resolve_source_uses_pw_dump(self) -> None:
         with patch.object(

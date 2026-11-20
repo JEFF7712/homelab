@@ -33,6 +33,14 @@ SECTION_INTENSITY = {QUIET: -0.1, NORMAL: 0.0, LOUD: 0.15}
 # Push on the effect's speed and reactivity (0-1 scales): punchier
 # choruses and drops, calmer breakdowns.
 SECTION_DRIVE = {QUIET: -0.15, NORMAL: 0.0, LOUD: 0.25}
+# Bulb brightness as a fraction of Music Mode Brightness: normal parts sit at
+# the set level, breakdowns dim and choruses lift (up to 100%).
+BULB_SECTION_BRIGHTNESS = {QUIET: 0.8, NORMAL: 1.0, LOUD: 1.15}
+
+
+def bulb_brightness_pct(brightness_pct: int, section: str) -> int:
+    """The taking-part bulbs' brightness for a section, 1-100%."""
+    return min(100, max(1, round(brightness_pct * BULB_SECTION_BRIGHTNESS[section])))
 
 
 @dataclass
