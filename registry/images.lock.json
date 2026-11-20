@@ -6113,6 +6113,45 @@
       ],
       "destination_repository": "upstream/lscr.io/linuxserver/beets",
       "destination_tags": [
+        "2.14.1-ls360",
+        "retention-deployed-ee3cd57afcd06077"
+      ],
+      "digest": "sha256:ee3cd57afcd06077338a4fed68b4d050e31ec18cd6552d708a36e81932258a83",
+      "id": "upstream-linuxserver-beets-b7b6da705a14",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:ee3cd57afcd06077338a4fed68b4d050e31ec18cd6552d708a36e81932258a83",
+        "reference": "lscr.io/linuxserver/beets:2.14.1-ls360@sha256:ee3cd57afcd06077338a4fed68b4d050e31ec18cd6552d708a36e81932258a83",
+        "registry": "lscr.io",
+        "repository": "linuxserver/beets",
+        "tag": "2.14.1-ls360"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:42"
+      ],
+      "destination_repository": "upstream/lscr.io/linuxserver/beets",
+      "destination_tags": [
         "2.14.1-ls359",
         "retention-deployed-01e4d6177968a831"
       ],
