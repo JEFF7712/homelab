@@ -395,7 +395,14 @@ automation referencing them.
      renders flat, and a stale or unreachable feed falls back to the
      procedural sines so the kiosk still animates offline.
    - Face deploy order: sync `home-assistant/www/jarvis/` to HA before any
-     kiosk restart or `face_version` bump. A fresh `?v=` URL fetched before
+     kiosk restart or `face_version` bump. No pipeline deploys these files
+     (`deploy-home-assistant` does not touch `/config/www`): after merging,
+     copy `app.js`, `index.html` and `style.css` into the pod's
+     `/config/www/jarvis/`, then `config.json` last (for example
+     `kubectl -n home-assistant exec -i deploy/home-assistant -c home-assistant
+     -- sh -c 'cat > /config/www/jarvis/app.js' < home-assistant/www/jarvis/app.js`).
+     On 2026-11-19 the live bundle was still from 2026-11-03, so the face kept
+     watching the old relay player after the Sendspin move. A fresh `?v=` URL fetched before
      the new bundle lands caches the previous bundle under the new version
      and the kiosk shows stale code until the next bump; recover with a
      cache-bypass reload over the kiosk DevTools port (`127.0.0.1:9222` on
