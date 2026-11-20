@@ -7,7 +7,7 @@ import time
 import unittest
 from pathlib import Path
 
-from scripts.agent.worktree_gc import classify, parse_worktrees
+from scripts.agent.worktree_gc import candidates, classify, parse_worktrees
 
 
 def git(cwd: Path, *arguments: str) -> str:
@@ -30,6 +30,25 @@ class WorktreeGcTest(unittest.TestCase):
         parsed = parse_worktrees(listing)
         self.assertEqual([w.branch for w in parsed], ["main", "feat/a", None])
         self.assertTrue(parsed[2].locked)
+
+    def test_every_client_location_is_a_candidate_nested_first(self) -> None:
+        """Only .worktrees/ was considered, and 247 Claude Code, Codex and
+        nested checkouts piled up (2026-11-19)."""
+        listing = (
+            "worktree /r\nHEAD a\nbranch refs/heads/main\n\n"
+            "worktree /r/.claude/worktrees/x\nHEAD b\ndetached\n\n"
+            "worktree /r/.claude/worktrees/x/.worktrees/y\nHEAD c\nbranch refs/heads/y\n\n"
+            "worktree /home/u/.codex/worktrees/0298/homelab\nHEAD d\ndetached\n"
+        )
+        picked = candidates(Path("/r"), parse_worktrees(listing))
+        self.assertEqual(
+            [str(w.path) for w in picked],
+            [
+                "/r/.claude/worktrees/x/.worktrees/y",
+                "/home/u/.codex/worktrees/0298/homelab",
+                "/r/.claude/worktrees/x",
+            ],
+        )
 
     def test_only_clean_merged_worktrees_are_collectable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -1,6 +1,8 @@
 """Remove task worktrees whose work already landed on main.
 
-A worktree under .worktrees/ is collectable when it has no tracked or
+Any linked worktree, wherever a client created it (.worktrees/,
+.claude/worktrees/, ~/.codex/worktrees/, nested in another), is collectable
+when it has no tracked or
 untracked changes, is not locked, is not the caller's own checkout, its
 HEAD is contained in origin/main, and its HEAD reflog has been idle for at least
 --min-idle-hours. The idle window keeps a freshly created worktree, which is
@@ -55,6 +57,18 @@ def parse_worktrees(porcelain: str) -> list[Worktree]:
     return worktrees
 
 
+def candidates(root: Path, worktrees: list[Worktree]) -> list[Worktree]:
+    """Every linked worktree, wherever a client put it, deepest first.
+
+    Only .worktrees/ was once considered, so the checkouts Claude Code
+    (.claude/worktrees/), Codex (~/.codex/worktrees/) and nested task
+    worktrees create were never collected: 247 had piled up by 2026-11-19.
+    A nested worktree must go before the checkout that contains it.
+    """
+    linked = [w for w in worktrees if w.path.resolve() != root.resolve()]
+    return sorted(linked, key=lambda w: len(w.path.parts), reverse=True)
+
+
 def last_activity(worktree: Path) -> float:
     selector = git(
         "log", "-g", "-1", "--date=unix", "--format=%gd", "HEAD", cwd=worktree
@@ -96,8 +110,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--min-idle-hours",
         type=float,
-        default=24,
-        help="skip worktrees whose HEAD moved more recently (default 24)",
+        default=48,
+        help="skip worktrees whose HEAD moved more recently (default 48)",
     )
     parser.add_argument(
         "--quiet", action="store_true", help="print only removals and failures"
@@ -112,9 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     git("fetch", "--quiet", "origin", "main", cwd=root)
     listing = git("worktree", "list", "--porcelain", cwd=root).stdout
     collected = 0
-    for worktree in parse_worktrees(listing):
-        if root / ".worktrees" not in worktree.path.parents:
-            continue
+    for worktree in candidates(root, parse_worktrees(listing)):
         verdict = classify(root, worktree, current, args.min_idle_hours * 3600)
         label = worktree.branch or "detached"
         if verdict != "collectable":
