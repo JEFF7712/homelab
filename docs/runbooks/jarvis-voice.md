@@ -394,15 +394,17 @@ automation referencing them.
      renders live frames with fast-attack/slow-release smoothing; silence
      renders flat, and a stale or unreachable feed falls back to the
      procedural sines so the kiosk still animates offline.
-   - Face deploy order: sync `home-assistant/www/jarvis/` to HA before any
-     kiosk restart or `face_version` bump. No pipeline deploys these files
-     (`deploy-home-assistant` does not touch `/config/www`): after merging,
-     copy `app.js`, `index.html` and `style.css` into the pod's
-     `/config/www/jarvis/`, then `config.json` last (for example
-     `kubectl -n home-assistant exec -i deploy/home-assistant -c home-assistant
-     -- sh -c 'cat > /config/www/jarvis/app.js' < home-assistant/www/jarvis/app.js`).
-     On 2026-11-19 the live bundle was still from 2026-11-03, so the face kept
-     watching the old relay player after the Sendspin move. A fresh `?v=` URL fetched before
+   - Face deploys ride the HA ConfigMap: `home-assistant/www/<dir>/<file>`
+     renders as the `www.<dir>.<file>` key of
+     `gitops/home-assistant/config.yaml` (regenerate with
+     `python -m scripts.home_assistant validate --sync-gitops`), and the
+     `initialize-config` init container copies it to `/config/www/<dir>/`
+     before HA starts, so the whole bundle lands at once. A change moves
+     `checksum/config`, so Flux restarts HA (about a minute). Bump
+     `face_version` in `config.json` with every face change so the kiosk
+     reloads. Until 2026-11-20 no pipeline deployed these files and the live
+     bundle sat at its 2026-11-03 copy, so the face kept watching the old
+     relay player after the Sendspin move. A fresh `?v=` URL fetched before
      the new bundle lands caches the previous bundle under the new version
      and the kiosk shows stale code until the next bump; recover with a
      cache-bypass reload over the kiosk DevTools port (`127.0.0.1:9222` on
@@ -659,10 +661,10 @@ Local NVMe avoids a NAS dependency for inference, but is not an independent back
   over it, so music never masquerades as speaking.
 - The face does no canvas shadows or blur, so face rendering should not
   jank the T600; if it does, suspect the pipeline first.
-- Face deploys are self-updating. `home-assistant/www/jarvis/` lives on the
-  HA PVC (`/config/www/jarvis/`), not in the ConfigMap, so `ha-apply` does
-  not cover it: sync with `kubectl cp` into the home-assistant pod, then
-  bump `face_version` in `config.json` and the kiosk `?v=` in
+- Face deploys are self-updating. `home-assistant/www/jarvis/` ships in the
+  HA ConfigMap and the init container copies it onto the PVC
+  (`/config/www/jarvis/`) on every HA start; bump `face_version` in
+  `config.json` and the kiosk `?v=` in
   `flake/hosts/homelab-05/default.nix` to match. The face polls
   `config.json` every 60s and self-navigates to the new version, bypassing
   the kiosk browser cache. No kiosk restart is needed.

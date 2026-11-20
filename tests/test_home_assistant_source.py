@@ -10,6 +10,7 @@ import yaml
 from scripts.home_assistant.adapters.core import (
     iter_custom_components,
     iter_custom_sentences,
+    iter_www,
     render_config_configmap,
 )
 from scripts.home_assistant.models import ResourceDocument
@@ -147,10 +148,22 @@ class TestHomeAssistantSource(unittest.TestCase):
         for key in data:
             self.assertRegex(key, pattern, key)
         rendered = {key: data[key] for key in data if key != "configuration.yaml"}
-        expected = dict(iter_custom_sentences(repo_root)) | dict(
-            iter_custom_components(repo_root)
+        expected = (
+            dict(iter_custom_sentences(repo_root))
+            | dict(iter_custom_components(repo_root))
+            | dict(iter_www(repo_root))
         )
         self.assertEqual(rendered, expected)
+
+    def test_jarvis_face_bundle_ships_in_configmap(self) -> None:
+        repo_root = Path(__file__).resolve().parent.parent
+        cm_text, _ = render_config_configmap(repo_root)
+        data = yaml.safe_load(cm_text)["data"]
+        face_dir = repo_root / "home-assistant" / "www" / "jarvis"
+        for path in face_dir.iterdir():
+            self.assertEqual(
+                data[f"www.jarvis.{path.name}"], path.read_text(encoding="utf-8")
+            )
 
     def test_legacy_entitys_filename_still_loads(self) -> None:
         reg_dir = self.root / "home-assistant" / "registries"
