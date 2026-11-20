@@ -250,7 +250,7 @@ in
     enable = true;
     compositor = "sway";
     output = "HDMI-A-2";
-    url = "http://10.0.40.13:8123/local/jarvis/index.html?v=19";
+    url = "http://10.0.40.13:8123/local/jarvis/index.html?v=22";
     haTokenFile = config.sops.secrets.jarvis-kiosk-ha-token.path;
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
