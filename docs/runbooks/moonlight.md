@@ -13,6 +13,23 @@ a stream opens. Saved mappings can override SDL's defaults. USB, Bluetooth,
 HIDAPI and Linux evdev may use different GUIDs and button indices for the same
 controller; do not apply one backend's mapping to another.
 
+`homelab.moonlight.controllerMappings` applies exact-GUID overrides to both
+`moonlight-session` and the supervised stream. homelab-05 overrides the Bluetooth
+`Lic3 Pro Controller` (`0500b0124c6963332050726f20436f00`), whose generic HID
+usages do not describe its physical Switch-style layout. A raw joystick capture
+on 2026-11-20 measured Minus/Plus as buttons 8/9, stick clicks as 10/11,
+L/R as 4/5, ZL/ZR as 6/7, and A/B/X/Y as 1/0/3/2. The mapping uses positional
+SDL face buttons; Moonlight's existing `swapfacebuttons` preference controls
+Nintendo-style labels. Other controller GUIDs retain their mappings.
+
+Measure physical buttons before adding an override. `/dev/input/jsN` reports
+raw joystick indices; do not infer the physical layout from Linux key names on
+controllers with incorrect HID descriptors. A consistent mapping string alone
+does not prove that it matches the physical controller. Moonlight saves supplied
+overrides into its settings. To undo a mapping after it has launched, supply the
+previous mapping for the same GUID or remove its saved entry in Moonlight;
+removing the Nix override alone can leave the saved mapping active.
+
 Inspect `/proc/bus/input/devices`, controller device ACLs and the user's groups
 before changing permissions. An active session's `uaccess` ACL can already grant
 hidraw access even when the owning group is `root`.
