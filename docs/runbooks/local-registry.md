@@ -195,7 +195,11 @@ major-version tags alongside their digests for the operator's version parsing.
 for inventory and import. Image discovery includes CNPG `imageName` fields.
 
 Import and verify the lock's destination manifests with `registry-lock-import`
-before promoting their desired references. A missing local database image can
+before promoting their desired references. The import is killed after 45
+minutes (`timeout` in `config/ci/operations.json`): on 2026-11-20 one sat 90
+minutes after its copies had finished and held every waiting ship. Copies are
+idempotent, so re-run it with `just ship --resume <merge-sha> --deploy
+registry-lock-import`. A missing local database image can
 stall an otherwise healthy replica replacement. The initial migration preserves
 the exact digests observed running in the cluster; it changes the pull source,
 not PostgreSQL versions or data formats. Verify the manager and every database
