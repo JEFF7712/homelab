@@ -11,6 +11,7 @@ from .base import BaseAdapter
 
 CUSTOM_SENTENCES_DIR = Path("home-assistant") / "custom_sentences"
 CUSTOM_COMPONENTS_DIR = Path("home-assistant") / "custom_components"
+WWW_DIR = Path("home-assistant") / "www"
 
 
 def iter_custom_sentences(repo_root: Path) -> list[tuple[str, str]]:
@@ -47,11 +48,29 @@ def iter_custom_components(repo_root: Path) -> list[tuple[str, str]]:
     return collected
 
 
+def iter_www(repo_root: Path) -> list[tuple[str, str]]:
+    """Collect www/<dir>/<file> as www.<dir>.<file> for /config/www/<dir>/.
+
+    The init container copies them onto the PVC before HA starts, so every
+    file of a bundle (for example the Jarvis face) lands together.
+    """
+    base = repo_root / WWW_DIR
+    if not base.is_dir():
+        return []
+    collected: list[tuple[str, str]] = []
+    for www_dir in sorted(path for path in base.iterdir() if path.is_dir()):
+        for www_file in sorted(path for path in www_dir.iterdir() if path.is_file()):
+            key = f"www.{www_dir.name}.{www_file.name}"
+            collected.append((key, www_file.read_text(encoding="utf-8")))
+    return collected
+
+
 def render_config_configmap(repo_root: Path) -> tuple[str, str]:
     """Render gitops/home-assistant/config.yaml content plus its checksum.
 
     The ConfigMap carries configuration.yaml plus every
-    home-assistant/custom_sentences/<lang>/*.yaml file. The checksum covers
+    home-assistant/custom_sentences/<lang>/*.yaml file, custom component and
+    www bundle file. The checksum covers
     all rendered content so HA restarts when any of it changes.
     """
     core_file = repo_root / "home-assistant" / "core" / "configuration.yaml"
@@ -77,6 +96,9 @@ def render_config_configmap(repo_root: Path) -> tuple[str, str]:
         parts.append(f"  {key}: |\n{_block(content)}")
         checksum_parts.append(f"{key}\n{content}")
     for key, content in iter_custom_components(repo_root):
+        parts.append(f"  {key}: |\n{_block(content)}")
+        checksum_parts.append(f"{key}\n{content}")
+    for key, content in iter_www(repo_root):
         parts.append(f"  {key}: |\n{_block(content)}")
         checksum_parts.append(f"{key}\n{content}")
     cm_text = "".join(parts)
