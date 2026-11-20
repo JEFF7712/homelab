@@ -35,7 +35,28 @@ the strip mid-session paints it or switches it off (`paint` / `off`) and
 keeps the snapshot. Turning Music Mode off restores every area and the strip
 and hands the areas back to Adaptive Lighting (`leave`). Bulbs change once
 per track, and on colour or brightness changes, at
-`number.music_mode_brightness` (default 70%).
+`number.music_mode_brightness` (default 70%), scaled by the song section
+(see Song sections).
+
+### Ending a session
+
+Music Mode ends on its own after the soundbar has not been `playing` for
+15 minutes (trigger `idle`). A template trigger that is already true when
+Home Assistant starts does not fire, so after a restart the 15 minutes start
+at the next soundbar or Music Mode change.
+
+`script.shared_music_mode_end` turns Music Mode off and waits (up to a
+minute) until `automation.lighting_shared_music_mode` has no runs left, so
+the restore is finished. Everything that snapshots or switches the shared
+lights runs it first: `script.shared_lights_off`, `script.shared_lights_on`
+and `shared_spaces_empty_lights_off` (last person leaving, and a restart
+with nobody home). Their snapshots therefore hold the lights as they were
+before Music Mode, and the restore can never relight an empty house.
+
+`sensor.music_director` changes attributes for many reasons (next song
+ready, LedFx status). The automation's top-level condition lets a `palette`
+trigger through only when `area_colors`, `brightness_pct` or
+`area_brightness_pct` changed, so the rest never queue a run.
 
 ## Components
 
@@ -202,11 +223,28 @@ compared with the song's 40 s baseline; 1.3× or more is `loud`, 0.65× or
 less is `quiet`, with hysteresis, a 20 s warm-up per track and at least 16 s
 per section, so beats, fills and gaps between phrases do not flip it.
 
-| Section | Strip brightness (× Music Mode Brightness) | Colour intensity | Effect drive |
-| --- | --- | --- | --- |
-| quiet | 0.8 | −0.1 | −0.15 |
-| normal | 0.9 | ±0 | ±0 |
-| loud | 1.0 | +0.15 | +0.25 |
+| Section | Strip brightness (× Music Mode Brightness) | Bulb brightness (×) | Colour intensity | Effect drive |
+| --- | --- | --- | --- | --- |
+| quiet | 0.8 | 0.8 | −0.1 | −0.15 |
+| normal | 0.9 | 1.0 | ±0 | ±0 |
+| loud | 1.0 | 1.15 (max 100%) | +0.15 | +0.25 |
+
+Bulbs follow sections too. `sensor.music_director` publishes
+`area_brightness_pct` (`sections.bulb_brightness_pct`), which bulbs take when
+they join or are relit. On a section change the automation runs
+`script.shared_music_area` step `section` with `scale` = new / old
+`area_brightness_pct`: each lit bulb is recoloured and its own brightness
+multiplied by that ratio over 2 s. A bulb dimmed by hand therefore stays
+dimmer than the rest, and one switched off stays off. A new track returns to
+normal, which scales back the same way.
+
+The section intensity nudge applies only to the published palette. The
+decision keeps the un-nudged cover or vibe palette, so recomposing (a section
+change, a brightness or colour change) never stacks the nudge. Before
+2026-11-20 it did, and long songs drifted to fully vivid or fully muted
+colours. The section and drop trackers restart as soon as a new title shows,
+so the previous song's audio cannot set the section while the new one is
+looked up.
 
 ### Drop flash
 
@@ -227,9 +265,11 @@ speed and reactivity (`rules.dynamics`), so choruses and drops move faster
 and react harder, and breakdowns calm down. A song with no known tempo or
 energy starts from the middle when the section is not normal.
 
-The strip's effect is updated in place (`PUT …/effects`), not restarted.
-Bulbs keep their brightness; they only take the slightly more or less vivid
-colour, at most once per section. Pins and the manual colour are not
+The strip's effect is updated in place (`PUT …/effects`), not restarted,
+while the effect LedFx last accepted is the same; otherwise it is started
+again (`POST`). Strip updates go out one at a time, and one superseded by a
+newer decision is skipped, so the strip always ends on the latest settings.
+Bulbs change at most once per section. Pins and the manual colour are not
 changed. `sensor.music_director` reports `section`; the preview card shows
 loud and quiet parts. Settings were tuned on live recordings on 2026-11-14:
 hip-hop with gaps between phrases flipped every few seconds at shorter

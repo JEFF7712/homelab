@@ -67,7 +67,7 @@ from .palette import (
     vibe_palette,
     with_intensity,
 )
-from .pins import KEEP, STORAGE_KEY, STORAGE_VERSION, PinStore, Keep
+from .pins import KEEP, STORAGE_KEY, STORAGE_VERSION, Keep, PinStore
 from .rules import (
     EFFECTS,
     choose_effect,
@@ -78,11 +78,12 @@ from .rules import (
 )
 from .sections import (
     NORMAL,
-    DropDetector,
     SECTION_BRIGHTNESS,
     SECTION_DRIVE,
     SECTION_INTENSITY,
+    DropDetector,
     SectionTracker,
+    bulb_brightness_pct,
 )
 from .trackcache import (
     CACHE_STORAGE_KEY,
@@ -161,7 +162,7 @@ class Decision:
     artist: str
     album: str
     info: TrackInfo
-    # The cover or vibe palette, before any pin.
+    # The cover or vibe palette, before any pin or section nudge.
     natural: Palette
     # natural, or the album's pin.
     auto_palette: Palette
@@ -264,6 +265,10 @@ class Director:
         self._track_key: str | None = None
         self._last_effect: str | None = None
         self._decision: Decision | None = None
+        # The decision LedFx last accepted, so updates PUT in place only
+        # while that effect is running; the lock keeps updates in order.
+        self._sent: Decision | None = None
+        self._strip_lock = asyncio.Lock()
         self._transition_set = False
         self._spotify_refreshed = 0.0
         # Why the last track had no Spotify ID, for the dashboard.
@@ -584,13 +589,14 @@ class Director:
         level: float,
     ) -> Decision:
         # Sections nudge the automatic colours' vividness; chosen colours
-        # (pins, the manual colour) stay as picked.
-        natural = with_intensity(
+        # (pins, the manual colour) stay as picked. The Decision keeps the
+        # un-nudged palette, so recomposing never stacks the nudge.
+        sectioned = with_intensity(
             natural, natural.intensity + SECTION_INTENSITY[self.section]
         )
         pin = self.pins.pins.find(title, artist, album) if title else None
         pinned = named_palette(pin.color, "override") if pin and pin.color else None
-        auto_palette = pinned or natural
+        auto_palette = pinned or sectioned
         palette = self._colour_override() or auto_palette
         auto_effect = (
             pin.effect if pin and pin.effect in EFFECTS else None
@@ -637,7 +643,6 @@ class Director:
         )
 
     async def _apply(self, decision: Decision) -> None:
-        previous = self._decision
         self._decision = decision
         self._publish(decision)
         # The pin light follows the playing track.
@@ -645,17 +650,27 @@ class Director:
         if self._flash_task is not None:
             # The flash sends the latest decision when it ends.
             return
-        if self._is_on(self.config.strip):
+        if not self._is_on(self.config.strip):
+            return
+        # One strip update at a time, newest last: slider drags and the
+        # colour light's brightness-then-colour calls overlap otherwise, and
+        # an older request landing last left the strip on stale settings.
+        async with self._strip_lock:
+            if self._decision is not decision:
+                # A newer decision is queued behind this one.
+                return
+            sent = self._sent
             if (
-                previous is not None
-                and previous.effect == decision.effect
-                and previous.title == decision.title
+                sent is not None
+                and sent.effect == decision.effect
+                and sent.title == decision.title
             ):
                 # Same effect, new colours or brightness: update in place
                 # instead of restarting the effect.
-                await self._ledfx(
+                if await self._ledfx(
                     "PUT", {"type": decision.effect, "config": decision.config}
-                )
+                ):
+                    self._sent = decision
             else:
                 await self._push_strip(decision)
 
@@ -678,6 +693,10 @@ class Director:
                 return
             new_track = key != self._track_key
             if new_track:
+                # Restart the trackers now, so the old song's audio cannot
+                # move the section or flash while this one is looked up.
+                self.sections.reset(observed)
+                self.drops.reset(observed)
                 self.section = NORMAL
                 self.next_ready = None
             self._track_key = key
@@ -1283,6 +1302,9 @@ class Director:
                 "ledfx_status": self.ledfx_status,
                 "section": self.section,
                 "brightness_pct": self.brightness_pct,
+                "area_brightness_pct": bulb_brightness_pct(
+                    self.brightness_pct, self.section
+                ),
                 "auto_palette_source": decision.auto_palette.source,
                 "intensity": round(decision.level, 3),
                 "next_ready": self.next_ready,
@@ -1300,7 +1322,8 @@ class Director:
             },
         )
 
-    async def _ledfx(self, method: str, payload: dict[str, Any] | None = None) -> None:
+    async def _ledfx(self, method: str, payload: dict[str, Any] | None = None) -> bool:
+        """Call the strip virtual's effects API. True when LedFx accepted it."""
         url = (
             f"{self.config.ledfx_url}/api/virtuals/{self.config.ledfx_virtual}/effects"
         )
@@ -1316,11 +1339,13 @@ class Director:
                         (await response.text())[:200],
                     )
                     self._set_ledfx_status("error")
-                else:
-                    self._set_ledfx_status("ok")
+                    return False
+                self._set_ledfx_status("ok")
+                return True
         except (aiohttp.ClientError, TimeoutError) as error:
             _LOGGER.warning("LedFx %s failed: %s", method, error)
             self._set_ledfx_status("unreachable")
+            return False
 
     async def _ensure_transition(self) -> bool:
         """Set the strip's crossfade between effects. LedFx keeps virtual
@@ -1357,9 +1382,14 @@ class Director:
             return False
 
     async def _push_strip(self, decision: Decision) -> None:
-        await self._ledfx("POST", {"type": decision.effect, "config": decision.config})
+        """Start the decision's effect on the strip."""
+        sent = await self._ledfx(
+            "POST", {"type": decision.effect, "config": decision.config}
+        )
+        self._sent = decision if sent else None
 
     async def _clear_strip(self) -> None:
+        self._sent = None
         await self._ledfx("DELETE")
 
     async def _stop(self) -> None:

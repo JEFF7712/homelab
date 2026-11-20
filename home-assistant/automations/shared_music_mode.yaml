@@ -17,7 +17,10 @@ description: >-
   restores it afterwards, and a manual switch-on during Music Mode is left
   alone. The strip's colours and effects come from the music_director
   integration through LedFx; here it is only switched on (at full WLED
-  brightness, which scales the LedFx stream) or off.
+  brightness, which scales the LedFx stream) or off. Loud and quiet song
+  sections scale the lit bulbs' brightness (area_brightness_pct), keeping
+  each bulb's own level relative to the others. Music Mode ends itself after
+  the soundbar has not played for 15 minutes.
 mode: queued
 max: 10
 triggers:
@@ -49,7 +52,31 @@ triggers:
   - trigger: state
     entity_id: sensor.music_director
     id: "palette"
-conditions: []
+  # Nothing playing for a while: end the session so the room goes back to
+  # Adaptive Lighting. A template trigger already true at startup does not
+  # fire, so after a restart the wait starts at the next change.
+  - trigger: template
+    value_template: >-
+      {{ is_state('input_boolean.shared_music_mode', 'on')
+         and not is_state('media_player.homelab_05_speaker', 'playing') }}
+    for: "00:15:00"
+    id: "idle"
+# The sensor's attributes change for many reasons (next song ready, LedFx
+# status); drop those here so they never queue a run.
+conditions:
+  - condition: template
+    value_template: >-
+      {% if trigger.id != 'palette' %}
+        true
+      {% else %}
+        {% set new = trigger.to_state.attributes if trigger.to_state else {} %}
+        {% set old = trigger.from_state.attributes if trigger.from_state else {} %}
+        {{ is_state('input_boolean.shared_music_mode', 'on')
+           and new.area_colors is defined
+           and (old.get('area_colors') != new.area_colors
+                or old.get('brightness_pct') != new.get('brightness_pct')
+                or old.get('area_brightness_pct') != new.get('area_brightness_pct')) }}
+      {% endif %}
 actions:
   - variables:
       areas:
@@ -185,23 +212,26 @@ actions:
       - conditions:
           - condition: trigger
             id: "palette"
-          - condition: state
-            entity_id: input_boolean.shared_music_mode
-            state: "on"
-          - condition: template
-            value_template: >-
-              {% set new = trigger.to_state.attributes if trigger.to_state else {} %}
-              {% set old = trigger.from_state.attributes if trigger.from_state else {} %}
-              {{ new.area_colors is defined
-                 and (old.get('area_colors') != new.area_colors
-                      or old.get('brightness_pct') != new.get('brightness_pct')) }}
         sequence:
+          # Brightness moved: relight at the new level. Section changed:
+          # scale lit bulbs by the ratio, so levels set by hand keep their
+          # place. Otherwise only the colour changes.
+          - variables:
+              old_pct: >-
+                {{ trigger.from_state.attributes.get('area_brightness_pct')
+                   if trigger.from_state else none }}
+              new_pct: "{{ trigger.to_state.attributes.get('area_brightness_pct') }}"
+              brightness_moved: >-
+                {{ trigger.from_state is not none
+                   and trigger.from_state.attributes.get('brightness_pct')
+                       != trigger.to_state.attributes.get('brightness_pct') }}
           - variables:
               step: >-
-                {{ 'relight' if trigger.from_state is not none
-                   and trigger.from_state.attributes.get('brightness_pct')
-                       != trigger.to_state.attributes.get('brightness_pct')
+                {{ 'relight' if brightness_moved
+                   else 'section' if old_pct and new_pct and old_pct != new_pct
                    else 'paint' }}
+          - variables:
+              scale: "{{ (new_pct / old_pct) | round(4) if step == 'section' else 1 }}"
           - repeat:
               for_each: "{{ taking_part }}"
               sequence:
@@ -209,3 +239,11 @@ actions:
                   data:
                     area: "{{ repeat.item }}"
                     step: "{{ step }}"
+                    scale: "{{ scale }}"
+      - conditions:
+          - condition: trigger
+            id: "idle"
+        sequence:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.shared_music_mode

@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 import json
+import re
 import unittest
 from pathlib import Path
 
 import yaml
+
+try:
+    import jinja2
+
+    HAS_JINJA2 = True
+except ImportError:
+    jinja2 = None  # type: ignore[assignment]
+    HAS_JINJA2 = False
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -333,7 +342,7 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertNotIn("initial_state", automation)
         triggers = {t["id"]: t for t in automation["triggers"]}
         self.assertEqual(
-            set(triggers), {"mode_on", "mode_off", "area", "strip", "palette"}
+            set(triggers), {"mode_on", "mode_off", "area", "strip", "palette", "idle"}
         )
         self.assertEqual(
             triggers["area"]["entity_id"],
@@ -400,9 +409,6 @@ class TestSharedMusicMode(unittest.TestCase):
         self.assertNotIn("transition", json.dumps(off["then"]))
         # New tracks recolour lit lights only and leave their brightness.
         self.assertIn("select('is_state', 'on')", script)
-        palette = branch("palette")
-        self.assertIn("'relight' if trigger.from_state is not none", palette)
-        self.assertIn("else 'paint'", palette)
 
     def test_music_snapshots_are_watchman_exempt(self) -> None:
         raw = (
@@ -517,6 +523,254 @@ class TestSharedMusicMode(unittest.TestCase):
                 for c in adaptive
             )
         )
+
+
+class _State:
+    """A trigger from_state / to_state stand-in."""
+
+    def __init__(self, **attributes: object) -> None:
+        self.attributes = attributes
+
+
+def _render(template: str, **context: object) -> object:
+    """Render a Home Assistant template with real Jinja2 and parse the result
+    the way HA does for variables (numbers, booleans and None come back
+    native)."""
+    env = jinja2.Environment()
+    text = env.from_string(template).render(**context).strip()
+    lowered = text.lower()
+    if lowered in ("true", "false"):
+        return lowered == "true"
+    if lowered == "none":
+        return None
+    for kind in (int, float):
+        try:
+            return kind(text)
+        except ValueError:
+            pass
+    return text
+
+
+@unittest.skipUnless(HAS_JINJA2, "jinja2 is in the nix devShell")
+class TestMusicModeTemplates(unittest.TestCase):
+    """Rendered templates: section brightness, the palette filter and the
+    idle timeout."""
+
+    def setUp(self) -> None:
+        self.automation = yaml.safe_load(
+            (
+                REPO_ROOT / "home-assistant" / "automations" / "shared_music_mode.yaml"
+            ).read_text(encoding="utf-8")
+        )
+        self.script = yaml.safe_load(
+            (
+                REPO_ROOT / "home-assistant" / "scripts" / "shared_music_area.yaml"
+            ).read_text(encoding="utf-8")
+        )
+
+    def _palette_steps(self) -> list:
+        branches = self.automation["actions"][1]["choose"]
+        return next(
+            b["sequence"]
+            for b in branches
+            if {"condition": "trigger", "id": "palette"} in b["conditions"]
+        )
+
+    def _palette_step(self, old: dict, new: dict) -> tuple[str, float]:
+        trigger = {
+            "from_state": _State(**old) if old is not None else None,
+            "to_state": _State(**new),
+        }
+        context: dict[str, object] = {"trigger": trigger}
+        for step in self._palette_steps():
+            for name, template in step.get("variables", {}).items():
+                context[name] = _render(template, **context)
+        call = self._palette_steps()[-1]["repeat"]["sequence"][0]
+        self.assertEqual(call["data"]["scale"], "{{ scale }}")
+        return context["step"], context["scale"]
+
+    def _passes(self, old: dict | None, new: dict, mode: str = "on") -> bool:
+        template = self.automation["conditions"][0]["value_template"]
+        return _render(
+            template,
+            trigger={
+                "id": "palette",
+                "from_state": _State(**old) if old is not None else None,
+                "to_state": _State(**new),
+            },
+            is_state=lambda entity, state: mode == state,
+        )
+
+    def test_section_change_scales_lit_bulbs_by_the_ratio(self) -> None:
+        colours = {"kitchen_ceiling": [255, 0, 0]}
+        base = {"area_colors": colours, "brightness_pct": 70}
+        step, scale = self._palette_step(
+            {**base, "area_brightness_pct": 70},
+            {**base, "area_brightness_pct": 56},
+        )
+        self.assertEqual(step, "section")
+        self.assertAlmostEqual(scale, 0.8)
+
+    def test_brightness_slider_relights_and_new_tracks_only_paint(self) -> None:
+        old = {"area_colors": {}, "brightness_pct": 70, "area_brightness_pct": 70}
+        step, scale = self._palette_step(
+            old, {**old, "brightness_pct": 50, "area_brightness_pct": 50}
+        )
+        self.assertEqual((step, scale), ("relight", 1))
+        step, _ = self._palette_step(old, {**old, "area_colors": {"x": [0, 0, 255]}})
+        self.assertEqual(step, "paint")
+        # The first decision after the sensor was off has no level to scale.
+        step, _ = self._palette_step(
+            {}, {"area_colors": {}, "brightness_pct": 70, "area_brightness_pct": 70}
+        )
+        self.assertEqual(step, "relight")
+
+    def test_attribute_noise_never_queues_a_run(self) -> None:
+        state = {
+            "area_colors": {"floor_lamp": [0, 0, 255]},
+            "brightness_pct": 70,
+            "area_brightness_pct": 70,
+        }
+        self.assertFalse(self._passes(state, {**state, "next_ready": "A - B"}))
+        self.assertTrue(self._passes(state, {**state, "area_brightness_pct": 80}))
+        self.assertTrue(
+            self._passes(state, {**state, "area_colors": {"floor_lamp": [1, 2, 3]}})
+        )
+        self.assertFalse(
+            self._passes(state, {**state, "area_brightness_pct": 80}, mode="off")
+        )
+        # The sensor's off state carries no colours.
+        self.assertFalse(self._passes(state, {}))
+        # Other triggers always run.
+        template = self.automation["conditions"][0]["value_template"]
+        self.assertTrue(_render(template, trigger={"id": "mode_off"}))
+
+    def test_section_step_scales_each_light_within_range(self) -> None:
+        step = next(
+            choice
+            for item in _walk(self.script["sequence"])
+            if isinstance(item, dict) and "choose" in item
+            for choice in item["choose"]
+            if "'section'" in json.dumps(choice["conditions"])
+        )
+        repeat = step["sequence"][0]["repeat"]
+        self.assertEqual(repeat["for_each"], "{{ lit }}")
+        template = repeat["sequence"][0]["data"]["brightness"]
+        levels = {"light.a": 200, "light.b": 100, "light.c": None}
+
+        def brightness(light: str, scale: float) -> int:
+            return _render(
+                template,
+                repeat={"item": light},
+                scale=scale,
+                brightness_pct=70,
+                state_attr=lambda entity, _attr: levels[entity],
+            )
+
+        self.assertEqual(brightness("light.a", 0.8), 160)
+        self.assertEqual(brightness("light.b", 0.8), 80)
+        self.assertEqual(brightness("light.a", 1.5), 255)
+        self.assertEqual(brightness("light.b", 0.001), 1)
+        # A light reporting no brightness starts from the area level.
+        self.assertEqual(brightness("light.c", 1.0), 178)
+
+    def test_idle_soundbar_ends_music_mode(self) -> None:
+        trigger = next(t for t in self.automation["triggers"] if t["id"] == "idle")
+        self.assertEqual(trigger["for"], "00:15:00")
+        states = {
+            "input_boolean.shared_music_mode": "on",
+            "media_player.homelab_05_speaker": "paused",
+        }
+
+        def fires() -> bool:
+            return _render(
+                trigger["value_template"],
+                is_state=lambda entity, state: states[entity] == state,
+            )
+
+        self.assertTrue(fires())
+        states["media_player.homelab_05_speaker"] = "playing"
+        self.assertFalse(fires())
+        states.update(
+            {
+                "input_boolean.shared_music_mode": "off",
+                "media_player.homelab_05_speaker": "idle",
+            }
+        )
+        self.assertFalse(fires())
+        branch = next(
+            b["sequence"]
+            for b in self.automation["actions"][1]["choose"]
+            if {"condition": "trigger", "id": "idle"} in b["conditions"]
+        )
+        self.assertEqual(
+            branch,
+            [
+                {
+                    "action": "input_boolean.turn_off",
+                    "target": {"entity_id": "input_boolean.shared_music_mode"},
+                }
+            ],
+        )
+
+
+class TestMusicModeEndsBeforeSharedLightChanges(unittest.TestCase):
+    """Lights Off, Lights On and the empty house end Music Mode and wait for
+    its restore before they snapshot or switch the lights."""
+
+    END = "script.shared_music_mode_end"
+
+    def test_end_script_turns_off_and_waits_for_the_restore(self) -> None:
+        script = yaml.safe_load(
+            (
+                REPO_ROOT / "home-assistant" / "scripts" / "shared_music_mode_end.yaml"
+            ).read_text(encoding="utf-8")
+        )
+        sequence = script["sequence"]
+        self.assertEqual(sequence[0]["condition"], "state")
+        self.assertEqual(sequence[0]["state"], "on")
+        self.assertEqual(sequence[1]["action"], "input_boolean.turn_off")
+        wait = sequence[-1]
+        self.assertTrue(wait["continue_on_timeout"])
+        # The waited-on automation is the one the alias names.
+        alias = yaml.safe_load(
+            (
+                REPO_ROOT / "home-assistant" / "automations" / "shared_music_mode.yaml"
+            ).read_text(encoding="utf-8")
+        )["alias"]
+        entity = "automation." + re.sub(r"[^a-z0-9]+", "_", alias.lower()).strip("_")
+        self.assertIn(f"state_attr('{entity}', 'current')", wait["wait_template"])
+
+    def _first_actions(self, steps: list) -> list[str]:
+        return [step.get("action", "") for step in steps if isinstance(step, dict)]
+
+    def test_shared_light_scripts_end_music_mode_first(self) -> None:
+        for name in ("shared_lights_off", "shared_lights_on"):
+            with self.subTest(name=name):
+                script = yaml.safe_load(
+                    (
+                        REPO_ROOT / "home-assistant" / "scripts" / f"{name}.yaml"
+                    ).read_text(encoding="utf-8")
+                )
+                self.assertEqual(script["sequence"][0].get("action"), self.END)
+
+    def test_empty_house_ends_music_mode_before_its_snapshot(self) -> None:
+        automation = yaml.safe_load(
+            (
+                REPO_ROOT
+                / "home-assistant"
+                / "automations"
+                / "shared_spaces_empty_lights_off.yaml"
+            ).read_text(encoding="utf-8")
+        )
+        for trigger_id in ("left_empty", "restart"):
+            with self.subTest(trigger=trigger_id):
+                branch = next(
+                    b["sequence"]
+                    for b in automation["actions"][0]["choose"]
+                    if {"condition": "trigger", "id": trigger_id} in b["conditions"]
+                )
+                self.assertEqual(self._first_actions(branch)[0], self.END)
 
 
 if __name__ == "__main__":
