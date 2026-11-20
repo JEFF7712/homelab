@@ -20,7 +20,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: renovate-major-reviewer
-              image: registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:55257c9f54eff5382abacb0a119ba2357566cb01cdbf0a35f152e24729ab8e64  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate@sha256:7138934c013df961d92acf6e3f1326f9dc705ed3d02e399ac0a3395d777182ff  # yamllint disable-line rule:line-length
               resources:
                 requests:
                   cpu: 250m
