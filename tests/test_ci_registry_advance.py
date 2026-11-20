@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import tempfile
 import unittest
@@ -11,6 +12,7 @@ from scripts.ci.registry_advance import (
     REVERTED,
     VERIFIED,
     adopt_candidates,
+    adopted_repositories,
     bump_declaration,
     flux_applied,
     ineligible,
@@ -18,7 +20,8 @@ from scripts.ci.registry_advance import (
     rebuild_mirror,
     renovate_bump,
     reverted_digests,
-    unsettled_adopt,
+    unsettled_adopts,
+    workloads_using,
 )
 
 OLD = "sha256:" + "1" * 64
@@ -135,8 +138,6 @@ class EligibilityTest(unittest.TestCase):
             "major": check(deployment(), "v3.5.0", "v4.0.0"),
             "floating tag": check(deployment(), "latest", "latest"),
             "no probe": check(deployment(probe=False)),
-            "init container": check(deployment(init=True)),
-            "cronjob init container": check(cronjob(init=True)),
             "statefulset": check(deployment(kind="StatefulSet")),
             "recreate without probe": check(
                 deployment(strategy="Recreate", probe=False)
@@ -159,12 +160,80 @@ class EligibilityTest(unittest.TestCase):
         self.assertIsNone(check(cronjob()))
         self.assertIsNone(check(cronjob(schedule="30 2 * * *")))
         self.assertIsNone(check(cronjob(schedule="@daily")))
+        # Weekly jobs (the library restore drill: restic, alpine/k8s) settle
+        # on their next run within the eight-day window.
+        self.assertIsNone(check(cronjob(schedule="0 6 * * 0")))
+        self.assertIsNone(check(cronjob(schedule="@weekly")))
 
-    def test_cronjobs_no_run_can_verify_in_a_day_are_refused(self) -> None:
-        # The settle window is a day, and a CronJob is never run off
-        # schedule (backups, drills and deletions among them).
-        self.assertIn("less often than daily", check(cronjob(schedule="0 6 * * 0")))
-        self.assertIn("less often than daily", check(cronjob(schedule="0 0 1 * *")))
+    def test_windowed_namespaces_adopt_only_inside_their_hours(self) -> None:
+        import datetime
+
+        policy = {
+            "deny_namespaces": [],
+            "window_namespaces": {
+                "namespaces": ["music-assistant"],
+                "timezone": "America/Chicago",
+                "start_hour": 1,
+                "end_hour": 3,
+            },
+        }
+        manifest = deployment(namespace="music-assistant")
+        documents = [
+            (path, doc)
+            for path, doc in workloads_using(
+                [("gitops/music-assistant/server.yaml", manifest)],
+                f"{REPOSITORY}@{OLD}",
+            )
+        ]
+
+        def reason(hour_utc: int) -> str | None:
+            now = datetime.datetime(2026, 11, 20, hour_utc, 30, tzinfo=datetime.UTC)
+            return ineligible(
+                REPOSITORY,
+                "v3.5.0",
+                "v3.5.2",
+                documents,
+                f"{REPOSITORY}@{OLD}",
+                registry_advance.effective_policy(policy, now),
+            )
+
+        # 07:30 UTC is 01:30 in Chicago in November; 12:30 UTC is 06:30.
+        self.assertIsNone(reason(7))
+        self.assertIn("adopts only between 01:00 and 03:00", reason(12) or "")
+        # Mirrors import an image without restarting anything: never held.
+        self.assertIsNone(
+            ineligible(
+                REPOSITORY,
+                "v3.5.0",
+                "v3.5.2",
+                documents,
+                f"{REPOSITORY}@{OLD}",
+                policy,
+            )
+        )
+
+    def test_the_policy_opens_cloudflare_and_windows_user_facing_apps(self) -> None:
+        policy = json.loads(
+            (Path(__file__).resolve().parents[1] / registry_advance.POLICY).read_text()
+        )
+        self.assertNotIn("cloudflare", policy["deny_namespaces"])
+        self.assertEqual(
+            sorted(policy["window_namespaces"]["namespaces"]),
+            ["home-assistant", "music-assistant", "voice"],
+        )
+        # The window ends before fleet-reboot's 03:00-05:00 Chicago window.
+        self.assertLessEqual(policy["window_namespaces"]["end_hour"], 3)
+        self.assertIn("kube-system", policy["deny_namespaces"])
+
+    def test_init_containers_are_taken_because_verify_checks_them(self) -> None:
+        # alpine in slskd's init container waited on a person for weeks.
+        self.assertIsNone(check(deployment(init=True)))
+        self.assertIsNone(check(cronjob(init=True)))
+
+    def test_cronjobs_no_run_can_verify_in_the_window_are_refused(self) -> None:
+        # A CronJob is never run off schedule (backups, drills and deletions
+        # among them), so a monthly one could not settle.
+        self.assertIn("less often than weekly", check(cronjob(schedule="0 0 1 * *")))
         self.assertIn("suspended", check(cronjob(suspend=True)))
 
     def test_an_update_nothing_uses_is_not_taken(self) -> None:
@@ -210,7 +279,7 @@ class AdoptCandidatesTest(unittest.TestCase):
         files = [
             ("gitops/media/arr.yaml", deployment()),
             ("gitops/home-assistant/app.yaml", deployment(namespace="home-assistant")),
-            ("gitops/media/sweep.yaml", deployment(init=True)),
+            ("gitops/media/sweep.yaml", deployment(kind="StatefulSet")),
         ]
         found = adopt_candidates(files, {REPOSITORY: {NEW}}, self.lock(), POLICY)
         self.assertEqual(
@@ -393,21 +462,47 @@ class SettleTest(unittest.TestCase):
             {"gitops/media/arr.yaml": {MIRRORED_NEW: MIRRORED_OLD}},
         )
 
-    def test_the_newest_unsettled_adopt_in_the_window_is_picked(self) -> None:
+    def test_every_unsettled_adopt_in_the_window_settles_oldest_first(self) -> None:
+        """One adopt waiting on a weekly job no longer stalls every other one."""
         pulls = [
             merged(5, "registry-advance/adopt-aaa", 1),
             merged(4, "registry-advance/mirror-bbb", 0.5),
-            merged(3, "registry-advance/adopt-ccc", 3),
+            merged(3, "registry-advance/adopt-ccc", 6 * 24),
         ]
         comments = {5: [], 3: []}
-        picked = unsettled_adopt(pulls, lambda n: comments[n], NOW)
-        self.assertEqual(picked["number"], 5)
+        picked = unsettled_adopts(pulls, lambda n: comments[n], NOW)
+        self.assertEqual([p["number"] for p in picked], [3, 5])
         comments[5] = [{"body": VERIFIED}]
-        self.assertIsNone(unsettled_adopt(pulls, lambda n: comments[n], NOW))
-        comments[5] = [{"body": REVERTED}]
-        self.assertIsNone(unsettled_adopt(pulls, lambda n: comments[n], NOW))
-        old = [merged(6, "registry-advance/adopt-ddd", 30)]
-        self.assertIsNone(unsettled_adopt(old, lambda n: [], NOW))
+        comments[3] = [{"body": REVERTED}]
+        self.assertEqual(unsettled_adopts(pulls, lambda n: comments[n], NOW), [])
+        old = [merged(6, "registry-advance/adopt-ddd", 9 * 24)]
+        self.assertEqual(unsettled_adopts(old, lambda n: [], NOW), [])
+
+    def test_closed_pulls_are_read_back_through_the_whole_window(self) -> None:
+        """One page held a day of PRs; an eight-day window needs more."""
+        import datetime
+
+        def page(start: int, hours_ago: float) -> list[dict]:
+            stamp = datetime.datetime.fromtimestamp(
+                NOW - hours_ago * 3600, datetime.UTC
+            ).isoformat()
+            return [{"number": start + i, "updated_at": stamp} for i in range(50)]
+
+        pages = {1: page(0, 1), 2: page(50, 5 * 24), 3: page(100, 9 * 24), 4: []}
+        with patch.object(
+            registry_advance,
+            "api",
+            side_effect=lambda token, path: pages[int(path.rsplit("=", 1)[1])],
+        ) as api:
+            pulls = registry_advance.recent_closed("token", NOW)
+        self.assertEqual(len(pulls), 150)
+        self.assertEqual(api.call_count, 3)
+
+    def test_an_adopt_holds_the_repository_it_moves(self) -> None:
+        self.assertEqual(
+            adopted_repositories(ADOPT_DIFF),
+            {REPOSITORY},
+        )
 
     def test_flux_must_apply_a_revision_at_least_as_new_as_the_merge(self) -> None:
         kustomizations = [
