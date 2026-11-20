@@ -6424,6 +6424,52 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/voice/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
+        "3.15.2",
+        "retention-deployed-46837ed3105db002"
+      ],
+      "digest": "sha256:46837ed3105db0029b6d656816185c6258e3b39690532fb782428e0a5fd76182",
+      "id": "upstream-library-python-e27cb9933153",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v5",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown",
+        "windows/amd64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:46837ed3105db0029b6d656816185c6258e3b39690532fb782428e0a5fd76182",
+        "reference": "docker.io/library/python:3.15.2@sha256:46837ed3105db0029b6d656816185c6258e3b39690532fb782428e0a5fd76182",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.15.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/media/registry-sources.yaml:34"
       ],
       "destination_repository": "upstream/lscr.io/linuxserver/bazarr",
