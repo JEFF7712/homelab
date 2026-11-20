@@ -629,7 +629,6 @@ class EvalCorpusTest(unittest.TestCase):
                 "light.kitchen_ceiling_light_2",
                 "light.kitchen_mushroom_lamp",
                 "light.kitchen_fuck_off_sign",
-                "light.kitchen_dining_table_ceiling_light_1",
                 "light.kitchen_dining_table_ceiling_light_2",
             },
         )
