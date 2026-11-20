@@ -27,7 +27,12 @@ spec:
               - matchExpressions:
                   - key: kubernetes.io/hostname
                     operator: NotIn
+                    # homelab-04 is the CI host: its job containers reach HA
+                    # through the 10.0.40.13 VIP, and with HA's hostNetwork
+                    # pod on the same node that hairpin fails, so every
+                    # deploy-home-assistant timed out (2026-11-19).
                     values:
+                      - homelab-04
                       - homelab-05
           # homelab-01 already carries etcd, both Postgres primaries by
           # preference, and the agent workspace VMs.
