@@ -17,13 +17,14 @@ class InputSettingsTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "Moonlight.conf"
             path.write_text(
-                "[General]\ngamepadmouse=false\nprivatekey=secret\n"
+                "[General]\ngamepadmouse=false\nswapfacebuttons=true\nprivatekey=secret\n"
                 "[gcmapping]\nsize=1\n1\\guid=controller-guid\n"
                 "1\\mapping=Controller,start:b9,back:b8,\n"
                 "[hosts]\n1\\certificate=secret\n"
             )
             settings = module.input_settings(path)
         self.assertEqual(settings["gamepadmouse"], "false")
+        self.assertEqual(settings["swapfacebuttons"], "true")
         self.assertIn("1\\mapping", settings["mappings"])
         self.assertNotIn("secret", str(settings))
 
