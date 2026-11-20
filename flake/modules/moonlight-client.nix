@@ -287,6 +287,7 @@ in
         User = cfg.user;
         Restart = "always";
         RestartSec = "5s";
+        ExecStartPre = "-${pkgs.python3}/bin/python ${./moonlight-input-status.py} ${pkgs.SDL2}/lib/libSDL2.so";
       };
       script = ''
         # The compositor names its socket dynamically; wait for it instead of
