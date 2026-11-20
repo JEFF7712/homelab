@@ -7,6 +7,10 @@
   "deny_repositories": [
     "upstream/docker.io/library/postgres"
   ],
+  "hold_charts": [
+    "automation/renovate-forgejo",
+    "cnpg-system/cloudnative-pg"
+  ],
   "window_namespaces": {
     "namespaces": [
       "home-assistant",

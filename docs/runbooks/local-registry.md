@@ -429,6 +429,20 @@ had drifted to app v2.10 under chart 2.12). For each chart upgrade:
    `registry-lock-import` copied them.
 3. Then bump the chart version and its post-renderer digests in one change and
    verify the HelmRelease and the running digests.
+
+The scheduled `registry-advance` run does these steps itself for a Renovate
+chart PR whose render, with the release's values, differs only in
+post-renderer-pinned image tags, labels and annotations, and CRD schemas that
+only grow (`scripts/ci/chart_advance.py`): a `registry-advance/chart-mirror-*`
+PR declares and locks the new images, then, once the registry serves them, a
+`registry-advance/chart-bump-*` PR moves the chart and digests together. It
+settles on pods (the schedule cannot read HelmReleases): within two hours no
+pod may run a moved image's old digest and a Ready pod must run each new one,
+or `registry-advance/chart-revert-<pr>` puts both back. Pod spec, RBAC, config
+or rule changes, added or removed resources, `valuesFrom`, bumps that move no
+image, `flux-system`/`kube-system` releases (reloader) and
+`advance-policy.json` `hold_charts` (the Renovate engine, CloudNativePG) stay
+with a person; the run prints why.
 - **Flux system manifests:** Renovate does not update `gitops/clusters/homelab-01/flux-system/gotk-components.yaml`. Its image has no `flux` binary, so it could only bump the version comment, and two such header-only bumps merged before 2026-11 while the controllers stayed on Flux v2.9.0.
 
 ### Upgrading Flux
