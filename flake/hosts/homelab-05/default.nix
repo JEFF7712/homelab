@@ -10,9 +10,6 @@ let
   reservedCpu = 1 + (if vm.enable then vm.vcpus else 0) + (if ci.enable then 3 else 0);
   reservedMemoryMiB =
     2048 + (if vm.enable then vm.memoryMiB + 1024 else 0) + (if ci.enable then 10240 else 0);
-  # The kiosk URL carries the face version, so a face_version bump in the
-  # face config also makes the kiosk fetch the new bundle.
-  jarvisFace = builtins.fromJSON (builtins.readFile ../../../home-assistant/www/jarvis/config.json);
 in
 {
   imports = [
@@ -253,7 +250,9 @@ in
     enable = true;
     compositor = "sway";
     output = "HDMI-A-2";
-    url = "http://10.0.40.13:8123/local/jarvis/index.html?v=${toString jarvisFace.face_version}";
+    # Boot version only: the face navigates itself to newer face_version
+    # values, so this may lag config.json but never lead it.
+    url = "http://10.0.40.13:8123/local/jarvis/index.html?v=23";
     haTokenFile = config.sops.secrets.jarvis-kiosk-ha-token.path;
     drmDevice = "/dev/dri/card1";
     scaleFactor = "1.0";
