@@ -188,7 +188,11 @@ class DeploymentContractTest(unittest.TestCase):
             )
         )
         self.assertIn("spectrum_url", config)
-        self.assertIn(str(config["face_version"]), host)
+        self.assertIsInstance(config["face_version"], int)
+        # The kiosk URL reads face_version from config.json, so a bump there
+        # cannot leave the kiosk on a stale ?v= (067a9dc2 did).
+        self.assertIn("home-assistant/www/jarvis/config.json", host)
+        self.assertIn("?v=${toString jarvisFace.face_version}", host)
 
     def test_resolve_source_uses_pw_dump(self) -> None:
         with patch.object(
