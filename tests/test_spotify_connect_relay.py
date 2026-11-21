@@ -45,7 +45,11 @@ class SpotifyConnectRelayTest(unittest.TestCase):
     def test_does_not_decode_a_whole_track_ahead_of_realtime(self) -> None:
         proc = self.launch("import os\nwhile True: os.write(1, b'x'*4096)")
         assert proc.stdout is not None
-        total = 0
+        # Time from the first PCM, not from launch: two interpreter start-ups
+        # on a throttled CI runner used most of the window (2026-11-21).
+        ready, _, _ = select.select([proc.stdout], [], [], 10)
+        self.assertTrue(ready, "relay produced no PCM within 10 s")
+        total = len(os.read(proc.stdout.fileno(), 65536))
         started = time.monotonic()
         while time.monotonic() - started < 0.6:
             ready, _, _ = select.select([proc.stdout], [], [], 0.05)
