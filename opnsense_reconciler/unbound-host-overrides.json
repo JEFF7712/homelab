@@ -78,5 +78,21 @@
     "hostname": "jellyfin",
     "rr": "A",
     "server": "10.0.40.16"
+  },
+  {
+    "description": "Read-only TLS front for the niks3 binary cache on nas-01, so substituters name a host instead of an address",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "nix",
+    "rr": "A",
+    "server": "10.0.30.20"
+  },
+  {
+    "description": "Restic REST server on nas-01 holding laptop backups",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "restic",
+    "rr": "A",
+    "server": "10.0.30.20"
   }
 ]

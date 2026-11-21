@@ -38,5 +38,15 @@
     "answer": "10.0.40.16",
     "domain": "jellyfin.rupan.dev",
     "enabled": true
+  },
+  {
+    "answer": "10.0.30.20",
+    "domain": "nix.rupan.dev",
+    "enabled": true
+  },
+  {
+    "answer": "10.0.30.20",
+    "domain": "restic.rupan.dev",
+    "enabled": true
   }
 ]
