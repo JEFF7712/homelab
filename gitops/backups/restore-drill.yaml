@@ -93,7 +93,7 @@ spec:
             # Check the repository, require a snapshot from the last two
             # days, and restore it into scratch space.
             - name: fetch
-              image: registry.rupan.dev/upstream/docker.io/restic/restic@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/upstream/docker.io/restic/restic@sha256:93999df80d4ac6cb148e82d2ef1fe6a81996f17ff535e772723538211b31555a  # yamllint disable-line rule:line-length
               resources:
                 requests:
                   cpu: 100m
