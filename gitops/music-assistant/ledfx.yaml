@@ -40,7 +40,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: ledfx
-          image: registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:a5ff8549a847d1b2a10595a1137cc4e7352f7d29aafb96eff63cef92634b3036  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/ledfx/ledfx@sha256:fda3622040f6fb207440575f232826f31ded4bc5900a3d650c3ce4f31235beeb  # yamllint disable-line rule:line-length
           env:
             - name: TZ
               value: America/Chicago
