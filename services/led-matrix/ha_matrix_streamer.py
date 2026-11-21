@@ -363,7 +363,6 @@ def main() -> None:
                 and ha_state.connected
                 and ha_state.fireworks_audio
                 and not ha_state.music_mode
-                and not spotify_state.playing
             )
             fireworks_audio.update(audio_active, ha_state.fireworks_volume, [], tick)
 

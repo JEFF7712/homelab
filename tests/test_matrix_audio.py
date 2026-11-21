@@ -163,6 +163,23 @@ class PlayerTests(unittest.TestCase):
             monitor.run()
         self.assertFalse(monitor.busy)
 
+    def test_music_on_another_sink_does_not_mute_bedroom_effects(self) -> None:
+        monitor = audio.SpeakerMonitor("AA:BB")
+        sinks = [dict(name="bluez_output.AA_BB.1", index=7)]
+        inputs = [dict(sink=99, corked=False, properties={"application.name": "Music"})]
+        with (
+            patch.object(
+                audio.subprocess,
+                "check_output",
+                side_effect=[json.dumps(sinks), json.dumps(inputs)],
+            ),
+            patch.object(
+                monitor.stop, "wait", side_effect=lambda _: monitor.stop.set()
+            ),
+        ):
+            monitor.run()
+        self.assertFalse(monitor.busy)
+
 
 class ReceiverTests(unittest.TestCase):
     def test_receiver_plays_then_yields_and_expires_without_hardware(self) -> None:

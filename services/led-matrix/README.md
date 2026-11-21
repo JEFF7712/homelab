@@ -70,8 +70,8 @@ and willow/fountain fizz to the NAS bedroom Bose speaker. The bedroom dashboard
 has Fireworks Audio, Volume, and Audio Sync controls. Audio Sync delays only
 Fireworks visuals by 0 to 1000 ms to compensate for speaker latency; start near
 300 ms and tune on the physical speaker. This is a timing offset, not measured
-acoustic synchronization. Music playback and bedroom Music Mode mute the effects.
-The NAS additionally yields whenever another stream plays on the Bose output.
+acoustic synchronization. Bedroom Music Mode mutes the effects. The NAS yields whenever another stream
+plays on the Bose output; Spotify playback on other devices does not mute them.
 Changing mode, disabling audio, losing HA, or losing sender heartbeats stops
 effects. The panel continues rendering if the audio receiver is unreachable.
 Set `--fireworks-audio-host` (or `FIREWORKS_AUDIO_HOST`) to the NAS address;
