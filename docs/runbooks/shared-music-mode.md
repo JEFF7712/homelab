@@ -232,11 +232,14 @@ per section, so beats, fills and gaps between phrases do not flip it.
 Bulbs follow sections too. `sensor.music_director` publishes
 `area_brightness_pct` (`sections.bulb_brightness_pct`), which bulbs take when
 they join or are relit. On a section change the automation runs
-`script.shared_music_area` step `section` with `scale` = new / old
-`area_brightness_pct`: each lit bulb is recoloured and its own brightness
-multiplied by that ratio over 2 s. A bulb dimmed by hand therefore stays
-dimmer than the rest, and one switched off stays off. A new track returns to
-normal, which scales back the same way.
+`script.shared_music_area` step `section` with `from_pct` = the old
+`area_brightness_pct`. Every lit bulb is recoloured over 2 s; those still
+within 3/255 of the old level (or reporting none) move to the new level, and
+a level set by hand holds. One switched off stays off. A new track returns to
+normal the same way. Until 2026-11-20 every lit bulb was multiplied by the
+new / old ratio instead. A bulb set near full brightness was cut off at 255 in
+loud parts and came back lower (250 settled at 222), so hand-set levels now
+sit out sections.
 
 The section intensity nudge applies only to the published palette. The
 decision keeps the un-nudged cover or vibe palette, so recomposing (a section

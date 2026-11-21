@@ -18,8 +18,8 @@ description: >-
   alone. The strip's colours and effects come from the music_director
   integration through LedFx; here it is only switched on (at full WLED
   brightness, which scales the LedFx stream) or off. Loud and quiet song
-  sections scale the lit bulbs' brightness (area_brightness_pct), keeping
-  each bulb's own level relative to the others. Music Mode ends itself after
+  sections move lit bulbs still at the Music Mode level to the section's
+  level (area_brightness_pct); a level set by hand holds. Music Mode ends itself after
   the soundbar has not played for 15 minutes.
 mode: queued
 max: 10
@@ -214,8 +214,8 @@ actions:
             id: "palette"
         sequence:
           # Brightness moved: relight at the new level. Section changed:
-          # scale lit bulbs by the ratio, so levels set by hand keep their
-          # place. Otherwise only the colour changes.
+          # bulbs at the old level move to the new one and levels set by
+          # hand hold. Otherwise only the colour changes.
           - variables:
               old_pct: >-
                 {{ trigger.from_state.attributes.get('area_brightness_pct')
@@ -230,8 +230,6 @@ actions:
                 {{ 'relight' if brightness_moved
                    else 'section' if old_pct and new_pct and old_pct != new_pct
                    else 'paint' }}
-          - variables:
-              scale: "{{ (new_pct / old_pct) | round(4) if step == 'section' else 1 }}"
           - repeat:
               for_each: "{{ taking_part }}"
               sequence:
@@ -239,7 +237,7 @@ actions:
                   data:
                     area: "{{ repeat.item }}"
                     step: "{{ step }}"
-                    scale: "{{ scale }}"
+                    from_pct: "{{ old_pct if step == 'section' else 0 }}"
       - conditions:
           - condition: trigger
             id: "idle"
