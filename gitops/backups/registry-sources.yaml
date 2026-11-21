@@ -16,6 +16,6 @@ metadata:
   name: backups-registry-sources
 items:
   # restic (dumps-to-r2.yaml, library-local.yaml)
-  - image: docker.io/restic/restic:0.19.1@sha256:136600b6ff6843d61d355f7f71f460a166429f35de6fd11b568fece3c9a4d510
+  - image: docker.io/restic/restic:0.20.0@sha256:93999df80d4ac6cb148e82d2ef1fe6a81996f17ff535e772723538211b31555a
   # pg_dump client (db-dump.yaml)
   - image: docker.io/library/postgres:16.15-alpine@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139  # yamllint disable-line rule:line-length
