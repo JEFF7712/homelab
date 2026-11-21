@@ -2,6 +2,7 @@ import json
 import threading
 import time
 import unittest
+from dataclasses import replace
 from datetime import UTC, datetime
 from io import BytesIO
 from unittest.mock import Mock, patch
@@ -16,6 +17,7 @@ from ha_source import (
     HomeAssistantSource,
     HybridPlaybackSource,
     PlaybackState,
+    parse_push_message,
     parse_spotify_state,
 )
 from spotify_matrix_streamer import SpotifyQuotaExceeded, SpotifyRateLimited
@@ -649,6 +651,114 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         self.assertFalse(hybrid._should_poll_spotify())
         hybrid._last_active_at = time.monotonic()
         self.assertTrue(hybrid._should_poll_spotify())
+
+    def test_push_message_parsing(self) -> None:
+        state = parse_push_message(
+            {
+                "type": "playback",
+                "status": "Playing",
+                "title": "Essence",
+                "artist": "Wizkid, Tems",
+                "art_url": "https://open.spotify.com/image/ab67616d0000b273abc",
+            },
+            now=5.0,
+        )
+        self.assertEqual(
+            state,
+            PlaybackState(
+                available=True,
+                playing=True,
+                title="Essence",
+                artist="Wizkid, Tems",
+                artwork_url="https://i.scdn.co/image/ab67616d0000b273abc",
+                updated_at=5.0,
+            ),
+        )
+        paused = parse_push_message({"status": "Paused", "art_url": "file:///x"})
+        assert paused is not None
+        self.assertFalse(paused.playing)
+        self.assertEqual(paused.artwork_url, "")
+        self.assertIsNone(parse_push_message({"status": "Stopped"}))
+        self.assertIsNone(parse_push_message({}))
+
+    def test_laptop_push_overrides_polling_while_it_plays(self) -> None:
+        from modes.base import HAState
+
+        ha_mock = Mock(spec=HomeAssistantSource)
+        ha_mock.connected = True
+        ha_mock.hub_state.return_value = HAState(power=True, mode="Spotify")
+        ha_polled = PlaybackState(available=True, playing=False, title="HA")
+        ha_mock.snapshot.return_value = ha_polled
+        hybrid = HybridPlaybackSource(ha_mock, Mock())
+        self.assertTrue(hybrid._should_poll_spotify())
+
+        laptop = PlaybackState(available=True, playing=True, title="Laptop")
+        hybrid._wake_event.clear()
+        hybrid.apply_push(laptop)
+        self.assertTrue(hybrid._wake_event.is_set())
+        self.assertEqual(hybrid.snapshot(), laptop)
+        # Its playback costs no Spotify quota.
+        self.assertFalse(hybrid._should_poll_spotify())
+
+        # Paused on the laptop: its cover stays, and polling resumes so
+        # playback elsewhere is still noticed.
+        laptop_paused = replace(laptop, playing=False)
+        hybrid.apply_push(laptop_paused)
+        self.assertEqual(hybrid.snapshot(), laptop_paused)
+        self.assertTrue(hybrid._should_poll_spotify())
+        phone = PlaybackState(available=True, playing=True, title="Phone")
+        ha_mock.snapshot.return_value = phone
+        self.assertEqual(hybrid.snapshot(), phone)
+
+        # Laptop gone: back to the polled sources.
+        hybrid.apply_push(None)
+        ha_mock.snapshot.return_value = ha_polled
+        self.assertEqual(hybrid.snapshot(), ha_polled)
+
+    def test_playback_websocket_forwards_laptop_updates(self) -> None:
+        import socket
+
+        from websockets.sync.client import connect as ws_connect
+
+        from web_controller import MultiplayerHub, start_background_server
+
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        received: list[dict | None] = []
+        changed = threading.Event()
+
+        def on_playback(data: dict | None) -> None:
+            received.append(data)
+            changed.set()
+
+        hub = MultiplayerHub()
+        hub.on_playback = on_playback
+        stop = threading.Event()
+        thread = start_background_server(hub, "127.0.0.1", port, stop_event=stop)
+        try:
+            deadline = time.monotonic() + 5
+            while True:
+                try:
+                    client = ws_connect(f"ws://127.0.0.1:{port}/playback")
+                    break
+                except OSError:
+                    if time.monotonic() > deadline:
+                        raise
+                    time.sleep(0.05)
+            with client:
+                client.send(json.dumps({"type": "playback", "status": "Playing"}))
+                self.assertTrue(changed.wait(5))
+                changed.clear()
+            self.assertTrue(changed.wait(5))
+            self.assertEqual(
+                received, [{"type": "playback", "status": "Playing"}, None]
+            )
+            # The laptop connection is not a game controller.
+            self.assertFalse(hub.p1_connected)
+        finally:
+            stop.set()
+            thread.join(timeout=5)
 
     def test_spotify_mode_polls_promptly_while_idle_or_paused(self) -> None:
         # Home Assistant's Spotify integration polls every 30 s, so waiting for
@@ -1373,6 +1483,12 @@ class HubModeAndRendererTests(unittest.TestCase):
 
         resp_ws = server.process_request(conn, DummyRequest("/ws"))  # type: ignore
         self.assertIsNone(resp_ws)  # Upgrade to WebSocket
+
+        # Without a playback consumer the laptop push endpoint does not exist.
+        resp_push = server.process_request(conn, DummyRequest("/playback"))  # type: ignore
+        self.assertEqual(resp_push.status_code, 404)
+        hub.on_playback = lambda _data: None
+        self.assertIsNone(server.process_request(conn, DummyRequest("/playback")))  # type: ignore
 
     def test_arcade_rotation_includes_new_games(self) -> None:
         from modes.arcade import RetroArcadeRenderer

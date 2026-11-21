@@ -10,8 +10,14 @@ import threading
 import time
 from collections import deque
 from pathlib import Path
+from typing import Any
 
-from ha_source import ArtworkCache, HomeAssistantSource, HybridPlaybackSource
+from ha_source import (
+    ArtworkCache,
+    HomeAssistantSource,
+    HybridPlaybackSource,
+    parse_push_message,
+)
 from modes import (
     BlankRenderer,
     ClockWeatherRenderer,
@@ -231,6 +237,13 @@ def main() -> None:
         )
 
     multiplayer_hub = MultiplayerHub()
+    if isinstance(source, HybridPlaybackSource):
+        hybrid = source
+
+        def on_playback(data: dict[str, Any] | None) -> None:
+            hybrid.apply_push(None if data is None else parse_push_message(data))
+
+        multiplayer_hub.on_playback = on_playback
     ledfx_receiver = LedFxReceiver(port=args.ledfx_port)
     ledfx_receiver.start()
     visualizer = VisualizerRenderer(audio_source=ledfx_receiver.get_latest_audio)

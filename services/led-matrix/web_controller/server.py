@@ -59,6 +59,8 @@ class MultiplayerHub:
         self.on_start_game: Callable[[str, bool], None] | None = None
         self.on_rematch: Callable[[], None] | None = None
         self.on_menu_exit: Callable[[], None] | None = None
+        # Laptop playback push: a message dict, or None when the laptop leaves
+        self.on_playback: Callable[[dict[str, Any] | None], None] | None = None
 
     @property
     def p1_connected(self) -> bool:
@@ -293,9 +295,36 @@ class WebControllerServer:
             return Response(200, "OK", headers=headers, body=body)
         elif path == "/ws":
             return None  # Upgrade to WebSocket
+        elif path == "/playback":
+            if self.hub.on_playback is None:
+                return Response(
+                    404, "Not Found", headers=Headers(), body=b"404 Not Found"
+                )
+            return None  # Upgrade to the laptop's playback push
         return Response(404, "Not Found", headers=Headers(), body=b"404 Not Found")
 
+    async def handle_playback(self, ws: ServerConnection) -> None:
+        """Forward the laptop's Spotify player updates until it disconnects."""
+        callback = self.hub.on_playback
+        if callback is None:
+            return
+        print("[Push] Laptop connected", flush=True)
+        try:
+            async for raw_msg in ws:
+                try:
+                    data = json.loads(raw_msg)
+                except Exception:
+                    continue
+                if isinstance(data, dict) and data.get("type") == "playback":
+                    callback(data)
+        finally:
+            callback(None)
+            print("[Push] Laptop disconnected", flush=True)
+
     async def handle_connection(self, ws: ServerConnection) -> None:
+        if getattr(ws.request, "path", "") == "/playback":
+            await self.handle_playback(ws)
+            return
         role = self.hub.register_client(ws)
         try:
             # 1. Send player role assignment
