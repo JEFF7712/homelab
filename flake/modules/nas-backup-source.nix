@@ -9,6 +9,7 @@
     extraGroups = [
       "forgejo"
       "syncthing"
+      "restic"
     ];
     shell = "${pkgs.shadow}/bin/nologin";
     openssh.authorizedKeys.keys = [
