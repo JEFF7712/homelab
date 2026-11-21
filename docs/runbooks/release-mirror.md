@@ -10,7 +10,10 @@ to GitHub every five minutes, with up to 30 seconds of scheduling jitter.
 - `flake/modules/release-mirror.nix`: service and timer.
 - `flake/hosts/homelab-04/default.nix`: explicit `JEFF7712/nix-agent` enrollment,
   starting at v0.13.0. Earlier GitHub releases are left as they are.
-- `scripts/ci/release_mirror.py`: API reconciliation and asset verification.
+- `flake/flake.nix` and `flake/flake.lock`: the `forgejo-release-mirror` v0.1.0
+  input, pinned to its release commit and sharing the fleet's nixpkgs input.
+  Reconciliation and asset verification live in the
+  [standalone package](https://github.com/JEFF7712/forgejo-release-mirror).
 - `repo-monitor.env` in `secrets/hosts/homelab-04.sops.yaml`: credentials
   shared with the repo monitor, installed at `/run/secrets/repo-monitor.env`.
   `FORGEJO_READ_TOKEN` reads the private source repository; `GITHUB_TOKEN` must
@@ -32,11 +35,28 @@ tags, and extra destination assets are never deleted by synchronization.
 
 ## Verification and operations
 
-Run policy tests in the pinned development environment:
+Run the service integration tests in the pinned development environment:
 
 ```sh
 nix develop ./flake -c python -m unittest tests.test_release_mirror -v
 ```
+
+These evaluate homelab-04's actual unit and timer, verify its release pin and
+arguments, and build and exercise the installed executable without credentials.
+The package build runs the upstream regression suite; the homelab does not
+keep a second copy of the reconciliation implementation or its unit tests.
+
+The existing unit name, environment file, repository, minimum version, and
+timer schedule remain authoritative in `flake/modules/release-mirror.nix`
+and the host configuration. The service passes `--forgejo-origin`,
+`--source-repository`, and `--destination-repository` explicitly.
+
+For a live read-only preview, run the unit's packaged command with `--dry-run`
+and the same runtime environment file through an authorized CI/operator path.
+Never copy token values into command arguments or logs. A preview reads tag
+and release metadata but does not download or verify asset bytes or test write
+permission. Routine agents observe the service through `agent-observer`; they
+do not start privileged units directly.
 
 Deploy changes through the scoped fleet workflow in
 [NixOS host deployment](nixos-host-deployment.md). After deployment, inspect

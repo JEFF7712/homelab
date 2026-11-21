@@ -1,7 +1,7 @@
 {
   config,
   lib,
-  pkgs,
+  releaseMirrorPackage,
   ...
 }:
 let
@@ -37,8 +37,10 @@ in
       serviceConfig = {
         Type = "oneshot";
         ExecStart =
-          "${pkgs.python3}/bin/python3 ${../../scripts/ci/release_mirror.py}"
-          + " --repository ${lib.escapeShellArg cfg.repository}"
+          "${lib.getExe releaseMirrorPackage}"
+          + " --forgejo-origin http://git.internal:3000"
+          + " --source-repository ${lib.escapeShellArg cfg.repository}"
+          + " --destination-repository ${lib.escapeShellArg cfg.repository}"
           + " --minimum-version ${lib.escapeShellArg cfg.minimumVersion}";
         EnvironmentFile = cfg.environmentFile;
         TimeoutStartSec = "15min";
