@@ -713,7 +713,7 @@
             "opt1"
           ]
         },
-        "sequence": 228
+        "sequence": 207
       },
       "clients-allow-tv-airplay-udp": {
         "description": "Allow clients to living room TV AirPlay UDP",
@@ -739,7 +739,7 @@
             "opt1"
           ]
         },
-        "sequence": 229
+        "sequence": 208
       },
       "clients-allow-workshop-airplay-udp": {
         "description": "Allow clients to workshop AirPlay transport",

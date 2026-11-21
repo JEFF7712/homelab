@@ -551,7 +551,7 @@
       clients-allow-tv-airplay-tcp = {
         description = "Allow clients to living room TV AirPlay TCP";
         enabled = true;
-        sequence = 228;
+        sequence = 207;
         interface.interface = [ "opt1" ];
         filter = {
           action = "pass";
@@ -573,7 +573,7 @@
       clients-allow-tv-airplay-udp = {
         description = "Allow clients to living room TV AirPlay UDP";
         enabled = true;
-        sequence = 229;
+        sequence = 208;
         interface.interface = [ "opt1" ];
         filter = {
           action = "pass";
