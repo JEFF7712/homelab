@@ -10,9 +10,9 @@ description: >-
   area_brightness_pct (number.music_mode_brightness, scaled by the song
   section); paint, on every new track, changes only the colour of lights
   that are on, so brightness set on a light by hand, or a light switched off
-  by hand, stays as it is. Section recolours lit lights and multiplies each
-  one's brightness by scale, the ratio between the old and new section
-  levels.
+  by hand, stays as it is. Section recolours lit lights and moves those
+  still at the old section level (from_pct) to the new one; a level set by
+  hand holds.
 mode: parallel
 max: 20
 fields:
@@ -42,15 +42,17 @@ fields:
           - relight
           - "off"
           - leave
-  scale:
-    description: Brightness factor for lit lights (section step only).
+  from_pct:
+    description: >-
+      The area's brightness before the section changed (section step only);
+      lit lights still at it move to the new level.
     required: false
-    example: 0.8
+    example: 70
     selector:
       number:
-        min: 0.1
-        max: 10
-        step: 0.01
+        min: 1
+        max: 100
+        step: 1
 sequence:
   - variables:
       areas:
@@ -168,20 +170,44 @@ sequence:
               - condition: template
                 value_template: "{{ step == 'section' }}"
             sequence:
-              # Per light: each keeps its own level relative to the others.
-              - repeat:
-                  for_each: "{{ lit }}"
-                  sequence:
-                    - action: light.turn_on
-                      target:
-                        entity_id: "{{ repeat.item }}"
-                      data:
-                        rgb_color: "{{ rgb }}"
-                        brightness: >-
-                          {% set current = state_attr(repeat.item, 'brightness')
-                             or (brightness_pct * 2.55) %}
-                          {{ [1, [255, (current * (scale | default(1) | float(1))) | round | int] | min] | max }}
-                        transition: 2
+              # Lights still at the previous section's level (or reporting
+              # none) move to the new one. A level set by hand holds: scaling
+              # it clipped at full brightness and never came back.
+              - variables:
+                  previous: "{{ (from_pct | default(0) | float(0) * 255 / 100) | round }}"
+              - variables:
+                  following: >-
+                    {% set ns = namespace(lights=[]) %}
+                    {% for light in lit %}
+                      {% set level = state_attr(light, 'brightness') %}
+                      {% if level is none or (level - previous) | abs <= 3 %}
+                        {% set ns.lights = ns.lights + [light] %}
+                      {% endif %}
+                    {% endfor %}
+                    {{ ns.lights }}
+              - variables:
+                  held: "{{ lit | reject('in', following) | list }}"
+              - if:
+                  - condition: template
+                    value_template: "{{ following | length > 0 }}"
+                then:
+                  - action: light.turn_on
+                    target:
+                      entity_id: "{{ following }}"
+                    data:
+                      rgb_color: "{{ rgb }}"
+                      brightness_pct: "{{ brightness_pct }}"
+                      transition: 2
+              - if:
+                  - condition: template
+                    value_template: "{{ held | length > 0 }}"
+                then:
+                  - action: light.turn_on
+                    target:
+                      entity_id: "{{ held }}"
+                    data:
+                      rgb_color: "{{ rgb }}"
+                      transition: 2
         default:
           - action: light.turn_on
             target:

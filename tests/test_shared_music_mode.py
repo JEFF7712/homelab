@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import re
 import unittest
@@ -575,7 +576,7 @@ class TestMusicModeTemplates(unittest.TestCase):
             if {"condition": "trigger", "id": "palette"} in b["conditions"]
         )
 
-    def _palette_step(self, old: dict, new: dict) -> tuple[str, float]:
+    def _palette_step(self, old: dict, new: dict) -> tuple[str, object]:
         trigger = {
             "from_state": _State(**old) if old is not None else None,
             "to_state": _State(**new),
@@ -585,8 +586,42 @@ class TestMusicModeTemplates(unittest.TestCase):
             for name, template in step.get("variables", {}).items():
                 context[name] = _render(template, **context)
         call = self._palette_steps()[-1]["repeat"]["sequence"][0]
-        self.assertEqual(call["data"]["scale"], "{{ scale }}")
-        return context["step"], context["scale"]
+        return context["step"], _render(call["data"]["from_pct"], **context)
+
+    def _section_lights(
+        self, levels: dict[str, int | None], from_pct: object
+    ) -> tuple[list[str], list[str]]:
+        """Which lit lights the section step moves to the new level, and
+        which it only recolours."""
+        step = next(
+            choice
+            for item in _walk(self.script["sequence"])
+            if isinstance(item, dict) and "choose" in item
+            for choice in item["choose"]
+            if "'section'" in json.dumps(choice["conditions"])
+        )
+        context: dict[str, object] = {
+            "lit": list(levels),
+            "from_pct": from_pct,
+            "state_attr": lambda entity, _attr: levels[entity],
+        }
+        calls = []
+        for action in step["sequence"]:
+            for name, template in action.get("variables", {}).items():
+                value = _render(template, **context)
+                # HA hands later steps native lists, not their text.
+                if isinstance(value, str) and value.startswith("["):
+                    value = ast.literal_eval(value)
+                context[name] = value
+            if "if" in action:
+                calls.append(action["then"][0])
+        follow, hold = calls
+        self.assertEqual(follow["target"]["entity_id"], "{{ following }}")
+        self.assertEqual(follow["data"]["brightness_pct"], "{{ brightness_pct }}")
+        self.assertEqual(hold["target"]["entity_id"], "{{ held }}")
+        self.assertNotIn("brightness", hold["data"])
+        self.assertNotIn("brightness_pct", hold["data"])
+        return context["following"], context["held"]
 
     def _passes(self, old: dict | None, new: dict, mode: str = "on") -> bool:
         template = self.automation["conditions"][0]["value_template"]
@@ -600,22 +635,21 @@ class TestMusicModeTemplates(unittest.TestCase):
             is_state=lambda entity, state: mode == state,
         )
 
-    def test_section_change_scales_lit_bulbs_by_the_ratio(self) -> None:
+    def test_section_change_passes_the_previous_level(self) -> None:
         colours = {"kitchen_ceiling": [255, 0, 0]}
         base = {"area_colors": colours, "brightness_pct": 70}
-        step, scale = self._palette_step(
+        step, from_pct = self._palette_step(
             {**base, "area_brightness_pct": 70},
             {**base, "area_brightness_pct": 56},
         )
-        self.assertEqual(step, "section")
-        self.assertAlmostEqual(scale, 0.8)
+        self.assertEqual((step, from_pct), ("section", 70))
 
     def test_brightness_slider_relights_and_new_tracks_only_paint(self) -> None:
         old = {"area_colors": {}, "brightness_pct": 70, "area_brightness_pct": 70}
-        step, scale = self._palette_step(
+        step, from_pct = self._palette_step(
             old, {**old, "brightness_pct": 50, "area_brightness_pct": 50}
         )
-        self.assertEqual((step, scale), ("relight", 1))
+        self.assertEqual((step, from_pct), ("relight", 0))
         step, _ = self._palette_step(old, {**old, "area_colors": {"x": [0, 0, 255]}})
         self.assertEqual(step, "paint")
         # The first decision after the sensor was off has no level to scale.
@@ -644,34 +678,36 @@ class TestMusicModeTemplates(unittest.TestCase):
         template = self.automation["conditions"][0]["value_template"]
         self.assertTrue(_render(template, trigger={"id": "mode_off"}))
 
-    def test_section_step_scales_each_light_within_range(self) -> None:
-        step = next(
-            choice
-            for item in _walk(self.script["sequence"])
-            if isinstance(item, dict) and "choose" in item
-            for choice in item["choose"]
-            if "'section'" in json.dumps(choice["conditions"])
+    def test_section_moves_bulbs_at_the_music_level_and_holds_hand_set_ones(
+        self,
+    ) -> None:
+        # 70% is 178/255; bulbs report a level or two off what was sent.
+        following, held = self._section_lights(
+            {
+                "light.at_level": 178,
+                "light.rounded": 180,
+                "light.by_hand": 250,
+                "light.dimmed": 60,
+                "light.no_level": None,
+                # A name inside another must not be mistaken for it.
+                "light.lamp": 250,
+                "light.lamp_2": 178,
+            },
+            "70",
         )
-        repeat = step["sequence"][0]["repeat"]
-        self.assertEqual(repeat["for_each"], "{{ lit }}")
-        template = repeat["sequence"][0]["data"]["brightness"]
-        levels = {"light.a": 200, "light.b": 100, "light.c": None}
+        self.assertEqual(
+            following,
+            ["light.at_level", "light.rounded", "light.no_level", "light.lamp_2"],
+        )
+        self.assertEqual(held, ["light.by_hand", "light.dimmed", "light.lamp"])
 
-        def brightness(light: str, scale: float) -> int:
-            return _render(
-                template,
-                repeat={"item": light},
-                scale=scale,
-                brightness_pct=70,
-                state_attr=lambda entity, _attr: levels[entity],
-            )
-
-        self.assertEqual(brightness("light.a", 0.8), 160)
-        self.assertEqual(brightness("light.b", 0.8), 80)
-        self.assertEqual(brightness("light.a", 1.5), 255)
-        self.assertEqual(brightness("light.b", 0.001), 1)
-        # A light reporting no brightness starts from the area level.
-        self.assertEqual(brightness("light.c", 1.0), 178)
+    def test_hand_set_bulbs_come_back_unchanged_after_a_loud_part(self) -> None:
+        # The old ratio scaling clipped 250 at 255 on the way up and brought
+        # it back to 222. Held, it is never touched, so there is no drift.
+        _, held = self._section_lights({"light.by_hand": 250}, "70")
+        self.assertEqual(held, ["light.by_hand"])
+        _, held = self._section_lights({"light.by_hand": 250}, "80")
+        self.assertEqual(held, ["light.by_hand"])
 
     def test_idle_soundbar_ends_music_mode(self) -> None:
         trigger = next(t for t in self.automation["triggers"] if t["id"] == "idle")
