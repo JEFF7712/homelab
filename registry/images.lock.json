@@ -7962,6 +7962,49 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/observability/registry-sources.yaml:28"
+      ],
+      "destination_repository": "upstream/quay.io/prometheus/node-exporter",
+      "destination_tags": [
+        "retention-deployed-dbc46b5381ae47c5",
+        "v1.13.1-distroless"
+      ],
+      "digest": "sha256:dbc46b5381ae47c5634a6ad16d7b4862191979b0ba4f4cfbdee85e5aa2fcd1e3",
+      "id": "upstream-prometheus-node-exporter-6c44e5052bc2",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:dbc46b5381ae47c5634a6ad16d7b4862191979b0ba4f4cfbdee85e5aa2fcd1e3",
+        "reference": "quay.io/prometheus/node-exporter:v1.13.1-distroless@sha256:dbc46b5381ae47c5634a6ad16d7b4862191979b0ba4f4cfbdee85e5aa2fcd1e3",
+        "registry": "quay.io",
+        "repository": "prometheus/node-exporter",
+        "tag": "v1.13.1-distroless"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:observability/alloy-5vq4p/config-reloader",
         "observed:observability/alloy-hkms9/config-reloader",
         "observed:observability/alloy-p9kb6/config-reloader",
