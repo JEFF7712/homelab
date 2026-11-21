@@ -361,6 +361,9 @@ let
         if ! ${pkgs.coreutils}/bin/ls "$NAS_MOUNT/backups/syncthing/laptop" >/dev/null 2>&1; then
           fail "Syncthing backup folders are not readable at $NAS_MOUNT/backups/syncthing/laptop"
         fi
+        if ! ${pkgs.coreutils}/bin/ls "$NAS_MOUNT/backups/restic/laptop/data" >/dev/null 2>&1; then
+          fail "Laptop restic repository is not readable at $NAS_MOUNT/backups/restic/laptop"
+        fi
 
         # Local Infrastructure state paths
         LOCAL_PATHS=(
@@ -463,6 +466,33 @@ let
           echo "==> [5/5] Backup completed successfully (status: $RC) at $(date -d @$NOW)!"
         else
           fail "Restic backup failed with exit code $RC"
+        fi
+
+        # The laptop's own restic repository (nas-restic.nix): immutable packs,
+        # so each night adds only the laptop's new ones. Time-boxed like
+        # Syncthing below and pruned as its own host group.
+        BUDGET=$((13800 - ($(${pkgs.coreutils}/bin/date +%s) - SCRIPT_START)))
+        if [ "$BUDGET" -ge 600 ]; then
+          echo "==> Backing up the laptop restic repository (time box ''${BUDGET}s)..."
+          LAPTOP_RC=0
+          ${pkgs.coreutils}/bin/timeout --signal=INT "$BUDGET" ${pkgs.restic}/bin/restic backup \
+            --host adguard-netbird-01-laptop \
+            --tag laptop-restic \
+            --exclude '.htpasswd' \
+            "$NAS_MOUNT/backups/restic" || LAPTOP_RC=$?
+          if [ "$LAPTOP_RC" -eq 0 ]; then
+            cat << EOF > "$TEXTFILE_DIR/laptop_restic_backup.prom.tmp"
+    # HELP laptop_restic_backup_last_success_timestamp_seconds Timestamp of the last completed off-host copy of the laptop restic repository
+    # TYPE laptop_restic_backup_last_success_timestamp_seconds gauge
+    laptop_restic_backup_last_success_timestamp_seconds $(date +%s)
+    EOF
+            ${pkgs.coreutils}/bin/mv -f "$TEXTFILE_DIR/laptop_restic_backup.prom.tmp" "$TEXTFILE_DIR/laptop_restic_backup.prom"
+            echo "Laptop restic repository backup completed"
+          else
+            echo "WARNING: laptop restic repository backup incomplete (exit $LAPTOP_RC)" >&2
+          fi
+        else
+          echo "WARNING: no time left for the laptop restic repository backup this run" >&2
         fi
 
         # Syncthing holds ~200k files that SSHFS reads slowly. It runs after the

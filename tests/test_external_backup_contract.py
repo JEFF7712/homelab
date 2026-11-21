@@ -126,6 +126,16 @@ class ExternalBackupContractTests(unittest.TestCase):
         source = (REPO_ROOT / "flake/modules/nas-backup-source.nix").read_text()
         self.assertIn('"syncthing"', source)
 
+    def test_laptop_restic_repository_is_backed_up_off_host(self) -> None:
+        content = (REPO_ROOT / "flake/modules/adguard-netbird/backups.nix").read_text()
+        self.assertIn('"$NAS_MOUNT/backups/restic" || LAPTOP_RC=$?', content)
+        self.assertIn("--host adguard-netbird-01-laptop", content)
+        self.assertIn("Laptop restic repository is not readable", content)
+        source = (REPO_ROOT / "flake/modules/nas-backup-source.nix").read_text()
+        self.assertIn('"restic"', source)
+        server = (REPO_ROOT / "flake/modules/nas-restic.nix").read_text()
+        self.assertIn("--group-accessible-repos", server)
+
     def test_offline_recovery_kit_script_exists(self) -> None:
         script = REPO_ROOT / "scripts/backups/export-offline-recovery-kit.sh"
         self.assertTrue(script.is_file())

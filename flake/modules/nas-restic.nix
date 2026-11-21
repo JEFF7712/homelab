@@ -2,10 +2,11 @@
 # preserved system state and home configuration). Repositories are private
 # per htpasswd user and encrypted client-side; tank/backups' daily sanoid
 # snapshots keep 30 days of history even if a client prunes or overwrites
-# its own repository.
+# its own repository, and adguard-netbird-01 pulls them off-host nightly.
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -52,9 +53,22 @@ in
       listenAddress = "127.0.0.1:${toString port}";
       privateRepos = true;
       htpasswd-file = config.sops.secrets.restic-server-htpasswd.path;
+      # adguard-netbird-01 pulls the repositories off-host as backup-reader,
+      # a member of the restic group (nas-backup-source.nix).
+      extraFlags = [ "--group-accessible-repos" ];
     };
 
-    systemd.services.restic-rest-server.unitConfig.RequiresMountsFor = [ cfg.dataDir ];
+    systemd.services.restic-rest-server = {
+      unitConfig.RequiresMountsFor = [ cfg.dataDir ];
+      # Files written before --group-accessible-repos are owner-only.
+      serviceConfig.ExecStartPre = [
+        "+${pkgs.writeShellScript "restic-repos-group-readable" ''
+          ${pkgs.coreutils}/bin/chmod 0750 ${cfg.dataDir}
+          ${pkgs.findutils}/bin/find ${cfg.dataDir} -mindepth 1 -maxdepth 1 \
+            ! -name .htpasswd -exec ${pkgs.coreutils}/bin/chmod -R g+rX {} +
+        ''}"
+      ];
+    };
 
     services.nginx = {
       enable = true;
