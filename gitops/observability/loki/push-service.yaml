@@ -1,7 +1,7 @@
-# Loki push endpoint for the two NixOS hosts that are not k3s nodes
-# (nas-01 and adguard-netbird-01, flake/modules/host-log-shipping.nix). It
-# fronts the chart's nginx gateway; push-policy.yaml admits only those two
-# addresses, and only for POST /loki/api/v1/push.
+# Loki push endpoint for the NixOS hosts that are not k3s nodes (nas-01 and
+# adguard-netbird-01, flake/modules/host-log-shipping.nix) and the operator
+# laptop. It fronts the chart's nginx gateway; push-policy.yaml admits only
+# those addresses, and only for POST /loki/api/v1/push.
 apiVersion: v1
 kind: Service
 metadata:
