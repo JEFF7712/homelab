@@ -689,6 +689,58 @@
         },
         "sequence": 216
       },
+      "clients-allow-tv-airplay-tcp": {
+        "description": "Allow clients to living room TV AirPlay TCP",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.15",
+            "port": "workshop_airplay_ports"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "TCP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 228
+      },
+      "clients-allow-tv-airplay-udp": {
+        "description": "Allow clients to living room TV AirPlay UDP",
+        "enabled": true,
+        "filter": {
+          "action": "pass",
+          "destination": {
+            "net": "10.0.30.15",
+            "port": "workshop_airplay_ports"
+          },
+          "direction": "in",
+          "ip_protocol": "inet",
+          "log": false,
+          "protocol": "UDP",
+          "quick": true,
+          "source": {
+            "net": "10.0.20.0/24",
+            "port": ""
+          }
+        },
+        "interface": {
+          "interface": [
+            "opt1"
+          ]
+        },
+        "sequence": 229
+      },
       "clients-allow-workshop-airplay-udp": {
         "description": "Allow clients to workshop AirPlay transport",
         "enabled": true,

@@ -548,6 +548,50 @@
           };
         };
       };
+      clients-allow-tv-airplay-tcp = {
+        description = "Allow clients to living room TV AirPlay TCP";
+        enabled = true;
+        sequence = 228;
+        interface.interface = [ "opt1" ];
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "TCP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.clients.cidr;
+            port = "";
+          };
+          destination = {
+            net = fleetInventory.hosts.homelab-05.address;
+            port = "workshop_airplay_ports";
+          };
+        };
+      };
+      clients-allow-tv-airplay-udp = {
+        description = "Allow clients to living room TV AirPlay UDP";
+        enabled = true;
+        sequence = 229;
+        interface.interface = [ "opt1" ];
+        filter = {
+          action = "pass";
+          direction = "in";
+          ip_protocol = "inet";
+          protocol = "UDP";
+          quick = true;
+          log = false;
+          source = {
+            net = config.homelab.networks.clients.cidr;
+            port = "";
+          };
+          destination = {
+            net = fleetInventory.hosts.homelab-05.address;
+            port = "workshop_airplay_ports";
+          };
+        };
+      };
       clients-allow-mdns = {
         description = "Allow client mDNS queries to the relay";
         enabled = true;

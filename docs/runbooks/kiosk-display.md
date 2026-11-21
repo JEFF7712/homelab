@@ -178,6 +178,29 @@ the workshop module import/enable and restore the previous host kiosk views,
 then ship the revert through the fleet deployment path. homelab-05 is unchanged.
 
 
+## Living room TV AirPlay (homelab-05)
+
+`flake/modules/tv-airplay.nix` runs `tv-airplay.service` in the kiosk user
+manager. Sway imports its display environment and starts the receiver, which
+advertises **Living Room TV**. Use Control Center > Screen Mirroring > Living
+Room TV on an iPhone. The receiver uses the workshop's software X11 rendering
+settings and TCP/UDP 7100-7102. HLS mode stays disabled.
+
+The `GStreamer` window with instance `Living Room TV` is assigned to workspace
+2, the Moonlight TV on `HDMI-A-1`, and focused fullscreen. Closing mirroring
+reveals Moonlight on that workspace. Jarvis stays on workspace 1 on `HDMI-A-2`.
+Audio uses the kiosk user's existing default output, the USB SPDIF adapter
+feeding the LG soundbar. Moonlight remains running while mirroring.
+
+Avahi advertises only on `enp0s31f6` over IPv4. Client-VLAN firewall rules
+permit TCP/UDP 7100-7102 to `10.0.30.15`. Check resolved discovery with
+`avahi-browse -rpt _airplay._tcp`: expect `Living Room TV` at
+`10.0.30.15:7101`. Read receiver logs with
+`journalctl _SYSTEMD_USER_UNIT=tv-airplay.service`, and check
+`systemctl is-active sway-tty1 moonlight-stream`. A real phone is required to
+verify picture, sound, reconnect, and return to Moonlight. Removing the module
+import and the two TV firewall rules through `just ship` rolls back this setup.
+
 ## Browser clock preview
 
 Open `http://10.0.30.14:8094/preview` from client Wi-Fi. It scales the shared
