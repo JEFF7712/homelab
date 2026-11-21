@@ -25,3 +25,4 @@ items:
   - image: docker.io/grafana/alloy:v1.22.0@sha256:9acc2529bc1edb7f5b2bd801dd8334ebc80c158e3a9e5526ecd7c9a273d43189  # yamllint disable-line rule:line-length
   # ntfy 1.7.0
   - image: docker.io/binwiederhier/ntfy:v2.32.0@sha256:59250e1d8be2ee2186c4560322f625faef22ace380331f05b63f8842dbd62602  # yamllint disable-line rule:line-length
+  - image: quay.io/prometheus/node-exporter:v1.13.1-distroless@sha256:dbc46b5381ae47c5634a6ad16d7b4862191979b0ba4f4cfbdee85e5aa2fcd1e3  # yamllint disable-line rule:line-length
