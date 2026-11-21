@@ -62,6 +62,25 @@ data:
               summary: "Laptop backup or deploy unit failed"
               description: "restic-backups-homelab or comin failed on {{ $labels.hostname }}; check its journal."
 
+          # Runs on battery or away from the homelab are skipped without a
+          # failure, so a condition that never clears would otherwise stay
+          # silent. Also fires when the laptop ships no logs for 3 days.
+          - alert: LaptopBackupStale
+            expr: |
+              absent_over_time(
+                {component="system-journal", hostname="laptop-nixos", unit="init.scope"}
+                |= "Finished restic-backups-homelab.service."
+                [3d]
+              )
+            for: 1h
+            labels:
+              severity: warning
+            annotations:
+              summary: "No successful laptop backup in 3 days"
+              description: >-
+                restic-backups-homelab has not finished on {{ $labels.hostname }} for 3 days;
+                check AC power, restic.rupan.dev reachability and the unit's journal.
+
       - name: container-log-alerts
         rules:
           - alert: ContainerFatalPanic

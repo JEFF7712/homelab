@@ -228,18 +228,68 @@ def required_status(
 VALIDATION_EVENTS = frozenset({"push", "pull_request", "manual"})
 
 
-def killed_validation(pipelines: list[dict[str, Any]]) -> dict[str, Any] | None:
+KILLED_STATES = frozenset({"killed", "canceled"})
+
+
+def killed_run(pipeline: dict[str, Any], workflows: list[dict[str, Any]]) -> bool:
+    """Whether the run stopped only because it was cancelled from outside.
+
+    Woodpecker can mark a run "failure" when its steps were killed, so a
+    failed run counts as a kill when every step that did not pass was killed.
+    """
+    status = pipeline.get("status")
+    if status in KILLED_STATES:
+        return True
+    if status not in {"failure", "error"}:
+        return False
+    unfinished = [
+        step
+        for workflow in workflows
+        for step in workflow.get("children") or []
+        if step.get("state") not in {"success", "skipped"}
+    ]
+    return bool(unfinished) and all(
+        step.get("state") in KILLED_STATES for step in unfinished
+    )
+
+
+def posts_required(workflows: list[dict[str, Any]]) -> bool:
+    """Whether the run reports REQUIRED_CONTEXT; unknown workflows may."""
+    names = {workflow.get("name") for workflow in workflows}
+    return not names or REQUIRED_CONTEXT.rsplit("/", 1)[-1] in names
+
+
+def killed_validation(
+    pipelines: list[dict[str, Any]],
+    detail: Callable[[dict[str, Any]], dict[str, Any]] = lambda p: p,
+) -> dict[str, Any] | None:
     """The validation run to restart when the head's only problem is a kill.
 
     A run cancelled from outside (a Woodpecker or agent restart, runner
     pressure) is not a verdict on the change. Any failed run is, and a newer
-    run for the same event already replaced the killed one.
+    run for the same event already replaced the killed one. Only the run that
+    reports REQUIRED_CONTEXT is restarted: restarting another leaves the
+    required status on the kill.
     """
     runs = [p for p in pipelines if p.get("event") in VALIDATION_EVENTS]
-    if any(p.get("status") in {"failure", "error"} for p in runs):
+    workflows = {
+        p["number"]: detail(p).get("workflows") or []
+        for p in runs
+        if p.get("status") in {"failure", "error"}
+    }
+    if any(
+        p.get("status") in {"failure", "error"}
+        and not killed_run(p, workflows[p["number"]])
+        for p in runs
+    ):
         return None
     killed = max(
-        (p for p in runs if p.get("status") in {"killed", "canceled"}),
+        (
+            p
+            for p in runs
+            if killed_run(p, workflows.get(p["number"], []))
+            and posts_required(workflows.get(p["number"], []))
+        ),
         key=lambda p: p["number"],
         default=None,
     )
@@ -249,6 +299,26 @@ def killed_validation(pipelines: list[dict[str, Any]]) -> dict[str, Any] | None:
     ):
         return None
     return killed
+
+
+def replacement_in_flight(pipelines: list[dict[str, Any]]) -> bool:
+    """A newer run replaces a stopped validation run and has not reported.
+
+    After a restart from an earlier ship run, the required status keeps the
+    kill until the replacement reports.
+    """
+    runs = [p for p in pipelines if p.get("event") in VALIDATION_EVENTS]
+    stopped = [
+        p for p in runs if p.get("status") in {"failure", "error"} | KILLED_STATES
+    ]
+    return any(
+        p.get("status") in {"pending", "running"}
+        and any(
+            p["number"] > q["number"] and p.get("event") == q.get("event")
+            for q in stopped
+        )
+        for p in runs
+    )
 
 
 def extract_patch(log: str) -> str | None:
@@ -733,7 +803,12 @@ class Shipper:
                         time.sleep(POLL_SECONDS)
                         continue
                 else:
-                    killed = killed_validation(pipelines)
+                    killed = killed_validation(
+                        pipelines, lambda p: self.woodpecker.pipeline(int(p["number"]))
+                    )
+                    if killed is None and replacement_in_flight(pipelines):
+                        time.sleep(POLL_SECONDS)
+                        continue
                     if killed is not None:
                         created = self.woodpecker.restart(int(killed["number"]))
                         self.restarted[sha] = int(created["number"])

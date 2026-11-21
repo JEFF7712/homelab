@@ -38,7 +38,7 @@ spec:
       containers:
         - name: renderer
           image: >-
-            registry.rupan.dev/apps/spotify-matrix@sha256:065f079ee813e3c1547d26129784265d9eaa35bddfb41fe861a7b3836ea57d7e
+            registry.rupan.dev/apps/spotify-matrix@sha256:1918f06ebd93073f782069087d7f8e97d313033d7438767cb116bb7ad01d2548
           args:
             - --ha-url
             - http://10.0.40.13:8123
@@ -76,6 +76,8 @@ spec:
               containerPort: 4048
               protocol: UDP
           env:
+            - name: FIREWORKS_AUDIO_HOST
+              value: "10.0.30.20"
             - name: TZ
               value: America/Chicago
             - name: SPOTIFY_CLIENT_ID

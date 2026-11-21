@@ -700,6 +700,49 @@ class ShipKilledValidationTest(unittest.TestCase):
         failed = {"number": 6116, "event": "push", "status": "failure"}
         self.assertIsNone(killed_validation([failed, self.KILLED]))
 
+    def test_a_failed_run_whose_only_bad_steps_were_killed_is_a_kill(self) -> None:
+        from scripts.agent.ship import killed_validation
+
+        # 2026-11-21: Woodpecker marked both runs "failure" after killing
+        # clone; the push run reports the required status, the PR run does not.
+        push = {"number": 19379, "event": "push", "status": "failure"}
+        pull = {"number": 19380, "event": "pull_request", "status": "failure"}
+        workflows = {
+            19379: [
+                {
+                    "name": "validation-v2",
+                    "children": [
+                        {"name": "clone", "state": "killed"},
+                        {"name": "validation", "state": "killed"},
+                    ],
+                }
+            ],
+            19380: [
+                {
+                    "name": "pr-validation-reused",
+                    "children": [{"name": "clone", "state": "killed"}],
+                }
+            ],
+        }
+
+        def detail(pipeline: dict) -> dict:
+            return {"workflows": workflows[pipeline["number"]]}
+
+        self.assertEqual(killed_validation([push, pull], detail), push)
+        workflows[19379][0]["children"][1]["state"] = "failure"
+        self.assertIsNone(killed_validation([push, pull], detail))
+
+    def test_a_replacement_from_an_earlier_ship_is_awaited(self) -> None:
+        from scripts.agent.ship import replacement_in_flight
+
+        killed = {"number": 19379, "event": "push", "status": "killed"}
+        replacement = {"number": 19385, "event": "push", "status": "running"}
+        other = {"number": 19386, "event": "pull_request", "status": "running"}
+        self.assertTrue(replacement_in_flight([killed, replacement]))
+        self.assertFalse(replacement_in_flight([killed, other]))
+        replacement["status"] = "success"
+        self.assertFalse(replacement_in_flight([killed, replacement]))
+
 
 class ShipLostWebhookTest(unittest.TestCase):
     """A PR head whose validation never starts lost its forge webhook."""

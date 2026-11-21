@@ -37,6 +37,12 @@ spec:
               protocol: UDP
 
   egress:
+    - toCIDR:
+        - 10.0.30.20/32
+      toPorts:
+        - ports:
+            - port: "8891"
+              protocol: UDP
     - toEndpoints:
         - matchLabels:
             k8s:io.kubernetes.pod.namespace: kube-system

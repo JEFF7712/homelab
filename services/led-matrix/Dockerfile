@@ -6,7 +6,7 @@ COPY requirements.txt /app/requirements.txt
 COPY wheelhouse /wheelhouse
 RUN pip install --no-cache-dir --no-index --require-hashes --find-links=/wheelhouse -r requirements.txt
 
-COPY spotify_matrix_streamer.py ha_source.py ha_matrix_streamer.py /app/
+COPY spotify_matrix_streamer.py ha_source.py ha_matrix_streamer.py fireworks_audio.py /app/
 COPY modes/ /app/modes/
 COPY web_controller/ /app/web_controller/
 ENV PYTHONUNBUFFERED=1 HOME=/tmp

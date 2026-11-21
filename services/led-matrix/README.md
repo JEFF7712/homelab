@@ -45,7 +45,16 @@ the same at any frame rate. Fireworks plays an endless directed show: peony,
 chrysanthemum, willow, palm, crossette, crackle, strobe, heart, multi-break,
 and salute shells, plus ground fountains, mines, and comets, arranged in
 segments (singles, mirrored pairs, sweeps, fountain lines, colour themes,
-barrages) with a finale every two to three minutes. Visualizer and Game of Life
+barrages). Coordinated passages last roughly 30 to 40 seconds, opening in
+blue and cyan with gold tips, then moving through violet/pink, red/orange,
+and silver/blue palettes. Stars change color during their flight; sparks
+inherit their parent's current hue and fade into lingering embers. Crossettes
+and multi-break shells retain their passage colors. Gold willows hang longer
+and decay to warm orange.
+Every two to three minutes, a composed blue-and-gold finale builds from
+alternating launches into a rising palm fan and paired crowns, followed by
+three gold willows and one large gold closing burst. The last embers fade
+before a dark pause and the next blue-and-gold passage. Visualizer and Game of Life
 similarly cycle their effects and palettes in randomized order. Homelab Dashboards
 rotates Kubernetes nodes and pods, Forgejo/Woodpecker CI with deployment replica
 readiness, NAS traffic, and server health every 12 seconds. Its read-only
@@ -55,6 +64,19 @@ Prometheus endpoint can be set with `--prometheus-url` or `PROMETHEUS_URL`.
 CI status comes from the existing repository monitor's five-minute collection
 cycle. The CI panel shows the age of the most recent collection; pending builds
 use an indeterminate animation rather than an invented completion percentage.
+
+Fireworks optionally sends synthesized launch whistles, burst booms, crackles,
+and willow/fountain fizz to the NAS bedroom Bose speaker. The bedroom dashboard
+has Fireworks Audio, Volume, and Audio Sync controls. Audio Sync delays only
+Fireworks visuals by 0 to 1000 ms to compensate for speaker latency; start near
+300 ms and tune on the physical speaker. This is a timing offset, not measured
+acoustic synchronization. Bedroom Music Mode mutes the effects. The NAS yields whenever another stream
+plays on the Bose output; Spotify playback on other devices does not mute them.
+Changing mode, disabling audio, losing HA, or losing sender heartbeats stops
+effects. The panel continues rendering if the audio receiver is unreachable.
+Set `--fireworks-audio-host` (or `FIREWORKS_AUDIO_HOST`) to the NAS address;
+without it the renderer sends no audio. See the matrix release runbook for
+the receiver, health endpoint, and recovery.
 
 This entry point makes no Spotify Web API or OAuth requests and has no direct
 Spotify fallback. Home Assistant's existing Spotify integration still uses its

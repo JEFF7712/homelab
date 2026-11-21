@@ -17,6 +17,7 @@
     ../../modules/npm-cache-proxy.nix
     ../../modules/ledfx-bedroom.nix
     ../../modules/bedroom-bluetooth.nix
+    ../../modules/matrix-audio.nix
     ../../modules/forgejo.nix
     ../../modules/nas-s3.nix
     ../../modules/niks3-cache.nix
@@ -43,6 +44,7 @@
 
   # HTTP bridge to connect and monitor the bedroom Bose SoundLink Flex 2 Bluetooth speaker.
   homelab.bedroomBluetooth.enable = true;
+  homelab.matrixAudio.enable = true;
 
   homelab.forgejo = {
     enable = true;
