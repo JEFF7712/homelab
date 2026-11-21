@@ -14,7 +14,7 @@ spec:
   chart:
     spec:
       chart: kube-prometheus-stack
-      version: 93.4.1
+      version: 93.6.0
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
@@ -42,7 +42,7 @@ spec:
             digest: sha256:51a825c2a40acc3e338fdd00d622e01ec090f72be2b3ea46be0839cd47a4d286
           - name: quay.io/prometheus/node-exporter
             newName: registry.rupan.dev/upstream/quay.io/prometheus/node-exporter  # yamllint disable-line rule:line-length
-            digest: sha256:6112664fd761bb964d8a2d3d0119d6c8402618a89edbb3a43c8f7b4090fb53c9
+            digest: sha256:dbc46b5381ae47c5634a6ad16d7b4862191979b0ba4f4cfbdee85e5aa2fcd1e3
           - name: quay.io/prometheus/prometheus
             newName: registry.rupan.dev/upstream/quay.io/prometheus/prometheus  # yamllint disable-line rule:line-length
             digest: sha256:f39df5334dee301b885f77e0ff1159f5d8a43bf9db518f885544594799a1e3c2
