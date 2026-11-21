@@ -17,6 +17,10 @@
     # rebuilding hosts.
     nixpkgs-agents.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    forgejo-release-mirror = {
+      url = "github:JEFF7712/forgejo-release-mirror/v0.1.0";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -51,6 +55,7 @@
       nixpkgs,
       nixpkgs-agents,
       flake-utils,
+      forgejo-release-mirror,
       disko,
       impermanence,
       niks3,
@@ -70,7 +75,10 @@
             hostName:
             nixpkgs.lib.nixosSystem {
               system = "x86_64-linux";
-              specialArgs = { inherit fleetInventory; };
+              specialArgs = {
+                inherit fleetInventory;
+                releaseMirrorPackage = forgejo-release-mirror.packages.x86_64-linux.default;
+              };
               modules = [
                 { nixpkgs.overlays = [ kernelModulesOverlay ]; }
                 disko.nixosModules.disko

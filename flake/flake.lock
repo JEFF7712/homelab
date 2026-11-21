@@ -56,6 +56,27 @@
         "type": "github"
       }
     },
+    "forgejo-release-mirror": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1794896884,
+        "narHash": "sha256-9+Fgx28WgWAev4SdGHsLAxPSCw4+9P3vux5NgF6mKqc=",
+        "owner": "JEFF7712",
+        "repo": "forgejo-release-mirror",
+        "rev": "b39cb45f3d469662afaaadc9cc13de0dfc4eeec5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "JEFF7712",
+        "ref": "v0.1.0",
+        "repo": "forgejo-release-mirror",
+        "type": "github"
+      }
+    },
     "impermanence": {
       "inputs": {
         "home-manager": [],
@@ -171,6 +192,7 @@
       "inputs": {
         "disko": "disko",
         "flake-utils": "flake-utils",
+        "forgejo-release-mirror": "forgejo-release-mirror",
         "impermanence": "impermanence",
         "niks3": "niks3",
         "nix-topology": "nix-topology",
