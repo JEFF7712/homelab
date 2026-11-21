@@ -74,7 +74,7 @@ spec:
         # shares the data volume so SQLite can coordinate with Navidrome's
         # WAL, but opens the database with mode=ro.
         - name: lookup
-          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:a18b20ad69e74df6cf6d2e1b1a260d7a1ecf5380fd83b310f83ba88c461cf894  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
           command: ["python3", "/app/lookup.py"]
           args: ["--database", "/data/navidrome.db", "--port", "4534"]
           securityContext:
