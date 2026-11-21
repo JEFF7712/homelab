@@ -1,7 +1,9 @@
 # Ingress to the Loki gateway. In-cluster, only the observability namespace
 # uses it (loki-canary pushes and queries through it; Grafana and Alloy talk
 # to the loki service directly). From outside the cluster, only the two
-# journal shippers in flake/modules/host-log-shipping.nix; the gateway's
+# journal shippers in flake/modules/host-log-shipping.nix and the operator
+# laptop (its nixos-config log-shipping module; off-LAN it arrives over
+# NetBird, masqueraded to adguard-netbird-01's address); the gateway's
 # nginx (serverSnippet in release.yaml) limits them to log pushes. Anything
 # else, including other LAN hosts and k3s node addresses, is dropped. An L7
 # rule here is deliberately absent: with it, Cilium's proxy took the
@@ -28,6 +30,8 @@ spec:
     - fromCIDR:
         - 10.0.30.20/32  # nas-01
         - 10.0.30.10/32  # adguard-netbird-01
+        - 10.0.20.50/32  # laptop-nixos, Wi-Fi
+        - 10.0.10.50/32  # laptop-nixos, management USB Ethernet
       toPorts:
         - ports:
             - port: "8080"

@@ -46,6 +46,22 @@ data:
               summary: "ZFS I/O or checksum error detected"
               description: "A ZFS filesystem checksum error or degraded pool event was logged in system journal."
 
+          # systemd logs unit results from PID 1, so they carry unit="init.scope".
+          # A skipped run (on battery or away from the homelab) logs no failure.
+          - alert: LaptopMaintenanceUnitFailed
+            expr: |
+              count_over_time(
+                {component="system-journal", hostname="laptop-nixos", unit="init.scope"}
+                |~ "(restic-backups-homelab|comin)\\.service: Failed with result"
+                [10m]
+              ) > 0
+            for: 0m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Laptop backup or deploy unit failed"
+              description: "restic-backups-homelab or comin failed on {{ $labels.hostname }}; check its journal."
+
       - name: container-log-alerts
         rules:
           - alert: ContainerFatalPanic
@@ -77,6 +93,8 @@ data:
               description: "MA lost its HA link; restart the music-assistant Deployment."
 
       - name: host-security-alerts
+        # The operator laptop runs sudo interactively all day, so its sudo
+        # prompts and root shells are expected rather than suspicious.
         rules:
           - alert: HostSSHAuthFailed
             expr: |
@@ -95,7 +113,7 @@ data:
           - alert: HostSudoAuthFailed
             expr: |
               count_over_time(
-                {component="system-journal"}
+                {component="system-journal", hostname!="laptop-nixos"}
                 |~ "(?i)(incorrect password attempt|authentication failure.*sudo)"
                 [5m]
               ) > 0
@@ -109,7 +127,7 @@ data:
           - alert: HostSudoInteractiveRoot
             expr: |
               count_over_time(
-                {component="system-journal"}
+                {component="system-journal", hostname!="laptop-nixos"}
                 |~ "(?i)sudo:.*COMMAND=(/run/current-system/sw/bin/(su|bash|zsh)|/bin/sh)"
                 [5m]
               ) > 0

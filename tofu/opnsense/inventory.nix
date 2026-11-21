@@ -18,6 +18,15 @@
         mac = "90:09:df:07:af:30";
         network = "clients";
       };
+      # USB Ethernet adapter on the management port. Static so the Loki push
+      # allowlist can name the laptop's management-path source address.
+      laptop_nixos_mgmt = {
+        description = "Rupan's NixOS laptop, management USB Ethernet";
+        hostname = "laptop-nixos-mgmt";
+        address = "10.0.10.50";
+        mac = "00:e0:4c:bc:c5:a2";
+        network = "management";
+      };
       ap_downstairs = {
         description = "Downstairs NETGEAR R6400v2 access point";
         hostname = "ap-downstairs";

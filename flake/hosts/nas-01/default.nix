@@ -20,6 +20,8 @@
     ../../modules/forgejo.nix
     ../../modules/nas-s3.nix
     ../../modules/niks3-cache.nix
+    ../../modules/niks3-cache-tls.nix
+    ../../modules/nas-restic.nix
     ../../modules/tofu-state.nix
     ../../modules/platform-backup.nix
     ../../modules/nas-syncthing.nix
@@ -50,6 +52,14 @@
   homelab.niks3Cache = {
     enable = true;
     address = fleetInventory.hosts.nas-01.address;
+    tls = {
+      enable = true;
+      acmeEmail = "rupanpandyan@gmail.com";
+    };
+  };
+  homelab.resticServer = {
+    enable = true;
+    acmeEmail = "rupanpandyan@gmail.com";
   };
   homelab.tofuState.enable = true;
   homelab.platformBackup.enable = true;

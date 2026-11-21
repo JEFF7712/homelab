@@ -50,6 +50,13 @@
         "mac_address": "90:09:df:07:af:30",
         "subnet_id": "542fde27-1972-42e1-9376-057b5cae2f5e"
       },
+      "laptop_nixos_mgmt": {
+        "description": "Rupan's NixOS laptop, management USB Ethernet",
+        "hostname": "laptop-nixos-mgmt",
+        "ip_address": "10.0.10.50",
+        "mac_address": "00:e0:4c:bc:c5:a2",
+        "subnet_id": "b0644f73-95b1-478b-8485-4fbfaa293116"
+      },
       "living_room_wled": {
         "description": "Living room WLED controller (Gledopto GL-C-015WL)",
         "hostname": "wled-living-room",

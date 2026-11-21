@@ -88,5 +88,19 @@
       unboundOrder = 10;
       adguardOrder = 8;
     }
+    {
+      name = "nix.rupan.dev";
+      host = "nas-01";
+      description = "Read-only TLS front for the niks3 binary cache on nas-01, so substituters name a host instead of an address";
+      unboundOrder = 11;
+      adguardOrder = 9;
+    }
+    {
+      name = "restic.rupan.dev";
+      host = "nas-01";
+      description = "Restic REST server on nas-01 holding laptop backups";
+      unboundOrder = 12;
+      adguardOrder = 10;
+    }
   ];
 }

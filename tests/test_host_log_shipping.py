@@ -29,6 +29,8 @@ PUSH_SERVICE = OBSERVABILITY / "loki/push-service.yaml"
 PUSH_POLICY = OBSERVABILITY / "loki/push-policy.yaml"
 KUSTOMIZATION = OBSERVABILITY / "kustomization.yaml"
 JOURNAL_RULES = OBSERVABILITY / "loki/rules-configmap.yaml"
+OPNSENSE_CONFIG = REPO_ROOT / "tofu/opnsense/main.tf.json"
+LAPTOP_RESERVATIONS = ("laptop_nixos", "laptop_nixos_mgmt")
 
 PUSH_PATH = "/loki/api/v1/push"
 # CiliumLoadBalancerIPPool in flake/modules/k3s-server.nix.
@@ -118,6 +120,18 @@ def non_cluster_hosts() -> dict[str, str]:
         for name, host in data["hosts"].items()
         if name not in data["cluster_nodes"]
     }
+
+
+def laptop_sources() -> dict[str, str]:
+    """The operator laptop's reserved DHCP addresses; it ships its journal too."""
+    reservations = json.loads(OPNSENSE_CONFIG.read_text(encoding="utf-8"))["locals"][
+        "dhcpv4_reservations"
+    ]
+    return {name: reservations[name]["ip_address"] for name in LAPTOP_RESERVATIONS}
+
+
+def push_sources() -> dict[str, str]:
+    return non_cluster_hosts() | laptop_sources()
 
 
 def block(config: str, header: str) -> str:
@@ -233,9 +247,12 @@ class PushPolicyTests(unittest.TestCase):
         self.assertEqual(len(external), 1)
         rule = external[0]
         self.assertEqual(set(rule), {"fromCIDR", "toPorts"})
-        expected = {f"{ip}/32" for ip in non_cluster_hosts().values()}
+        expected = {f"{ip}/32" for ip in push_sources().values()}
         self.assertEqual(set(rule["fromCIDR"]), expected)
-        self.assertEqual(expected, {"10.0.30.20/32", "10.0.30.10/32"})
+        self.assertEqual(
+            expected,
+            {"10.0.30.20/32", "10.0.30.10/32", "10.0.20.50/32", "10.0.10.50/32"},
+        )
         (port,) = rule["toPorts"]
         self.assertEqual(port["ports"], [{"port": "8080", "protocol": "TCP"}])
         # Cilium's L7 proxy never answered the LoadBalancer SYNs; the
@@ -297,7 +314,7 @@ class PushPolicyTests(unittest.TestCase):
         self.assertIn("return 403;", snippet)
         # nginx uses PCRE; Python's re has the same lookahead semantics.
         denied = re.compile(match.group(1))
-        for ip in non_cluster_hosts().values():
+        for ip in push_sources().values():
             self.assertIsNone(denied.search(f"{ip} POST {PUSH_PATH}"))
             for request in (
                 "GET /loki/api/v1/query_range",
