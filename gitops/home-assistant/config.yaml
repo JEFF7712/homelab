@@ -379,7 +379,28 @@ data:
           album: Watch This
           color: "#00ddff"
 
+    input_number:
+      bedroom_matrix_fireworks_volume:
+        name: Fireworks Volume
+        icon: mdi:volume-high
+        min: 0
+        max: 100
+        step: 1
+        unit_of_measurement: "%"
+        mode: slider
+      bedroom_matrix_fireworks_delay:
+        name: Fireworks Audio Sync
+        icon: mdi:timer-outline
+        min: 0
+        max: 1000
+        step: 10
+        unit_of_measurement: ms
+        mode: slider
+
     input_boolean:
+      bedroom_matrix_fireworks_audio:
+        name: Fireworks Audio
+        icon: mdi:volume-high
       bedroom_matrix_power:
         name: Bedroom Matrix Display
         icon: mdi:led-strip-variant

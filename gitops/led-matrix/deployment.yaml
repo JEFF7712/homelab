@@ -56,6 +56,8 @@ spec:
             - input_boolean.bedroom_music_mode
             - --pico-ip
             - 10.0.20.136
+            - --fireworks-audio-host
+            - "10.0.30.20"
             - --fps
             - "60"
             - --spotify-poll-interval

@@ -115,6 +115,50 @@ the prior image pin and registry records together. Verify the old image is
 available before merging the revert and confirm the sender resumes healthy
 acknowledged frames. Keep laptop senders stopped throughout.
 
+## Fireworks audio
+
+`flake/modules/matrix-audio.nix` owns the `matrix-audio` service on nas-01;
+`matrix-audio.py` synthesizes its fixed sound library into its private runtime
+directory. A dedicated unprivileged user plays raw PCM through `pacat` and the
+existing PulseAudio socket, targeting only the paired bedroom Bose Bluetooth
+sink. It never falls back to a different speaker. The service has eight voices,
+a 128 MiB memory limit, and a 25% CPU quota. No sound downloads or new Python
+dependencies are required.
+
+The matrix sends nonblocking UDP event packets on port 8891, admitted only
+from the pod network and inventory-defined cluster nodes (Cilium can masquerade
+pod traffic to the sending node's address). Packets carry a session, increasing sequence, timestamp,
+active flag, volume, and at most 16 fixed sound events. Malformed packets,
+packets over two seconds old, replayed sequences, and retired sessions are
+ignored. An 800 ms lease stops voices when heartbeats disappear. Mode exits,
+power off, the audio toggle, zero volume, music playback, and HA disconnection
+send an inactive state. The NAS checks the Bose sink every 500 ms and kills
+effects if another playback stream uses it or monitoring fails.
+
+Read-only receiver health is at `http://10.0.30.20:8891/health`: `connected`,
+`yielding`, `monitor_error`, `received`, `rejected`, `played`, `failed`, `voices`,
+and `stops` distinguish packet receipt from playback attempts. A zero `failed`
+count and completed pacat streams establish delivery to PulseAudio, not physical
+audibility. Inspect the service journal as `agent-observer` for systemd failures.
+The matrix health file also reports its audio packet and send-error counts.
+
+The bedroom dashboard exposes `input_boolean.bedroom_matrix_fireworks_audio`,
+`input_number.bedroom_matrix_fireworks_volume`, and
+`input_number.bedroom_matrix_fireworks_delay`. Initialize new controls to 25%
+volume and 300 ms visual delay, then preserve user adjustments across restarts.
+Bluetooth latency must be calibrated in the room; changing the offset only
+buffers Fireworks frames, bounded to 90 frames and one second of delay.
+
+Validate the receiver with `python -m unittest tests.test_matrix_audio`; its
+loopback integration test uses fake Pulse tools and never reaches a speaker.
+Matrix checks cover actual shell sound events, control parsing, socket
+backpressure, and flushing the visual buffer on disable. Delivery uses
+`just ship`: fleet operations activate the receiver and HA operations install
+the controls, while `matrix-publish` releases the sender. For recovery, disable
+Fireworks Audio immediately; revert the focused source change and its matrix
+promotion through the normal workflow if needed. Existing music services and
+the speaker pairing remain owned by their current modules.
+
 ## Other services
 
 `scripts/ci/service_release.py` holds one `Release` entry per service built
