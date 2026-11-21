@@ -2,11 +2,14 @@
   config,
   lib,
   pkgs,
+  fleetInventory,
   ...
 }:
 let
   cfg = config.homelab.matrixAudio;
   script = pkgs.writeText "matrix-audio.py" (builtins.readFile ./matrix-audio.py);
+  nodes = lib.filter (host: host.k3s or false) (lib.attrValues fleetInventory.hosts);
+  sources = lib.concatStringsSep ", " ([ "10.42.0.0/16" ] ++ map (host: host.address) nodes);
 in
 {
   options.homelab.matrixAudio.enable = lib.mkEnableOption "bedroom matrix fireworks audio";
@@ -49,7 +52,7 @@ in
       };
     };
     networking.firewall.extraInputRules = ''
-      ip saddr 10.42.0.0/16 udp dport 8891 accept
+      ip saddr { ${sources} } udp dport 8891 accept
       ip saddr { 10.0.0.0/16, 10.42.0.0/16, 100.64.0.0/10 } tcp dport 8891 accept
     '';
   };

@@ -126,7 +126,8 @@ a 128 MiB memory limit, and a 25% CPU quota. No sound downloads or new Python
 dependencies are required.
 
 The matrix sends nonblocking UDP event packets on port 8891, admitted only
-from the pod network. Packets carry a session, increasing sequence, timestamp,
+from the pod network and inventory-defined cluster nodes (Cilium can masquerade
+pod traffic to the sending node's address). Packets carry a session, increasing sequence, timestamp,
 active flag, volume, and at most 16 fixed sound events. Malformed packets,
 packets over two seconds old, replayed sequences, and retired sessions are
 ignored. An 800 ms lease stops voices when heartbeats disappear. Mode exits,
