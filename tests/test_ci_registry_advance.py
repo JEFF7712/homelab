@@ -382,6 +382,23 @@ class RebuildMirrorTest(unittest.TestCase):
             self.assertIn(f"docker.io/other:1@{OLD}", text)
             self.assertIsNone(bump_declaration(root, self.OLD_REF, self.NEW_REF))
 
+    def test_a_bump_past_the_line_limit_gets_the_yamllint_exemption(self) -> None:
+        """music-assistant 2.10.4 -> 2.10.12 grew its line from 120 to 121
+        characters; #1946 failed fmt-check and every run rebuilt it."""
+        old = f"ghcr.io/music-assistant/server:2.10.4@{OLD}"
+        new = f"ghcr.io/music-assistant/server:2.10.12@{NEW}"
+        text = f"items:\n  - image: {old}\n  - image: docker.io/other:1@{OLD}\n"
+        fitted = registry_advance.fit_line_length(text.replace(old, new), new)
+        line = next(line for line in fitted.splitlines() if new in line)
+        self.assertTrue(line.endswith("# yamllint disable-line rule:line-length"))
+        self.assertIn(f"  - image: docker.io/other:1@{OLD}\n", fitted)
+        # Already exempt or short enough: unchanged.
+        self.assertEqual(registry_advance.fit_line_length(fitted, new), fitted)
+        short = "items:\n  - image: docker.io/a:1@sha256:abc\n"
+        self.assertEqual(
+            registry_advance.fit_line_length(short, "docker.io/a:1"), short
+        )
+
     def test_rebuild_stages_the_bump_and_its_records_on_main(self) -> None:
         def fake_mirror(root: Path, base: str) -> list[str]:
             # The real mirror resolves what the commit added since base.

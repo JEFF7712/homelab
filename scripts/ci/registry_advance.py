@@ -331,9 +331,28 @@ def bump_declaration(root: Path, old: str, new: str) -> str | None:
     for path in sorted(candidates):
         text = path.read_text()
         if old in text:
-            path.write_text(text.replace(old, new, 1))
+            path.write_text(fit_line_length(text.replace(old, new, 1), new))
             return path.relative_to(root).as_posix()
     return None
+
+
+LINE_LIMIT = 120
+LINE_LENGTH_EXEMPTION = "  # yamllint disable-line rule:line-length"
+
+
+def fit_line_length(text: str, reference: str) -> str:
+    """Exempt the line declaring `reference` from yamllint's line limit when a
+    longer tag pushed it over (music-assistant 2.10.4 -> 2.10.12 went from 120
+    to 121 characters, and every run rebuilt the failing mirror, #1946)."""
+    lines = text.split("\n")
+    for index, line in enumerate(lines):
+        if (
+            reference in line
+            and len(line) > LINE_LIMIT
+            and "yamllint disable" not in line
+        ):
+            lines[index] = line + LINE_LENGTH_EXEMPTION
+    return "\n".join(lines)
 
 
 def rebuild_mirror(root: Path, old: str, new: str) -> list[str] | None:
