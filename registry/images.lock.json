@@ -8666,6 +8666,47 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/backups/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/docker.io/restic/restic",
+      "destination_tags": [
+        "0.20.0",
+        "retention-deployed-93999df80d4ac6cb"
+      ],
+      "digest": "sha256:93999df80d4ac6cb148e82d2ef1fe6a81996f17ff535e772723538211b31555a",
+      "id": "upstream-restic-restic-e91ba12ca771",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:93999df80d4ac6cb148e82d2ef1fe6a81996f17ff535e772723538211b31555a",
+        "reference": "docker.io/restic/restic:0.20.0@sha256:93999df80d4ac6cb148e82d2ef1fe6a81996f17ff535e772723538211b31555a",
+        "registry": "docker.io",
+        "repository": "restic/restic",
+        "tag": "0.20.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/voice/stt-nemotron.yaml:33",
         "gitops/voice/whisper.yaml:27",
         "gitops/voice/whisper.yaml:76"
