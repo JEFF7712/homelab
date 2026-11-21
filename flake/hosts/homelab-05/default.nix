@@ -20,6 +20,7 @@ in
     ../../modules/nvidia.nix
     ../../modules/kiosk.nix
     ../../modules/moonlight-client.nix
+    ../../modules/tv-airplay.nix
     ../../modules/jarvis-spectrum.nix
     ../../modules/sendspin-player.nix
     ../../modules/apollo-ble-bridge.nix

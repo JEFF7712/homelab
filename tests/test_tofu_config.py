@@ -120,6 +120,25 @@ class TofuRenderingTest(unittest.TestCase):
                     self.assertFalse(resource["allow_disruptive"])
         self.assertEqual(len(config["import"]), 5)
 
+    def test_tv_airplay_is_reachable_before_private_vlan_deny(self) -> None:
+        config = json.loads((ROOT / "tofu/opnsense/main.tf.json").read_text())
+        rules = config["locals"]["firewall_filters"]
+        deny = rules["clients-block-private"]
+        for protocol in ("tcp", "udp"):
+            rule = rules[f"clients-allow-tv-airplay-{protocol}"]
+            with self.subTest(protocol=protocol):
+                self.assertTrue(rule["enabled"])
+                self.assertEqual(rule["interface"], deny["interface"])
+                self.assertLess(rule["sequence"], deny["sequence"])
+                self.assertEqual(rule["filter"]["action"], "pass")
+                self.assertTrue(rule["filter"]["quick"])
+                self.assertEqual(rule["filter"]["protocol"], protocol.upper())
+                self.assertEqual(rule["filter"]["source"]["net"], "10.0.20.0/24")
+                self.assertEqual(
+                    rule["filter"]["destination"],
+                    {"net": "10.0.30.15", "port": "workshop_airplay_ports"},
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
