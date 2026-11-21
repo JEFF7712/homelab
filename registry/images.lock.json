@@ -7098,6 +7098,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/media/registry-sources.yaml:30"
+      ],
+      "destination_repository": "upstream/lscr.io/linuxserver/radarr",
+      "destination_tags": [
+        "6.4.4.10685-ls327",
+        "retention-deployed-7a20f20de63706ee"
+      ],
+      "digest": "sha256:7a20f20de63706eee2ff6e4ac1f989a70c961f456aa47ccb6c78f2bb7657d9ae",
+      "id": "upstream-linuxserver-radarr-5b44328efda1",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:7a20f20de63706eee2ff6e4ac1f989a70c961f456aa47ccb6c78f2bb7657d9ae",
+        "reference": "lscr.io/linuxserver/radarr:6.4.4.10685-ls327@sha256:7a20f20de63706eee2ff6e4ac1f989a70c961f456aa47ccb6c78f2bb7657d9ae",
+        "registry": "lscr.io",
+        "repository": "linuxserver/radarr",
+        "tag": "6.4.4.10685-ls327"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/media/registry-sources.yaml:32"
       ],
       "destination_repository": "upstream/lscr.io/linuxserver/radarr",
