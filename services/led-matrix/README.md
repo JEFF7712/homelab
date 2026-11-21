@@ -65,6 +65,19 @@ CI status comes from the existing repository monitor's five-minute collection
 cycle. The CI panel shows the age of the most recent collection; pending builds
 use an indeterminate animation rather than an invented completion percentage.
 
+Fireworks optionally sends synthesized launch whistles, burst booms, crackles,
+and willow/fountain fizz to the NAS bedroom Bose speaker. The bedroom dashboard
+has Fireworks Audio, Volume, and Audio Sync controls. Audio Sync delays only
+Fireworks visuals by 0 to 1000 ms to compensate for speaker latency; start near
+300 ms and tune on the physical speaker. This is a timing offset, not measured
+acoustic synchronization. Music playback and bedroom Music Mode mute the effects.
+The NAS additionally yields whenever another stream plays on the Bose output.
+Changing mode, disabling audio, losing HA, or losing sender heartbeats stops
+effects. The panel continues rendering if the audio receiver is unreachable.
+Set `--fireworks-audio-host` (or `FIREWORKS_AUDIO_HOST`) to the NAS address;
+without it the renderer sends no audio. See the matrix release runbook for
+the receiver, health endpoint, and recovery.
+
 This entry point makes no Spotify Web API or OAuth requests and has no direct
 Spotify fallback. Home Assistant's existing Spotify integration still uses its
 own API quota. Reusing its metadata avoids adding a second playback poller.

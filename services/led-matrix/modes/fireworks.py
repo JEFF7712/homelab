@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import heapq
 import itertools
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -214,6 +215,9 @@ class FireworksShow:
         self.sky = np.zeros((size, size, 3), dtype=np.float32)
         self.flash = 0.0
         self.bursts = 0  # total bursts, for tests and pacing
+        self.sounds: deque[dict] = deque(maxlen=32)
+        self.elapsed = 0.0
+        self.next_crackle = 0.0
 
     # ---- geometry -------------------------------------------------------
 
@@ -237,6 +241,13 @@ class FireworksShow:
         y = -(13 * np.cos(t) - 5 * np.cos(2 * t) - 2 * np.cos(3 * t) - np.cos(4 * t))
         return np.column_stack((x, y)) / 17 * speed
 
+    def sound(self, kind: str, strength: float = 1.0) -> None:
+        if kind == "crackle":
+            if self.elapsed < self.next_crackle:
+                return
+            self.next_crackle = self.elapsed + 0.15
+        self.sounds.append({"kind": kind, "strength": float(np.clip(strength, 0, 1))})
+
     def _flash(self, amount: float) -> None:
         self.flash = min(1.0, self.flash + amount)
         self.bursts += 1
@@ -257,6 +268,7 @@ class FireworksShow:
         self.stars.add(
             at, vel, cols, self.rng.uniform(1.5, 1.9, n), drag=1.5, end_rgb=end_rgb
         )
+        self.sound("boom", scale)
         self._flash(0.25 * scale)
 
     def chrysanthemum(
@@ -277,6 +289,7 @@ class FireworksShow:
             spark_rate=18,
             end_rgb=end_rgb,
         )
+        self.sound("boom", scale)
         self._flash(0.25 * scale)
 
     def willow(
@@ -298,6 +311,7 @@ class FireworksShow:
             spark_rate=16,
             end_rgb=color("orange") * 0.7,
         )
+        self.sound("fizz", scale)
         self._flash(0.2 * scale)
 
     def palm(
@@ -319,6 +333,7 @@ class FireworksShow:
             spark_rate=45,
             end_rgb=end_rgb,
         )
+        self.sound("boom", scale)
         self._flash(0.3 * scale)
 
     def crossette(
@@ -341,6 +356,7 @@ class FireworksShow:
             split_at=0.45,
             end_rgb=end_rgb,
         )
+        self.sound("boom", scale)
         self._flash(0.2 * scale)
 
     def crackle(
@@ -360,6 +376,7 @@ class FireworksShow:
             crackle=True,
             end_rgb=end_rgb,
         )
+        self.sound("crackle", scale)
         self._flash(0.3 * scale)
 
     def strobe(
@@ -379,6 +396,7 @@ class FireworksShow:
             gravity=6,
             strobe=True,
         )
+        self.sound("boom", scale)
         self._flash(0.2 * scale)
 
     def heart(
@@ -397,6 +415,7 @@ class FireworksShow:
             gravity=6,
             end_rgb=end_rgb,
         )
+        self.sound("boom", scale)
         self._flash(0.2 * scale)
 
     def bouquet(
@@ -419,6 +438,7 @@ class FireworksShow:
                 4,
                 lambda p, sub=sub: self.peony(p, sub, 0.45 * scale, end_rgb),
             )
+        self.sound("boom", scale)
         self._flash(0.1)
 
     def salute(
@@ -438,6 +458,7 @@ class FireworksShow:
             drag=3.0,
             crackle=True,
         )
+        self.sound("salute", scale)
         self._flash(0.8)
 
     SHELLS = (
@@ -470,6 +491,7 @@ class FireworksShow:
             rgb = self.pick_colors()
         if apex is None:
             apex = self.rng.uniform(10, 26)
+        self.sound("launch", scale * 0.55)
         rise = self.ground - apex
         speed = np.sqrt(2 * SHELL_GRAVITY * rise)
         burst = getattr(self, kind)
@@ -484,6 +506,7 @@ class FireworksShow:
 
     def mine(self, x: float, rgb: np.ndarray | None = None) -> None:
         """A ground fan of sparking stars thrown straight up."""
+        self.sound("crackle", 0.6)
         n = 18
         angles = -np.pi / 2 + self.rng.uniform(-0.45, 0.45, n)
         speed = self.rng.uniform(38, 52, (n, 1))
@@ -513,6 +536,7 @@ class FireworksShow:
             rgb = color(str(name))
         if crackle is None:
             crackle = bool(self.rng.random() < 0.25)
+        self.sound("fizz", 0.6)
         self.fountains.append(
             Fountain(
                 x=x,
@@ -633,6 +657,9 @@ class FireworksShow:
         )
         stars.keep(~split & ~expired)
 
+        if split.any() or len(popped):
+            self.sound("crackle", 0.4)
+
         # Crossettes split into four stars at right angles to their path.
         for p, v, c, end in zip(*splits, strict=True):
             heading = np.arctan2(v[1], v[0])
@@ -677,6 +704,7 @@ class FireworksShow:
         self._plot(stars.pos, rgb * level[:, None])
 
     def step(self, dt: float) -> None:
+        self.elapsed += dt
         self._update_fountains(dt)
         self._update_shells(dt)
         self._update_stars(dt)

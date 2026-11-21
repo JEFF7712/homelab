@@ -19,6 +19,9 @@ class HAState:
     weather_unit: str = "°F"
     music_mode: bool = False
     cycle: bool = True
+    fireworks_audio: bool = False
+    fireworks_volume: float = 0.25
+    fireworks_delay: float = 0.3
 
 
 @dataclass(frozen=True)

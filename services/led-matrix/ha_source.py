@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import threading
 import time
 from collections import OrderedDict
@@ -35,6 +36,9 @@ class HomeAssistantSource:
         weather_entity: str | None = None,
         music_mode_entity: str | None = None,
         cycle_entity: str | None = None,
+        fireworks_audio_entity: str | None = None,
+        fireworks_volume_entity: str | None = None,
+        fireworks_delay_entity: str | None = None,
         stale_after: float = 120,
         on_update: Callable[[PlaybackState], None] | None = None,
         on_hub_update: Callable[[HAState], None] | None = None,
@@ -85,6 +89,9 @@ class HomeAssistantSource:
         self.weather_entity = weather_entity
         self.music_mode_entity = music_mode_entity
         self.cycle_entity = cycle_entity
+        self.fireworks_audio_entity = fireworks_audio_entity
+        self.fireworks_volume_entity = fireworks_volume_entity
+        self.fireworks_delay_entity = fireworks_delay_entity
         self.stale_after = stale_after
         self.on_update = on_update
         self.on_hub_update = on_hub_update
@@ -222,8 +229,30 @@ class HomeAssistantSource:
             weather_unit = self._hub_state.weather_unit
             music_mode = self._hub_state.music_mode
             cycle = self._hub_state.cycle
+            fireworks_audio = self._hub_state.fireworks_audio
+            fireworks_volume = self._hub_state.fireworks_volume
+            fireworks_delay = self._hub_state.fireworks_delay
 
-            if entity_id == self.power_entity:
+            if entity_id == self.fireworks_audio_entity:
+                fireworks_audio = state_val == "on"
+            elif entity_id in (
+                self.fireworks_volume_entity,
+                self.fireworks_delay_entity,
+            ):
+                try:
+                    if state_val is None:
+                        raise ValueError("missing audio setting")
+                    number = float(state_val)
+                    if not math.isfinite(number):
+                        raise ValueError("non-finite audio setting")
+                    if entity_id == self.fireworks_volume_entity:
+                        fireworks_volume = max(0.0, min(1.0, number / 100))
+                    else:
+                        fireworks_delay = max(0.0, min(1.0, number / 1000))
+                except (TypeError, ValueError):
+                    if entity_id == self.fireworks_volume_entity:
+                        fireworks_volume = 0.0
+            elif entity_id == self.power_entity:
                 power = (state_val != "off") if state_val is not None else True
             elif entity_id == self.mode_entity:
                 mode = (
@@ -266,6 +295,9 @@ class HomeAssistantSource:
                 weather_unit=weather_unit,
                 music_mode=music_mode,
                 cycle=cycle,
+                fireworks_audio=fireworks_audio,
+                fireworks_volume=fireworks_volume,
+                fireworks_delay=fireworks_delay,
             )
             changed = new_hub_state != self._hub_state
             self._hub_state = new_hub_state
@@ -288,6 +320,9 @@ class HomeAssistantSource:
                     self.weather_entity,
                     self.music_mode_entity,
                     self.cycle_entity,
+                    self.fireworks_audio_entity,
+                    self.fireworks_volume_entity,
+                    self.fireworks_delay_entity,
                 ]
                 if e
             }
@@ -380,6 +415,9 @@ class HomeAssistantSource:
                 self.weather_entity,
                 self.music_mode_entity,
                 self.cycle_entity,
+                self.fireworks_audio_entity,
+                self.fireworks_volume_entity,
+                self.fireworks_delay_entity,
             ]
             if e
         ]

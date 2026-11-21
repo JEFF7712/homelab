@@ -12,6 +12,7 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
+from fireworks_audio import FireworksAudio
 from ha_source import (
     ArtworkCache,
     HomeAssistantSource,
@@ -113,6 +114,9 @@ def main() -> None:
         default=os.getenv("CYCLE_ENTITY", "input_boolean.bedroom_matrix_cycle"),
     )
     parser.add_argument(
+        "--fireworks-audio-host", default=os.getenv("FIREWORKS_AUDIO_HOST")
+    )
+    parser.add_argument(
         "--ledfx-port",
         type=int,
         default=int(os.getenv("LEDFX_PORT", "4048")),
@@ -200,6 +204,9 @@ def main() -> None:
             weather_entity=args.weather_entity,
             music_mode_entity=args.music_mode_entity,
             cycle_entity=args.cycle_entity,
+            fireworks_audio_entity="input_boolean.bedroom_matrix_fireworks_audio",
+            fireworks_volume_entity="input_number.bedroom_matrix_fireworks_volume",
+            fireworks_delay_entity="input_number.bedroom_matrix_fireworks_delay",
             stale_after=args.stale_after,
         )
     except (OSError, ValueError) as error:
@@ -253,6 +260,7 @@ def main() -> None:
     retro_arcade_renderer = RetroArcadeRenderer()
     multiplayer_renderer = MultiplayerArcadeRenderer(multiplayer_hub)
 
+    fireworks_renderer = FireworksRenderer()
     renderers = {
         "Off": BlankRenderer(),
         "Spotify": SpotifyVinylRenderer(),
@@ -265,10 +273,11 @@ def main() -> None:
         "Visualizer": ledfx_mode,
         "LedFx": ledfx_mode,
         "Physics": PhysicsRenderer(),
-        "Fireworks": FireworksRenderer(),
+        "Fireworks": fireworks_renderer,
         "Homelab Dashboards": HomelabRenderer(prometheus),
     }
 
+    fireworks_audio = FireworksAudio(args.fireworks_audio_host)
     cache = ArtworkCache(source)
     streamer = TCPMatrixStreamer(
         args.pico_ip,
@@ -349,6 +358,15 @@ def main() -> None:
                     except Exception:
                         pass
 
+            audio_active = (
+                active_mode == "Fireworks"
+                and ha_state.connected
+                and ha_state.fireworks_audio
+                and not ha_state.music_mode
+                and not spotify_state.playing
+            )
+            fireworks_audio.update(audio_active, ha_state.fireworks_volume, [], tick)
+
             if active_mode == "Laptop":
                 if streamer.sock is not None:
                     print(
@@ -364,6 +382,11 @@ def main() -> None:
                                 "updated_at": time.time(),
                                 "ready": source.connected,
                                 "mode": active_mode,
+                                "fireworks_audio": {
+                                    "active": fireworks_audio.active,
+                                    "sent": fireworks_audio.sent,
+                                    "errors": fireworks_audio.errors,
+                                },
                                 "power": ha_state.power,
                                 "brightness": 0.0,
                                 "metadata_available": spotify_state.available,
@@ -423,6 +446,13 @@ def main() -> None:
             )
             frame = renderer.render(ctx, size=64)
 
+            if active_mode == "Fireworks":
+                events = list(fireworks_renderer.show.sounds)
+                fireworks_renderer.show.sounds.clear()
+                fireworks_audio.update(
+                    audio_active, ha_state.fireworks_volume, events, tick
+                )
+                frame = fireworks_audio.delay(frame, tick, ha_state.fireworks_delay)
             streamer.send_frame(frame, brightness=brightness)
             last_ack = streamer.last_ack
             frame_ms = (time.monotonic() - tick) * 1000
@@ -438,6 +468,11 @@ def main() -> None:
                             "ready": source.connected
                             and (last_ack > tick - 10 or active_mode == "Laptop"),
                             "mode": active_mode,
+                            "fireworks_audio": {
+                                "active": fireworks_audio.active,
+                                "sent": fireworks_audio.sent,
+                                "errors": fireworks_audio.errors,
+                            },
                             "power": ha_state.power,
                             "brightness": brightness,
                             "metadata_available": spotify_state.available,
@@ -468,6 +503,7 @@ def main() -> None:
         spotify_state = source.snapshot()
         ha_state = source.hub_state()
         source_connected = source.connected
+        fireworks_audio.close()
         streamer.close()
         ledfx_receiver.stop()
         prometheus.close()

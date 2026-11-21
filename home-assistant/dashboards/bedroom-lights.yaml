@@ -353,6 +353,18 @@ views:
             name: Mode
             icon: mdi:view-dashboard-outline
             icon_color: blue
+          - type: custom:mushroom-entity-card
+            entity: input_boolean.bedroom_matrix_fireworks_audio
+            name: Fireworks Audio
+            icon: mdi:volume-high
+            tap_action:
+              action: toggle
+          - type: entities
+            entities:
+              - entity: input_number.bedroom_matrix_fireworks_volume
+                name: Fireworks Volume
+              - entity: input_number.bedroom_matrix_fireworks_delay
+                name: Audio Sync (visual delay)
           - type: custom:mushroom-chips-card
             chips:
               - type: action
