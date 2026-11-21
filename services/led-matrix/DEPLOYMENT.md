@@ -11,7 +11,20 @@ state, not on every Home Assistant update. Home Assistant's Spotify integration
 itself polls only every 30 s, so waiting for it delayed the vinyl by up to 30 s
 after pressing play; with Spotify mode explicitly selected and the matrix on,
 the matrix keeps polling every 5 s while idle or paused, the same rate as
-playback. Frames render via local Pillow and stream
+playback.
+
+The laptop beside the matrix pushes its Spotify desktop player instead. A
+user service there follows the player's MPRIS signals and holds a WebSocket to
+`ws://10.0.40.15:8000/playback` (the `led-matrix` LoadBalancer VIP), sending
+`{"type": "playback", "status": "Playing" | "Paused" | "Stopped", "title",
+"artist", "art_url"}` on every change and once on connect. While the laptop
+reports playing, its state wins and the matrix stops polling Spotify. A paused
+laptop keeps its cover unless another player is playing. `Stopped` or a closed
+connection hands back to Spotify polling and Home Assistant. Logs show
+`[Push] Laptop connected` and `[Push] Laptop disconnected`. Like the rest of the
+web controller, the endpoint is unauthenticated and reachable only from the
+LAN ranges in the network policy. Spotify's MPRIS cover links on
+`open.spotify.com/image/` are rewritten to `i.scdn.co`, the allowed artwork host. Frames render via local Pillow and stream
 acknowledged TCP frames to Pico W `10.0.20.136:9999`.
 
 ## Resources

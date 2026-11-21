@@ -628,6 +628,33 @@ def seconds_remaining(data: dict[str, Any] | None) -> float | None:
     return max(0.0, (duration - progress) / 1000.0)
 
 
+def push_artwork_url(url: str) -> str:
+    """Spotify desktop's MPRIS cover is sometimes an open.spotify.com/image
+    link; the same image is served by i.scdn.co, the only host the matrix may
+    fetch from."""
+    prefix = "https://open.spotify.com/image/"
+    if url.startswith(prefix):
+        return "https://i.scdn.co/image/" + url[len(prefix) :]
+    return url if url.startswith("https://") else ""
+
+
+def parse_push_message(
+    data: dict[str, Any], now: float | None = None
+) -> PlaybackState | None:
+    """A laptop MPRIS update; None when its Spotify player stopped or quit."""
+    status = data.get("status")
+    if status not in ("Playing", "Paused"):
+        return None
+    return PlaybackState(
+        available=True,
+        playing=status == "Playing",
+        title=str(data.get("title") or ""),
+        artist=str(data.get("artist") or ""),
+        artwork_url=push_artwork_url(str(data.get("art_url") or "")),
+        updated_at=time.time() if now is None else now,
+    )
+
+
 def parse_spotify_state(
     data: dict[str, Any] | None, now: float | None = None
 ) -> PlaybackState:
@@ -701,6 +728,8 @@ class HybridPlaybackSource:
         self._upcoming_artwork: tuple[str, ...] = ()
         self._queue_item = ""
         self._queue_enabled = True
+        # Pushed by the laptop beside the matrix while it is connected.
+        self._push_state: PlaybackState | None = None
         self._lock = threading.Lock()
         self._stop = threading.Event()
         self._wake_event = threading.Event()
@@ -757,14 +786,31 @@ class HybridPlaybackSource:
                 flush=True,
             )
 
+    def apply_push(self, state: PlaybackState | None) -> None:
+        """Take the laptop's player state; None when it stops or disconnects."""
+        with self._lock:
+            self._push_state = state
+            if state is not None and state.playing:
+                self._last_active_at = time.monotonic()
+        self._wake_event.set()
+
+    def _pushed_playing(self) -> bool:
+        with self._lock:
+            return self._push_state is not None and self._push_state.playing
+
     def snapshot(self) -> PlaybackState:
         now = time.monotonic()
         with self._lock:
             use_ha = now < self._fallback_until or not self._spotify_available
             spotify_state = self._spotify_state
-        if use_ha:
-            return self.ha_source.snapshot()
-        return spotify_state
+            pushed = self._push_state
+        if pushed is not None and pushed.playing:
+            return pushed
+        polled = self.ha_source.snapshot() if use_ha else spotify_state
+        # A paused laptop keeps its cover unless something else is playing.
+        if pushed is not None and not polled.playing:
+            return pushed
+        return polled
 
     def hub_state(self) -> HAState:
         return self.ha_source.hub_state()
@@ -853,6 +899,8 @@ class HybridPlaybackSource:
             return False
         if getattr(hub, "mode", "Auto") not in ("Spotify", "Auto"):
             return False
+        if self._pushed_playing():
+            return False  # the laptop reports this playback; save the quota
         if self._vinyl_selected():
             return True
         ha_snap = self.ha_source.snapshot()
