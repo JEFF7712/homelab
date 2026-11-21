@@ -645,11 +645,42 @@ class HybridPlaybackSourceTests(unittest.TestCase):
         # idle matrix does not spend the shared Spotify quota.
         ha_mock.snapshot.return_value = PlaybackState(available=True, playing=False)
         hybrid._last_active_at = time.monotonic() - hybrid.active_window - 1
-        for mode in ("Spotify", "Auto"):
-            ha_mock.hub_state.return_value = HAState(power=True, mode=mode)
-            self.assertFalse(hybrid._should_poll_spotify(), mode)
+        ha_mock.hub_state.return_value = HAState(power=True, mode="Auto")
+        self.assertFalse(hybrid._should_poll_spotify())
         hybrid._last_active_at = time.monotonic()
         self.assertTrue(hybrid._should_poll_spotify())
+
+    def test_spotify_mode_polls_promptly_while_idle_or_paused(self) -> None:
+        # Home Assistant's Spotify integration polls every 30 s, so waiting for
+        # it delayed the vinyl by up to 30 s after pressing play.
+        from modes.base import HAState
+
+        ha_mock = Mock(spec=HomeAssistantSource)
+        ha_mock.connected = True
+        ha_mock.snapshot.return_value = PlaybackState()
+        ha_mock.hub_state.return_value = HAState(power=True, mode="Spotify")
+        spotify_mock = Mock()
+        hybrid = HybridPlaybackSource(
+            ha_mock,
+            spotify_mock,
+            poll_interval_playing=5.0,
+            poll_interval_paused=30.0,
+            poll_interval_idle=30.0,
+        )
+        hybrid._last_active_at = time.monotonic() - hybrid.active_window - 1
+        self.assertTrue(hybrid._should_poll_spotify())
+
+        spotify_mock.get_currently_playing.return_value = None
+        self.assertEqual(hybrid._poll_once(), 5.0)
+        spotify_mock.get_currently_playing.return_value = {
+            "is_playing": False,
+            "item": {"name": "Track", "artists": [], "album": {"images": []}},
+        }
+        self.assertEqual(hybrid._poll_once(), 5.0)
+
+        # Powered off, Spotify mode stops polling.
+        ha_mock.hub_state.return_value = HAState(power=False, mode="Spotify")
+        self.assertFalse(hybrid._should_poll_spotify())
 
     def test_poll_loop_polls_early_only_when_the_ha_track_changes(self) -> None:
         from modes.base import HAState
