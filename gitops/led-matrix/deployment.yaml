@@ -56,8 +56,6 @@ spec:
             - input_boolean.bedroom_music_mode
             - --pico-ip
             - 10.0.20.136
-            - --fireworks-audio-host
-            - "10.0.30.20"
             - --fps
             - "60"
             - --spotify-poll-interval
@@ -78,6 +76,8 @@ spec:
               containerPort: 4048
               protocol: UDP
           env:
+            - name: FIREWORKS_AUDIO_HOST
+              value: "10.0.30.20"
             - name: TZ
               value: America/Chicago
             - name: SPOTIFY_CLIENT_ID
