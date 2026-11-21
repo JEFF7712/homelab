@@ -45,7 +45,16 @@ the same at any frame rate. Fireworks plays an endless directed show: peony,
 chrysanthemum, willow, palm, crossette, crackle, strobe, heart, multi-break,
 and salute shells, plus ground fountains, mines, and comets, arranged in
 segments (singles, mirrored pairs, sweeps, fountain lines, colour themes,
-barrages) with a finale every two to three minutes. Visualizer and Game of Life
+barrages). Coordinated passages last roughly 30 to 40 seconds, opening in
+blue and cyan with gold tips, then moving through violet/pink, red/orange,
+and silver/blue palettes. Stars change color during their flight; sparks
+inherit their parent's current hue and fade into lingering embers. Crossettes
+and multi-break shells retain their passage colors. Gold willows hang longer
+and decay to warm orange.
+Every two to three minutes, a composed blue-and-gold finale builds from
+alternating launches into a rising palm fan and paired crowns, followed by
+three gold willows and one large gold closing burst. The last embers fade
+before a dark pause and the next blue-and-gold passage. Visualizer and Game of Life
 similarly cycle their effects and palettes in randomized order. Homelab Dashboards
 rotates Kubernetes nodes and pods, Forgejo/Woodpecker CI with deployment replica
 readiness, NAS traffic, and server health every 12 seconds. Its read-only
