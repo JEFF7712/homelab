@@ -4,10 +4,14 @@ The hybrid pipeline uses Spotify Web API polling as the primary source (every
 5 s while playing, 30 s while paused), with Home Assistant WebSocket events as a
 seamless fallback if Spotify encounters rate limits (HTTP 429) or quota errors.
 The Spotify app's quota is shared with Home Assistant's Spotify integration and
-music_director, so the matrix polls only in the Spotify and Auto modes, only
-while Home Assistant shows playback or within three minutes of it stopping, and
-polls early only when Home Assistant reports a new track or play state, not on
-every Home Assistant update. Frames render via local Pillow and stream
+music_director, so the matrix polls only in the Spotify and Auto modes. In Auto
+it polls only while Home Assistant shows playback or within three minutes of it
+stopping, and polls early only when Home Assistant reports a new track or play
+state, not on every Home Assistant update. Home Assistant's Spotify integration
+itself polls only every 30 s, so waiting for it delayed the vinyl by up to 30 s
+after pressing play; with Spotify mode explicitly selected and the matrix on,
+the matrix keeps polling every 5 s while idle or paused, the same rate as
+playback. Frames render via local Pillow and stream
 acknowledged TCP frames to Pico W `10.0.20.136:9999`.
 
 ## Resources

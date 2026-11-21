@@ -827,12 +827,23 @@ class HybridPlaybackSource:
         with self._lock:
             self._upcoming_artwork = upcoming
 
+    def _vinyl_selected(self) -> bool:
+        """True while the matrix is on and explicitly set to Spotify mode."""
+        hub = self.hub_state()
+        return (
+            hub is not None
+            and getattr(hub, "power", True)
+            and getattr(hub, "mode", "Auto") == "Spotify"
+        )
+
     def _should_poll_spotify(self) -> bool:
-        """Poll Spotify only for a music mode, and only while Home Assistant
-        shows something playing or playback stopped within active_window.
-        The Spotify app's Web API quota is shared with Home Assistant's
-        Spotify integration and music_director; idle polling exhausted it.
-        Home Assistant still wakes the poller when playback starts."""
+        """Poll Spotify only for a music mode. In Auto, poll only while Home
+        Assistant shows something playing or playback stopped within
+        active_window. The Spotify app's Web API quota is shared with Home
+        Assistant's Spotify integration and music_director; idle polling in
+        Auto exhausted it. Home Assistant still wakes the poller when playback
+        starts, but its Spotify integration only polls every 30 s, so an
+        explicitly selected Spotify mode keeps polling to start promptly."""
         hub = self.hub_state()
         if (
             hub is None
@@ -842,6 +853,8 @@ class HybridPlaybackSource:
             return False
         if getattr(hub, "mode", "Auto") not in ("Spotify", "Auto"):
             return False
+        if self._vinyl_selected():
+            return True
         ha_snap = self.ha_source.snapshot()
         if ha_snap and getattr(ha_snap, "playing", False):
             return True
@@ -888,6 +901,10 @@ class HybridPlaybackSource:
                         self.poll_interval_playing,
                         max(MIN_TRACK_END_POLL, remaining + TRACK_END_SLACK),
                     )
+                return self.poll_interval_playing
+            elif self._vinyl_selected():
+                # Spotify mode waits for playback to start or resume; Home
+                # Assistant's 30 s poll is too slow to wake us for it.
                 return self.poll_interval_playing
             elif new_state.available:
                 if self.poll_interval_paused is not None:
