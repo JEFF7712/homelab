@@ -2,12 +2,14 @@
 
 import time
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
 from modes.base import HAState, PlaybackState, RenderContext
 from modes.fireworks import (
     MAX_PARTICLES,
+    PASSAGES,
     FireworksRenderer,
     FireworksShow,
     ShowDirector,
@@ -76,7 +78,7 @@ class ShellTests(unittest.TestCase):
 
     def test_stars_die_out(self) -> None:
         self.show.launch(32, "willow", apex=12)
-        self.run_show(6)
+        self.run_show(7)
         self.assertEqual(len(self.show.stars), 0)
         self.assertEqual(len(self.show.shells), 0)
 
@@ -104,8 +106,105 @@ class ShellTests(unittest.TestCase):
         self.assertGreater(len(bright), 0)
         self.assertTrue((bright[:, 2] >= bright[:, 0]).all())
 
+    def test_rendered_star_changes_from_blue_to_gold_before_fading(self) -> None:
+        stars = self.show.stars
+        stars.add(
+            np.array([32.0, 20.0]),
+            np.zeros((1, 2)),
+            color("blue"),
+            2.0,
+            gravity=0,
+            end_rgb=color("gold"),
+        )
+        pixels = []
+        for age in (0.3, 1.4, 1.9):
+            stars.age[:] = age
+            self.show.sky[:] = 0
+            pixels.append(np.asarray(self.show.render(1 / FPS))[20, 32].astype(int))
+        self.assertGreater(pixels[0][2], 3 * pixels[0][0])
+        self.assertGreater(pixels[1][0], 3 * pixels[1][2])
+        self.assertLess(pixels[2].max(), pixels[1].max())
+
+    def test_split_and_multibreak_stars_keep_the_color_transition(self) -> None:
+        for kind in ("crossette", "bouquet"):
+            with self.subTest(kind=kind):
+                self.show = FireworksShow(np.random.default_rng(2))
+                getattr(self.show, kind)(
+                    np.array([32.0, 20.0]), [color("blue")], 1.0, color("gold")
+                )
+                self.run_show(0.65)
+                stars = self.show.stars
+                parents = (
+                    stars.spark_rate > 0 if kind == "crossette" else stars.life > 1
+                )
+                self.assertGreater(int(parents.sum()), 0)
+                np.testing.assert_allclose(
+                    stars.end_color[parents],
+                    np.tile(color("gold"), (int(parents.sum()), 1)),
+                )
+                self.assertTrue(
+                    (stars.color[parents, 2] > stars.color[parents, 0]).all()
+                )
+
+    def test_shed_embers_keep_blue_hue_and_fade_without_new_emitters(self) -> None:
+        self.show._emit_sparks(
+            np.array([[32.0, 20.0]]), color("blue")[None, :], np.array([60.0]), 1 / FPS
+        )
+        stars = self.show.stars
+        self.assertEqual(len(stars), 1)
+        self.assertEqual(stars.spark_rate[0], 0)
+        np.testing.assert_allclose(stars.color[0], color("blue") * 0.65)
+        frame = np.asarray(self.show.render(1 / FPS))
+        blue = frame[:, :, 2].astype(int)
+        red = frame[:, :, 0].astype(int)
+        self.assertGreater(int(blue.max()), 100)
+        self.assertTrue((blue >= 3 * red).all())
+        self.assertGreater(float(stars.life[0]), 0.3)
+        self.run_show(1.0)
+        self.assertEqual(len(stars), 0)
+
 
 class ShowTests(unittest.TestCase):
+    def test_passages_hold_their_palette_and_change_without_repeating(self) -> None:
+        director = ShowDirector(FireworksShow(np.random.default_rng(7)))
+        director._plan_next()
+        self.assertEqual(director.passage, 0)
+        while director.planned_until < director.next_passage:
+            director._plan_next()
+            self.assertEqual(director.passage, 0)
+        director._plan_next()
+        self.assertNotEqual(director.passage, 0)
+
+    def test_scheduled_shell_retains_palette_after_passage_changes(self) -> None:
+        show = FireworksShow(np.random.default_rng(7))
+        director = ShowDirector(show)
+        director._launch(1, kind="peony")
+        director.passage = 2
+        director.planned_until = 10
+        with patch.object(show, "launch") as launch:
+            director.advance(1)
+        rgb = launch.call_args.kwargs["rgb"][0]
+        self.assertTrue(any(np.array_equal(rgb, color(n)) for n in PASSAGES[0][:2]))
+        np.testing.assert_array_equal(launch.call_args.kwargs["end_rgb"], color("gold"))
+
+    def test_finale_closes_with_one_gold_burst_then_embers_and_darkness(self) -> None:
+        renderer = FireworksRenderer(seed=7)
+        director = renderer.director
+        duration = director._finale(0)
+        director.planned_until = duration
+        coverage = []
+        with patch.object(
+            renderer.show, "launch", wraps=renderer.show.launch
+        ) as launch:
+            for _ in range(int(duration * FPS)):
+                coverage.append(lit(np.asarray(renderer.render(context()))))
+        closing = launch.call_args.kwargs
+        self.assertEqual(closing["kind"], "chrysanthemum")
+        self.assertGreater(closing["scale"], 1)
+        np.testing.assert_array_equal(closing["rgb"][0], color("gold"))
+        self.assertGreater(max(coverage[24 * FPS : 26 * FPS]), 0.01)
+        self.assertEqual(max(coverage[27 * FPS : 28 * FPS]), 0)
+
     def play(
         self, seconds: float, finale_at: float = 40.0
     ) -> tuple[FireworksRenderer, list[float], list[float]]:

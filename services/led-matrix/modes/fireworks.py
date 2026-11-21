@@ -3,7 +3,7 @@
 A show director plays segments (singles, mirrored pairs, sweeps, willow
 curtains, ground mines, colour themes, crossette chains, mini barrages)
 and builds to a finale every couple of minutes: a quickening build, a
-barrage, a closing salute volley, then darkness before the next show.
+blue-and-gold crowns, a closing gold burst, then darkness before the next show.
 
 Shell types follow real pyrotechnics: peony, chrysanthemum, willow, palm,
 crossette, crackle, strobe, heart, multi-break bouquet, and salute, plus
@@ -58,12 +58,11 @@ VIVID = (
     "magenta",
     "pink",
 )
-THEMES = (
-    ("red", "white", "blue"),
-    ("cyan", "blue", "violet"),
-    ("red", "orange", "gold"),
-    ("green", "lime", "gold"),
-    ("magenta", "pink", "violet"),
+PASSAGES = (
+    ("blue", "cyan", "gold"),
+    ("violet", "pink", "gold"),
+    ("red", "orange", "silver"),
+    ("silver", "blue", "silver"),
 )
 
 
@@ -78,6 +77,7 @@ class Particles:
         "pos",
         "vel",
         "color",
+        "end_color",
         "age",
         "life",
         "drag",
@@ -92,6 +92,7 @@ class Particles:
         self.pos = np.zeros((0, 2))
         self.vel = np.zeros((0, 2))
         self.color = np.zeros((0, 3), dtype=np.float32)
+        self.end_color = np.zeros((0, 3), dtype=np.float32)
         self.age = np.zeros(0)
         self.life = np.zeros(0)
         self.drag = np.zeros(0)
@@ -116,6 +117,7 @@ class Particles:
         split_at: float = np.inf,
         crackle: bool = False,
         strobe: bool = False,
+        end_rgb: np.ndarray | None = None,
     ) -> None:
         n = len(vel)
         if n == 0:
@@ -124,6 +126,9 @@ class Particles:
             "pos": np.broadcast_to(pos, (n, 2)),
             "vel": vel,
             "color": np.broadcast_to(rgb, (n, 3)).astype(np.float32),
+            "end_color": np.broadcast_to(
+                rgb if end_rgb is None else end_rgb, (n, 3)
+            ).astype(np.float32),
             "age": np.zeros(n),
             "life": np.broadcast_to(life, (n,)),
             "drag": np.full(n, drag),
@@ -139,6 +144,12 @@ class Particles:
     def keep(self, mask: np.ndarray) -> None:
         for name in self.FIELDS:
             setattr(self, name, getattr(self, name)[mask])
+
+    def colors(self) -> np.ndarray:
+        progress = self.age / np.maximum(self.life, 1e-6)
+        blend = np.clip((progress - 0.25) / 0.45, 0, 1)
+        blend = (blend * blend * (3 - 2 * blend))[:, None]
+        return self.color * (1 - blend) + self.end_color * blend
 
 
 class Shells:
@@ -233,54 +244,112 @@ class FireworksShow:
     # ---- shell catalogue ------------------------------------------------
     # Each burst takes the burst position, colours, and a size scale.
 
-    def peony(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
+    def peony(
+        self,
+        at: np.ndarray,
+        rgb: list[np.ndarray],
+        scale: float,
+        end_rgb: np.ndarray | None = None,
+    ) -> None:
         n = int(70 * scale)
         vel = self._sphere(n, 30 * scale)
         cols = np.array([rgb[i % len(rgb)] for i in range(n)])
-        self.stars.add(at, vel, cols, self.rng.uniform(1.2, 1.7, n), drag=1.5)
+        self.stars.add(
+            at, vel, cols, self.rng.uniform(1.5, 1.9, n), drag=1.5, end_rgb=end_rgb
+        )
         self._flash(0.25 * scale)
 
     def chrysanthemum(
-        self, at: np.ndarray, rgb: list[np.ndarray], scale: float
+        self,
+        at: np.ndarray,
+        rgb: list[np.ndarray],
+        scale: float,
+        end_rgb: np.ndarray | None = None,
     ) -> None:
         n = int(55 * scale)
         vel = self._sphere(n, 30 * scale)
         self.stars.add(
-            at, vel, rgb[0], self.rng.uniform(1.3, 1.8, n), drag=1.5, spark_rate=14
+            at,
+            vel,
+            rgb[0],
+            self.rng.uniform(1.8, 2.3, n),
+            drag=1.3,
+            spark_rate=18,
+            end_rgb=end_rgb,
         )
         self._flash(0.25 * scale)
 
-    def willow(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
+    def willow(
+        self,
+        at: np.ndarray,
+        rgb: list[np.ndarray],
+        scale: float,
+        end_rgb: np.ndarray | None = None,
+    ) -> None:
         n = int(45 * scale)
         vel = self._sphere(n, 24 * scale)
         self.stars.add(
             at,
             vel,
             color("gold") * 0.9,
-            self.rng.uniform(3.0, 3.8, n),
-            drag=2.4,
-            gravity=7,
-            spark_rate=10,
+            self.rng.uniform(3.4, 4.2, n),
+            drag=1.7,
+            gravity=5,
+            spark_rate=16,
+            end_rgb=color("orange") * 0.7,
         )
         self._flash(0.2 * scale)
 
-    def palm(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
+    def palm(
+        self,
+        at: np.ndarray,
+        rgb: list[np.ndarray],
+        scale: float,
+        end_rgb: np.ndarray | None = None,
+    ) -> None:
         n = int(self.rng.integers(6, 10))
         angles = np.linspace(0, 2 * np.pi, n, endpoint=False) + self.rng.uniform(0, 1)
         vel = np.column_stack((np.cos(angles), np.sin(angles))) * 30 * scale
         self.stars.add(
-            at, vel, rgb[0], self.rng.uniform(1.6, 2.0, n), drag=1.2, spark_rate=45
+            at,
+            vel,
+            rgb[0],
+            self.rng.uniform(1.6, 2.0, n),
+            drag=1.2,
+            spark_rate=45,
+            end_rgb=end_rgb,
         )
         self._flash(0.3 * scale)
 
-    def crossette(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
+    def crossette(
+        self,
+        at: np.ndarray,
+        rgb: list[np.ndarray],
+        scale: float,
+        end_rgb: np.ndarray | None = None,
+    ) -> None:
         n = 8
         angles = np.linspace(0, 2 * np.pi, n, endpoint=False) + self.rng.uniform(0, 1)
         vel = np.column_stack((np.cos(angles), np.sin(angles))) * 24 * scale
-        self.stars.add(at, vel, rgb[0], 1.6, drag=1.0, spark_rate=20, split_at=0.45)
+        self.stars.add(
+            at,
+            vel,
+            rgb[0],
+            1.6,
+            drag=1.0,
+            spark_rate=20,
+            split_at=0.45,
+            end_rgb=end_rgb,
+        )
         self._flash(0.2 * scale)
 
-    def crackle(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
+    def crackle(
+        self,
+        at: np.ndarray,
+        rgb: list[np.ndarray],
+        scale: float,
+        end_rgb: np.ndarray | None = None,
+    ) -> None:
         n = int(60 * scale)
         tint = color("gold") if self.rng.random() < 0.6 else color("silver")
         self.stars.add(
@@ -289,10 +358,17 @@ class FireworksShow:
             tint,
             self.rng.uniform(0.9, 1.3, n),
             crackle=True,
+            end_rgb=end_rgb,
         )
         self._flash(0.3 * scale)
 
-    def strobe(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
+    def strobe(
+        self,
+        at: np.ndarray,
+        rgb: list[np.ndarray],
+        scale: float,
+        end_rgb: np.ndarray | None = None,
+    ) -> None:
         n = int(50 * scale)
         self.stars.add(
             at,
@@ -305,29 +381,53 @@ class FireworksShow:
         )
         self._flash(0.2 * scale)
 
-    def heart(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
+    def heart(
+        self,
+        at: np.ndarray,
+        rgb: list[np.ndarray],
+        scale: float,
+        end_rgb: np.ndarray | None = None,
+    ) -> None:
         self.stars.add(
-            at, self._heart(40, 24 * scale), color("pink"), 1.5, drag=1.6, gravity=6
+            at,
+            self._heart(40, 24 * scale),
+            rgb[0],
+            1.5,
+            drag=1.6,
+            gravity=6,
+            end_rgb=end_rgb,
         )
         self._flash(0.2 * scale)
 
-    def bouquet(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
+    def bouquet(
+        self,
+        at: np.ndarray,
+        rgb: list[np.ndarray],
+        scale: float,
+        end_rgb: np.ndarray | None = None,
+    ) -> None:
         """Multi-break: the shell scatters small shells that each burst."""
         n = int(self.rng.integers(3, 6))
         angles = self.rng.uniform(0, 2 * np.pi, n)
         vel = np.column_stack((np.cos(angles), np.sin(angles))) * 16
         for i in range(n):
-            sub = [color(self.rng.choice(VIVID))]
+            sub = [rgb[i % len(rgb)]]
             self.shells.add(
                 at,
                 vel[i],
                 self.rng.uniform(0.3, 0.6),
                 4,
-                lambda p, sub=sub: self.peony(p, sub, 0.45 * scale),
+                lambda p, sub=sub: self.peony(p, sub, 0.45 * scale, end_rgb),
             )
         self._flash(0.1)
 
-    def salute(self, at: np.ndarray, rgb: list[np.ndarray], scale: float) -> None:
+    def salute(
+        self,
+        at: np.ndarray,
+        rgb: list[np.ndarray],
+        scale: float,
+        end_rgb: np.ndarray | None = None,
+    ) -> None:
         """A bright report: a white flash and a short burst of crackle."""
         n = int(45 * scale)
         self.stars.add(
@@ -362,6 +462,7 @@ class FireworksShow:
         rgb: list[np.ndarray] | None = None,
         apex: float | None = None,
         scale: float = 1.0,
+        end_rgb: np.ndarray | None = None,
     ) -> None:
         """Fire a shell from the ground at column x to burst near `apex`
         (a row; smaller is higher)."""
@@ -378,7 +479,7 @@ class FireworksShow:
             np.array([self.rng.normal(0, 2.0), -speed]),
             speed / SHELL_GRAVITY,
             trail,
-            lambda p: burst(p, rgb, scale),
+            lambda p: burst(p, rgb, scale, end_rgb),
         )
 
     def mine(self, x: float, rgb: np.ndarray | None = None) -> None:
@@ -476,12 +577,11 @@ class FireworksShow:
         n = int(emit.sum())
         if n == 0:
             return
-        warm = np.array([1.0, 0.75, 0.45], dtype=np.float32)
         self.stars.add(
             pos[emit] + self.rng.normal(0, 0.3, (n, 2)),
             self.rng.normal(0, 2.5, (n, 2)),
-            rgb[emit] * warm * 0.55,
-            self.rng.uniform(0.25, 0.6, n),
+            rgb[emit] * 0.65,
+            self.rng.uniform(0.35, 0.8, n),
             drag=3.0,
             gravity=10,
         )
@@ -517,21 +617,28 @@ class FireworksShow:
         expired = (stars.age >= stars.life) | (stars.pos[:, 1] > self.size + 2)
         pops = expired & stars.crackle & (stars.life > 0.5)
         sparking = ~split & ~expired & (stars.spark_rate > 0)
-        splits = (stars.pos[split], stars.vel[split], stars.color[split])
+        current_colors = stars.colors()
+        splits = (
+            stars.pos[split],
+            stars.vel[split],
+            current_colors[split],
+            stars.end_color[split],
+        )
         popped = stars.pos[pops]
         sparks = (
             stars.pos[sparking],
-            stars.color[sparking],
+            current_colors[sparking]
+            * (1 - stars.age[sparking] / stars.life[sparking])[:, None],
             stars.spark_rate[sparking],
         )
         stars.keep(~split & ~expired)
 
         # Crossettes split into four stars at right angles to their path.
-        for p, v, c in zip(*splits, strict=True):
+        for p, v, c, end in zip(*splits, strict=True):
             heading = np.arctan2(v[1], v[0])
             angles = heading + np.array([0.79, 2.36, 3.93, 5.50])
             kids = np.column_stack((np.cos(angles), np.sin(angles))) * 14
-            stars.add(p, kids, c, 0.9, drag=1.2, spark_rate=10)
+            stars.add(p, kids, c, 0.9, drag=1.2, spark_rate=10, end_rgb=end)
         # Crackle stars pop into white specks as they die.
         if len(popped) and len(stars) < MAX_PARTICLES:
             n = len(popped) * 2
@@ -560,7 +667,8 @@ class FireworksShow:
         progress = np.clip(stars.age / np.maximum(stars.life, 1e-6), 0, 1)
         # White-hot at ignition, settling into colour, dimming toward the end.
         heat = np.clip(1 - stars.age / 0.12, 0, 1)[:, None]
-        rgb = stars.color * (1 - heat) + 255 * heat
+        heat[stars.life < 1] = 0
+        rgb = stars.colors() * (1 - heat) + 255 * heat
         level = (1 - progress) ** 0.9
         twinkle = stars.crackle & (progress > 0.55)
         level[twinkle] *= self.rng.random(int(twinkle.sum())) < 0.45
@@ -597,6 +705,8 @@ class ShowDirector:
         self.segments: list[str] = []
         self.next_finale = self.rng.uniform(*self.FINALE_EVERY)
         self.planned_until = 0.0
+        self.passage = 0
+        self.next_passage = float(self.rng.uniform(28, 36))
 
     def cue(self, at: float, action: Callable[[], None]) -> None:
         heapq.heappush(self.cues, (at, next(self.counter), action))
@@ -616,8 +726,14 @@ class ShowDirector:
         if start >= self.next_finale:
             duration = self._finale(start)
             self.next_finale = start + duration + self.rng.uniform(*self.FINALE_EVERY)
+            self.passage = 0
+            self.next_passage = start + duration + float(self.rng.uniform(28, 36))
             name = "finale"
         else:
+            if start >= self.next_passage:
+                options = [i for i in range(len(PASSAGES)) if i != self.passage]
+                self.passage = int(self.rng.choice(options))
+                self.next_passage = start + float(self.rng.uniform(28, 36))
             segments: dict[str, Callable[[float], float]] = {
                 "singles": self._singles,
                 "pairs": self._pairs,
@@ -644,9 +760,15 @@ class ShowDirector:
 
     def _launch(self, at: float, **kwargs) -> None:
         x = kwargs.pop("x", None)
+        kwargs.setdefault("rgb", self._colors())
+        kwargs.setdefault("end_rgb", color(PASSAGES[self.passage][2]))
         self.cue(
             at, lambda: self.show.launch(x if x is not None else self._x(), **kwargs)
         )
+
+    def _colors(self) -> list[np.ndarray]:
+        names = PASSAGES[self.passage]
+        return [color(names[int(self.rng.integers(2))])]
 
     def _random_kind(self, finale: bool = False) -> str:
         kinds = list(FireworksShow.SHELLS)
@@ -672,7 +794,8 @@ class ShowDirector:
             # Now and then a fountain plays below.
             if self.rng.random() < 0.2:
                 x = self._x(8)
-                self.cue(t, lambda x=x: self.show.fountain(x, 3.0))
+                tint = color(PASSAGES[self.passage][2])
+                self.cue(t, lambda x=x, tint=tint: self.show.fountain(x, 3.0, tint))
             t += self.rng.uniform(1.0, 2.0)
         return t - start
 
@@ -680,7 +803,7 @@ class ShowDirector:
         t = start
         for _ in range(int(self.rng.integers(3, 5))):
             kind = self._random_kind()
-            rgb = self.show.pick_colors()
+            rgb = self._colors()
             offset = self.rng.uniform(10, 22)
             apex = self.rng.uniform(12, 24)
             mid = self.show.size / 2
@@ -695,7 +818,7 @@ class ShowDirector:
         if self.rng.random() < 0.5:
             xs = xs[::-1]
         kind = str(self.rng.choice(["peony", "chrysanthemum", "palm"]))
-        rgb = self.show.pick_colors()
+        rgb = self._colors()
         apexes = np.linspace(22, 12, n) if self.rng.random() < 0.5 else np.full(n, 16.0)
         for i, (x, apex) in enumerate(zip(xs, apexes, strict=True)):
             self._launch(
@@ -720,7 +843,8 @@ class ShowDirector:
         for _ in range(int(self.rng.integers(4, 7))):
             x = self._x(8)
             if self.rng.random() < 0.65:
-                self.cue(t, lambda x=x: self.show.mine(x))
+                tint = self._colors()[0]
+                self.cue(t, lambda x=x, tint=tint: self.show.mine(x, tint))
             else:
                 self.cue(t, lambda x=x: self.show.comet(x))
             t += self.rng.uniform(0.5, 1.1)
@@ -731,7 +855,7 @@ class ShowDirector:
         with a few shells bursting above them."""
         n = int(self.rng.integers(3, 6))
         xs = np.linspace(8, self.show.size - 8, n)
-        name = str(self.rng.choice(["gold", "silver", *VIVID]))
+        name = PASSAGES[self.passage][2]
         crackle = bool(self.rng.random() < 0.3)
         seconds = float(self.rng.uniform(5, 7))
         stagger = 0.35 if self.rng.random() < 0.5 else 0.0
@@ -747,10 +871,10 @@ class ShowDirector:
         return n * stagger + seconds + 0.5
 
     def _theme(self, start: float) -> float:
-        theme = THEMES[int(self.rng.integers(len(THEMES)))]
+        theme = PASSAGES[self.passage]
         t = start
         for i in range(int(self.rng.integers(5, 8))):
-            rgb = [color(theme[i % len(theme)]), color(theme[(i + 1) % len(theme)])]
+            rgb = [color(theme[i % 2])]
             kind = str(self.rng.choice(["peony", "peony", "chrysanthemum"]))
             self._launch(t, kind=kind, rgb=rgb)
             t += self.rng.uniform(0.7, 1.3)
@@ -771,35 +895,65 @@ class ShowDirector:
         return seconds + 1.0
 
     def _finale(self, start: float) -> float:
-        # Build: launches come faster and faster, sometimes over fountains.
+        mid = self.show.size / 2
+        gold = color("gold")
+        blue = [color("blue")]
+        for x in (12.0, self.show.size - 12.0):
+            self.cue(start, lambda x=x: self.show.fountain(x, 8.0, gold, False))
         t = start
-        if self.rng.random() < 0.5:
-            for x in np.linspace(10, self.show.size - 10, 4):
-                self.cue(t, lambda x=float(x): self.show.fountain(x, 10.0))
         interval = 0.9
+        volley = 0
         while t < start + 10:
-            self._launch(t, kind=self._random_kind(finale=True), scale=0.8)
-            t += interval
-            interval = max(0.2, interval * 0.85)
-        # Barrage: overlapping bursts across the sky, with ground mines.
-        end = t + 9
-        while t < end:
-            self._launch(t, kind=self._random_kind(finale=True), scale=0.65)
-            if self.rng.random() < 0.15:
-                x = self._x(6)
-                self.cue(t, lambda x=x: self.show.mine(x))
-            t += self.rng.uniform(0.14, 0.26)
-        # Closing volley: crackle and salutes together, then darkness.
-        t += 0.6
-        for x in np.linspace(8, self.show.size - 8, 7):
-            kind = "salute" if self.rng.random() < 0.5 else "crackle"
+            x = mid + (-1 if volley % 2 == 0 else 1) * 16
             self._launch(
-                t + self.rng.uniform(0, 0.25),
-                x=float(x),
-                kind=kind,
-                apex=self.rng.uniform(10, 20),
+                t, x=x, kind="chrysanthemum", rgb=blue, end_rgb=gold, apex=18, scale=0.8
             )
-        return t - start + 2.5 + 4.0
+            t += interval
+            interval = max(0.22, interval * 0.86)
+            volley += 1
+        for i, x in enumerate(np.linspace(10, self.show.size - 10, 7)):
+            self._launch(
+                start + 10 + i * 0.18,
+                x=float(x),
+                kind="palm",
+                rgb=[gold],
+                end_rgb=gold,
+                apex=22 - 12 * np.sin(i * np.pi / 6),
+                scale=0.75,
+            )
+        t = start + 12
+        while t < start + 18:
+            for x in (mid - 14, mid + 14):
+                self._launch(
+                    t,
+                    x=x,
+                    kind="chrysanthemum",
+                    rgb=blue,
+                    end_rgb=gold,
+                    apex=18,
+                    scale=0.65,
+                )
+            t += 0.45
+        for x in (mid - 16, mid, mid + 16):
+            self._launch(
+                start + 18.5,
+                x=x,
+                kind="willow",
+                rgb=[gold],
+                end_rgb=gold,
+                apex=12,
+                scale=0.85,
+            )
+        self._launch(
+            start + 22,
+            x=mid,
+            kind="chrysanthemum",
+            rgb=[gold],
+            end_rgb=color("orange"),
+            apex=18,
+            scale=1.25,
+        )
+        return 28.0
 
 
 class FireworksRenderer(ModeRenderer):
