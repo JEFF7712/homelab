@@ -1,11 +1,12 @@
 {
-  "note": "Scheduled registry-advance (scripts/ci/registry_advance.py) never takes the denied namespaces and repositories; they move by hand or through the controller. Windowed namespaces restart users' services (Recreate), so their adopts land only inside the window, clear of fleet-reboot's 03:00-05:00; mirrors land any time.",
+  "note": "Scheduled registry-advance (scripts/ci/registry_advance.py) never takes the denied namespaces and repositories; they move by hand or through the controller. Windowed namespaces restart users' services (Recreate), so their adopts land only inside the window, clear of fleet-reboot's 03:00-05:00; mirrors land any time. Meilisearch stays pinned because minor engine updates require explicit database migration.",
   "deny_namespaces": [
     "flux-system",
     "kube-system"
   ],
   "deny_repositories": [
-    "upstream/docker.io/library/postgres"
+    "upstream/docker.io/library/postgres",
+    "upstream/docker.io/getmeili/meilisearch"
   ],
   "hold_charts": [
     "automation/renovate-forgejo",

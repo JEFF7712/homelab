@@ -58,6 +58,14 @@ capabilities or Kubernetes API tokens. Karakeep's s6 runtime and RomM's nginx
 configuration generation require writable container filesystems; state is still
 mounted explicitly on persistent volumes.
 
+RomM disables Kubernetes service environment injection and explicitly sets
+`ROMM_PORT=8080`; a same-named Service otherwise injects a `tcp://` URL that
+nginx cannot use as a listen port. Meilisearch is pinned to 1.55 and excluded
+from scheduled registry adoption: its persisted index is version-specific.
+Before upgrading it, follow the upstream dump/migration procedure and verify
+search against a copy of the database. Do not let an image-only minor update
+change its engine version.
+
 ## Backups and recovery
 
 Nightly at 01:15 America/Chicago, `karakeep-backup` takes an online SQLite backup,
