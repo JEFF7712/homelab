@@ -10634,6 +10634,47 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/vaultwarden/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/docker.io/vaultwarden/server",
+      "destination_tags": [
+        "1.37.5",
+        "retention-deployed-4fe17f415f900873"
+      ],
+      "digest": "sha256:4fe17f415f90087377d37c755e0ea3cf189dcc6794e49cdd2a9adbb4937d9e1f",
+      "id": "upstream-vaultwarden-server-196a82653af9",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:4fe17f415f90087377d37c755e0ea3cf189dcc6794e49cdd2a9adbb4937d9e1f",
+        "reference": "docker.io/vaultwarden/server:1.37.5@sha256:4fe17f415f90087377d37c755e0ea3cf189dcc6794e49cdd2a9adbb4937d9e1f",
+        "registry": "docker.io",
+        "repository": "vaultwarden/server",
+        "tag": "1.37.5"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/producer-base-images/base-images.yaml:34"
       ],
       "destination_repository": "upstream/docker.io/woodpeckerci/plugin-git",
