@@ -86,6 +86,7 @@ let
   policySource = pkgs.runCommand "woodpecker-policy-source" { } ''
     mkdir -p $out/scripts/ci $out/scripts/verifier $out/config/ci
     cp ${../../scripts/verifier/enforcement.py} $out/scripts/verifier/enforcement.py
+    cp ${../../scripts/verifier/freshness.py} $out/scripts/verifier/freshness.py
     cp ${../../config/ci/projectctl-contracts.json} $out/config/ci/projectctl-contracts.json
     cp ${../../scripts/ci/policy.py} $out/scripts/ci/policy.py
     cp ${../../scripts/ci/deployment_source.py} $out/scripts/ci/deployment_source.py

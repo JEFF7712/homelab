@@ -172,8 +172,21 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   proved nothing new; on 2026-11-21 nine of twelve merges matched, each
   repeating a validation of up to 18 minutes. The policy keeps the
   eligible heads in memory, so after a policy restart main validates
-  normally. Any other main push, including a merge after main moved on,
-  still validates.
+  normally.
+- **Independent merges deploy from their branch result.** When a merge's
+  branch head and main's newer changes are independent under the merge
+  policy's freshness rule (`scripts/verifier/freshness.py`, which is why the
+  head merged without revalidation) and that exact head passed validation-v2
+  on a branch push within 24 hours, main's validation-v2 names the reused
+  pipeline and a separate `main-backstop` workflow runs the full scoped
+  validation of the merged tree. Nothing depends on `main-backstop`: the
+  deployment policy accepts a running parent whose validation-v2 passed,
+  and `just ship` deploys once only the backstop is still running, saving
+  the 2.5-3.3 minute main validation. A backstop failure turns main red and
+  alerts, and stops a ship that has not deployed yet; an interaction the
+  freshness scopes miss can therefore reach a deployment before main
+  catches it, the accepted trade. Any other main push still validates
+  before deploying.
 - **Full offline gate**: Periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
   full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).

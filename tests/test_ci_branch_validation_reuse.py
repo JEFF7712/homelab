@@ -12,8 +12,10 @@ from unittest.mock import patch
 
 import yaml
 
+from scripts.agent import ship
 from scripts.ci import policy
 from scripts.ci.policy import (
+    BACKSTOP,
     VALIDATION,
     VALIDATION_COMMAND,
     SourceMirror,
@@ -276,6 +278,185 @@ class BackstopScopeTest(unittest.TestCase):
         self.assertEqual(backstop.checks, main.checks)
         self.assertIn("python", backstop.checks)
         self.assertEqual(determine(self.root, self.env).mode, "documentation")
+
+
+class IndependentMergeTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.catalog = json.loads((ROOT / "config/ci/operations.json").read_text())
+
+    def test_independent_merge_reuses_the_head_and_backstops_the_tree(self) -> None:
+        result = workflows(
+            configuration(
+                request("refs/heads/main", MERGE),
+                self.catalog,
+                current=MERGE,
+                changed_files=("docs/a.md",),
+                independent_validation=pipeline(),
+            )
+        )
+        validation = result[VALIDATION]["steps"][0]
+        self.assertNotIn(VALIDATION_COMMAND, validation["commands"])
+        self.assertIn("independent branch head", validation["commands"][0])
+        backstop = result[BACKSTOP]
+        self.assertIn(VALIDATION_COMMAND, backstop["steps"][0]["commands"])
+        self.assertNotIn("depends_on", backstop)
+        # Nothing waits for the backstop: plans and deployments gate on
+        # validation-v2 only.
+        for name, workflow in result.items():
+            self.assertNotIn(BACKSTOP, workflow.get("depends_on", []), name)
+
+    def test_a_tree_identical_reuse_needs_no_backstop(self) -> None:
+        result = workflows(
+            configuration(
+                request("refs/heads/main", MERGE),
+                self.catalog,
+                current=MERGE,
+                changed_files=("docs/a.md",),
+                branch_validation=pipeline(),
+                independent_validation=pipeline(),
+            )
+        )
+        self.assertNotIn(BACKSTOP, result)
+
+    def deploy(self, parent: dict[str, Any]) -> dict[str, Any]:
+        deployment = request("refs/heads/main", MERGE)
+        deployment["pipeline"].update(
+            event="deployment", deploy_to="opnsense-plan", author="rupan"
+        )
+        return configuration(
+            deployment, self.catalog, parent=parent, current=MERGE, now=10_000
+        )
+
+    def parent(self, **overrides: Any) -> dict[str, Any]:
+        item = {
+            "number": 7,
+            "event": "push",
+            "ref": "refs/heads/main",
+            "commit": MERGE,
+            "status": "running",
+            "created": 9_000,
+            "finished": 0,
+            "workflows": [
+                {"name": VALIDATION, "state": "success"},
+                {"name": BACKSTOP, "state": "running"},
+            ],
+        }
+        item.update(overrides)
+        return item
+
+    def test_deployment_starts_while_only_the_backstop_runs(self) -> None:
+        self.assertTrue(self.deploy(self.parent())["configs"])
+
+    def test_a_running_parent_still_needs_a_passed_validation(self) -> None:
+        for workflows_ in (
+            [{"name": VALIDATION, "state": "running"}],
+            [{"name": BACKSTOP, "state": "running"}],
+        ):
+            with self.subTest(workflows=workflows_):
+                with self.assertRaises(ValueError):
+                    self.deploy(self.parent(workflows=workflows_))
+
+    def test_a_running_parent_expires_from_its_creation(self) -> None:
+        with self.assertRaisesRegex(ValueError, "expired"):
+            self.deploy(self.parent(created=10_000 - 86_401))
+
+
+class IndependentHeadMirrorTest(MirrorReuseTest):
+    def setUp(self) -> None:
+        super().setUp()
+        # An app-scoped change: the fixture's top-level gitops/site.yaml
+        # affects every check, so nothing would be independent of it.
+        self.git("checkout", "-q", "main")
+        self.git("branch", "-q", "-D", "feature")
+        self.git("checkout", "-q", "-b", "feature")
+        self.commit("gitops/site/app.yaml", "feature")
+
+    def merge_from(self, main_path: str) -> str:
+        self.git("checkout", "-q", "main")
+        self.commit(main_path, "main moves on")
+        self.git("merge", "-q", "--no-ff", "--no-edit", "feature")
+        merge = self.git("rev-parse", "HEAD")
+        # The policy reads the mirror after push_changes has fetched it.
+        self.assertIsNotNone(self.mirror.push_changes(merge, {}))
+        return merge
+
+    def test_a_merge_with_independent_sides_names_its_head(self) -> None:
+        head = self.git("rev-parse", "feature")
+        merge = self.merge_from("docs/notes.md")
+        self.assertEqual(self.mirror.independent_head(merge), head)
+
+    def test_overlapping_sides_and_plain_commits_name_nothing(self) -> None:
+        merge = self.merge_from("gitops/site/other.yaml")
+        self.assertIsNone(self.mirror.independent_head(merge))
+        self.assertIsNone(self.mirror.independent_head(merge + "^1"))
+
+
+class ShipBackstopTest(unittest.TestCase):
+    def test_deployment_waits_only_for_gating_workflows(self) -> None:
+        def flows(**states: str) -> list[dict[str, str]]:
+            return [{"name": name, "state": state} for name, state in states.items()]
+
+        backstop = {BACKSTOP: "running"}
+        self.assertTrue(
+            ship.deployable_before_backstop(
+                flows(**{VALIDATION: "success", "opnsense-plan": "success"}, **backstop)
+            )
+        )
+        for case in (
+            flows(**{VALIDATION: "success", "opnsense-plan": "running"}, **backstop),
+            flows(**{VALIDATION: "running"}, **backstop),
+            flows(**{VALIDATION: "success", "opnsense-plan": "success"}),
+        ):
+            with self.subTest(case=case):
+                self.assertFalse(ship.deployable_before_backstop(case))
+        self.assertTrue(ship.backstop_failed(flows(**{BACKSTOP: "failure"})))
+        self.assertFalse(ship.backstop_failed(flows(**{BACKSTOP: "running"})))
+
+    def main_pipeline(self, status: str, workflows_: list[dict[str, str]]) -> Any:
+        class Forge:
+            def call(self, method: str, path: str) -> Any:
+                return {"commit": {"id": MERGE}}
+
+        class Woodpecker:
+            def pipelines_for(self, sha: str) -> list[dict[str, Any]]:
+                return [
+                    {"number": 7, "event": "push", "branch": "main", "status": status}
+                ]
+
+            def pipeline(self, number: int) -> dict[str, Any]:
+                return {"number": number, "workflows": workflows_}
+
+            def failure_report(self, details: dict[str, Any]) -> str:
+                return ""
+
+        shipper = ship.Shipper.__new__(ship.Shipper)
+        shipper.forgejo = Forge()  # type: ignore[assignment]
+        shipper.woodpecker = Woodpecker()  # type: ignore[assignment]
+        shipper.say = lambda message: None
+        shipper.remaining = lambda: 60.0
+        return shipper.main_pipeline(MERGE)
+
+    def test_ship_deploys_while_the_backstop_runs_and_stops_when_it_fails(
+        self,
+    ) -> None:
+        self.assertEqual(
+            self.main_pipeline(
+                "running",
+                [
+                    {"name": VALIDATION, "state": "success"},
+                    {"name": BACKSTOP, "state": "running"},
+                ],
+            ),
+            (MERGE, 7),
+        )
+        with self.assertRaisesRegex(ship.ShipError, BACKSTOP):
+            self.main_pipeline(
+                "failure",
+                [
+                    {"name": VALIDATION, "state": "success"},
+                    {"name": BACKSTOP, "state": "failure"},
+                ],
+            )
 
 
 if __name__ == "__main__":

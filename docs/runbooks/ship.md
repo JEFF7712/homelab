@@ -43,7 +43,10 @@ just ship --verify 'curl --fail https://service.example/health'
    requires only the validation and `policy/merge` statuses, not approvals,
    rejected reviews or open review requests. See [merge policy](merge-policy.md).
 7. When operations are planned, waits for the main push pipeline covering the
-   merge commit to finish with successful source validation. Unrelated failed
+   merge commit to finish with successful source validation, or, when
+   validation-v2 reused an independent branch head, until only the
+   non-gating `main-backstop` is still running (a failed backstop stops the
+   ship). Unrelated failed
    operations do not invalidate that validation. If main advances to a commit that contains the
    merge, it follows the newer tip, because the superseded pipeline is
    cancelled. A pipeline killed while the merge is still the tip (a restart
