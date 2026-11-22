@@ -28,11 +28,9 @@ in
       path = [ pkgs.pulseaudio ];
       environment.PULSE_SERVER = "unix:/run/pulse/native";
       serviceConfig = {
-        ExecStart = "${pkgs.python3}/bin/python3 ${script} --directory /run/matrix-audio --mac ${config.homelab.bedroomBluetooth.mac}";
+        ExecStart = "${pkgs.python3}/bin/python3 ${script} --samples ${./matrix-audio-samples} --mac ${config.homelab.bedroomBluetooth.mac}";
         User = "matrix-audio";
         Group = "pipewire";
-        RuntimeDirectory = "matrix-audio";
-        RuntimeDirectoryMode = "0700";
         Restart = "always";
         RestartSec = 2;
         MemoryMax = "128M";

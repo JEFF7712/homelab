@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import math
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -16,6 +18,7 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "flake/modules/matrix-audio.py"
+SAMPLES = SCRIPT.with_name("matrix-audio-samples")
 spec = importlib.util.spec_from_file_location("matrix_audio", SCRIPT)
 assert spec and spec.loader
 audio = importlib.util.module_from_spec(spec)
@@ -80,26 +83,92 @@ class SessionTests(unittest.TestCase):
 
 
 class PlayerTests(unittest.TestCase):
-    def test_samples_are_distinct_bounded_pcm_with_silent_edges(self) -> None:
+    def test_shipped_recordings_are_distinct_bounded_pcm_with_silent_edges(
+        self,
+    ) -> None:
+        player = audio.Player(SAMPLES)
+        manifest = json.loads((SAMPLES / "manifest.json").read_text())
         sounds = []
-        for kind in audio.KINDS:
-            data = audio.synthesize(kind, 1)
-            samples = array("h", data)
-            self.assertGreater(len(samples), audio.RATE // 4)
-            self.assertLessEqual(len(samples), audio.RATE * 2)
-            self.assertLessEqual(max(abs(n) for n in samples), 27900)
-            self.assertEqual(samples[0], 0)
-            self.assertGreater(sum(abs(n) for n in samples), 10000)
-            sounds.append(data)
-        self.assertEqual(len(set(sounds)), len(audio.KINDS))
+        total = 0
+        for kind, paths in player.samples.items():
+            self.assertGreaterEqual(len(paths), 3)
+            for path, entry in zip(paths, manifest["samples"][kind], strict=True):
+                data = path.read_bytes()
+                total += len(data)
+                samples = array("h", data)
+                if sys.byteorder != "little":
+                    samples.byteswap()
+                self.assertGreater(len(samples), audio.RATE // 4)
+                self.assertLessEqual(len(samples), audio.RATE * 3)
+                self.assertLessEqual(max(abs(n) for n in samples), 22938)
+                self.assertEqual(samples[0], 0)
+                self.assertEqual(samples[-1], 0)
+                self.assertGreater(sum(abs(n) for n in samples[:480]), 1000)
+                self.assertGreater(sum(abs(n) for n in samples), 10000)
+                self.assertIn(entry["source"], manifest["sources"])
+                sounds.append(data)
+        self.assertEqual(len(set(sounds)), len(sounds))
+        self.assertLessEqual(total, 8 * 1024 * 1024)
+        self.assertEqual(
+            player.library,
+            hashlib.sha256((SAMPLES / "manifest.json").read_bytes()).hexdigest(),
+        )
+
+    def test_missing_or_corrupted_recordings_fail_at_startup(self) -> None:
+        for fault in ("missing", "corrupt", "empty", "format", "path"):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory) / "samples"
+                root.mkdir()
+                for source in SAMPLES.iterdir():
+                    shutil.copyfile(source, root / source.name)
+                manifest = json.loads((root / "manifest.json").read_text())
+                entry = manifest["samples"]["boom"][0]
+                path = root / entry["file"]
+                if fault == "missing":
+                    path.unlink()
+                elif fault == "corrupt":
+                    data = bytearray(path.read_bytes())
+                    data[100] ^= 255
+                    path.write_bytes(data)
+                elif fault == "empty":
+                    manifest["samples"]["launch"] = []
+                elif fault == "format":
+                    manifest["rate"] = 24000
+                else:
+                    entry["file"] = "../outside.pcm"
+                (root / "manifest.json").write_text(json.dumps(manifest))
+                with self.assertRaises((ValueError, FileNotFoundError)):
+                    audio.Player(root)
+
+    def test_each_kind_rotates_independently(self) -> None:
+        with patch.object(
+            audio.subprocess,
+            "Popen",
+            side_effect=lambda *a, **kw: MagicMock(poll=lambda: 0),
+        ) as popen:
+            player = audio.Player(SAMPLES)
+            for kind in ("boom", "launch", "boom", "launch", "boom", "boom"):
+                player.play(dict(kind=kind, strength=1), 0.25, "bedroom")
+            files = [Path(call.args[0][-1]).name for call in popen.call_args_list]
+            self.assertEqual(
+                files,
+                [
+                    "boom-1.pcm",
+                    "launch-1.pcm",
+                    "boom-2.pcm",
+                    "launch-2.pcm",
+                    "boom-3.pcm",
+                    "boom-1.pcm",
+                ],
+            )
+            self.assertIn("--rate=48000", popen.call_args.args[0])
 
     def test_voice_budget_and_immediate_stop(self) -> None:
         with (
-            tempfile.TemporaryDirectory() as directory,
             patch.object(audio.subprocess, "Popen") as popen,
         ):
             popen.side_effect = lambda *a, **kw: MagicMock(poll=lambda: None)
-            player = audio.Player(Path(directory))
+            player = audio.Player(SAMPLES)
             for _ in range(20):
                 player.play(dict(kind="boom", strength=1), 0.25, "bedroom")
             self.assertEqual(len(player.voices), audio.MAX_VOICES)
@@ -113,12 +182,11 @@ class PlayerTests(unittest.TestCase):
 
     def test_pulse_failure_is_counted_and_reaped(self) -> None:
         with (
-            tempfile.TemporaryDirectory() as directory,
             patch.object(
                 audio.subprocess, "Popen", return_value=MagicMock(poll=lambda: 1)
             ),
         ):
-            player = audio.Player(Path(directory))
+            player = audio.Player(SAMPLES)
             player.play(dict(kind="boom", strength=1), 0.25, "bedroom")
             player.reap()
             self.assertEqual(player.failed, 1)
@@ -205,8 +273,8 @@ class ReceiverTests(unittest.TestCase):
                     "127.0.0.1",
                     "--port",
                     str(port),
-                    "--directory",
-                    directory,
+                    "--samples",
+                    str(SAMPLES),
                     "--mac",
                     "AA:BB",
                 ],
