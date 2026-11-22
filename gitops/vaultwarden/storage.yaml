@@ -1,6 +1,8 @@
 # Vault database, attachments and Sends on nas-01 /tank/cluster (sanoid
-# snapshots and the nightly external backup). Never pruned: deleting this
-# claim deletes every vault.
+# snapshots, the nightly external backup and the hourly off-site
+# platform-backup). Never pruned: deleting this claim deletes every vault.
+# volumeName pins the provisioned directory that
+# homelab.platformBackup.vaultwardenDataPath on nas-01 names.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -9,6 +11,7 @@ metadata:
   name: vaultwarden-data
   namespace: vaultwarden
 spec:
+  volumeName: pvc-87889574-696e-4829-8a09-9c0f5dd94e52
   accessModes:
     - ReadWriteOnce
   storageClassName: nfs-cluster
