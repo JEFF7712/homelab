@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - storage.yaml
+  - network-policy.yaml
+  - app.yaml
+  - chrome.yaml
+  - search.yaml
+  - backup.yaml
+configMapGenerator:
+  - name: karakeep-backup
+    namespace: karakeep
+    files:
+      - backup.py
+    options:
+      disableNameSuffixHash: true

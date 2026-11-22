@@ -1,0 +1,24 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: romm
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  path: ./gitops/romm
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: secrets
+    - name: storage
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: romm
+      namespace: romm
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: mariadb
+      namespace: romm
