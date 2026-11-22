@@ -1206,6 +1206,71 @@ class PolicyVerdictTest(unittest.TestCase):
             )
         self.assertIn("merge approval declined on the approvals dashboard", outcome)
 
+    def await_operator(
+        self, states: list[str], requests: list, said: list
+    ) -> list[str]:
+        """Run await_operator; returns the statuses it read, in order."""
+        read: list[str] = []
+
+        class Forge:
+            def call(self, method: str, path: str, body=None):
+                if path == "/pulls/9":
+                    return {"number": 9, "head": {"sha": PolicyVerdictTest.HEAD}}
+                if path.startswith("/commits/"):
+                    read.append(states.pop(0))
+                    return {
+                        "statuses": [
+                            {"context": ship.POLICY_CONTEXT, "status": read[-1]}
+                        ]
+                    }
+                raise AssertionError(path)
+
+        class Stub:
+            forgejo = Forge()
+            lease = None
+
+            def merge_request(self, number: int, sha: str):
+                current = requests.pop(0) if requests else None
+                return None if current is None else {"url": "https://a/r/1", **current}
+
+            def remaining(self) -> None:
+                # The wait must not hold the lease that remaining() renews.
+                assert self.lease is None
+
+            def say(self, message: str) -> None:
+                said.append(message)
+
+        with (
+            patch.object(ship, "policy_required", return_value=True),
+            patch.object(ship.time, "sleep"),
+        ):
+            ship.Shipper.await_operator(Stub(), 9)  # type: ignore[arg-type]
+        return read
+
+    def test_escalated_head_waits_for_the_passkey_before_queueing(self) -> None:
+        said: list = []
+        read = self.await_operator(
+            ["pending", "failure", "failure", "failure"],
+            [{"state": "pending"}, {"state": "pending"}, {"state": "approved"}],
+            said,
+        )
+        self.assertEqual(read, ["pending", "failure", "failure", "failure"])
+        waits = [m for m in said if "waiting before queueing" in m]
+        self.assertEqual(len(waits), 1, said)
+
+    def test_heads_without_a_pending_approval_queue_at_once(self) -> None:
+        for states, requests in (
+            (["success"], []),
+            (["failure"], [None]),
+            (["failure"], [{"state": "declined"}]),
+            (["failure"], [{"state": "approved"}]),
+        ):
+            with self.subTest(states=states, requests=requests):
+                said: list = []
+                read = self.await_operator(list(states), list(requests), said)
+                self.assertEqual(read, states)
+                self.assertEqual(said, [])
+
     def test_policy_requirement_follows_branch_protection(self) -> None:
         from scripts.agent.ship import POLICY_CONTEXT, policy_required
 
