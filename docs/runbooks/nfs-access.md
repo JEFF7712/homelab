@@ -47,6 +47,23 @@ id. A file lives on exactly one disk: losing a salvaged disk loses the media on
 it, not the rest of the library. Operate on files through `/tank/media`; the
 branch mounts are for diagnosis.
 
+The 2 TB branch is no-create (`=NC`, `mediaNoCreateBranches`): its existing
+files stay readable and writable, but new media goes to `tank/media` and the
+3 TB disk, which keeps the healthier disk for the offline archive.
+`media-extra-branches` sets the mode by rewriting the whole branch list, never
+by removing and re-adding the branch.
+
+## Offline archive
+
+`media2/offline` (2 TB Seagate, mounted at `/tank/offline`) holds the Kiwix
+library that `gitops/offline` serves at `http://kiwix.homelab` (10.0.40.18).
+`offline-archive-dataset` creates the dataset on the running pool, and
+`offline-archive-layout` creates `kiwix/` owned by uid 1000 before
+`nfs-server` starts. The k3s nodes mount it writable and management read-only
+(for copying it to a portable drive). It is excluded from restic because it
+can be downloaded again; the `offline` sanoid template keeps three daily
+snapshots.
+
 To add a disk, create its single-disk pool, declare it in
 `flake/hosts/nas-01/tank-config.nix`, and append its mount point to
 `mediaExtraBranches` in `flake/modules/nas-data.nix`. The
