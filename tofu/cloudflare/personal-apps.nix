@@ -26,4 +26,5 @@
   "pod.rupan.dev"
   "arcade.rupan.dev"
   "approvals.rupan.dev"
+  "vault.rupan.dev"
 ]

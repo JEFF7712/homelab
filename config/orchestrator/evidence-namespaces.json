@@ -46,6 +46,7 @@
     "secret-source": "source of synced secrets",
     "cnpg-system": "database operator with superuser access",
     "storage": "NFS provisioner",
+    "vaultwarden": "password manager; logs name accounts and client IPs",
     "cilium-secrets": "network policy and encryption material",
     "default": "unused",
     "kube-node-lease": "node heartbeats only",
