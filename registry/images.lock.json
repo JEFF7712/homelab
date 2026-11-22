@@ -10762,6 +10762,203 @@
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/karakeep/registry-sources.yaml:9"
+      ],
+      "destination_repository": "upstream/docker.io/getmeili/meilisearch",
+      "destination_tags": [
+        "retention-deployed-ff546679970126f8",
+        "v1.55.0"
+      ],
+      "digest": "sha256:ff546679970126f8822e15d1b6a06bfbff1f2ce2e43f810cfb5258012f92de5c",
+      "id": "upstream-getmeili-meilisearch-7c939a9068f4",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:ff546679970126f8822e15d1b6a06bfbff1f2ce2e43f810cfb5258012f92de5c",
+        "reference": "docker.io/getmeili/meilisearch:v1.55.0@sha256:ff546679970126f8822e15d1b6a06bfbff1f2ce2e43f810cfb5258012f92de5c",
+        "registry": "docker.io",
+        "repository": "getmeili/meilisearch",
+        "tag": "v1.55.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/karakeep/registry-sources.yaml:8"
+      ],
+      "destination_repository": "upstream/ghcr.io/karakeep-app/karakeep-chrome",
+      "destination_tags": [
+        "release",
+        "retention-deployed-00fb4fa9c37aa74c"
+      ],
+      "digest": "sha256:00fb4fa9c37aa74c58e74d0bdd16c4e3b81dddb5f264917c879f9579c3b3ad95",
+      "id": "upstream-karakeep-app-karakeep-chrome-86d9be47a8e5",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:00fb4fa9c37aa74c58e74d0bdd16c4e3b81dddb5f264917c879f9579c3b3ad95",
+        "reference": "ghcr.io/karakeep-app/karakeep-chrome:release@sha256:00fb4fa9c37aa74c58e74d0bdd16c4e3b81dddb5f264917c879f9579c3b3ad95",
+        "registry": "ghcr.io",
+        "repository": "karakeep-app/karakeep-chrome",
+        "tag": "release"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/karakeep/registry-sources.yaml:7"
+      ],
+      "destination_repository": "upstream/ghcr.io/karakeep-app/karakeep",
+      "destination_tags": [
+        "0.35.0",
+        "retention-deployed-6f7d32ef296ddf1f"
+      ],
+      "digest": "sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d",
+      "id": "upstream-karakeep-app-karakeep-e9ec51d5d3ff",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d",
+        "reference": "ghcr.io/karakeep-app/karakeep:0.35.0@sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d",
+        "registry": "ghcr.io",
+        "repository": "karakeep-app/karakeep",
+        "tag": "0.35.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/romm/registry-sources.yaml:8"
+      ],
+      "destination_repository": "upstream/docker.io/library/mariadb",
+      "destination_tags": [
+        "11.8",
+        "retention-deployed-e1d5495f44565413"
+      ],
+      "digest": "sha256:e1d5495f445654134f226f55a41ce0da227116f6f27f283101f405c794d841fc",
+      "id": "upstream-library-mariadb-c3efb5e276d2",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:e1d5495f445654134f226f55a41ce0da227116f6f27f283101f405c794d841fc",
+        "reference": "docker.io/library/mariadb:11.8@sha256:e1d5495f445654134f226f55a41ce0da227116f6f27f283101f405c794d841fc",
+        "registry": "docker.io",
+        "repository": "library/mariadb",
+        "tag": "11.8"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/romm/registry-sources.yaml:7"
+      ],
+      "destination_repository": "upstream/docker.io/rommapp/romm",
+      "destination_tags": [
+        "5.4.1",
+        "retention-deployed-8677fb7b81b1d3db"
+      ],
+      "digest": "sha256:8677fb7b81b1d3db20b849e989a1dadc2a11159e51eb34a2acdcb01102274edf",
+      "id": "upstream-rommapp-romm-fcc921c92578",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:8677fb7b81b1d3db20b849e989a1dadc2a11159e51eb34a2acdcb01102274edf",
+        "reference": "docker.io/rommapp/romm:5.4.1@sha256:8677fb7b81b1d3db20b849e989a1dadc2a11159e51eb34a2acdcb01102274edf",
+        "registry": "docker.io",
+        "repository": "rommapp/romm",
+        "tag": "5.4.1"
+      }
     }
   ],
   "kind": "registry-image-lock",
