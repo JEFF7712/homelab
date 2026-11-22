@@ -118,7 +118,9 @@ class PlayerTests(unittest.TestCase):
         for fault in ("missing", "corrupt", "empty", "format", "path"):
             with self.subTest(fault=fault), tempfile.TemporaryDirectory() as directory:
                 root = Path(directory) / "samples"
-                shutil.copytree(SAMPLES, root)
+                root.mkdir()
+                for source in SAMPLES.iterdir():
+                    shutil.copyfile(source, root / source.name)
                 manifest = json.loads((root / "manifest.json").read_text())
                 entry = manifest["samples"]["boom"][0]
                 path = root / entry["file"]
