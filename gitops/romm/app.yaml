@@ -16,6 +16,8 @@ spec:
         app: romm
     spec:
       automountServiceAccountToken: false
+      # Avoid ROMM_PORT=tcp://... from the same-named Kubernetes Service.
+      enableServiceLinks: false
       securityContext:
         fsGroup: 1000
         fsGroupChangePolicy: OnRootMismatch
@@ -34,6 +36,8 @@ spec:
               drop:
                 - ALL
           env:
+            - name: ROMM_PORT
+              value: '8080'
             - name: DB_HOST
               value: mariadb
             - name: DB_NAME

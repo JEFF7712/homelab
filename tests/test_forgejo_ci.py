@@ -725,6 +725,13 @@ class PolicyTest(unittest.TestCase):
         )
         idle = [dict(item, status="success") for item in pipelines]
         idle[2]["created"] = 1000 - 90000
+        # Pipeline 7's validation failed 20 seconds ago; once that is older
+        # than the retry interval nothing current remains.
+        self.assertEqual(
+            schedule_state(request, idle, details.__getitem__, 1000),
+            (False, "failed"),
+        )
+        idle[1]["created"] = 1000 - 3700
         self.assertEqual(
             schedule_state(request, idle, details.__getitem__, 1000), (False, "none")
         )
@@ -774,8 +781,11 @@ class PolicyTest(unittest.TestCase):
             self.request, self.catalog, current=SHA, main_validation="validating"
         )
         self.assertEqual(
-            [item["name"] for item in result["configs"]], ["webhook-watchdog.yaml"]
+            [item["name"] for item in result["configs"]],
+            ["webhook-watchdog.yaml", "cache-publish.yaml"],
         )
+        for item in result["configs"]:
+            self.assertNotIn("depends_on", yaml.safe_load(item["data"]))
         self.request["pipeline"].update(cron="promote")
         result = configuration(
             self.request, self.catalog, current=SHA, main_validation="validating"
@@ -784,6 +794,61 @@ class PolicyTest(unittest.TestCase):
             [item["name"] for item in result["configs"]],
             ["awaiting-main-validation.yaml"],
         )
+
+    def test_schedules_skip_a_recently_failed_main_commit(self) -> None:
+        """Every promote run revalidated a red main: ten sandbox minutes in fifteen."""
+        self.request["pipeline"].update(event="cron", cron="promote")
+        result = configuration(
+            self.request, self.catalog, current=SHA, main_validation="failed"
+        )
+        self.assertEqual(
+            [item["name"] for item in result["configs"]],
+            ["main-validation-failed.yaml"],
+        )
+        step = yaml.safe_load(result["configs"][0]["data"])["steps"][0]
+        self.assertNotIn("exit 1", step["commands"])
+        # The cache stays warm and the watchdog keeps reporting while red.
+        self.request["pipeline"].update(cron="maintenance")
+        result = configuration(
+            self.request, self.catalog, current=SHA, main_validation="failed"
+        )
+        self.assertEqual(
+            [item["name"] for item in result["configs"]],
+            ["webhook-watchdog.yaml", "cache-publish.yaml"],
+        )
+        # A schedule that validates for itself still gates cache-publish.
+        result = configuration(self.request, self.catalog, current=SHA)
+        configs = {
+            item["name"]: yaml.safe_load(item["data"]) for item in result["configs"]
+        }
+        self.assertIn(VALIDATION + ".yaml", configs)
+        self.assertEqual(configs["cache-publish.yaml"]["depends_on"], [VALIDATION])
+
+    def test_schedule_state_retries_a_failed_commit_hourly(self) -> None:
+        request = {
+            "pipeline": {"cron": "promote", "commit": SHA, "number": 9, "event": "cron"}
+        }
+        failed = {
+            "number": 6,
+            "event": "push",
+            "sender": "rupan",
+            "status": "failure",
+            "commit": SHA,
+            "branch": "main",
+            "created": 4000,
+            "finished": 4600,
+        }
+        details = {6: {"workflows": [{"name": VALIDATION, "state": "failure"}]}}
+        state = lambda now, pipelines=[failed]: schedule_state(  # noqa: E731
+            request, pipelines, details.__getitem__, now
+        )[1]
+        self.assertEqual(state(4600 + 3600), "failed")
+        self.assertEqual(state(4600 + 3601), "none")
+        # A validation still running for the commit outranks the failure.
+        running = dict(failed, number=7, status="running", finished=0)
+        details[7] = {"workflows": [{"name": VALIDATION, "state": "running"}]}
+        self.assertEqual(state(4700, [failed, running]), "validating")
+        self.assertEqual(state(4700, [running, failed]), "validating")
 
     def test_same_repository_prs_defer_to_the_branch_push(self) -> None:
         pull = {
