@@ -1,0 +1,210 @@
+{
+  "version": 1,
+  "rate": 48000,
+  "channels": 1,
+  "format": "s16le",
+  "sources": {
+    "rubberduck": {
+      "title": "25 CC0 bang / firework SFX",
+      "creator": "rubberduck",
+      "url": "https://opengameart.org/content/25-cc0-bang-firework-sfx",
+      "download": "https://opengameart.org/sites/default/files/25-CC0-bang-sfx.zip",
+      "sha256": "c0c9ecc11e2dc0d190f0cced755569858234b8528286bc83becb6314c663407f",
+      "license": "CC0-1.0"
+    },
+    "sparkler": {
+      "title": "Sparkling Candle #1",
+      "creator": "Joseph SARDIN",
+      "url": "https://bigsoundbank.com/sparkling-candle-1-s1278.html",
+      "download": "https://bigsoundbank.com/UPLOAD/bwf-en/1278.wav",
+      "sha256": "a313a4283e1481f4de654d57263ae3da25d1890cde01b8115d230f51f1749e95",
+      "license": "CC0-1.0"
+    },
+    "wick": {
+      "title": "Slow wick 1",
+      "creator": "Joseph SARDIN",
+      "url": "https://bigsoundbank.com/slow-wick-1--s1306.html",
+      "download": "https://bigsoundbank.com/UPLOAD/bwf-en/1306.wav",
+      "sha256": "d94c18ca584c546ef1bd8a41f51da59558c8f15b2f8e0cea2362924d5b5c02f9",
+      "license": "CC0-1.0"
+    }
+  },
+  "preparation": "ffmpeg mono float32 at 48000 Hz; crop; subtract DC mean; linear edge fades (2 ms in, 30 ms out); gain to RMS 0.10 with peak capped at 0.70; round to signed 16-bit little-endian. No pitch shifts, synthesized layers, or runtime downloads.",
+  "samples": {
+    "launch": [
+      {
+        "file": "launch-1.pcm",
+        "frames": 40800,
+        "sha256": "4c979e1801d03c39999222219d0d7d4a78f0912726f929e38ab20112b8efc335",
+        "source": "wick",
+        "source_file": "wick.wav",
+        "source_file_sha256": "d94c18ca584c546ef1bd8a41f51da59558c8f15b2f8e0cea2362924d5b5c02f9",
+        "start_seconds": 1.73,
+        "duration_seconds": 0.85,
+        "gain": 2.010718046416903
+      },
+      {
+        "file": "launch-2.pcm",
+        "frames": 40800,
+        "sha256": "8753891c1eb70c417d57a13cb4237132a90667b07b96b37afc9220bdb64264e7",
+        "source": "wick",
+        "source_file": "wick.wav",
+        "source_file_sha256": "d94c18ca584c546ef1bd8a41f51da59558c8f15b2f8e0cea2362924d5b5c02f9",
+        "start_seconds": 3.2,
+        "duration_seconds": 0.85,
+        "gain": 0.8806201897027571
+      },
+      {
+        "file": "launch-3.pcm",
+        "frames": 40800,
+        "sha256": "6dd9330da205a61e5125aecda699d7dc26d576d1df82d4650541416c452f17bc",
+        "source": "wick",
+        "source_file": "wick.wav",
+        "source_file_sha256": "d94c18ca584c546ef1bd8a41f51da59558c8f15b2f8e0cea2362924d5b5c02f9",
+        "start_seconds": 6.4,
+        "duration_seconds": 0.85,
+        "gain": 0.7657299434801005
+      }
+    ],
+    "boom": [
+      {
+        "file": "boom-1.pcm",
+        "frames": 52800,
+        "sha256": "88da0c31aca0f6db54d4a23adab00390e77a3b03ad722a371b46641c1fb129a4",
+        "source": "rubberduck",
+        "source_file": "rubberduck/fw_01.ogg",
+        "source_file_sha256": "1c8a6053433cd682a65665780ead9dfadc14c9442337e6d54469100bcb743694",
+        "start_seconds": 0.095,
+        "duration_seconds": 1.1,
+        "gain": 0.49357876805305667
+      },
+      {
+        "file": "boom-2.pcm",
+        "frames": 60000,
+        "sha256": "041fe44e34ac158c711cda37d69d1ec4d23974425421ef188160568029079179",
+        "source": "rubberduck",
+        "source_file": "rubberduck/fw_03.ogg",
+        "source_file_sha256": "2f2c7e9d44d61a5ddcdf7982383229e9b3fa6e0d37651c07030ab7d21baca49c",
+        "start_seconds": 0.008,
+        "duration_seconds": 1.25,
+        "gain": 0.5173371174316361
+      },
+      {
+        "file": "boom-3.pcm",
+        "frames": 63840,
+        "sha256": "ee06ecb3834baf4f1a07dea5f0005d2e97457ce15be25535d113751450d91004",
+        "source": "rubberduck",
+        "source_file": "rubberduck/fw_06.ogg",
+        "source_file_sha256": "3957eaa6bb83b63ee73de9a5d3a17df201dfddedf705eb29cd25a9548a8f02c2",
+        "start_seconds": 0.007,
+        "duration_seconds": 1.33,
+        "gain": 0.4899593862953089
+      }
+    ],
+    "crackle": [
+      {
+        "file": "crackle-1.pcm",
+        "frames": 44160,
+        "sha256": "d2267d621c05ae45c45a99750d49bca64bf41c0af412709596ca21fb05db6e96",
+        "source": "rubberduck",
+        "source_file": "rubberduck/fw_02.ogg",
+        "source_file_sha256": "3f0e772c7608937de3e0d39167e1c7037c047f1891bbcf7f7ab6af21fe87177c",
+        "start_seconds": 0.155,
+        "duration_seconds": 0.92,
+        "gain": 0.49409089772320774
+      },
+      {
+        "file": "crackle-2.pcm",
+        "frames": 33600,
+        "sha256": "80cd26c3b91b3e457728b5c1e1acafcedf5bdce4aaba3f8b2de1f1e15d14e30f",
+        "source": "rubberduck",
+        "source_file": "rubberduck/fw_03.ogg",
+        "source_file_sha256": "2f2c7e9d44d61a5ddcdf7982383229e9b3fa6e0d37651c07030ab7d21baca49c",
+        "start_seconds": 0.41,
+        "duration_seconds": 0.7,
+        "gain": 1.839331580882755
+      },
+      {
+        "file": "crackle-3.pcm",
+        "frames": 60000,
+        "sha256": "c738de790b2c74e0a443e23d731b47835552276a8097c942a559965e34b20acc",
+        "source": "rubberduck",
+        "source_file": "rubberduck/fw_04.ogg",
+        "source_file_sha256": "48c5f564ebba962c3f54cd6bc6d4d958c47e9a795aabe8a91643afaa9fdf4c11",
+        "start_seconds": 0.51,
+        "duration_seconds": 1.25,
+        "gain": 1.130939786553806
+      }
+    ],
+    "fizz": [
+      {
+        "file": "fizz-1.pcm",
+        "frames": 86400,
+        "sha256": "19a6e21925bdbaeb92fa1c269d4e9dc0d6ac348b5c4404f07615b5c6a8be6a24",
+        "source": "sparkler",
+        "source_file": "sparkler.wav",
+        "source_file_sha256": "a313a4283e1481f4de654d57263ae3da25d1890cde01b8115d230f51f1749e95",
+        "start_seconds": 5.0,
+        "duration_seconds": 1.8,
+        "gain": 0.8770806888192603
+      },
+      {
+        "file": "fizz-2.pcm",
+        "frames": 86400,
+        "sha256": "72990421a53ff20a3ce722e7512be3f8760091bce32c2ec3a476cd7608f1ac82",
+        "source": "sparkler",
+        "source_file": "sparkler.wav",
+        "source_file_sha256": "a313a4283e1481f4de654d57263ae3da25d1890cde01b8115d230f51f1749e95",
+        "start_seconds": 14.0,
+        "duration_seconds": 1.8,
+        "gain": 0.9615003751411051
+      },
+      {
+        "file": "fizz-3.pcm",
+        "frames": 86400,
+        "sha256": "76cefa041e1462a9f587982ab6c6ccf1cff1458f303e83d72bdba1c844391ddf",
+        "source": "sparkler",
+        "source_file": "sparkler.wav",
+        "source_file_sha256": "a313a4283e1481f4de654d57263ae3da25d1890cde01b8115d230f51f1749e95",
+        "start_seconds": 25.0,
+        "duration_seconds": 1.8,
+        "gain": 0.6999967900180275
+      }
+    ],
+    "salute": [
+      {
+        "file": "salute-1.pcm",
+        "frames": 26400,
+        "sha256": "243032efee3221ecdde3922a0be53868b7b6291dffecf17e13312f7796e40a74",
+        "source": "rubberduck",
+        "source_file": "rubberduck/fw_05.ogg",
+        "source_file_sha256": "d513015c404049f5332ea4c3b0d19a764e7c26639949c7d18894635b691f4787",
+        "start_seconds": 0.029,
+        "duration_seconds": 0.55,
+        "gain": 2.0037363293863724
+      },
+      {
+        "file": "salute-2.pcm",
+        "frames": 26400,
+        "sha256": "79191636031e6d6c4bf2b878c6226caf94aae1af219065c14f963fcb7b6ecdf2",
+        "source": "rubberduck",
+        "source_file": "rubberduck/fw_01.ogg",
+        "source_file_sha256": "1c8a6053433cd682a65665780ead9dfadc14c9442337e6d54469100bcb743694",
+        "start_seconds": 0.095,
+        "duration_seconds": 0.55,
+        "gain": 0.49349737759890944
+      },
+      {
+        "file": "salute-3.pcm",
+        "frames": 26400,
+        "sha256": "ffb307e5a133a7df3f5e23a2f93a57b91e2e6a2e3b81c6d91b43ff25782e904a",
+        "source": "rubberduck",
+        "source_file": "rubberduck/fw_06.ogg",
+        "source_file_sha256": "3957eaa6bb83b63ee73de9a5d3a17df201dfddedf705eb29cd25a9548a8f02c2",
+        "start_seconds": 0.007,
+        "duration_seconds": 0.55,
+        "gain": 0.4899785606377892
+      }
+    ]
+  }
+}
