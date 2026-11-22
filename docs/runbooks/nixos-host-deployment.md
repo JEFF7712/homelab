@@ -167,7 +167,10 @@ prepares changed closures, then cordons and drains affected k3s nodes. Between
 the cordon and the drain it waits up to 20 minutes for pods of running Jobs on
 the node (backups, restore drills) to finish, so a drain does not evict them
 mid-run; past that limit, or when the pod list cannot be read, it drains
-anyway. It runs
+anyway. Jobs that resume on their next run label their pods
+`homelab.fleet/interruptible: "true"` and are drained at once: soularr runs
+about 80 minutes an hour, so every deploy of its node waited the full 20
+minutes, killed it anyway and held the fleet lease meanwhile. It runs
 the prepared closure's `switch-to-configuration dry-activate` in dry-run mode
 and `switch-to-configuration switch` for apply, verifies k3s readiness, newly
 failed units and crash-looping services, then uncordons the node. Stateful k3s nodes also wait for PostgreSQL readiness.

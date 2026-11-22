@@ -30,6 +30,9 @@ spec:
         metadata:
           labels:
             app.kubernetes.io/name: soularr
+            # Resumes on its next hourly run; fleet deploys drain it at once
+            # instead of waiting 20 minutes (scripts/deploy_fleet.py).
+            homelab.fleet/interruptible: "true"
         spec:
           automountServiceAccountToken: false
           restartPolicy: Never
