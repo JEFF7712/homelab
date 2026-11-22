@@ -64,8 +64,12 @@ elif [[ "${CI_UNIT_TESTS_EXTERNAL:-0}" == "1" ]]; then
   # repository-contract runs the suite in the Nix sandbox, where every module
   # that needs a real nix (shutil.which("nix")) skips, so run those here.
   # all.sh's SKIP_NIX_EVAL=1 spares the nix lane's host evaluation that the
-  # flake lane repeats; it must not skip these tests as well.
-  SKIP_NIX_EVAL=0 python -m scripts.ci.tests --start tests --nix-integration --output "${CI_TEST_REPORT:-artifacts/ci/nix-integration.xml}" &
+  # flake lane repeats; it must not skip these tests as well. Two workers
+  # (one module each) cut the subset from 176 s to 120 s; each module's
+  # evaluator peaks near 0.8 GB beside the flake lane's.
+  SKIP_NIX_EVAL=0 python -m scripts.ci.tests --start tests --nix-integration \
+    --jobs "${CI_NIX_INTEGRATION_JOBS:-2}" \
+    --output "${CI_TEST_REPORT:-artifacts/ci/nix-integration.xml}" &
 elif [[ -n "${CI_TEST_REPORT:-}" ]]; then
   python -m scripts.ci.tests --output "$CI_TEST_REPORT" &
 else
