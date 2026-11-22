@@ -1,0 +1,143 @@
+# Kiwix offline library: serves every ZIM in /tank/offline/kiwix (nas-01,
+# media2/offline) read-only at http://kiwix.homelab on a LAN VIP. Plain HTTP
+# on purpose: no tunnel, WAN or certificate renewal is needed to read it.
+# kiwix-update.yaml downloads and swaps the ZIMs and rewrites library.xml;
+# --monitorLibrary reloads it without a restart.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kiwix
+  namespace: offline
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: kiwix
+  template:
+    metadata:
+      labels:
+        app: kiwix
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: kiwix
+      initContainers:
+        # kiwix-serve refuses to start without its library file; the first
+        # update replaces this empty one.
+        - name: seed-library
+          image: registry.rupan.dev/upstream/ghcr.io/kiwix/kiwix-serve@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5  # yamllint disable-line rule:line-length
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              [ -e /data/library.xml ] && exit 0
+              printf '<library version="20110515">\n</library>\n' > /data/library.xml.seed
+              mv -n /data/library.xml.seed /data/library.xml
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: archive
+              mountPath: /data
+              subPath: kiwix
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+      containers:
+        - name: kiwix
+          image: registry.rupan.dev/upstream/ghcr.io/kiwix/kiwix-serve@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5  # yamllint disable-line rule:line-length
+          command:
+            - /usr/local/bin/kiwix-serve
+            - --port=8080
+            - --skipInvalid
+            - --library
+            - --monitorLibrary
+            - /data/library.xml
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            httpGet:
+              path: /catalog/v2/root.xml
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          volumeMounts:
+            - name: archive
+              mountPath: /data
+              subPath: kiwix
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+          # ZIMs are memory-mapped; their page cache is reclaimable, so the
+          # limit only bounds the server's own heap.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: archive
+          persistentVolumeClaim:
+            claimName: offline-archive
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kiwix
+  namespace: offline
+  labels:
+    bgp-advertise: "true"
+  annotations:
+    io.cilium/lb-ipam-ips: 10.0.40.18
+spec:
+  type: LoadBalancer
+  loadBalancerClass: io.cilium/bgp-control-plane
+  selector:
+    app: kiwix
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kiwix
+  namespace: offline
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: kiwix
