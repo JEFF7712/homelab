@@ -282,6 +282,19 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
 }
 
 
+# A red main commit was revalidated by every schedule run: four full
+# validations an hour on the sandbox tier, each failing the same test, which
+# held a sandbox slot ten minutes in fifteen and queued agents' PRs behind
+# them (2026-11-21). Schedules now retry a failed commit hourly, so a flaky
+# failure still heals and a real one costs one validation an hour.
+FAILED_VALIDATION_RETRY = 3600
+# Scheduled work that runs whatever main's validation says: the watchdog
+# reports missing or stuck validation, and cache-publish keeps the Nix cache
+# that every validation substitutes from warm, so gating either on main
+# hides or prolongs the outage it serves.
+UNGATED_SCHEDULED = ("webhook-watchdog", "cache-publish")
+
+
 def schedule_state(
     request: dict[str, Any],
     pipelines: list[dict[str, Any]],
@@ -294,7 +307,8 @@ def schedule_state(
     name as the sender) is still pending or running. Main validation is
     "validated" when a push, manual, or cron pipeline already passed
     validation-v2 for this commit within 24 hours, "validating" when one is
-    still running it, and "none" otherwise.
+    still running it, "failed" when one failed it within the retry interval,
+    and "none" otherwise.
     """
     pipeline = request["pipeline"]
     name, commit = pipeline.get("cron"), pipeline.get("commit")
@@ -324,6 +338,13 @@ def schedule_state(
             "running",
         }:
             state = "validating"
+        elif (
+            "failure" in states
+            and state == "none"
+            and now - (item.get("finished") or item.get("created", 0))
+            <= FAILED_VALIDATION_RETRY
+        ):
+            state = "failed"
     return overlap, state
 
 
@@ -695,6 +716,9 @@ def configuration(
         # full validation would only compete with it for sandbox slots and
         # memory, so gated scheduled work waits for the next run.
         defer_to_main_validation = event == "cron" and main_validation == "validating"
+        # Main's validation of this commit failed within the retry interval:
+        # revalidating it would fail the same way, so gated work waits too.
+        skip_failed_main = event == "cron" and main_validation == "failed"
         validation_env = {
             "NIX_CONFIG": NIX_CONFIG,
             "CI_LINT_EXTERNAL": "1",
@@ -715,7 +739,7 @@ def configuration(
         ):
             validation_env["CI_SCOPE_FILES"] = json.dumps(list(scope_files))
 
-        if not reuse_main_validation and not defer_to_main_validation:
+        if not (reuse_main_validation or defer_to_main_validation or skip_failed_main):
             add(
                 VALIDATION,
                 {
@@ -753,29 +777,41 @@ def configuration(
                     )
             elif event == "cron" and pipeline.get("cron") in SCHEDULES:
                 schedule = SCHEDULES[pipeline["cron"]]
-                # The watchdog reports missing or stuck validation, so it
-                # runs ungated: depending on validation would silence exactly
-                # the outage it watches for.
-                if "webhook-watchdog" in schedule:
-                    operation_workflow("webhook-watchdog", "${CI_PIPELINE_NUMBER}", [])
                 # Main validation of this exact commit already passed, so a
                 # schedule reuses it instead of revalidating every run.
                 gate = [] if reuse_main_validation else [VALIDATION]
-                if defer_to_main_validation:
+                waiting = defer_to_main_validation or skip_failed_main
+                # The watchdog always runs ungated; cache-publish does when
+                # this pipeline has no validation of its own to follow.
+                for target in UNGATED_SCHEDULED:
+                    if target in schedule and (target == "webhook-watchdog" or waiting):
+                        operation_workflow(target, "${CI_PIPELINE_NUMBER}", [])
+                if waiting:
                     if not configs:
+                        name, message = (
+                            (
+                                "awaiting-main-validation",
+                                "Main validation of this commit is still"
+                                " running; the next run proceeds",
+                            )
+                            if defer_to_main_validation
+                            else (
+                                "main-validation-failed",
+                                "Main validation of this commit failed within"
+                                f" {FAILED_VALIDATION_RETRY // 60} minutes;"
+                                " gated work waits for a fix or the hourly retry",
+                            )
+                        )
                         add(
-                            "awaiting-main-validation",
+                            name,
                             {
                                 "when": [{"event": "cron"}],
                                 "labels": {"tier": "sandbox", "type": "docker"},
                                 "steps": [
                                     {
-                                        "name": "awaiting-main-validation",
+                                        "name": name,
                                         "image": IMAGE,
-                                        "commands": [
-                                            "echo 'Main validation of this commit is"
-                                            " still running; the next run proceeds'"
-                                        ],
+                                        "commands": ["echo " + shlex.quote(message)],
                                     }
                                 ],
                             },
