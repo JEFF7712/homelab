@@ -1,0 +1,111 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: romm-backup
+  namespace: romm
+spec:
+  schedule: 35 1 * * *
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: OnFailure
+          securityContext:
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: assets
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:46837ed3105db0029b6d656816185c6258e3b39690532fb782428e0a5fd76182  # yamllint disable-line rule:line-length
+              command:
+                - python
+                - /scripts/backup.py
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              env:
+                - name: BACKUP_KIND
+                  value: romm
+              volumeMounts:
+                - name: state
+                  mountPath: /state
+                  readOnly: true
+                - name: dumps
+                  mountPath: /dumps
+                - name: script
+                  mountPath: /scripts
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+          volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: state
+            - name: dumps
+              persistentVolumeClaim:
+                claimName: db-dumps
+            - name: tmp
+              emptyDir: {}
+            - name: script
+              configMap:
+                name: romm-backup
+          initContainers:
+            - name: dump
+              image: registry.rupan.dev/upstream/docker.io/library/mariadb@sha256:e1d5495f445654134f226f55a41ce0da227116f6f27f283101f405c794d841fc  # yamllint disable-line rule:line-length
+              command:
+                - sh
+                - -ec
+                - |
+                  mkdir -p /dumps/romm
+                  stamp=$(date -u +%Y%m%dT%H%M%SZ)
+                  mariadb-dump --host=mariadb --user=romm --single-transaction \
+                    --routines --triggers --events --skip-ssl romm > /dumps/romm/$stamp.sql.tmp
+                  test -s /dumps/romm/$stamp.sql.tmp
+                  gzip /dumps/romm/$stamp.sql.tmp
+                  mv /dumps/romm/$stamp.sql.tmp.gz /dumps/romm/$stamp.sql.gz
+                  find /dumps/romm -name "*.sql.gz" -mtime +7 -delete
+              env:
+                - name: MYSQL_PWD
+                  valueFrom:
+                    secretKeyRef:
+                      name: romm-secrets
+                      key: DB_PASSWD
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: dumps
+                  mountPath: /dumps
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi

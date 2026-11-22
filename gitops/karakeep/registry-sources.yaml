@@ -1,0 +1,9 @@
+# Inventory only: import before deploying consumers.
+apiVersion: v1
+kind: List
+metadata:
+  name: karakeep-registry-sources
+items:
+  - image: ghcr.io/karakeep-app/karakeep:0.35.0@sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d  # yamllint disable-line rule:line-length
+  - image: ghcr.io/karakeep-app/karakeep-chrome:release@sha256:00fb4fa9c37aa74c58e74d0bdd16c4e3b81dddb5f264917c879f9579c3b3ad95  # yamllint disable-line rule:line-length
+  - image: docker.io/getmeili/meilisearch:v1.55.0@sha256:ff546679970126f8822e15d1b6a06bfbff1f2ce2e43f810cfb5258012f92de5c  # yamllint disable-line rule:line-length

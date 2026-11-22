@@ -24,10 +24,11 @@ cert-manager for internal TLS.
 ## Runs here
 
 - **Media**: Jellyfin plus the *arr suite, Seerr requests, an AI
-  recommender, Navidrome music, Calibre ebooks, Spotify sync, and Immich
+  recommender, Navidrome music, Calibre ebooks, Spotify sync, and Immich, plus RomM for retro games
 - **Music**: Music Assistant with LedFx lighting effects
 - **Voice**: Local Nemotron recognition, satellite mics, and display-only replies
 - **Smart home**: source-first Home Assistant, all config in this repo
+- **Bookmarks**: Karakeep page archives, saved links, and full-text search
 - **Notes**: Obsidian LiveSync (CouchDB) with a Quartz published site
 - **Websites**: personal static sites plus live apps
 - **Analytics**: Umami web analytics
