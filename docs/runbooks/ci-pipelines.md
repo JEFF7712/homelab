@@ -172,8 +172,21 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   proved nothing new; on 2026-11-21 nine of twelve merges matched, each
   repeating a validation of up to 18 minutes. The policy keeps the
   eligible heads in memory, so after a policy restart main validates
-  normally. Any other main push, including a merge after main moved on,
-  still validates.
+  normally.
+- **Independent merges deploy from their branch result.** When a merge's
+  branch head and main's newer changes are independent under the merge
+  policy's freshness rule (`scripts/verifier/freshness.py`, which is why the
+  head merged without revalidation) and that exact head passed validation-v2
+  on a branch push within 24 hours, main's validation-v2 names the reused
+  pipeline and a separate `main-backstop` workflow runs the full scoped
+  validation of the merged tree. Nothing depends on `main-backstop`: the
+  deployment policy accepts a running parent whose validation-v2 passed,
+  and `just ship` deploys once only the backstop is still running, saving
+  the 2.5-3.3 minute main validation. A backstop failure turns main red and
+  alerts, and stops a ship that has not deployed yet; an interaction the
+  freshness scopes miss can therefore reach a deployment before main
+  catches it, the accepted trade. Any other main push still validates
+  before deploying.
 - **Full offline gate**: Periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
   full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).
@@ -415,7 +428,13 @@ cannot be read, the import runs anyway.
 
 Cron schedules are owned by `config/ci/woodpecker-crons.json`, repository
 settings by `config/ci/woodpecker-repository.json`, and the operations each
-schedule runs by `SCHEDULES` in `scripts/ci/policy.py`. Reconcile the live
+schedule runs by `config/ci/schedules.json`. Agents own the schedules: the
+policy runs only read-only scheduled operations and mutations the catalog
+grants to agents, and emits a failing `<operation>-operator-only` workflow
+for anything else, so a schedule cannot run an operator-only operation.
+Runner slot counts and CPUs likewise live in
+`flake/modules/woodpecker-capacity.nix`, outside the enforcement code that
+keeps the runners' trust settings. Reconcile the live
 server with `just woodpecker-settings plan` and `just woodpecker-settings apply`.
 `maintenance` runs twice an hour and carries the short work: webhook
 watchdog, registry lock import, drift, retention, resolve, auth consistency,
@@ -507,9 +526,13 @@ Woodpecker catalog before requesting this operation. See
 [OPNsense agent access](opnsense-agent-access.md) for provisioning, recovery,
 and the distinction between this deployment authority and agent read access.
 
-For NixOS fleet changes, use the `deploy-fleet-dry-run` operation first, then
-the dependent `deploy-fleet` operation after the agent checks the dry-run result.
-The task request authorizes both operations. They consider the configured fleet
+For NixOS fleet changes, run `deploy-fleet`. It builds every changed host
+and previews each activation (`switch-to-configuration dry-activate`) before
+the first switch, so a host whose build or activation would fail stops the
+run with the fleet untouched; it replaced a separate `deploy-fleet-dry-run`
+prerequisite that cost about 3 minutes per deployment. The dry-run operation
+remains for evidence (`just deployment-report`) and is not required.
+The task request authorizes the operation. They consider the configured fleet
 and skip hosts already running their desired closure; the CI policy rejects per-run variable overrides,
 so they do not provide host-level target selection. The operation catalog
 enforces the prerequisite and consumes fresh validation for the same source

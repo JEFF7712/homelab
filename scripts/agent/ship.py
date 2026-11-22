@@ -253,6 +253,46 @@ def killed_run(pipeline: dict[str, Any], workflows: list[dict[str, Any]]) -> boo
     )
 
 
+# The CI policy's non-gating validation of a merged tree whose validation-v2
+# reused an independent branch head (scripts/ci/policy.py BACKSTOP).
+BACKSTOP = "main-backstop"
+VALIDATIONS = {"validation-v2", "validation-v2.yaml"}
+
+
+def workflow_state(workflow: dict[str, Any]) -> str:
+    return str(workflow.get("state", workflow.get("status", "")))
+
+
+def backstop_failed(workflows: list[dict[str, Any]]) -> bool:
+    return any(
+        w.get("name") in {BACKSTOP, BACKSTOP + ".yaml"}
+        and workflow_state(w) in {"failure", "error", "killed"}
+        for w in workflows
+    )
+
+
+def deployable_before_backstop(workflows: list[dict[str, Any]]) -> bool:
+    """Whether only the non-gating backstop is still running.
+
+    The deployment policy accepts a running parent whose validation-v2
+    passed; every other workflow must have finished, because operations
+    unpack their plans' artifacts from the parent.
+    """
+    names = {w.get("name") for w in workflows}
+    return (
+        bool(names & {BACKSTOP, BACKSTOP + ".yaml"})
+        and any(
+            w.get("name") in VALIDATIONS and workflow_state(w) == "success"
+            for w in workflows
+        )
+        and all(
+            workflow_state(w) not in {"pending", "running"}
+            for w in workflows
+            if w.get("name") not in {BACKSTOP, BACKSTOP + ".yaml"}
+        )
+    )
+
+
 def posts_required(workflows: list[dict[str, Any]]) -> bool:
     """Whether the run reports REQUIRED_CONTEXT; unknown workflows may."""
     names = {workflow.get("name") for workflow in workflows}
@@ -1182,6 +1222,22 @@ class Shipper:
                 last = state
             if pipeline and state == "success":
                 return sha, int(pipeline["number"])
+            if pipeline and state in {"running", "failure"}:
+                workflows = self.woodpecker.pipeline(pipeline["number"]).get(
+                    "workflows", []
+                )
+                if backstop_failed(workflows):
+                    raise ShipError(
+                        f"{BACKSTOP} failed on main {sha[:12]}: the merged tree fails "
+                        "validation although its branch passed; fix main before "
+                        f"deploying (pipeline #{pipeline['number']})"
+                    )
+                if state == "running" and deployable_before_backstop(workflows):
+                    self.say(
+                        f"main {sha[:12]} validated from its independent branch head; "
+                        f"deploying while {BACKSTOP} runs"
+                    )
+                    return sha, int(pipeline["number"])
             if pipeline and state == "killed" and tip == sha:
                 if restarted:
                     raise ShipError(

@@ -461,6 +461,66 @@ class DeployFleetTest(unittest.TestCase):
             + [10.0],
         )
 
+    def preview_run(self, failing_preview: str = "") -> tuple[list[list[str]], bool]:
+        executed: list[list[str]] = []
+
+        def mock_runner(
+            argv: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            del kwargs
+            executed.append(argv)
+            if (
+                failing_preview
+                and argv[0] == "ssh"
+                and any(failing_preview in part for part in argv[:-1])
+                and "dry-activate" in argv[-1]
+            ):
+                return subprocess.CompletedProcess(argv, 1, "", "activation failed")
+            if "node" in argv and "get" in argv:
+                return subprocess.CompletedProcess(argv, 0, "True", "")
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        deployer = self.deployer(
+            targets=[FLEET_HOSTS["homelab-02"], FLEET_HOSTS["homelab-03"]],
+            skip_preflight=True,
+            skip_cooldown=True,
+            runner=mock_runner,
+        )
+        try:
+            deployer.execute()
+        except Exception:
+            return executed, False
+        return executed, True
+
+    def test_every_activation_is_previewed_before_the_first_switch(self) -> None:
+        executed, ok = self.preview_run()
+        self.assertTrue(ok)
+        previews = [
+            i
+            for i, cmd in enumerate(executed)
+            if cmd[0] == "ssh" and "switch-to-configuration dry-activate" in cmd[-1]
+        ]
+        disruptive = [
+            i
+            for i, cmd in enumerate(executed)
+            if cmd[:2] == ["kubectl", "cordon"]
+            or (cmd[0] == "ssh" and "switch-to-configuration switch" in cmd[-1])
+        ]
+        self.assertEqual(len(previews), 2)
+        self.assertLess(max(previews), min(disruptive))
+
+    def test_a_failed_preview_stops_before_any_host_is_touched(self) -> None:
+        address = FLEET_HOSTS["homelab-03"].ip
+        executed, ok = self.preview_run(failing_preview=f"@{address}")
+        self.assertFalse(ok)
+        self.assertFalse(
+            any(
+                cmd[:2] == ["kubectl", "cordon"]
+                or (cmd[0] == "ssh" and "switch-to-configuration switch" in cmd[-1])
+                for cmd in executed
+            )
+        )
+
     def test_deployer_stateful_anchor_verifies_postgres(self) -> None:
         executed_commands: list[list[str]] = []
 

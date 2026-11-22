@@ -133,13 +133,14 @@ approval path; do not bypass it while recovering a failed deployment.
 
 ## Protected CI deployment
 
-The `deploy-fleet-dry-run` and `deploy-fleet` operations in
+The `deploy-fleet` operation (and the optional `deploy-fleet-dry-run`) in
 `config/ci/operations.json` consider the full configured fleet and skip any
 host already running its evaluated desired closure. The CI policy
 rejects per-run variable overrides, so the `DEPLOY_TARGETS` environment is not
 a supported way to scope these operations. Run them only when the full fleet is
-within the authorized change scope. The deploy operation requires its matching
-dry-run prerequisite and fresh successful validation for the same source commit.
+within the authorized change scope. The deploy operation requires fresh
+successful validation for the same source commit, builds every changed host and
+previews each activation before switching any.
 Known changes to disjoint resources may advance main without invalidating that
 source; unknown or related changes require a fresh prerequisite.
 See [CI pipeline operations](ci-pipelines.md) for the operation lifecycle.

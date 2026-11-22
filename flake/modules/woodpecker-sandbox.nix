@@ -7,6 +7,7 @@
 }:
 let
   cfg = config.homelab.woodpeckerSandbox;
+  capacity = (import ./woodpecker-capacity.nix).homelab-05.sandbox;
   inherit (fleetInventory) hosts networks;
   tunnelUser = "woodpecker-sandbox-tunnel";
   knownHosts = pkgs.writeText "woodpecker-sandbox-known-hosts" ''
@@ -70,13 +71,10 @@ in
         "woodpecker-sandbox-agent.env".restartUnits = [ "woodpecker-agent-sandbox.service" ];
         woodpecker-sandbox-ssh-key.restartUnits = [ "woodpecker-sandbox-tunnel.service" ];
       };
-      # The kubelet reserves three CPUs for CI (homelab-05 default.nix);
-      # the slice may burst to six while the host is idle, as on homelab-04,
-      # and CPUWeight keeps pods ahead when they compete. At a hard three,
-      # full gates ran CPU-bound (1,114 s throttled in a 445 s Python lane,
-      # pipeline #19844) while the host sat at load 3 of 12 threads.
+      # The slice bursts to the capacity file's CPUs while the host is idle;
+      # CPUWeight keeps pods ahead when they compete.
       systemd.slices.ci.sliceConfig = {
-        CPUQuota = "600%";
+        CPUQuota = "${toString (capacity.cpus * 100)}%";
         CPUWeight = 50;
         MemoryHigh = "8G";
         MemoryMax = "10G";
@@ -139,11 +137,10 @@ in
           WOODPECKER_BACKEND = "docker";
           DOCKER_HOST = "unix:///run/docker.sock";
           WOODPECKER_AGENT_LABELS = "tier=sandbox,type=docker,platform=linux/amd64";
-          WOODPECKER_MAX_WORKFLOWS = "1";
+          WOODPECKER_MAX_WORKFLOWS = toString capacity.slots;
           WOODPECKER_HEALTHCHECK = "false";
           WOODPECKER_BACKEND_DOCKER_LIMIT_MEM = "8589934592";
-          # The whole ci slice; one slot, so the job may use all of it.
-          WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = "600000";
+          WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = toString (capacity.cpus * 100000);
           WOODPECKER_BACKEND_DOCKER_DEVICES = cfg.kvmDevice;
         };
         environmentFile = [ config.sops.secrets."woodpecker-sandbox-agent.env".path ];

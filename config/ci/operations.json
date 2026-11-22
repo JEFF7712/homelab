@@ -1511,7 +1511,7 @@
     "outputs": [],
     "automatic": false,
     "mutation": true,
-    "prerequisite": "deploy-fleet-dry-run",
+    "prerequisite": "",
     "agent": true
   },
   "fleet-reboot": {
@@ -2423,7 +2423,7 @@
     "outputs": [],
     "automatic": false,
     "mutation": true,
-    "prerequisite": "deploy-ci-host-dry-run",
+    "prerequisite": "",
     "agent": true
   },
   "fleet-cordon-heal": {

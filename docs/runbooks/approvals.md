@@ -94,7 +94,7 @@ bound to `approvals.rupan.dev`, so approval only works there. Agents use
 These steps are the operator's, once:
 
 1. Deploy homelab-04 with the module: the `ci-host` route
-   (`deploy-ci-host-dry-run`, `deploy-ci-host`) from the Woodpecker UI.
+   (`deploy-ci-host`) from the Woodpecker UI.
 2. Create a Woodpecker token while signed in as the operator and store it
    as `approvals-operator-token` with
    `sops secrets/hosts/homelab-04.sops.yaml`. systemd passes the service a

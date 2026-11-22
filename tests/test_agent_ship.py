@@ -76,7 +76,6 @@ class ShipPlanTest(unittest.TestCase):
                 self.assertEqual(
                     set(plan.run),
                     {
-                        "deploy-fleet-dry-run",
                         "deploy-fleet",
                         "opnsense-plan",
                         "opnsense-apply",
@@ -109,14 +108,16 @@ class ShipPlanTest(unittest.TestCase):
         plan = plan_operations(
             ["flake/modules/woodpecker.nix"], self.routes, "auto", self.catalog
         )
-        self.assertEqual(plan.run, ["deploy-ci-host-dry-run", "deploy-ci-host"])
+        # The deployment previews each activation itself, so no dry-run
+        # operation precedes it.
+        self.assertEqual(plan.run, ["deploy-ci-host"])
         plan = plan_operations(
             ["flake/modules/woodpecker.nix", "flake/modules/k3s-server.nix"],
             self.routes,
             "auto",
             self.catalog,
         )
-        self.assertEqual(plan.run, ["deploy-fleet-dry-run", "deploy-fleet"])
+        self.assertEqual(plan.run, ["deploy-fleet"])
 
 
 class ShipTimingTest(unittest.TestCase):
