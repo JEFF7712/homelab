@@ -25,3 +25,5 @@ resources:
   - storage.yaml
   - voice.yaml
   - websites.yaml
+  - karakeep.yaml
+  - romm.yaml
