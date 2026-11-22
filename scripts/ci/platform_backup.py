@@ -72,6 +72,37 @@ def snapshot_home_assistant_config(source: Path, target: Path) -> None:
     )
 
 
+# Favicons and scratch space are refetched or recreated on start.
+VAULTWARDEN_EXCLUDES = ("icon_cache", "tmp")
+
+
+def snapshot_vaultwarden_data(source: Path, target: Path) -> None:
+    """Copy Vaultwarden data from a filesystem snapshot.
+
+    The database runs in rollback-journal mode, so a snapshot may hold a hot
+    journal. Backing up from the writable staged copy, not the read-only
+    snapshot, lets SQLite roll that journal back first.
+    """
+    if source.is_symlink() or any(path.is_symlink() for path in source.rglob("*")):
+        raise ValueError("Vaultwarden data must not contain symlinks")
+    for name in ("db.sqlite3", "rsa_key.pem"):
+        if not (source / name).is_file():
+            raise ValueError(f"Vaultwarden data is missing {name}")
+    shutil.copytree(
+        source, target, ignore=shutil.ignore_patterns(*VAULTWARDEN_EXCLUDES)
+    )
+    database = target / "db.sqlite3"
+    # snapshot_database reads read-only, which cannot roll back a hot
+    # journal; the first read on a writable connection does.
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute("SELECT count(*) FROM sqlite_master").fetchone()
+    replacement = database.with_name(database.name + ".snapshot")
+    snapshot_database(database, replacement)
+    replacement.replace(database)
+    for suffix in ("-journal", "-wal", "-shm"):
+        database.with_name(database.name + suffix).unlink(missing_ok=True)
+
+
 # Compaction leftovers and deleted databases are not state a restore needs.
 COUCHDB_EXCLUDES = ("*.compact*", ".delete")
 
@@ -218,8 +249,11 @@ def rotate_check_partition(state_file: Path) -> int:
     return partition
 
 
+SQLITE_PATTERNS = ("*.sqlite", "*.sqlite3", "*.db")
+
+
 def verify_restored_backup(restore_path: Path) -> None:
-    for pattern in ("*.sqlite", "*.db"):
+    for pattern in SQLITE_PATTERNS:
         for db_file in restore_path.rglob(pattern):
             try:
                 with closing(
@@ -259,12 +293,18 @@ def verify_restored_backup(restore_path: Path) -> None:
 
 DRILL_HOSTS = ("nas-01", "homelab-04")
 DRILL_MAX_AGE = datetime.timedelta(days=2)
-# Every SQLite database, the homelab repository and the CouchDB data: a
-# bounded sample that exercises the state each host backs up without
-# restoring bulk object data.
+# Every SQLite database, the homelab repository, the CouchDB data and the
+# Vaultwarden database: a bounded sample that exercises the state each host
+# backs up without restoring bulk object data.
 # The stage is backed up as the snapshot root, so its applications sit at
 # /applications; restic's "*" does not match that empty leading component.
-DRILL_INCLUDES = ("*.sqlite", "*.db", "*/homelab.git", "/applications/couchdb")
+DRILL_INCLUDES = (
+    "*.sqlite",
+    "*.db",
+    "*/homelab.git",
+    "/applications/couchdb",
+    "/applications/vaultwarden/db.sqlite3",
+)
 COUCHDB_DATASET = "couchdb-obsidian"
 DRILL_STATE = Path("/var/lib/platform-backup/drill.json")
 # nas-01 node exporter textfile directory (flake/modules/zot-registry.nix).
@@ -325,9 +365,7 @@ def drill_host(host: str, scratch: Path, now: datetime.datetime) -> str:
         check=True,
         capture_output=True,
     )
-    databases = [
-        path for pattern in ("*.sqlite", "*.db") for path in target.rglob(pattern)
-    ]
+    databases = [path for pattern in SQLITE_PATTERNS for path in target.rglob(pattern)]
     if not databases:
         raise ValueError("no databases restored")
     if host == "nas-01" and not any(target.rglob("homelab.git")):
@@ -539,10 +577,12 @@ def run_backup(
     bookshelf_config: Path | None = None,
     home_assistant_config: Path | None = None,
     couchdb_data: Path | None = None,
+    vaultwarden_data: Path | None = None,
 ) -> None:
     bookshelf_relative: Path | None = None
     home_assistant_relative: Path | None = None
     couchdb_relative: Path | None = None
+    vaultwarden_relative: Path | None = None
     if bookshelf_config is not None:
         if host != "nas-01":
             raise ValueError("Bookshelf NFS state backup must run on nas-01")
@@ -557,9 +597,18 @@ def run_backup(
         if host != "nas-01":
             raise ValueError("CouchDB NFS state backup must run on nas-01")
         couchdb_relative = cluster_pvc_relative(couchdb_data, "CouchDB")
+    if vaultwarden_data is not None:
+        if host != "nas-01":
+            raise ValueError("Vaultwarden NFS state backup must run on nas-01")
+        vaultwarden_relative = cluster_pvc_relative(vaultwarden_data, "Vaultwarden")
     cluster_snapshot = any(
         relative is not None
-        for relative in (bookshelf_relative, home_assistant_relative, couchdb_relative)
+        for relative in (
+            bookshelf_relative,
+            home_assistant_relative,
+            couchdb_relative,
+            vaultwarden_relative,
+        )
     )
     backup_base = persist_root / "platform-backup"
     backup_base.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -626,6 +675,13 @@ def run_backup(
                         Path("/tank/cluster/.zfs/snapshot") / suffix / couchdb_relative,
                         stage / "applications/couchdb",
                     )
+                if vaultwarden_relative is not None:
+                    snapshot_vaultwarden_data(
+                        Path("/tank/cluster/.zfs/snapshot")
+                        / suffix
+                        / vaultwarden_relative,
+                        stage / "applications/vaultwarden",
+                    )
 
                 snapshot_database(
                     persist_root / "tofu-state/state.sqlite",
@@ -691,6 +747,12 @@ def main() -> None:
         help="NAS cluster PVC directory holding the CouchDB data to back up",
     )
     parser.add_argument(
+        "--vaultwarden-data",
+        type=Path,
+        default=None,
+        help="NAS cluster PVC directory holding the Vaultwarden data to back up",
+    )
+    parser.add_argument(
         "--couchdb",
         type=Path,
         default=None,
@@ -715,6 +777,7 @@ def main() -> None:
             bookshelf_config=args.bookshelf_config,
             home_assistant_config=args.home_assistant_config,
             couchdb_data=args.couchdb_data,
+            vaultwarden_data=args.vaultwarden_data,
         )
     elif args.mode == "maintenance":
         run_maintenance(args.host)

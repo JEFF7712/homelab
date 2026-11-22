@@ -17,6 +17,7 @@ from scripts.ci.platform_backup import (
     snapshot_couchdb,
     snapshot_home_assistant_config,
     snapshot_sqlite_tree,
+    snapshot_vaultwarden_data,
     verify_restored_backup,
 )
 
@@ -335,6 +336,81 @@ class CouchDbBackupTests(unittest.TestCase):
         for path in ("/tank/cluster/../persist", "/persist/couch", "/tank/cluster"):
             with self.subTest(path=path), self.assertRaises(ValueError):
                 run_backup("nas-01", couchdb_data=Path(path))
+
+
+class VaultwardenBackupTests(unittest.TestCase):
+    def vault(self, root: Path) -> Path:
+        source = root / "source"
+        (source / "attachments/cipher").mkdir(parents=True)
+        (source / "attachments/cipher/file").write_bytes(b"attachment")
+        (source / "icon_cache").mkdir()
+        (source / "icon_cache/example.com.png").write_bytes(b"icon")
+        (source / "rsa_key.pem").write_bytes(b"key")
+        with closing(sqlite3.connect(source / "db.sqlite3")) as connection:
+            connection.execute("CREATE TABLE ciphers(data)")
+            connection.execute("INSERT INTO ciphers VALUES ('committed')")
+            connection.commit()
+        return source
+
+    def test_hot_journal_rolls_back_and_regenerable_data_is_dropped(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.vault(root)
+            # Freeze a rollback-journal transaction mid-flight, as a ZFS
+            # snapshot taken during a write would.
+            snapshot = root / "snapshot"
+            with closing(sqlite3.connect(source / "db.sqlite3")) as connection:
+                connection.execute("PRAGMA journal_mode=DELETE")
+                connection.execute("PRAGMA cache_size=1")
+                connection.execute("BEGIN")
+                connection.execute(
+                    "INSERT INTO ciphers SELECT 'uncommitted' FROM "
+                    "(WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 "
+                    "FROM n WHERE i < 5000) SELECT i FROM n)"
+                )
+                shutil.copytree(source, snapshot)
+                connection.rollback()
+            self.assertTrue((snapshot / "db.sqlite3-journal").is_file())
+            target = root / "stage"
+            snapshot_vaultwarden_data(snapshot, target)
+            with closing(sqlite3.connect(target / "db.sqlite3")) as connection:
+                rows = connection.execute("SELECT data FROM ciphers").fetchall()
+            self.assertEqual(rows, [("committed",)])
+            self.assertFalse((target / "db.sqlite3-journal").exists())
+            self.assertFalse((target / "db.sqlite3.snapshot").exists())
+            self.assertEqual(
+                (target / "attachments/cipher/file").read_bytes(), b"attachment"
+            )
+            self.assertTrue((target / "rsa_key.pem").is_file())
+            self.assertFalse((target / "icon_cache").exists())
+
+    def test_symlinks_and_missing_state_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.vault(root)
+            (source / "rsa_key.pem").unlink()
+            with self.assertRaisesRegex(ValueError, "rsa_key.pem"):
+                snapshot_vaultwarden_data(source, root / "stage")
+            (source / "rsa_key.pem").write_bytes(b"key")
+            (source / "escape").symlink_to("/etc")
+            with self.assertRaisesRegex(ValueError, "symlinks"):
+                snapshot_vaultwarden_data(source, root / "stage")
+
+    def test_rejects_wrong_host_or_escaping_path(self) -> None:
+        with self.assertRaisesRegex(ValueError, "nas-01"):
+            run_backup("homelab-04", vaultwarden_data=Path("/tank/cluster/vault"))
+        for path in ("/tank/cluster/../persist", "/persist/vault", "/tank/cluster"):
+            with self.subTest(path=path), self.assertRaises(ValueError):
+                run_backup("nas-01", vaultwarden_data=Path(path))
+
+    def test_restored_vault_database_is_integrity_checked(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "applications/vaultwarden/db.sqlite3"
+            database.parent.mkdir(parents=True)
+            database.write_bytes(b"NOT A SQLITE DATABASE FILE HEADER")
+            with self.assertRaisesRegex(ValueError, "db.sqlite3"):
+                verify_restored_backup(root)
 
 
 class PlatformRestoreDrillTests(unittest.TestCase):

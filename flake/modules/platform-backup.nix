@@ -30,6 +30,11 @@ in
       default = "";
       description = "NAS cluster PVC directory containing the CouchDB data volume; the drill opens its restored copy";
     };
+    vaultwardenDataPath = lib.mkOption {
+      type = lib.types.str;
+      default = "";
+      description = "NAS cluster PVC directory containing the Vaultwarden data volume; the drill checks its restored database";
+    };
   };
   config = lib.mkIf cfg.enable {
     # homelab-04 and nas-01 write to the same Restic repository.
@@ -40,7 +45,10 @@ in
       unitConfig.RequiresMountsFor =
         "/persist"
         + lib.optionalString (
-          cfg.bookshelfConfigPath != "" || cfg.homeAssistantConfigPath != "" || cfg.couchdbDataPath != ""
+          cfg.bookshelfConfigPath != ""
+          || cfg.homeAssistantConfigPath != ""
+          || cfg.couchdbDataPath != ""
+          || cfg.vaultwardenDataPath != ""
         ) " /tank/cluster";
       path = [
         pkgs.restic
@@ -61,7 +69,10 @@ in
           ) " --home-assistant-config ${lib.escapeShellArg cfg.homeAssistantConfigPath}"
           + lib.optionalString (
             cfg.couchdbDataPath != ""
-          ) " --couchdb-data ${lib.escapeShellArg cfg.couchdbDataPath}";
+          ) " --couchdb-data ${lib.escapeShellArg cfg.couchdbDataPath}"
+          + lib.optionalString (
+            cfg.vaultwardenDataPath != ""
+          ) " --vaultwarden-data ${lib.escapeShellArg cfg.vaultwardenDataPath}";
         EnvironmentFile = config.sops.secrets."platform-backup.env".path;
         StateDirectory = "platform-backup";
         CacheDirectory = "platform-backup";

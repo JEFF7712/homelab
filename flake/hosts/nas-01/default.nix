@@ -68,6 +68,7 @@
   homelab.platformBackup.bookshelfConfigPath = "/tank/cluster/media-bookshelf-config-pvc-ba9f64f7-e62f-4d69-9f48-a0715b54d396";
   homelab.platformBackup.homeAssistantConfigPath = "/tank/cluster/home-assistant-home-assistant-config-pvc-bc354a6f-5a1f-4a0e-85fd-13bbb74f666f";
   homelab.platformBackup.couchdbDataPath = "/tank/cluster/obsidian-couchdb-data-pvc-ddbae8df-c945-4ec2-a680-0f5127be3c0f";
+  homelab.platformBackup.vaultwardenDataPath = "/tank/cluster/vaultwarden-vaultwarden-data-pvc-87889574-696e-4829-8a09-9c0f5dd94e52";
   homelab.syncthing.enable = true;
 
   services.homelab-zot-registry = {

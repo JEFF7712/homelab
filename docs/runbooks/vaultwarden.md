@@ -20,10 +20,17 @@ Bitwarden apps and browser extension with the self-hosted server URL
 - **Backups:** the claim directory is covered by the `tank/cluster` sanoid
   snapshots and the nightly external restic backup of the frozen
   `tank/cluster@backup-nightly` snapshot
-  ([external-backup-recovery](external-backup-recovery.md)). It is not yet in
-  the hourly off-site `platform-backup` set. Vault items are encrypted on the
-  client with the master password, so a backup without that password is
-  unreadable.
+  ([external-backup-recovery](external-backup-recovery.md)), and the hourly
+  off-site `platform-backup` on nas-01 copies it from a ZFS snapshot to
+  `applications/vaultwarden` in the `sovereign-platform` restic repository
+  (`homelab.platformBackup.vaultwardenDataPath`, without `icon_cache/` and
+  `tmp/`; the database is re-snapshotted through SQLite after any hot journal
+  rolls back). The PVC's `volumeName` is pinned so that path stays valid. The
+  platform restore drill restores `db.sqlite3` and integrity-checks it as part
+  of the `platform-nas-01` dataset
+  ([sovereign-platform-recovery](sovereign-platform-recovery.md#weekly-platform-restore-drill)).
+  Vault items are encrypted on the client with the master password, so a
+  backup without that password is unreadable.
 - **Accounts:** `SIGNUPS_ALLOWED=false`. Only invited emails can register.
   Password hints are disabled.
 - **Admin page:** `ADMIN_TOKEN` is generated in-cluster once by ESO
@@ -67,6 +74,8 @@ login) and save the recovery code outside the vault.
 1. Scale the Deployment to zero:
    `kubectl -n vaultwarden scale deploy/vaultwarden --replicas=0`.
 2. Copy `db.sqlite3`, `attachments/`, `sends/` and `rsa_key.pem` from a
-   `tank/cluster` snapshot (or the external restic repository) into the claim
-   directory on nas-01, preserving UID 1000.
+   `tank/cluster` snapshot, the external restic repository, or
+   `applications/vaultwarden` in the newest nas-01 `sovereign-platform`
+   snapshot into the claim directory on nas-01, preserving UID 1000. Remove
+   any stale `db.sqlite3-journal` first.
 3. Scale back to one replica and log in from a client.
