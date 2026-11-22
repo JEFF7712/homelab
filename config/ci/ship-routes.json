@@ -157,6 +157,7 @@
         "flake/modules/projectctl.nix",
         "config/ci/projectctl-contracts.json",
         "config/ci/ship-routes.json",
+        "config/ci/schedules.json",
         "secrets/woodpecker-clone.sops.env",
         "scripts/ci/build_users.py",
         "scripts/ci/container_release.py",
