@@ -137,7 +137,7 @@ class PythonCheckTest(unittest.TestCase):
                         calls.read_text().splitlines(),
                         [
                             "SKIP_NIX_EVAL=0 -m scripts.ci.tests --start tests"
-                            " --nix-integration --output"
+                            " --nix-integration --jobs 2 --output"
                             " artifacts/ci/nix-integration.xml"
                         ],
                     )
