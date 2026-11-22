@@ -31,6 +31,9 @@ Triage ladder for the k3s cluster (Flux-reconciled, `gitops/clusters/homelab-01/
 - In multi-node Cilium with `externalTrafficPolicy: Cluster`, traffic hitting node A for a backend on node B gets SNAT'd to node A's router IP (`10.42.0.x`) with identity `world`. Any ingress NetworkPolicy on the backend pod allowing only private client CIDRs (`10.0.0.0/16`) will drop the forwarded SYN on node B (`Policy denied` in `bpf_lxc.c`).
 - Moonlight on homelab-05 is supervised by `moonlight-stream.service`, not the sway exec it replaced: `systemctl status moonlight-stream` separates a dead client from an idle one, and `moonlight list <host>` as kiosk separates unpaired/unreachable from idle.
 
+- A Service named `romm` injects `ROMM_PORT=tcp://...`, which nginx rejects as a listen port. Set `enableServiceLinks: false` and an explicit `ROMM_PORT=8080`; see [Karakeep and RomM](../../docs/runbooks/karakeep-romm.md).
+- Meilisearch minor releases can reject an existing index database. Keep its engine compatible with the persisted version and use a planned migration; its repository is held in `config/registry/advance-policy.json`.
+
 ## Reply shape
 
 Per-service verdict: healthy / degraded (with cause) / unknown (with what blocked the read). A failed live read is `unknown`, never evidence of deletion. End with the single most likely cause and the proposed fix as a separate step, not applied.
