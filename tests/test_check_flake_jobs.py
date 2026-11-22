@@ -151,12 +151,22 @@ class FlakeJobsTest(unittest.TestCase):
         self.assertEqual(peaks, {"vm": 1, "overlap": 1})
 
     def test_build_jobs_follow_the_cpu_quota_with_an_override(self) -> None:
-        self.assertEqual(build_jobs({}, cpus=2.0), (2, 1))
-        self.assertEqual(build_jobs({}, cpus=1.0), (2, 1))
-        self.assertEqual(build_jobs({}, cpus=4.0), (2, 1))
-        self.assertEqual(build_jobs({}, cpus=8.0), (4, 2))
-        self.assertEqual(build_jobs({"CI_FLAKE_BUILD_JOBS": "1"}, cpus=8.0), (1, 2))
-        self.assertEqual(build_jobs({"CI_FLAKE_BUILD_JOBS": "x"}, cpus=6.0), (3, 1))
+        self.assertEqual(build_jobs({}, cpus=2.0, kvm=False), (2, 1))
+        self.assertEqual(build_jobs({}, cpus=1.0, kvm=False), (2, 1))
+        self.assertEqual(build_jobs({}, cpus=4.0, kvm=False), (2, 1))
+        self.assertEqual(build_jobs({}, cpus=8.0, kvm=False), (4, 2))
+        self.assertEqual(
+            build_jobs({"CI_FLAKE_BUILD_JOBS": "1"}, cpus=8.0, kvm=False), (1, 2)
+        )
+        self.assertEqual(
+            build_jobs({"CI_FLAKE_BUILD_JOBS": "x"}, cpus=6.0, kvm=False), (3, 1)
+        )
+
+    def test_kvm_runs_vm_tests_two_at_a_time_when_the_quota_allows(self) -> None:
+        self.assertEqual(build_jobs({}, cpus=2.0, kvm=True), (2, 1))
+        self.assertEqual(build_jobs({}, cpus=4.0, kvm=True), (2, 2))
+        self.assertEqual(build_jobs({}, cpus=6.0, kvm=True), (3, 2))
+        self.assertEqual(build_jobs({}, cpus=12.0, kvm=True), (6, 2))
 
     def test_no_checks_is_a_failure(self) -> None:
         _, failures = run(
