@@ -736,10 +736,18 @@ class Shipper:
         return branch, self.git("rev-parse", "HEAD", cwd=cwd)
 
     def local_checks(self, cwd: Path) -> None:
-        self.say("running just check-changed")
-        result = subprocess.run(["just", "check-changed", "origin/main"], cwd=cwd)
+        # CI runs the scoped checks on the pushed head a minute later, so by
+        # default only the formatting gate runs here (about 20 s instead of
+        # check-changed's 1-4 minutes); --full-checks restores the latter.
+        command = (
+            ["just", "check-changed", "origin/main"]
+            if self.args.full_checks
+            else ["just", "fmt-check"]
+        )
+        self.say("running " + " ".join(command[:2]))
+        result = subprocess.run(command, cwd=cwd)
         if result.returncode:
-            raise ShipError("just check-changed failed; fix before shipping")
+            raise ShipError(f"{' '.join(command[:2])} failed; fix before shipping")
 
     def push(self, branch: str, cwd: Path) -> None:
         probe = subprocess.run(
@@ -1028,6 +1036,7 @@ class Shipper:
         if current.get("merged"):
             return current["merge_commit_sha"]
         self.wait_status(current["head"]["sha"], f"PR #{number}", number)
+        self.await_operator(number)
         while True:
             lease = MergeLease(self, f"{current['head']['ref']} (PR #{number})")
             lease.acquire()
@@ -1039,6 +1048,44 @@ class Shipper:
             finally:
                 self.lease = None
                 lease.release()
+
+    def await_operator(self, number: int) -> None:
+        """Wait off the lease while the head waits for the operator's passkey.
+
+        Under the lease an escalated head waits for the operator while every
+        other ship waits for the lease, so one approval held all merges for
+        58 minutes on 2026-11-21. The approval carries over to a branch update
+        whose operator-gated diff is unchanged, so the update the lease may
+        still make does not need a second passkey. Anything other than a
+        pending approval request returns and is judged under the lease.
+        """
+        if not policy_required(ROOT):
+            return
+        waiting = ""
+        while True:
+            self.remaining()
+            current = self.forgejo.call("GET", f"/pulls/{number}")
+            if current.get("merged"):
+                return
+            sha = current["head"]["sha"]
+            status = self.forgejo.call("GET", f"/commits/{sha}/status")
+            latest = latest_status(status.get("statuses") or [], POLICY_CONTEXT)
+            state = str(latest.get("status", "missing"))
+            if state in {"missing", "pending"}:
+                time.sleep(POLL_SECONDS)
+                continue
+            if state not in {"failure", "error"}:
+                return
+            request = self.merge_request(number, sha)
+            if request is None or request["state"] not in {"pending", "approving"}:
+                return
+            if waiting != request["url"]:
+                self.say(
+                    f"PR #{number} {sha[:12]}: needs operator approval at "
+                    f"{request['url']}; waiting before queueing for the merge lease"
+                )
+                waiting = request["url"]
+            time.sleep(POLL_SECONDS)
 
     def merge_locked(self, number: int) -> str:
         transient = 0
@@ -1667,7 +1714,12 @@ def main(argv: list[str] | None = None) -> int:
         help="task-specific live acceptance command; repeatable, runs after deployment",
     )
     parser.add_argument(
-        "--no-checks", action="store_true", help="skip local just check-changed"
+        "--no-checks", action="store_true", help="skip the local checks entirely"
+    )
+    parser.add_argument(
+        "--full-checks",
+        action="store_true",
+        help="run just check-changed locally instead of only just fmt-check",
     )
     parser.add_argument(
         "--no-merge", action="store_true", help="stop once the PR is green"

@@ -19,7 +19,9 @@ just ship --verify 'curl --fail https://service.example/health'
 
 1. Preflight: refuses `main`, a detached HEAD, uncommitted tracked changes, or
    a branch with nothing beyond `origin/main`.
-2. Runs `just check-changed origin/main` (skip with `--no-checks`).
+2. Runs `just fmt-check` (about 20 s). CI runs the scoped checks on the
+   pushed head a minute later, so the local `just check-changed origin/main`
+   (1-4 minutes) runs only with `--full-checks`; `--no-checks` skips both.
 3. Pushes `HEAD` through the `git-agent` alias so `homelab-agent` owns the
    branch. A missing alias is an error, never a fallback to `origin`.
 4. Opens the PR, or reuses an open PR for the same branch.
@@ -73,7 +75,12 @@ revalidation, and waiting ships cost no CI. The lease is the
 the holder and an expiry. Every push compare-and-swaps that commit through the
 `git-agent` remote, so acquisition, renewal, takeover and release are atomic.
 The holder renews it every minute; a lease left by a crashed ship expires
-after 5 minutes and the next ship takes it over. `ship` prints `waiting for the
+after 5 minutes and the next ship takes it over. A head that needs the
+operator's passkey waits for the approval before queueing: under the lease
+that wait held every other ship's merge as long as the operator took (58
+minutes on 2026-11-21). The approval carries over to a branch update whose
+gated diff is unchanged, so the update made under the lease needs no second
+passkey, and the link of an older head stays valid. `ship` prints `waiting for the
 merge lease held by <branch> (PR #n)` while queued. To inspect the lease:
 `git log -1 origin/ship/merge-lease`. Never delete a live lease by hand.
 
