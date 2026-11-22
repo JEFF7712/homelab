@@ -157,6 +157,21 @@ spec:
               pending or running past the stuck threshold. Inspect the
               Woodpecker queue and agent capacity on homelab-04.
 
+        - alert: RepoCiDefaultBranchFailing
+          expr: repo_ci_state{state="failure"} == 1
+          for: 30m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Required CI is red on the head of {{ $labels.repository }}"
+            description: >-
+              The required validation for the default branch of
+              {{ $labels.repository }} failed and nothing has fixed it for 30
+              minutes. On homelab a red main also stops the gated maintenance
+              schedule, including cache-publish, so the Nix cache goes cold
+              and every full validation slows down. Read the failing step in
+              Woodpecker and merge a fix.
+
         - alert: RepoCiWorkflowFailing
           expr: repo_ci_workflow_failed == 1
           for: 1h

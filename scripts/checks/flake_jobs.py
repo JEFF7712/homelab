@@ -3,10 +3,12 @@
 Reads nix-eval-jobs JSON lines from stdin. Each check starts building as soon
 as it is evaluated, so the long unit-suite build overlaps the remaining host
 evaluations instead of waiting for them. VM tests build in their own pool,
-so the unit suite no longer queues behind every rebuilt VM test. CI guests
-run under TCG, and two booting at once in a two-CPU container missed their
-boot timeouts (pipeline #12524), so VM tests run one at a time unless the
-quota allows four CPUs per guest. Host configurations are evaluated only.
+so the unit suite no longer queues behind every rebuilt VM test. Without
+/dev/kvm guests run under TCG, and two booting at once in a two-CPU container
+missed their boot timeouts (pipeline #12524), so VM tests then run one at a
+time unless the quota allows four CPUs per guest. With KVM a guest needs about
+one CPU, so up to two run at once; more would crowd the 8 GiB job limit
+beside host evaluation. Host configurations are evaluated only.
 Any evaluation or build failure fails the run.
 """
 
@@ -49,19 +51,28 @@ def classify(line: str) -> tuple[Check | None, str | None]:
     return None, None
 
 
+def kvm_available() -> bool:
+    return os.access("/dev/kvm", os.R_OK | os.W_OK)
+
+
 def build_jobs(
-    environ: dict[str, str] | None = None, cpus: float | None = None
+    environ: dict[str, str] | None = None,
+    cpus: float | None = None,
+    kvm: bool | None = None,
 ) -> tuple[int, int]:
     """(other, VM) concurrent builds for the container's CPU quota.
 
     Other checks get half the quota, at least two, so one serial build
     cannot idle the second CPU; CI_FLAKE_BUILD_JOBS overrides it. VM tests
-    get one per four CPUs, at least one.
+    get one per four CPUs under TCG and one per two, at most two, with KVM;
+    always at least one.
     """
     environ = dict(os.environ) if environ is None else environ
     if cpus is None:
         cpus = cpu_limit() or float(len(os.sched_getaffinity(0)))
-    vm_jobs = max(1, int(cpus) // 4)
+    if kvm is None:
+        kvm = kvm_available()
+    vm_jobs = min(2, max(1, int(cpus) // 2)) if kvm else max(1, int(cpus) // 4)
     configured = environ.get("CI_FLAKE_BUILD_JOBS", "")
     if configured.isdigit() and int(configured) > 0:
         return int(configured), vm_jobs

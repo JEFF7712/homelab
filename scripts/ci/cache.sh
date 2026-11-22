@@ -9,6 +9,7 @@ trap 'rm -rf "$cache_work"' EXIT
 export XDG_CONFIG_HOME="$cache_work/config"
 mkdir -p "$XDG_CONFIG_HOME"
 
+serial_targets=()
 if [[ "$target_set" == "homelab" ]]; then
   build_targets=(
     "$flake#nixosConfigurations.nas-01.config.system.build.toplevel"
@@ -38,6 +39,12 @@ if [[ "$target_set" == "homelab" ]]; then
     "$flake#devShells.x86_64-linux.ci"
     "$flake#devShells.x86_64-linux.ops"
   )
+  serial_targets=(
+    "$flake#checks.x86_64-linux.agent-workspace-packet-flow"
+    "$flake#checks.x86_64-linux.agent-workspace-libvirt-normalization"
+    "$flake#checks.x86_64-linux.zot-registry-service"
+    "$flake#checks.x86_64-linux.niks3-cache-service"
+  )
 elif [[ "$target_set" == "nixos-laptop" ]]; then
   build_targets=(
     "$flake#nixosConfigurations.laptop.config.system.build.toplevel"
@@ -62,18 +69,36 @@ builder=${HOMELAB_CACHE_BUILDER:-$default_builder}
 NIX_CONFIG="${NIX_CONFIG:-}"$'\nfallback = true'
 export NIX_CONFIG
 started=$SECONDS
+# A failed fast-builder target still publishes the targets that built, then
+# fails the run: an all-or-nothing push let one flaky VM check keep every
+# check out of niks3, so each full validation rebuilt them (2026-11-21).
+build_status=0
 case "$builder" in
   fast)
-    selection='flake: {'
+    # VM checks emulate their machines (no KVM in CI containers), and four
+    # of them at once on a two-CPU slot timed out booting niks3's two VMs
+    # for six hours (2026-11-21). They build after the rest, one at a time.
+    selections=('flake: {' 'flake: {')
     for index in "${!build_targets[@]}"; do
-      selection+=" target${index} = flake.${build_targets[index]#*#};"
+      pass=0
+      for serial in "${serial_targets[@]}"; do
+        [[ "$serial" == "${build_targets[index]}" ]] && pass=1
+      done
+      selections[pass]+=" target${index} = flake.${build_targets[index]#*#};"
     done
-    selection+=' }'
-    nix-fast-build --flake "$flake#" --select "$selection" \
-      --eval-workers 2 --eval-max-memory-size 2048 --max-jobs 2 \
-      --no-nom --out-link "$cache_work/result" \
-      --result-file "$cache_work/results.json"
-    python -m scripts.ci.cache_results "$cache_work/results.json" \
+    reports=()
+    for pass in 0 1; do
+      [[ "${selections[pass]}" == 'flake: {' ]] && continue
+      jobs=$((pass == 0 ? 2 : 1))
+      status=0
+      nix-fast-build --flake "$flake#" --select "${selections[pass]} }" \
+        --eval-workers 2 --eval-max-memory-size 2048 --max-jobs "$jobs" \
+        --no-nom --out-link "$cache_work/result-$pass" \
+        --result-file "$cache_work/results-$pass.json" || status=$?
+      ((status == 0)) || build_status=$status
+      reports+=(--report "$status" "$cache_work/results-$pass.json")
+    done
+    python -m scripts.ci.cache_results "${reports[@]}" \
       "${#build_targets[@]}" "$cache_work/paths" "$cache_work/derivations"
     ;;
   native)
@@ -89,8 +114,8 @@ echo "Cache build: builder=$builder targets=${#build_targets[@]} elapsed_seconds
 # niks3 is the only Nix cache; Attic no longer serves or receives paths
 # (docs/runbooks/ci-pipelines.md).
 if [[ -z "${NIKS3_TOKEN:-}" ]]; then
-  echo "Build succeeded; NIKS3_TOKEN is not set, so upload is skipped."
-  exit 0
+  echo "Build finished; NIKS3_TOKEN is not set, so upload is skipped."
+  exit "$build_status"
 fi
 nix flake archive --json --no-write-lock-file "$flake" > "$cache_work/archive.json"
 python -m scripts.ci.cache_sources "$cache_work/archive.json" >> "$cache_work/paths"
@@ -116,4 +141,8 @@ if [[ -s "$cache_work/niks3-errors" || "$niks3_status" -ne 0 ]]; then
     "$(wc -l < "$cache_work/niks3-errors")" "$niks3_status" >&2
   cat "$cache_work/niks3-errors" >&2
   exit 1
+fi
+if [[ "$build_status" -ne 0 ]]; then
+  echo "Published the targets that built; nix-fast-build exited $build_status." >&2
+  exit "$build_status"
 fi
