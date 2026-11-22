@@ -28,6 +28,7 @@ import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import BinaryIO
 
 CATALOG = "https://opds.library.kiwix.org/catalog/v2/entries"
 ATOM = "{http://www.w3.org/2005/Atom}"
@@ -35,6 +36,7 @@ METALINK = "{urn:ietf:params:xml:ns:metalink}"
 ZIM_MAGIC = 0x044D495A
 RELEASE = re.compile(r"/(?P<stem>[^/]+)_(?P<date>\d{4}-\d{2})\.zim\.meta4$")
 CHUNK = 1 << 20
+FLUSH_EVERY = 64 << 20
 USER_AGENT = "homelab-offline-library/1 (+https://kiwix.org)"
 LIBRARY_FILES = "library-files.txt"
 FAILED = "fetch-failed.json"
@@ -137,6 +139,18 @@ def check_space(directory: Path, needed: int, reserve: int) -> None:
         )
 
 
+def drop_cache(handle: BinaryIO) -> None:
+    """Write back and evict a file's cached pages.
+
+    Page cache counts against the container's memory limit, and NFS writes
+    it back slower than a download fills it: without this, multi-GB files
+    got the fetch step OOM-killed.
+    """
+    handle.flush()
+    os.fsync(handle.fileno())
+    os.posix_fadvise(handle.fileno(), 0, 0, os.POSIX_FADV_DONTNEED)
+
+
 def download(url: str, part: Path, size: int, rate: int) -> None:
     """Resume `part` up to `size` bytes, sleeping to stay under `rate` B/s."""
     offset = part.stat().st_size if part.exists() else 0
@@ -157,9 +171,12 @@ def download(url: str, part: Path, size: int, rate: int) -> None:
             while chunk := response.read(CHUNK):
                 output.write(chunk)
                 copied += len(chunk)
+                if copied % FLUSH_EVERY < CHUNK:
+                    drop_cache(output)
                 ahead = copied / rate - (time.monotonic() - started)
                 if ahead > 0:
                     time.sleep(ahead)
+            drop_cache(output)
     if part.stat().st_size != size:
         raise UpdateError(f"{url}: got {part.stat().st_size} of {size} bytes")
 
@@ -172,8 +189,12 @@ def verify_file(path: Path, expected: Metalink) -> None:
             raise UpdateError(f"{path.name}: not a ZIM file")
         handle.seek(0)
         digest = hashlib.sha256()
+        read = 0
         while chunk := handle.read(CHUNK):
             digest.update(chunk)
+            read += len(chunk)
+            if read % FLUSH_EVERY < CHUNK:
+                drop_cache(handle)
     if digest.hexdigest() != expected.sha256:
         raise UpdateError(f"{path.name}: SHA-256 mismatch")
 
