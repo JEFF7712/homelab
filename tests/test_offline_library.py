@@ -8,6 +8,7 @@ download are fakes.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import re
 import sys
@@ -228,6 +229,38 @@ class UpdateBookTest(unittest.TestCase):
         self.archive.update(self.book)
         self.assertFalse(stale.exists())
         self.assertTrue(other.exists())
+
+
+class PageCacheTest(unittest.TestCase):
+    """Large downloads must not keep their page cache (OOM-killed 2026-11-22)."""
+
+    def test_download_and_checksum_evict_cache_as_they_go(self) -> None:
+        body = zim_bytes(bytes(10 * 1024))
+        evicted: list[int] = []
+
+        class Response(io.BytesIO):
+            status = 200
+
+        def fadvise(fd: int, offset: int, length: int, advice: int) -> None:
+            evicted.append(advice)
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            mock.patch.dict(MOD, {"FLUSH_EVERY": 2048, "CHUNK": 512}),
+            mock.patch.object(
+                MOD["urllib"].request, "urlopen", lambda *a, **k: Response(body)
+            ),
+            mock.patch.object(MOD["os"], "posix_fadvise", fadvise),
+        ):
+            part = Path(directory) / "a_2026-01.zim.part"
+            MOD["download"]("https://example/a_2026-01.zim", part, len(body), 1 << 40)
+            self.assertEqual(part.read_bytes(), body)
+            downloaded = len(evicted)
+            self.assertGreaterEqual(downloaded, len(body) // 2048)
+            expected = MOD["Metalink"](len(body), hashlib.sha256(body).hexdigest())
+            MOD["verify_file"](part, expected)
+            self.assertGreaterEqual(len(evicted) - downloaded, len(body) // 2048)
+        self.assertEqual(set(evicted), {MOD["os"].POSIX_FADV_DONTNEED})
 
 
 class LibraryAndRotationTest(unittest.TestCase):
