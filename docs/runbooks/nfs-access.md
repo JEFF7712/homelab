@@ -56,7 +56,8 @@ by removing and re-adding the branch.
 ## Offline archive
 
 `media2/offline` (2 TB Seagate, mounted at `/tank/offline`) holds the Kiwix
-library that `gitops/offline` serves at `http://kiwix.homelab` (10.0.40.18).
+library that `gitops/offline` serves at `http://kiwix.homelab` (10.0.40.18); see
+[offline library](offline-library.md).
 `offline-archive-dataset` creates the dataset on the running pool, and
 `offline-archive-layout` creates `kiwix/` owned by uid 1000 before
 `nfs-server` starts. The k3s nodes mount it writable and management read-only

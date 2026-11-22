@@ -90,6 +90,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Media memory management](runbooks/media-memory.md)
 - [Bookshelf state backup and recovery](runbooks/bookshelf-recovery.md)
 - [Game downloads and library](runbooks/games.md)
+- [Offline library (Kiwix)](runbooks/offline-library.md)
 - [NAS game share](runbooks/nas-game-share.md)
 - [pod-agent on the homelab](runbooks/pod-agent.md)
 

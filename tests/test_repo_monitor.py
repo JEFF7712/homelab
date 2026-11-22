@@ -905,6 +905,23 @@ class ServiceTests(PatchedNetwork):
         )
         self.assertEqual([p.name for p in collector._ci_targets()], ["mirrored"])
 
+    def test_homelab_ci_is_monitored_without_a_catalog_enrollment(self):
+        """Its null enrollment hid a red main and failing cache-publish."""
+        projects = (
+            project(name="homelab", forgejo_repo="JEFF7712/homelab", wid=None),
+            project(name="plain", forgejo_repo="JEFF7712/b", wid=None),
+        )
+        collector = rm.Collector(self.settings, projects, frozenset())
+        self.assertEqual([p.name for p in collector._ci_targets()], ["homelab"])
+        catalog = rm.load_projects(str(PROJECTS))
+        self.assertIn(
+            "JEFF7712/homelab",
+            [
+                p.forgejo_repo
+                for p in rm.Collector(self.settings, catalog, frozenset())._ci_targets()
+            ],
+        )
+
     def test_special_mirror_replaces_standard_target(self):
         projects = (project(name="homelab", forgejo_repo="JEFF7712/homelab", wid=7),)
         special = (
@@ -1158,7 +1175,8 @@ class EndToEndTests(PatchedNetwork):
         expected_ci = sum(
             1
             for p in projects
-            if p.woodpecker_repository_id is not None and not p.is_archived
+            if (p.woodpecker_repository_id is not None or p.name == "homelab")
+            and not p.is_archived
         )
 
         buffer = io.StringIO()
