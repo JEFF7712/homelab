@@ -299,6 +299,30 @@
       ];
       type = "self_hosted";
     };
+    # Bitwarden clients cannot complete an Access login; Vaultwarden's own
+    # login and two-step login gate the vault (docs/runbooks/vaultwarden.md).
+    bypass_vaultwarden = {
+      app_launcher_visible = true;
+      auto_redirect_to_identity = false;
+      destinations = [
+        {
+          type = "public";
+          uri = "vault.rupan.dev";
+        }
+      ];
+      domain = "vault.rupan.dev";
+      enable_binding_cookie = false;
+      http_only_cookie_attribute = true;
+      name = "Bypass - Vaultwarden";
+      options_preflight_bypass = false;
+      policies = [
+        {
+          id = "\${cloudflare_zero_trust_access_policy.bypass.id}";
+          precedence = 1;
+        }
+      ];
+      type = "self_hosted";
+    };
     bypass_websites_and_automation = {
       app_launcher_visible = true;
       auto_redirect_to_identity = false;

@@ -17,12 +17,14 @@ resources:
   - observability.yaml
   - outreach.yaml
   - obsidian.yaml
+  - offline.yaml
   - platform.yaml
   - pod-agent.yaml
   - readers.yaml
   - secrets.yaml
   - led-matrix.yaml
   - storage.yaml
+  - vaultwarden.yaml
   - voice.yaml
   - websites.yaml
   - karakeep.yaml

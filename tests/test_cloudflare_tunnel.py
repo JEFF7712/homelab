@@ -73,6 +73,21 @@ class TestTunnelIngressParity(unittest.TestCase):
         for path in ["/", "/products/not-a-product", "/products/etsy-1-2-3"]:
             self.assertEqual(origin(path), "http://distrojeff-site-svc.distrojeff:80")
 
+    def test_vaultwarden_admin_never_reaches_origin(self) -> None:
+        routes = [r for r in config_ingress() if r.get("hostname") == "vault.rupan.dev"]
+
+        def origin(path: str) -> str:
+            return next(
+                r["service"]
+                for r in routes
+                if "path" not in r or re.search(r["path"], path)
+            )
+
+        for path in ["/admin", "/admin/", "/admin/invite", "/admin/users/overview"]:
+            self.assertEqual(origin(path), "http_status:404")
+        for path in ["/", "/api/sync", "/identity/connect/token", "/notifications/hub"]:
+            self.assertEqual(origin(path), "http://vaultwarden.vaultwarden:80")
+
     def test_config_matches_runbook_order(self) -> None:
         cfg = config_ingress()
         self.assertEqual(cfg[-1], {"service": "http_status:404"})
@@ -88,7 +103,7 @@ class TestTunnelIngressParity(unittest.TestCase):
     def test_every_origin_service_exists(self) -> None:
         live = manifest_services() | CHART_CREATED
         for rule in config_ingress():
-            if "hostname" not in rule:
+            if "hostname" not in rule or rule["service"].startswith("http_status:"):
                 continue
             host = re.sub(r"^https?://", "", rule["service"])
             parts = re.split(r"[.:]", host)

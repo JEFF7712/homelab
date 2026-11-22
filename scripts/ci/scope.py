@@ -1,3 +1,4 @@
+import ast
 import json
 import os
 import re
@@ -136,26 +137,142 @@ def _path_literals(source: str) -> set[str]:
     return found
 
 
+_SCANS = {"glob", "rglob", "iterdir"}
+
+
+def _repository_root(node: ast.expr) -> bool:
+    """`Path(__file__).resolve().parents[1]` or `.parent.parent`."""
+    text = ast.unparse(node).replace(" ", "").removeprefix("pathlib.")
+    return text.startswith("Path(__file__)") and text.endswith(
+        (".parents[1]", ".parent.parent")
+    )
+
+
+def _strings(node: ast.expr) -> set[str] | None:
+    """The values of a literal string tuple, list or set."""
+    if not isinstance(node, (ast.Tuple, ast.List, ast.Set)):
+        return None
+    values = {
+        item.value
+        for item in node.elts
+        if isinstance(item, ast.Constant) and isinstance(item.value, str)
+    }
+    return values if len(values) == len(node.elts) else None
+
+
+# A directory part no literal names: the scan may reach anywhere below.
+_UNKNOWN = "\0"
+
+
+def _scanned_patterns(source: str) -> set[str]:
+    """Repository glob patterns a test scans, like "gitops/**/*.yaml".
+
+    Scans of a directory read every file under it, but name none of them,
+    so `_path_literals` cannot see them: #2008 added two namespaces under
+    gitops/ and skipped the test that classifies every namespace. A scan
+    whose directory is only partly known reads from the deepest known part.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return set()
+    # Flow-insensitive: a name bound to repository paths keeps them, and a
+    # loop over a literal string collection binds each of its values.
+    paths: dict[str, set[str]] = {}
+    strings: dict[str, set[str]] = {}
+
+    def resolve(node: ast.expr) -> set[str] | None:
+        if _repository_root(node):
+            return {""}
+        if isinstance(node, ast.Name):
+            return paths.get(node.id)
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+            left = resolve(node.left)
+            if left is None:
+                return None
+            right = node.right
+            if isinstance(right, ast.Constant) and isinstance(right.value, str):
+                parts: set[str] = {right.value}
+            elif isinstance(right, ast.Name) and right.id in strings:
+                parts = strings[right.id]
+            else:
+                parts = {_UNKNOWN}
+            return {
+                base if _UNKNOWN in base else str(PurePosixPath(base or ".", part))
+                for base in left
+                for part in parts
+            }
+        return None
+
+    for _ in range(3):
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                target = node.targets[0]
+                if isinstance(target, ast.Name):
+                    if (resolved := resolve(node.value)) is not None:
+                        paths[target.id] = resolved
+                    elif (values := _strings(node.value)) is not None:
+                        strings[target.id] = values
+            elif isinstance(node, (ast.For, ast.comprehension)) and isinstance(
+                node.target, ast.Name
+            ):
+                collection = node.iter
+                if isinstance(collection, ast.Name) and collection.id in strings:
+                    strings[node.target.id] = strings[collection.id]
+                elif (values := _strings(collection)) is not None:
+                    strings[node.target.id] = values
+    patterns = set()
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in _SCANS
+        ):
+            continue
+        for directory in resolve(node.func.value) or ():
+            directory = directory.removeprefix("./")
+            if _UNKNOWN in directory:
+                directory, pattern = directory.partition(_UNKNOWN)[0], "**"
+            elif node.func.attr == "iterdir":
+                pattern = "**"
+            elif node.args and isinstance(node.args[0], ast.Constant):
+                pattern = str(node.args[0].value)
+                if node.func.attr == "rglob":
+                    pattern = "**/" + pattern
+            else:
+                pattern = "**"
+            directory = directory.strip("/").removeprefix(".")
+            patterns.add(f"{directory}/{pattern}" if directory else pattern)
+    return patterns
+
+
 def reading_tests(root: Path) -> Callable[[str], set[str]]:
     """Map a changed path to the test modules that read it.
 
-    A test reads a path it names exactly, or a directory of it that is at
+    A test reads a path it names exactly, a directory of it that is at
     least three levels deep (FACE_DIR = ROOT / "home-assistant" / "www" /
-    "jarvis"); shallower directories like gitops/media would select most of
-    the suite.
+    "jarvis"), or a path one of its directory scans matches; naming a
+    shallower directory like gitops/media would select most of the suite.
     """
-    index = {
-        _test_module(test.name): _path_literals(test.read_text(errors="replace"))
-        for test in sorted((root / "tests").glob("test_*.py"))
-    }
+    index: dict[str, tuple[set[str], set[str]]] = {}
+    for test in sorted((root / "tests").glob("test_*.py")):
+        source = test.read_text(errors="replace")
+        index[_test_module(test.name)] = (
+            _path_literals(source),
+            _scanned_patterns(source),
+        )
 
     def readers(path: str) -> set[str]:
+        changed = PurePosixPath(path)
         return {
             module
-            for module, literals in index.items()
-            for literal in literals
-            if literal == path
-            or (literal.count("/") >= 2 and path.startswith(literal + "/"))
+            for module, (literals, patterns) in index.items()
+            if any(
+                literal == path
+                or (literal.count("/") >= 2 and path.startswith(literal + "/"))
+                for literal in literals
+            )
+            or any(changed.full_match(pattern) for pattern in patterns)
         }
 
     return readers
@@ -318,9 +435,13 @@ def determine(root: Path, env: Mapping[str, str] | None = None) -> Scope:
     scope = _determine(root, env)
     source = env.get("CI_PIPELINE_SOURCE") or env.get("CI_PIPELINE_EVENT", "")
     # A pull request's CI_COMMIT_BRANCH is its target, so only a push counts.
+    # The policy sets CI_MAIN_BACKSTOP on a branch push that contains main,
+    # whose merge then reuses this validation instead of running its own.
     if (
         source != "push"
-        or env.get("CI_COMMIT_BRANCH") != "main"
+        or (
+            env.get("CI_COMMIT_BRANCH") != "main" and env.get("CI_MAIN_BACKSTOP") != "1"
+        )
         or scope.mode
         not in {
             "documentation",

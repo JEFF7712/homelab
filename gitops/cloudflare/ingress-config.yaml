@@ -129,4 +129,9 @@ data:
         service: http://karakeep.karakeep:80
       - hostname: romm.rupan.dev
         service: http://romm.romm:80
+      - hostname: vault.rupan.dev
+        path: ^/admin
+        service: http_status:404
+      - hostname: vault.rupan.dev
+        service: http://vaultwarden.vaultwarden:80
       - service: http_status:404

@@ -100,7 +100,9 @@ Cloudflare Access public bypass configured.
 55. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, declared in `tofu/cloudflare-access/`; never Bypass. See [games](games.md))
 56. `karakeep.rupan.dev -> http://karakeep.karakeep:80` (owner-only wildcard Access; see [Karakeep and RomM](karakeep-romm.md))
 57. `romm.rupan.dev -> http://romm.romm:80` (owner-only wildcard Access; see [Karakeep and RomM](karakeep-romm.md))
-58. `http_status:404`
+58. `vault.rupan.dev -> http_status:404` (only `^/admin`; the Vaultwarden admin page is reachable only by port-forward. See [vaultwarden](vaultwarden.md))
+59. `vault.rupan.dev -> http://vaultwarden.vaultwarden:80` (Vaultwarden password manager, added 2026-11-21; Access app `Bypass - Vaultwarden` because Bitwarden clients cannot complete an Access login; country-restricted in `tofu/cloudflare/personal-apps.nix`. See [vaultwarden](vaultwarden.md))
+60. `http_status:404`
 
 
 Removed 2026-09-15 (v72):
@@ -297,7 +299,7 @@ remove:
 Access applications are declared in `tofu/cloudflare-access/`, separately
 from the tunnel stack; see [Access management](cloudflare-access.md). The inventory below was read back on 2026-10-28.
 
-All 12 bypass applications reference the single reusable `Bypass` policy
+All 13 bypass applications reference the single reusable `Bypass` policy
 (`7015eaad-fad5-462b-905c-43d74bd648aa`): Include Everyone, no Require or
 Exclude conditions. Four identical application-scoped bypass rules were replaced
 with this policy. Application IDs, destinations, cookies, and session settings
@@ -309,6 +311,7 @@ were preserved; this cleanup did not change who can reach a hostname.
 | `Bypass - Tally tracker endpoints` | `tally.rupan.dev/t.js`, `tally.rupan.dev/api/send` |
 | `Bypass - Woodpecker CI` | `ci.rupan.dev` |
 | `Bypass - UWagent` | `uwagent.rupan.dev` |
+| `Bypass - Vaultwarden` | `vault.rupan.dev` (added 2026-11-21; Vaultwarden's own login gates it) |
 | `Bypass - Arcade controller` | `arcade.rupan.dev` |
 | `Bypass - Music Assistant` | `ma.rupan.dev` |
 | `Bypass - Flux webhook` | `flux-wh-33b0c8004348.rupan.dev` |

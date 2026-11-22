@@ -1,0 +1,38 @@
+# The offline archive lives on nas-01 media2/offline (/tank/offline, the
+# dedicated 2 TB disk; flake/modules/nas-data.nix), exported rw to the k3s
+# nodes. Static PV so the library survives cluster rebuilds; it can be
+# downloaded again, so nothing backs it up.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  name: offline-archive-nfs
+spec:
+  capacity:
+    storage: 1800Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  mountOptions:
+    - nfsvers=4.2
+  nfs:
+    server: 10.0.30.20
+    path: /tank/offline
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  name: offline-archive
+  namespace: offline
+spec:
+  volumeName: offline-archive-nfs
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ""
+  resources:
+    requests:
+      storage: 1800Gi

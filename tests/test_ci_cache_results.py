@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -104,24 +105,21 @@ class CacheResultsTest(unittest.TestCase):
                 "assert args[args.index('--flake') + 1] == './flake#'\n"
                 "assert args[args.index('--eval-workers') + 1] == '2'\n"
                 "assert args[args.index('--eval-max-memory-size') + 1] == '2048'\n"
-                "assert args[args.index('--max-jobs') + 1] == '2'\n"
                 "assert '--skip-cached' not in args\n"
                 "selection = args[args.index('--select') + 1]\n"
                 "targets = re.findall(r'target(\\d+) = flake\\.([^;]+);', selection)\n"
-                "assert len(targets) == 26\n"
-                "assert any(t == 'checks.x86_64-linux.zot-registry-service' for _, t in targets)\n"
-                "assert any(t == 'checks.x86_64-linux.tofu-types' for _, t in targets)\n"
-                "assert any(t == 'checks.x86_64-linux.tofu-config' for _, t in targets)\n"
-                "assert targets[0][1] == 'nixosConfigurations.nas-01.config.system.build.toplevel'\n"
-                "assert targets[-1][1] == 'devShells.x86_64-linux.ops'\n"
-                "assert sum('.config.system.build.toplevel' in t for _, t in targets) == 7\n"
+                "jobs = args[args.index('--max-jobs') + 1]\n"
+                "with open(os.environ['CALLS'], 'a') as calls:\n"
+                " calls.write(json.dumps([jobs, targets]) + '\\n')\n"
+                "failed = [i for i, _ in targets if i in os.environ['FAILED'].split()]\n"
                 "results = [{'type': 'EVAL', 'attr': 'target' + i, 'success': True,\n"
                 " 'drvPath': '/nix/store/system' + i + '.drv',\n"
                 " 'outputs': {'out': '/nix/store/system' + i}} for i, _ in targets]\n"
                 "results += [{'type': 'BUILD', 'attr': 'target' + i,\n"
-                " 'success': i not in os.environ['FAILED'].split()} for i, _ in targets]\n"
+                " 'success': i not in failed} for i, _ in targets]\n"
                 "pathlib.Path(args[args.index('--result-file') + 1]).write_text(json.dumps({'results': results}))\n"
-                "sys.exit(int(os.environ['FAST_STATUS']))\n"
+                "stray = jobs == '2' and os.environ['STRAY'] == '1'\n"
+                "sys.exit(7 if failed or stray else 0)\n"
             )
             nix = directory / "nix"
             nix.write_text(
@@ -157,17 +155,21 @@ class CacheResultsTest(unittest.TestCase):
                 "/nix/store/source",
                 "/nix/store/build-input",
             }
-            # (exit status, failed targets, expected exit, published paths):
-            # a failed target publishes the rest and still fails the run; an
-            # exit status the report does not explain publishes nothing.
+            calls = directory / "calls.jsonl"
+            # (stray exit, failed targets, expected exit, published paths):
+            # a failed target in either pass publishes the rest and still
+            # fails the run; an exit status its report does not explain
+            # publishes nothing.
             cases = (
-                (0, "", 0, built),
-                (7, "14", 7, built - {"/nix/store/system14"}),
-                (7, "", 1, None),
+                ("0", "", 0, built),
+                ("0", "14", 7, built - {"/nix/store/system14"}),
+                ("0", "3", 7, built - {"/nix/store/system3"}),
+                ("1", "", 1, None),
             )
-            for status, failed, expected, published in cases:
-                with self.subTest(status=status, failed=failed):
+            for stray, failed, expected, published in cases:
+                with self.subTest(stray=stray, failed=failed):
                     receipt.unlink(missing_ok=True)
+                    calls.unlink(missing_ok=True)
                     result = subprocess.run(
                         ["bash", "scripts/ci/cache.sh"],
                         cwd=ROOT,
@@ -175,8 +177,9 @@ class CacheResultsTest(unittest.TestCase):
                             **environment,
                             "PATH": str(directory) + os.pathsep + os.environ["PATH"],
                             "NIKS3_TOKEN": "test-only",
-                            "FAST_STATUS": str(status),
+                            "STRAY": stray,
                             "FAILED": failed,
+                            "CALLS": str(calls),
                             "PUSH_RECEIPT": str(receipt),
                         },
                         capture_output=True,
@@ -190,6 +193,33 @@ class CacheResultsTest(unittest.TestCase):
                         self.assertEqual(
                             set(receipt.read_text().splitlines()), published
                         )
+                    # VM checks build alone, after the other targets.
+                    [(jobs, targets), (serial_jobs, serial)] = [
+                        json.loads(line) for line in calls.read_text().splitlines()
+                    ]
+                    self.assertEqual((jobs, serial_jobs), ("2", "1"))
+                    self.assertEqual(
+                        [t for _, t in serial],
+                        [
+                            "checks.x86_64-linux.agent-workspace-packet-flow",
+                            "checks.x86_64-linux.agent-workspace-libvirt-normalization",
+                            "checks.x86_64-linux.zot-registry-service",
+                            "checks.x86_64-linux.niks3-cache-service",
+                        ],
+                    )
+                    self.assertEqual(len(targets) + len(serial), 26)
+                    self.assertEqual(
+                        targets[0][1],
+                        "nixosConfigurations.nas-01.config.system.build.toplevel",
+                    )
+                    self.assertEqual(targets[-1][1], "devShells.x86_64-linux.ops")
+                    self.assertEqual(
+                        sum(".config.system.build.toplevel" in t for _, t in targets),
+                        7,
+                    )
+                    self.assertIn(
+                        "checks.x86_64-linux.tofu-config", [t for _, t in targets]
+                    )
 
 
 if __name__ == "__main__":

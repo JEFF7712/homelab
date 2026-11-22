@@ -9,6 +9,7 @@ trap 'rm -rf "$cache_work"' EXIT
 export XDG_CONFIG_HOME="$cache_work/config"
 mkdir -p "$XDG_CONFIG_HOME"
 
+serial_targets=()
 if [[ "$target_set" == "homelab" ]]; then
   build_targets=(
     "$flake#nixosConfigurations.nas-01.config.system.build.toplevel"
@@ -37,6 +38,12 @@ if [[ "$target_set" == "homelab" ]]; then
     "$flake#devShells.x86_64-linux.default"
     "$flake#devShells.x86_64-linux.ci"
     "$flake#devShells.x86_64-linux.ops"
+  )
+  serial_targets=(
+    "$flake#checks.x86_64-linux.agent-workspace-packet-flow"
+    "$flake#checks.x86_64-linux.agent-workspace-libvirt-normalization"
+    "$flake#checks.x86_64-linux.zot-registry-service"
+    "$flake#checks.x86_64-linux.niks3-cache-service"
   )
 elif [[ "$target_set" == "nixos-laptop" ]]; then
   build_targets=(
@@ -68,18 +75,31 @@ started=$SECONDS
 build_status=0
 case "$builder" in
   fast)
-    selection='flake: {'
+    # VM checks emulate their machines (no KVM in CI containers), and four
+    # of them at once on a two-CPU slot timed out booting niks3's two VMs
+    # for six hours (2026-11-21). They build after the rest, one at a time.
+    selections=('flake: {' 'flake: {')
     for index in "${!build_targets[@]}"; do
-      selection+=" target${index} = flake.${build_targets[index]#*#};"
+      pass=0
+      for serial in "${serial_targets[@]}"; do
+        [[ "$serial" == "${build_targets[index]}" ]] && pass=1
+      done
+      selections[pass]+=" target${index} = flake.${build_targets[index]#*#};"
     done
-    selection+=' }'
-    nix-fast-build --flake "$flake#" --select "$selection" \
-      --eval-workers 2 --eval-max-memory-size 2048 --max-jobs 2 \
-      --no-nom --out-link "$cache_work/result" \
-      --result-file "$cache_work/results.json" || build_status=$?
-    python -m scripts.ci.cache_results --build-status "$build_status" \
-      "$cache_work/results.json" "${#build_targets[@]}" \
-      "$cache_work/paths" "$cache_work/derivations"
+    reports=()
+    for pass in 0 1; do
+      [[ "${selections[pass]}" == 'flake: {' ]] && continue
+      jobs=$((pass == 0 ? 2 : 1))
+      status=0
+      nix-fast-build --flake "$flake#" --select "${selections[pass]} }" \
+        --eval-workers 2 --eval-max-memory-size 2048 --max-jobs "$jobs" \
+        --no-nom --out-link "$cache_work/result-$pass" \
+        --result-file "$cache_work/results-$pass.json" || status=$?
+      ((status == 0)) || build_status=$status
+      reports+=(--report "$status" "$cache_work/results-$pass.json")
+    done
+    python -m scripts.ci.cache_results "${reports[@]}" \
+      "${#build_targets[@]}" "$cache_work/paths" "$cache_work/derivations"
     ;;
   native)
     nix build --no-link --print-out-paths "${build_targets[@]}" > "$cache_work/paths"

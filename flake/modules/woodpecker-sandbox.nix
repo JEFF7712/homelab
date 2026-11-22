@@ -17,6 +17,29 @@ in
   options.homelab.woodpeckerSandbox = {
     enable = lib.mkEnableOption "one additional isolated Woodpecker sandbox slot";
     acceptTunnel = lib.mkEnableOption "the restricted sandbox agent RPC tunnel";
+    agentPackage = lib.mkOption {
+      type = lib.types.package;
+      readOnly = true;
+      internal = true;
+      # WOODPECKER_BACKEND_DOCKER_DEVICES adds agent-chosen host devices to
+      # every job container. Step `devices` would need repository volume
+      # trust, which the server-owned policy keeps cleared.
+      default = pkgs.woodpecker-agent.overrideAttrs (old: {
+        patches = (old.patches or [ ]) ++ [ ../patches/woodpecker-agent-devices.patch ];
+        postCheck = (old.postCheck or "") + ''
+          go test ./pipeline/backend/docker -run '^TestToHostConfigAgentDevices$'
+        '';
+      });
+      description = "Woodpecker agent that can add host devices to job containers.";
+    };
+    kvmDevice = lib.mkOption {
+      type = lib.types.str;
+      readOnly = true;
+      internal = true;
+      # NixOS VM checks run under TCG without it: several times slower, and
+      # niks3-cache-service missed its shell timeout in every cache-publish.
+      default = "/dev/kvm:/dev/kvm";
+    };
   };
 
   config = lib.mkMerge [
@@ -103,6 +126,7 @@ in
       };
       services.woodpecker-agents.agents.sandbox = {
         enable = true;
+        package = cfg.agentPackage;
         extraGroups = [ "docker" ];
         environment = {
           WOODPECKER_SERVER = "127.0.0.1:19000";
@@ -116,6 +140,7 @@ in
           # The whole ci slice: its 300% is what homelab-05's kubelet
           # reserves for CI, so growing it would shrink pod allocatable.
           WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = "300000";
+          WOODPECKER_BACKEND_DOCKER_DEVICES = cfg.kvmDevice;
         };
         environmentFile = [ config.sops.secrets."woodpecker-sandbox-agent.env".path ];
       };

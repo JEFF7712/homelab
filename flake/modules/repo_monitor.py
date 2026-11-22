@@ -856,10 +856,17 @@ class Collector:
         return targets
 
     def _ci_targets(self) -> list[Project]:
+        # The homelab repository's own CI is not a catalog enrollment (its
+        # policy routes it directly), so its null enrollment would otherwise
+        # hide a red main and failing schedules (2026-11-21: six hours).
         return [
             project
             for project in self.projects
-            if project.woodpecker_repository_id is not None and not project.is_archived
+            if (
+                project.woodpecker_repository_id is not None
+                or project.name == "homelab"
+            )
+            and not project.is_archived
         ]
 
     def _check_services(self, snapshot: Snapshot) -> None:

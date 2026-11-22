@@ -6,6 +6,7 @@ for tool in ruff pyright python; do command -v "$tool" >/dev/null || { echo "mis
 ruff_paths=(
   scripts opnsense_reconciler tests flake/modules services/bus-display
   services/led-matrix gitops/observability/network-monitor gitops/media/spotify-sync
+  gitops/offline/kiwix-update
 )
 # Scripts that ConfigMap generators deploy from gitops/, linted but not
 # formatted: they were extracted byte for byte from inline ConfigMaps, and

@@ -78,6 +78,62 @@ REPOSITORY_URL = "https://git.rupan.dev/JEFF7712/homelab.git"
 # gate anyway, and the list travels in the step environment.
 SCOPE_FILES_LIMIT = 1000
 
+# Branch heads validated as main would validate their merge: head commit ->
+# (tree, main tip the head contains). Kept in memory, so a policy restart
+# only costs one more main validation.
+BRANCH_VALIDATIONS: dict[str, tuple[str, str]] = {}
+BRANCH_VALIDATIONS_LIMIT = 512
+BRANCH_VALIDATIONS_LOCK = threading.Lock()
+
+
+def record_branch_validation(commit: str, tree: str, main: str) -> None:
+    with BRANCH_VALIDATIONS_LOCK:
+        BRANCH_VALIDATIONS.pop(commit, None)
+        BRANCH_VALIDATIONS[commit] = (tree, main)
+        while len(BRANCH_VALIDATIONS) > BRANCH_VALIDATIONS_LIMIT:
+            BRANCH_VALIDATIONS.pop(next(iter(BRANCH_VALIDATIONS)))
+
+
+def find_branch_validation(
+    tree: str,
+    parent: str,
+    records: dict[str, tuple[str, str]],
+    pipelines: list[dict[str, Any]],
+    details: Callable[[int], dict[str, Any]],
+    now: int,
+) -> dict[str, Any] | None:
+    """A green branch push that already validated this main commit's content.
+
+    A merge commit whose tree equals a branch head that contained the merge's
+    first parent changes exactly what that branch push validated, and the
+    branch ran main's whole-suite backstop, so validating it again on main
+    proves nothing new. The branch pipeline must have passed validation-v2
+    within 24 hours.
+    """
+    heads = {
+        commit
+        for commit, (head_tree, main) in records.items()
+        if head_tree == tree and main == parent
+    }
+    for item in pipelines:
+        if (
+            item.get("commit") not in heads
+            or item.get("event") != "push"
+            or item.get("branch") in {None, "", "main"}
+            or item.get("from_fork")
+            or item.get("status") != "success"
+            or now - item.get("finished", 0) > 86400
+        ):
+            continue
+        workflows = details(item["number"]).get("workflows") or []
+        if any(
+            w.get("name") == VALIDATION and w.get("state") == "success"
+            for w in workflows
+        ):
+            return item
+    return None
+
+
 OPERATOR_AUTHORS = frozenset({"rupan", "JEFF7712"})
 AGENT_AUTHOR = "homelab-agent"
 DEPLOY_AUTHORS = OPERATOR_AUTHORS | {AGENT_AUTHOR}
@@ -457,6 +513,27 @@ class SourceMirror:
             self.lock.release()
         return tuple(os.fsdecode(path) for path in changes.split(b"\0") if path)
 
+    def contains_main(self, commit: str) -> tuple[str, str] | None:
+        """(tree, main tip) when commit contains main, after branch_changes."""
+        try:
+            with self.lock:
+                main = self.git("rev-parse", "refs/heads/main").decode().strip()
+                self.git("merge-base", "--is-ancestor", main, commit)
+                tree = self.git("rev-parse", commit + "^{tree}").decode().strip()
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return tree, main
+
+    def merge_identity(self, commit: str) -> tuple[str, str] | None:
+        """(tree, first parent) of a main commit, after push_changes."""
+        try:
+            with self.lock:
+                tree = self.git("rev-parse", commit + "^{tree}").decode().strip()
+                parent = self.git("rev-parse", commit + "^1").decode().strip()
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return tree, parent
+
     def push_changes(
         self, commit: str, credentials: dict[str, Any]
     ) -> tuple[str, ...] | None:
@@ -566,6 +643,8 @@ def configuration(
     authority_grant: str = "",
     source_compatible: bool = False,
     held_targets: dict[str, list[str]] | None = None,
+    main_backstop: bool = False,
+    branch_validation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -738,8 +817,36 @@ def configuration(
             and len(scope_files) <= SCOPE_FILES_LIMIT
         ):
             validation_env["CI_SCOPE_FILES"] = json.dumps(list(scope_files))
+        if event == "push" and not main and main_backstop:
+            # The branch contains main, so its merge can change nothing
+            # else: validate as main would and let main reuse the result.
+            validation_env["CI_MAIN_BACKSTOP"] = "1"
 
-        if not (reuse_main_validation or defer_to_main_validation or skip_failed_main):
+        if event == "push" and main and branch_validation is not None:
+            add(
+                VALIDATION,
+                {
+                    "when": [{"event": event}],
+                    "labels": {"tier": "sandbox", "type": "docker"},
+                    "steps": [
+                        {
+                            "name": VALIDATION,
+                            "image": IMAGE,
+                            "commands": [
+                                "echo "
+                                + shlex.quote(
+                                    "Reusing validation of the same tree from pipeline"
+                                    f" #{branch_validation.get('number')}"
+                                    f" ({branch_validation.get('commit')})"
+                                )
+                            ],
+                        }
+                    ],
+                },
+            )
+        elif not (
+            reuse_main_validation or defer_to_main_validation or skip_failed_main
+        ):
             add(
                 VALIDATION,
                 {
@@ -1002,6 +1109,7 @@ def resolve_configuration(
     ):
         changed_files = push_changed_files(request, mirror)
     branch_files = None
+    main_backstop = False
     authority_changes = None
     authority_grant = ""
     if (
@@ -1013,6 +1121,13 @@ def resolve_configuration(
         branch_files = mirror.branch_changes(
             request["pipeline"].get("commit", ""), request.get("netrc", {})
         )
+        if branch_files is not None:
+            identity = mirror.contains_main(request["pipeline"].get("commit", ""))
+            if identity is not None:
+                main_backstop = True
+                record_branch_validation(
+                    request["pipeline"]["commit"], identity[0], identity[1]
+                )
     if (
         request["pipeline"].get("event") == "deployment"
         and request["pipeline"].get("author") == AGENT_AUTHOR
@@ -1040,6 +1155,37 @@ def resolve_configuration(
             credentials["password"],
         )
         current = tip["commit"]["id"]
+    branch_validation = None
+    if (
+        request["pipeline"].get("event") == "push"
+        and request["pipeline"].get("ref") == "refs/heads/main"
+        and current == request["pipeline"].get("commit")
+        and changed_files is not None
+        and mirror is not None
+    ):
+        identity = mirror.merge_identity(current)
+        if identity is not None:
+            with BRANCH_VALIDATIONS_LOCK:
+                records = dict(BRANCH_VALIDATIONS)
+            token = os.environ.get("POLICY_API_TOKEN", "")
+            try:
+                branch_validation = find_branch_validation(
+                    identity[0],
+                    identity[1],
+                    records,
+                    api(
+                        "http://127.0.0.1:8000/api/repos/1/pipelines?perPage=50",
+                        token,
+                    )
+                    if token and records
+                    else [],
+                    lambda number: api(
+                        f"http://127.0.0.1:8000/api/repos/1/pipelines/{number}", token
+                    ),
+                    int(time.time()),
+                )
+            except Exception:
+                branch_validation = None
     source_compatible = False
     if (
         request["pipeline"].get("event") == "deployment"
@@ -1095,6 +1241,8 @@ def resolve_configuration(
         authority_grant=authority_grant,
         source_compatible=source_compatible,
         held_targets=held_targets,
+        main_backstop=main_backstop,
+        branch_validation=branch_validation,
     )
 
 

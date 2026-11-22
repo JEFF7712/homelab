@@ -25,6 +25,8 @@ class SandboxConfigurationTest(unittest.TestCase):
           in {
             serverAgents = lib.mapAttrs (_: agent: agent.environment.WOODPECKER_MAX_WORKFLOWS) server.services.woodpecker-agents.agents;
             serverCpuQuota = lib.mapAttrs (_: agent: agent.environment.WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA) server.services.woodpecker-agents.agents;
+            serverDevices = lib.mapAttrs (_: agent: agent.environment.WOODPECKER_BACKEND_DOCKER_DEVICES or null) server.services.woodpecker-agents.agents;
+            agentPatches = lib.mapAttrs (_: agent: map baseNameOf (agent.package.patches or [ ])) (server.services.woodpecker-agents.agents // { worker = worker.services.woodpecker-agents.agents.sandbox; });
             workerAgent = worker.services.woodpecker-agents.agents.sandbox.environment;
             workerLimits = worker.systemd.slices.ci.sliceConfig;
             workerDocker = worker.virtualisation.docker.daemon.settings;
@@ -64,7 +66,7 @@ class SandboxConfigurationTest(unittest.TestCase):
         self.assertEqual(worker["WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA"], "300000")
         self.assertEqual(
             self.config["serverCpuQuota"],
-            {"sandbox": "400000", "trusted": "200000", "deploy": "200000"},
+            {"sandbox": "600000", "trusted": "200000", "deploy": "200000"},
         )
         self.assertEqual(self.config["workerDocker"]["cgroup-parent"], "ci.slice")
         self.assertEqual(self.config["workerLimits"]["MemoryMax"], "10G")
@@ -73,6 +75,26 @@ class SandboxConfigurationTest(unittest.TestCase):
             "--kubelet-arg=system-reserved=cpu=8,memory=17408Mi",
             self.config["workerKubelet"],
         )
+
+    def test_vm_check_tiers_get_kvm_and_deploy_does_not(self) -> None:
+        self.assertEqual(
+            self.config["serverDevices"],
+            {
+                "sandbox": "/dev/kvm:/dev/kvm",
+                "trusted": "/dev/kvm:/dev/kvm",
+                "deploy": None,
+            },
+        )
+        self.assertEqual(
+            self.config["workerAgent"]["WOODPECKER_BACKEND_DOCKER_DEVICES"],
+            "/dev/kvm:/dev/kvm",
+        )
+        # Without the patch the agent ignores the setting and VM checks
+        # silently fall back to TCG.
+        for name, patches in self.config["agentPatches"].items():
+            self.assertTrue(
+                any(p.endswith("woodpecker-agent-devices.patch") for p in patches), name
+            )
 
     def test_server_ci_memory_fits_beside_workspaces_and_pods(self) -> None:
         # 32G host: system 2G + agent workspaces 14G + typical CI 8G are
