@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - storage.yaml
+  - network-policy.yaml
+  - database.yaml
+  - app.yaml
+  - backup.yaml
+configMapGenerator:
+  - name: romm-backup
+    namespace: romm
+    files:
+      - backup.py
+    options:
+      disableNameSuffixHash: true

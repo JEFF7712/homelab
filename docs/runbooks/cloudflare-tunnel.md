@@ -98,9 +98,11 @@ Cloudflare Access public bypass configured.
 53. `tally.rupan.dev -> http://umami.analytics:80` (Umami web analytics, added 2026-10-22; owner-only Access login for the dashboard; path-scoped public Bypass for `/t.js` and `/api/send`. See [analytics](analytics.md))
 54. `questarr.rupan.dev -> http://questarr.media:80` (Questarr game downloads, added 2026-10-27; owner-only behind the wildcard Access app. See [games](games.md))
 55. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, declared in `tofu/cloudflare-access/`; never Bypass. See [games](games.md))
-56. `vault.rupan.dev -> http_status:404` (only `^/admin`; the Vaultwarden admin page is reachable only by port-forward. See [vaultwarden](vaultwarden.md))
-57. `vault.rupan.dev -> http://vaultwarden.vaultwarden:80` (Vaultwarden password manager, added 2026-11-21; Access app `Bypass - Vaultwarden` because Bitwarden clients cannot complete an Access login; country-restricted in `tofu/cloudflare/personal-apps.nix`. See [vaultwarden](vaultwarden.md))
-58. `http_status:404`
+56. `karakeep.rupan.dev -> http://karakeep.karakeep:80` (owner-only wildcard Access; see [Karakeep and RomM](karakeep-romm.md))
+57. `romm.rupan.dev -> http://romm.romm:80` (owner-only wildcard Access; see [Karakeep and RomM](karakeep-romm.md))
+58. `vault.rupan.dev -> http_status:404` (only `^/admin`; the Vaultwarden admin page is reachable only by port-forward. See [vaultwarden](vaultwarden.md))
+59. `vault.rupan.dev -> http://vaultwarden.vaultwarden:80` (Vaultwarden password manager, added 2026-11-21; Access app `Bypass - Vaultwarden` because Bitwarden clients cannot complete an Access login; country-restricted in `tofu/cloudflare/personal-apps.nix`. See [vaultwarden](vaultwarden.md))
+60. `http_status:404`
 
 
 Removed 2026-09-15 (v72):

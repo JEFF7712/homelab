@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: karakeep-data-03
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-nvme
+  local:
+    path: /persist/karakeep
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - homelab-03
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data
+  namespace: karakeep
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-nvme
+  resources:
+    requests:
+      storage: 2Gi
+  volumeName: karakeep-data-03
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: karakeep-search-03
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-nvme
+  local:
+    path: /persist/karakeep-search
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - homelab-03
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: search
+  namespace: karakeep
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-nvme
+  resources:
+    requests:
+      storage: 2Gi
+  volumeName: karakeep-search-03
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: assets
+  namespace: karakeep
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: nfs-cluster
+  resources:
+    requests:
+      storage: 30Gi
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: karakeep-db-dumps
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  capacity:
+    storage: 20Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ''
+  mountOptions:
+    - nfsvers=4.2
+  nfs:
+    server: 10.0.30.20
+    path: /tank/cluster/backups-db-dumps-pvc-dcd285d5-b584-4916-a11f-64959618ca8c
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: db-dumps
+  namespace: karakeep
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  volumeName: karakeep-db-dumps
+  accessModes:
+    - ReadWriteMany
+  storageClassName: ''
+  resources:
+    requests:
+      storage: 20Gi

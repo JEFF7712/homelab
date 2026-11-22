@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chrome
+  namespace: karakeep
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: chrome
+  template:
+    metadata:
+      labels:
+        app: chrome
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: chrome
+          image: registry.rupan.dev/upstream/ghcr.io/karakeep-app/karakeep-chrome@sha256:00fb4fa9c37aa74c58e74d0bdd16c4e3b81dddb5f264917c879f9579c3b3ad95  # yamllint disable-line rule:line-length
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          env: []
+          ports:
+            - name: http
+              containerPort: 9222
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /json/version
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /json/version
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /json/version
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          args:
+            - --disable-gpu
+            - --disable-dev-shm-usage
+            - --hide-scrollbars
+            - --disable-blink-features=AutomationControlled
+            - --window-size=1440,900
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - homelab-02
+                      - homelab-03
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: chrome
+  namespace: karakeep
+spec:
+  selector:
+    app: chrome
+  ports:
+    - port: 9222
+      targetPort: 9222

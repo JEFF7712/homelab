@@ -1,0 +1,156 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: romm
+  namespace: romm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: romm
+  template:
+    metadata:
+      labels:
+        app: romm
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: romm
+          image: registry.rupan.dev/upstream/docker.io/rommapp/romm@sha256:8677fb7b81b1d3db20b849e989a1dadc2a11159e51eb34a2acdcb01102274edf  # yamllint disable-line rule:line-length
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          env:
+            - name: DB_HOST
+              value: mariadb
+            - name: DB_NAME
+              value: romm
+            - name: DB_USER
+              value: romm
+            - name: HASHEOUS_API_ENABLED
+              value: 'true'
+            - name: DISABLE_USERPASS_LOGIN
+              value: 'false'
+            - name: TZ
+              value: America/Chicago
+            - name: ROMM_TMP_PATH
+              value: /tmp/romm
+            - name: REDIS_SAVE_POLICY
+              value: ''
+            - name: WEB_SERVER_CONCURRENCY
+              value: '1'
+            - name: DB_PASSWD
+              valueFrom:
+                secretKeyRef:
+                  name: romm-secrets
+                  key: DB_PASSWD
+            - name: ROMM_AUTH_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: romm-secrets
+                  key: ROMM_AUTH_SECRET_KEY
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: state
+              mountPath: /romm
+            - name: redis
+              mountPath: /redis-data
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          startupProbe:
+            httpGet:
+              path: /api/heartbeat
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 60
+          readinessProbe:
+            httpGet:
+              path: /api/heartbeat
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /api/heartbeat
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: state
+        - name: redis
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                      - homelab-02
+                      - homelab-03
+      initContainers:
+        - name: library-folders
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          command:
+            - sh
+            - -ec
+            - mkdir -p /romm/library/roms /romm/library/bios /romm/assets /romm/config /romm/resources
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: state
+              mountPath: /romm
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: romm
+  namespace: romm
+spec:
+  selector:
+    app: romm
+  ports:
+    - port: 80
+      targetPort: 8080
