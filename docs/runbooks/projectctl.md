@@ -296,7 +296,7 @@ For a routine scope, the worker proceeds automatically. When a request waits at
 policy, export its enrollment artifact (below), apply only the target entry to
 current main's config/ci/projects.json (the artifact is a whole catalog at an
 older base revision), and ship it with `just ship --deploy
-deploy-ci-host-dry-run,deploy-ci-host`. Scope changes in config/projectctl/ route
+deploy-ci-host`. Scope changes in config/projectctl/ route
 to the same deployment. The policy service only accepts a deployment against the
 current main tip, so when main is busy, retry from the newest main pipeline that
 contains the merge rather than an older one. No operator signature is needed.

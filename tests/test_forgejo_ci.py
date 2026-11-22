@@ -48,6 +48,7 @@ from scripts.ci.policy import (
     held_schedule_targets,
     resolve_configuration,
     schedule_state,
+    scheduled_target_allowed,
     verify_request,
 )
 from scripts.ci.prepare_platform import certificate, clone_environment
@@ -504,12 +505,37 @@ class PolicyTest(unittest.TestCase):
             for item in result["configs"]
         }
 
-    def test_scheduled_fleet_deployment_follows_its_dry_run(self) -> None:
+    def test_scheduled_fleet_deployment_previews_itself(self) -> None:
+        # deploy-fleet previews every activation before its first switch, so
+        # the nightly run no longer waits for a separate dry run.
         workflows = self.nightly_workflows()
-        self.assertIn("deploy-fleet-dry-run", workflows["deploy-fleet"]["depends_on"])
-        self.assertNotIn(
-            "deploy-fleet", workflows["deploy-fleet-dry-run"]["depends_on"]
-        )
+        self.assertEqual(workflows["deploy-fleet"]["depends_on"], [VALIDATION])
+        self.assertNotIn("deploy-fleet-dry-run", workflows)
+        self.assertEqual(self.catalog["deploy-fleet"]["prerequisite"], "")
+        self.assertEqual(self.catalog["deploy-ci-host"]["prerequisite"], "")
+
+    def test_schedules_name_catalog_operations_agents_may_run(self) -> None:
+        for name, targets in SCHEDULES.items():
+            for target in targets:
+                with self.subTest(schedule=name, target=target):
+                    self.assertIn(target, self.catalog)
+                    self.assertTrue(scheduled_target_allowed(self.catalog[target]))
+
+    def test_an_operator_only_scheduled_mutation_fails_instead_of_running(
+        self,
+    ) -> None:
+        catalog = copy.deepcopy(self.catalog)
+        catalog["deploy-fleet"]["agent"] = False
+        self.request["pipeline"].update(event="cron", cron="nightly")
+        result = configuration(self.request, catalog, current=SHA)
+        workflows = {
+            item["name"].removesuffix(".yaml"): yaml.safe_load(item["data"])
+            for item in result["configs"]
+        }
+        self.assertNotIn("deploy-fleet", workflows)
+        step = workflows["deploy-fleet-operator-only"]["steps"][0]
+        self.assertEqual(step["commands"][-1], "exit 1")
+        self.assertIn("nixos-deploy", workflows)
 
     def test_held_scheduled_deployment_reports_and_the_rest_runs(self) -> None:
         workflows = self.nightly_workflows(
@@ -519,7 +545,6 @@ class PolicyTest(unittest.TestCase):
         held = workflows["deploy-fleet-held"]
         self.assertEqual(held["labels"]["tier"], "sandbox")
         self.assertIn("flake/modules/approvals.nix", held["steps"][0]["commands"][0])
-        self.assertIn("deploy-fleet-dry-run", workflows)
         self.assertIn("nixos-deploy", workflows)
 
     def test_scheduled_host_deployments_get_the_agent_authority_check(self) -> None:

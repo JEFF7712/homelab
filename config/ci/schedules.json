@@ -1,0 +1,77 @@
+{
+  "description": "Catalog operations each Woodpecker cron runs, by cron name (config/ci/woodpecker-crons.json). Agents own this file; scripts/ci/policy.py runs only read-only operations and operations the catalog grants to agents, so a schedule cannot run an operator-only operation. A schedule must finish well inside its interval: one that outlives it queues behind itself, and every queued operation then fails the current-main check.",
+  "schedules": {
+    "maintenance": {
+      "notes": [
+        "Short work only, so it finishes well inside its 30-minute interval.",
+        "vip-dataplane-watch: FRR can hold the VIP routes without installing them, which went unnoticed for six hours on 2026-11-02; this probes them through OPNsense and posts to ntfy when they stop answering.",
+        "fleet-cordon-heal: the CI host's switch kills the deploy job driving it, which then never uncordons the host; this releases such a cordon once the host runs the desired system healthily (2026-11-16: two hours).",
+        "sync-to-github and cache-publish: post-merge housekeeping lives here rather than on every main push, so a merge's pipeline (the parent deployments need) ends quickly."
+      ],
+      "operations": [
+        "webhook-watchdog",
+        "registry-lock-import",
+        "registry-drift-check",
+        "registry-retention-reconcile",
+        "registry-resolve",
+        "registry-auth-consistency",
+        "vip-dataplane-watch",
+        "fleet-cordon-heal",
+        "sync-to-github",
+        "cache-publish"
+      ]
+    },
+    "promote": {
+      "notes": [
+        "Promotion is the application release path, so it runs often and alone.",
+        "registry-advance takes one upstream image step per run (scripts/ci/registry_advance.py)."
+      ],
+      "operations": [
+        "registry-promote-first-party",
+        "registry-promote-nix-agent",
+        "registry-advance"
+      ]
+    },
+    "nightly": {
+      "notes": [
+        "deploy-fleet delivers main to the fleet, including the night's nixpkgs update. It builds every changed host and previews each activation before switching any, so it needs no separate dry run, and it runs only when the deployed authorization baseline admits main (held_schedule_targets).",
+        "nixos-deploy retries the open laptop lock update and delivers new main commits."
+      ],
+      "operations": [
+        "registry-gc-fixture",
+        "cloudflare-access-drift",
+        "switches-drift-nightly",
+        "opnsense-plan",
+        "opnsense-dataplane",
+        "opnsense-inventory",
+        "nas-proof",
+        "deploy-fleet",
+        "deploy-agent-workspace-host-dry-run",
+        "deploy-home-assistant-dry-run",
+        "nixos-deploy"
+      ]
+    },
+    "fleet-lock": {
+      "notes": [
+        "Proposes the fleet's nixpkgs update early enough for its PR to merge before the nightly delivery."
+      ],
+      "operations": ["fleet-lock-update"]
+    },
+    "fleet-reboot": {
+      "notes": [
+        "Reboots hosts onto the installed kernel; the operation only acts inside 03:00-05:00 America/Chicago, so two UTC runs cover daylight saving."
+      ],
+      "operations": ["fleet-reboot"]
+    },
+    "weekly": {
+      "notes": [
+        "uwagent-grades-refresh makes one Madgrades /terms call unless a new term is out; then a refresh PR."
+      ],
+      "operations": [
+        "nixos-lock-update",
+        "registry-cve-audit",
+        "uwagent-grades-refresh"
+      ]
+    }
+  }
+}

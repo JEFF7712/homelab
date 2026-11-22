@@ -523,7 +523,7 @@ alignment, rather than throttling changes or rotating the live account.
 
 Registry authentication bursts were observed under the former GitLab stage
 scheduler. For the current scheduler, inspect `config/ci/operations.json` and
-`SCHEDULES` in `scripts/ci/policy.py`. Registry content operations share the
+`config/ci/schedules.json`. Registry content operations share the
 `registry-content` resource group, serializing their clients. Scheduled
 read-only work also shares the bounded schedule group.
 

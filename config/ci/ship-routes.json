@@ -121,7 +121,6 @@
         "scripts/k3s_backup_source.py"
       ],
       "operations": [
-        "deploy-fleet-dry-run",
         "deploy-fleet"
       ],
       "auto": true
@@ -180,7 +179,6 @@
         "secrets/registry-ci-issuer.sops.json"
       ],
       "operations": [
-        "deploy-ci-host-dry-run",
         "deploy-ci-host"
       ],
       "auto": true
@@ -191,7 +189,6 @@
         "scripts/ci/state.py"
       ],
       "operations": [
-        "deploy-fleet-dry-run",
         "deploy-fleet"
       ],
       "auto": true

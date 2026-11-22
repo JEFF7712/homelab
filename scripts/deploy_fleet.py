@@ -1658,6 +1658,15 @@ class FleetDeployer:
                             "duration_seconds": 0.0,
                         }
                     )
+            if not self.dry_run:
+                # Preview every activation before the first switch, so a
+                # host whose activation would fail stops the run while the
+                # fleet is untouched. This replaced the separate dry-run
+                # operation that preceded every deployment (about 3 minutes).
+                for host in changed:
+                    self.activate_system(
+                        host, self.prepared[host.name][1], dry_run=True
+                    )
             for host in changed:
                 host_started = time.monotonic()
                 self.deploy_host(host)

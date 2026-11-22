@@ -271,71 +271,27 @@ def find_reusable_validation(
     return None
 
 
-# Scheduled operations by Woodpecker cron name (config/ci/woodpecker-crons.json).
-# The frequent schedule carries only short registry and watchdog work so it
-# finishes well inside its interval; slow host dry runs and proofs run nightly.
-# A schedule that outlives its interval queues behind itself and every queued
-# operation then fails the current-main check, so an overlapping run reports
-# a failing schedule-overlap workflow instead of queueing more work.
-SCHEDULES: dict[str, tuple[str, ...]] = {
-    "maintenance": (
-        "webhook-watchdog",
-        "registry-lock-import",
-        "registry-drift-check",
-        "registry-retention-reconcile",
-        "registry-resolve",
-        "registry-auth-consistency",
-        # FRR can hold the VIP routes without installing them, which went
-        # unnoticed for six hours on 2026-11-02; this probes them through
-        # OPNsense and posts to ntfy when they stop answering.
-        "vip-dataplane-watch",
-        # The CI host's switch kills the deploy job driving it, which then
-        # never uncordons the host; this releases such a cordon once the
-        # host runs the desired system healthily (2026-11-16: two hours).
-        "fleet-cordon-heal",
-        # Post-merge housekeeping lives here rather than on every main push,
-        # so a merge's pipeline (the parent deployments need) ends quickly.
-        "sync-to-github",
-        "cache-publish",
-    ),
-    # Promotion is the application release path, so it runs often and alone.
-    "promote": (
-        "registry-promote-first-party",
-        "registry-promote-nix-agent",
-        # One upstream image step per run (scripts/ci/registry_advance.py).
-        "registry-advance",
-    ),
-    "nightly": (
-        "registry-gc-fixture",
-        "cloudflare-access-drift",
-        "switches-drift-nightly",
-        "opnsense-plan",
-        "opnsense-dataplane",
-        "opnsense-inventory",
-        "nas-proof",
-        "deploy-fleet-dry-run",
-        # Delivers main to the fleet after its dry run, including the night's
-        # nixpkgs update. It runs only when the deployed authorization
-        # baseline admits main (held_schedule_targets).
-        "deploy-fleet",
-        "deploy-agent-workspace-host-dry-run",
-        "deploy-home-assistant-dry-run",
-        # Retries the open laptop lock update and delivers new main commits.
-        "nixos-deploy",
-    ),
-    # Proposes the fleet's nixpkgs update early enough for its PR to merge
-    # before the nightly delivery.
-    "fleet-lock": ("fleet-lock-update",),
-    # Reboots hosts onto the installed kernel; the operation only acts inside
-    # 03:00-05:00 America/Chicago, so two UTC runs cover daylight saving.
-    "fleet-reboot": ("fleet-reboot",),
-    "weekly": (
-        "nixos-lock-update",
-        "registry-cve-audit",
-        # One Madgrades /terms call unless a new term is out; then a refresh PR.
-        "uwagent-grades-refresh",
-    ),
-}
+# Scheduled operations by Woodpecker cron name, from config/ci/schedules.json.
+# Agents own that file; the policy runs only read-only scheduled operations and
+# mutations the catalog grants to agents (scheduled_target_allowed), so a
+# schedule never runs an operator-only operation. A schedule that outlives its
+# interval queues behind itself and every queued operation then fails the
+# current-main check, so an overlapping run reports a failing
+# schedule-overlap workflow instead of queueing more work.
+SCHEDULES_PATH = Path(__file__).resolve().parents[2] / "config/ci/schedules.json"
+
+
+def load_schedules(path: Path = SCHEDULES_PATH) -> dict[str, tuple[str, ...]]:
+    schedules = json.loads(path.read_text())["schedules"]
+    return {name: tuple(entry["operations"]) for name, entry in schedules.items()}
+
+
+SCHEDULES = load_schedules()
+
+
+def scheduled_target_allowed(operation: dict[str, Any]) -> bool:
+    """A schedule may run read-only operations and agent-granted mutations."""
+    return not operation["mutation"] or bool(operation.get("agent"))
 
 
 # A schedule run still marked running this long after creation lost its
@@ -937,6 +893,32 @@ def configuration(
                 held = held_targets or {}
                 for target in schedule:
                     if target == "webhook-watchdog":
+                        continue
+                    if not scheduled_target_allowed(operations[target]):
+                        # Agents edit the schedules; an operator-only mutation
+                        # listed there fails visibly instead of running.
+                        add(
+                            f"{target}-operator-only",
+                            {
+                                "when": [{"event": "cron"}],
+                                "labels": {"tier": "sandbox", "type": "docker"},
+                                "steps": [
+                                    {
+                                        "name": f"{target}-operator-only",
+                                        "image": IMAGE,
+                                        "commands": [
+                                            "echo "
+                                            + shlex.quote(
+                                                f"{target} is operator-only and cannot"
+                                                " run on a schedule"
+                                            )
+                                            + " >&2",
+                                            "exit 1",
+                                        ],
+                                    }
+                                ],
+                            },
+                        )
                         continue
                     if target in held:
                         # A host deployment that would activate unapproved
