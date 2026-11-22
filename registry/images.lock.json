@@ -3930,6 +3930,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/immich/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/ghcr.io/immich-app/immich-server",
+      "destination_tags": [
+        "retention-deployed-fc880c1bf665b4aa",
+        "v3.4.2"
+      ],
+      "digest": "sha256:fc880c1bf665b4aab1e74c15e56ab871225989cd546536e6b77e771869af06bd",
+      "id": "upstream-immich-app-immich-server-5c8ce20572df",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:fc880c1bf665b4aab1e74c15e56ab871225989cd546536e6b77e771869af06bd",
+        "reference": "ghcr.io/immich-app/immich-server:v3.4.2@sha256:fc880c1bf665b4aab1e74c15e56ab871225989cd546536e6b77e771869af06bd",
+        "registry": "ghcr.io",
+        "repository": "immich-app/immich-server",
+        "tag": "v3.4.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/immich/server.yaml:23",
         "observed:immich/immich-server-5659cbb99c-9g57n/immich-server"
       ],
