@@ -23,5 +23,6 @@ resources:
   - secrets.yaml
   - led-matrix.yaml
   - storage.yaml
+  - vaultwarden.yaml
   - voice.yaml
   - websites.yaml

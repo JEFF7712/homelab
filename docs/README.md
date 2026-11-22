@@ -83,6 +83,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Roku Bulb Bridge Architecture](runbooks/roku-bridge-architecture.md)
 - [Shared music mode](runbooks/shared-music-mode.md)
 - [Web analytics (Umami)](runbooks/analytics.md)
+- [Vaultwarden password manager](runbooks/vaultwarden.md)
 - [Media download-chain credentials](runbooks/arr-credentials.md)
 - [Lidarr queue hygiene](runbooks/arr-queue-hygiene.md)
 - [Nightly beets tagging](runbooks/beets.md)

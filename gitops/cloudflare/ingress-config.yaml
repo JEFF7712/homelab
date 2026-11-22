@@ -125,4 +125,9 @@ data:
         service: http://questarr.media:80
       - hostname: games.rupan.dev
         service: http://gameyfin.media:80
+      - hostname: vault.rupan.dev
+        path: ^/admin
+        service: http_status:404
+      - hostname: vault.rupan.dev
+        service: http://vaultwarden.vaultwarden:80
       - service: http_status:404

@@ -153,6 +153,7 @@ class AccessPlanTest(unittest.TestCase):
         imports = json.loads((stack / "imports.tf.json").read_text())["import"]
         ids = {i["to"]: i["id"].split("/")[-1] for i in imports}
         evaluated = []
+        actions = {}
         for filename in ["policies.tf.json", "applications.tf.json"]:
             for kind, instances in json.loads((stack / filename).read_text())[
                 "resource"
@@ -161,7 +162,10 @@ class AccessPlanTest(unittest.TestCase):
                     address = f"{kind}.{name}"
                     values = copy.deepcopy(config)
                     values.pop("lifecycle")
-                    values["id"] = ids[address]
+                    # Resources created from source after the import have no
+                    # import block; the plan creates them.
+                    actions[address] = ["no-op"] if address in ids else ["create"]
+                    values["id"] = ids.get(address, f"new-{name}")
                     for policy in values.get("policies", []):
                         reference = policy["id"]
                         policy["id"] = ids[
@@ -173,7 +177,7 @@ class AccessPlanTest(unittest.TestCase):
         p = {
             "planned_values": {"root_module": {"resources": evaluated}},
             "resource_changes": [
-                {"address": r["address"], "change": {"actions": ["no-op"]}}
+                {"address": r["address"], "change": {"actions": actions[r["address"]]}}
                 for r in evaluated
             ],
         }

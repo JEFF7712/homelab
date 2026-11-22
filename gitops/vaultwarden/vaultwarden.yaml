@@ -1,0 +1,113 @@
+# Vaultwarden (Bitwarden-compatible password manager), docs/runbooks/vaultwarden.md.
+# One replica on SQLite: the database lives on the vaultwarden-data claim, so
+# a second writer or an overlapping rollout would corrupt it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vaultwarden
+  namespace: vaultwarden
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: vaultwarden
+  template:
+    metadata:
+      labels:
+        app: vaultwarden
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: vaultwarden
+          image: registry.rupan.dev/upstream/docker.io/vaultwarden/server@sha256:4fe17f415f90087377d37c755e0ea3cf189dcc6794e49cdd2a9adbb4937d9e1f  # yamllint disable-line rule:line-length
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: DOMAIN
+              value: https://vault.rupan.dev
+            - name: ROCKET_PORT
+              value: "8080"
+            # Only invited emails may register; invites come from the admin
+            # page, which the tunnel never serves (runbook: Inviting a user).
+            - name: SIGNUPS_ALLOWED
+              value: "false"
+            - name: INVITATIONS_ALLOWED
+              value: "true"
+            - name: PASSWORD_HINTS_ALLOWED
+              value: "false"
+            - name: SHOW_PASSWORD_HINT
+              value: "false"
+            # SQLite WAL needs shared memory, which NFS does not provide.
+            - name: ENABLE_DB_WAL
+              value: "false"
+            - name: IP_HEADER
+              value: CF-Connecting-IP
+            - name: ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: vaultwarden-admin
+                  key: ADMIN_TOKEN
+          startupProbe:
+            httpGet:
+              path: /alive
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet:
+              path: /alive
+              port: http
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /alive
+              port: http
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: vaultwarden-data
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vaultwarden
+  namespace: vaultwarden
+spec:
+  selector:
+    app: vaultwarden
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
