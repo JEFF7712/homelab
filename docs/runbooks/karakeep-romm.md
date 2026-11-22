@@ -77,7 +77,7 @@ successful archives. Live file archives do not freeze uploads; avoid deleting
 assets while a backup is running.
 
 Both jobs write into the existing shared `backups/db-dumps` NFS directory via
-retained static PV aliases. The existing 03:00 `dumps-to-r2` job encrypts and copies
+retained static PV aliases. The existing 03:00 UTC `dumps-to-r2` job encrypts and copies
 that directory to the existing R2 repository. ROM files and fetched cover art are
 excluded from the offsite archive; their local NAS snapshot coverage does not
 provide site-loss protection. Keep originals of your ROM library separately.
