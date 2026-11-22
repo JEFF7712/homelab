@@ -85,6 +85,62 @@ class ScopeTest(unittest.TestCase):
             )
             self.assertEqual(classify(["README.md"], readers).mode, "documentation")
 
+    def test_tests_that_scan_a_directory_read_what_the_scan_matches(self) -> None:
+        """#2008 added gitops namespaces and skipped the test that scans them."""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "tests").mkdir()
+            (root / "tests" / "test_namespaces.py").write_text(
+                "import pathlib\n"
+                "ROOT = pathlib.Path(__file__).resolve().parent.parent\n"
+                'for path in (ROOT / "gitops").rglob("*.yaml"):\n'
+                "    pass\n"
+            )
+            (root / "tests" / "test_hosts.py").write_text(
+                "from pathlib import Path\n"
+                "ROOT = Path(__file__).resolve().parents[1]\n"
+                'SOURCES = ("flake/hosts", "flake/modules")\n'
+                "for directory in SOURCES:\n"
+                '    (ROOT / directory).glob("*.nix")\n'
+            )
+            (root / "tests" / "test_walk.py").write_text(
+                "from pathlib import Path\n"
+                "ROOT = Path(__file__).resolve().parents[1]\n"
+                "def scripts(prefix):\n"
+                '    return (ROOT / prefix).glob("*.py")\n'
+            )
+            (root / "tests" / "test_scratch.py").write_text(
+                "import tempfile\nfrom pathlib import Path\n"
+                "with tempfile.TemporaryDirectory() as t:\n"
+                '    list(Path(t).glob("*.json"))\n'
+            )
+            readers = reading_tests(root)
+            self.assertEqual(
+                readers("gitops/karakeep/app.yaml"),
+                {"tests.test_namespaces", "tests.test_walk"},
+            )
+            self.assertEqual(readers("gitops/karakeep/README.md"), {"tests.test_walk"})
+            # glob, unlike rglob, matches one level only.
+            self.assertEqual(
+                readers("flake/modules/nas-data.nix"),
+                {"tests.test_hosts", "tests.test_walk"},
+            )
+            self.assertEqual(
+                readers("flake/modules/disko/main.nix"), {"tests.test_walk"}
+            )
+            # A directory part no literal names reads the whole tree, and a
+            # scan of a temporary directory reads none of it.
+            self.assertEqual(readers("README.md"), {"tests.test_walk"})
+            scope = classify(["gitops/karakeep/app.yaml"], readers)
+            self.assertEqual(scope.checks, ("python", "gitops"))
+            self.assertIn("tests.test_namespaces", scope.test_modules)
+
+    def test_repository_namespace_scans_join_gitops_changes(self) -> None:
+        self.assertIn(
+            "tests.test_orchestrator_manifests",
+            reading_tests(ROOT)("gitops/karakeep/app.yaml"),
+        )
+
     def test_documentation_and_application_allowlist(self) -> None:
         for paths, expected in (
             (["README.md", "docs/runbooks/example.md"], "documentation"),

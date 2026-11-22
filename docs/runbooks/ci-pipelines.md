@@ -123,7 +123,12 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   narrow changes run the union of their checks. A scoped lane also runs every
   unit test that names a changed file, or a directory of it at least three
   levels deep, including `ROOT / "flake" / "hosts" / ...` written in parts
-  (`reading_tests` in `scripts/ci/scope.py`). Validation infrastructure
+  (`reading_tests` in `scripts/ci/scope.py`). It also runs every test whose
+  `glob`, `rglob` or `iterdir` of a repository directory matches a changed
+  path: `(ROOT / "gitops").rglob("*.yaml")` reads every manifest, and a
+  directory part no literal names reads the whole tree. #2008 merged two
+  unclassified namespaces because the test that scans them did not run.
+  Validation infrastructure
   (`scripts/checks/`, CI config, flake inputs, and the gate's own
   `scripts/ci/` modules), shared Nix modules, and any unmapped path still force
   the full gate. The gate's modules are those that select, run or report
