@@ -412,8 +412,9 @@ passed more than six days ago, or was checked by different drill code. It
 always exits 0, because a failed unit fails every nas-01 activation; failures
 surface only through the metrics and alerts below. It proves that both hosts' `sovereign-platform`
 snapshots restore, along with the CouchDB data described below. For nas-01 and homelab-04 it requires a snapshot from the
-last two days, restores a bounded sample (every `*.sqlite` and `*.db`, plus
-`homelab.git`) into scratch space under `/persist/platform-backup`, runs
+last two days, restores a bounded sample (every `*.sqlite` and `*.db`, the
+Vaultwarden `applications/vaultwarden/db.sqlite3`, plus `homelab.git`) into
+scratch space under `/persist/platform-backup`, runs
 `PRAGMA integrity_check` and `git fsck --full`, and deletes the scratch copy.
 fsck runs with `core.commitGraph=false`. The commit-graph is a regenerable
 cache, and after Forgejo prunes unreachable commits it keeps listing them,
