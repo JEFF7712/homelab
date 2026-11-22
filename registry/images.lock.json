@@ -4815,6 +4815,48 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/offline/registry-sources.yaml:18"
+      ],
+      "destination_repository": "upstream/ghcr.io/kiwix/kiwix-serve",
+      "destination_tags": [
+        "3.8.2",
+        "retention-deployed-e478554a9920412e"
+      ],
+      "digest": "sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5",
+      "id": "upstream-kiwix-kiwix-serve-fac1b1613b5f",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5",
+        "reference": "ghcr.io/kiwix/kiwix-serve:3.8.2@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5",
+        "registry": "ghcr.io",
+        "repository": "kiwix/kiwix-serve",
+        "tag": "3.8.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "observed:observability/kube-prometheus-stack-kube-state-metrics-58f5d9c5d4-9wxvt/kube-state-metrics"
       ],
       "destination_repository": "upstream/registry.k8s.io/kube-state-metrics/kube-state-metrics",

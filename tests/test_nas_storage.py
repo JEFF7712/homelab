@@ -42,9 +42,13 @@ class NasStorageTest(unittest.TestCase):
             services = builtins.mapAttrs (_: service: {
               inherit (service) after wants requires unitConfig serviceConfig;
             }) {
-              inherit (system.config.systemd.services) nas-backup-local zot nfs-server registry-backup media-extra-branches;
+              inherit (system.config.systemd.services) nas-backup-local zot nfs-server registry-backup media-extra-branches offline-archive-dataset offline-archive-layout;
+            };
+            scripts = builtins.mapAttrs (_: service: service.script) {
+              inherit (system.config.systemd.services) media-extra-branches offline-archive-dataset;
             };
             exports = system.config.services.nfs.server.exports;
+            sanoid = builtins.mapAttrs (_: dataset: dataset.useTemplate) system.config.services.sanoid.datasets;
           }
         """.replace("__FLAKE_PATH__", json.dumps(f"git+file://{ROOT}?dir=flake"))
         result = subprocess.run(
@@ -168,7 +172,7 @@ class NasStorageTest(unittest.TestCase):
 
     def test_nfs_orders_mount_attempts_without_requiring_all_exports(self) -> None:
         service = self.configuration["services"]["nfs-server"]
-        for name in ("media", "backups", "cluster"):
+        for name in ("media", "backups", "cluster", "offline"):
             mount = f"tank-{name}.mount"
             self.assertIn(mount, service["wants"])
             self.assertIn(mount, service["after"])
@@ -180,6 +184,52 @@ class NasStorageTest(unittest.TestCase):
                 self.assertIn(
                     "mountpoint", client.split("(", 1)[1].rstrip(")").split(",")
                 )
+
+    def test_two_tb_disk_holds_the_offline_archive_not_new_media(self) -> None:
+        # The salvaged 3 TB disk keeps taking media; the healthier 2 TB disk
+        # keeps its existing media read in place but takes no new files.
+        branches = self.configuration["scripts"]["media-extra-branches"]
+        self.assertIn("/mnt/media-2tb", branches)
+        self.assertIn("=NC", branches)
+        self.assertNotIn('-v "-', branches)
+        mount = self.configuration["filesystems"]["/tank/offline"]
+        self.assertEqual(mount["device"], "media2/offline")
+        self.assertEqual(mount["fsType"], "zfs")
+        self.assertIn("nofail", mount["options"])
+        self.assertIn(
+            "x-systemd.requires=offline-archive-dataset.service", mount["options"]
+        )
+        create = self.configuration["scripts"]["offline-archive-dataset"]
+        self.assertIn("zfs create", create)
+        self.assertNotIn("destroy", create)
+        layout = self.configuration["services"]["offline-archive-layout"]
+        self.assertIn("tank-offline.mount", layout["requires"])
+        self.assertIn(
+            "offline-archive-layout.service",
+            self.configuration["services"]["nfs-server"]["after"],
+        )
+        self.assertEqual(self.configuration["sanoid"]["media2/offline"], ["offline"])
+        backups = self.configuration["services"]["nas-backup-local"]["unitConfig"][
+            "RequiresMountsFor"
+        ]
+        self.assertNotIn("/tank/offline", backups)
+        exports = {
+            fields[0]: {
+                client.split("(", 1)[0]: set(
+                    client.split("(", 1)[1].rstrip(")").split(",")
+                )
+                for client in fields[1:]
+            }
+            for line in self.configuration["exports"].splitlines()
+            if (fields := line.split())
+        }
+        nodes = {f"10.0.30.{number}" for number in range(11, 16)}
+        offline = exports["/tank/offline"]
+        self.assertEqual(
+            {host for host, options in offline.items() if "rw" in options}, nodes
+        )
+        self.assertIn("ro", offline["10.0.10.0/24"])
+        self.assertIn("root_squash", offline["10.0.10.0/24"])
 
 
 class BackupMountGuardTest(unittest.TestCase):

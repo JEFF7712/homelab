@@ -16,6 +16,16 @@ let
     "tank/s3"
   ];
   mediaExtraBranches = [ "/mnt/media-3tb" ];
+  # Branches that keep serving their files but take no new ones: the 2 TB
+  # disk holds the offline archive instead.
+  mediaNoCreateBranches = [ "/mnt/media-2tb" ];
+  # The offline archive is rebuildable from the Kiwix catalog, so it stays out
+  # of restic; the k3s updater (gitops/offline) writes it as this uid.
+  offlineArchive = {
+    dataset = "media2/offline";
+    path = "/tank/offline";
+    uid = 1000;
+  };
   # Rebuildable caches, metrics, logs and models stay out of the backup.
   localBackupExcludes = [
     "observability-prometheus-*"
@@ -46,7 +56,7 @@ in
   };
 
   # tank/media and the media2 and media3 pools appear as one tree at the
-  # original path, so NFS clients, Samba and the static PV are unchanged. New
+  # original path (media2 as a no-create branch), so NFS clients, Samba and the static PV are unchanged. New
   # files go to the branch with the most free space; link and rename clone the
   # parent path onto the source branch, so *arr hardlink imports keep working.
   fileSystems."/tank/media" = {
@@ -88,10 +98,68 @@ in
       for branch in ${lib.escapeShellArgs mediaExtraBranches}; do
         current=$(getfattr --only-values -n user.mergerfs.branches "$control")
         case ":$current:" in
-          *":$branch=RW:"*) ;;
+          *":$branch="*) ;;
           *) setfattr -n user.mergerfs.branches -v "+>$branch" "$control" ;;
         esac
       done
+      # Rewriting the whole list changes a branch's mode in place; removing
+      # and re-adding it would hide its files from NFS clients meanwhile.
+      for branch in ${lib.escapeShellArgs mediaNoCreateBranches}; do
+        current=$(getfattr --only-values -n user.mergerfs.branches "$control")
+        case ":$current:" in
+          *":$branch=NC:"*) ;;
+          *":$branch=RW:"*)
+            wanted=$(printf ':%s:' "$current" | sed "s#:$branch=RW:#:$branch=NC:#; s#^:##; s#:\$##")
+            setfattr -n user.mergerfs.branches -v "$wanted" "$control"
+            ;;
+          *)
+            echo "no-create branch $branch is not in the union: $current" >&2
+            exit 1
+            ;;
+        esac
+      done
+    '';
+  };
+
+  # disko creates datasets only at install time, so the archive dataset is
+  # created on the running media2 pool before its mount. Creation is the only
+  # change this unit makes.
+  systemd.services.offline-archive-dataset = {
+    description = "Create the offline archive dataset";
+    after = [ "zfs-import.target" ];
+    requires = [ "zfs-import.target" ];
+    before = [ "tank-offline.mount" ];
+    path = [ pkgs.zfs ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      if ! zfs list -H -o name ${offlineArchive.dataset} >/dev/null 2>&1; then
+        zfs create -o mountpoint=legacy -o recordsize=1M ${offlineArchive.dataset}
+      fi
+    '';
+  };
+  fileSystems."${offlineArchive.path}".options = [
+    "x-systemd.requires=offline-archive-dataset.service"
+  ];
+
+  # The k3s updater runs unprivileged, so its tree must exist and belong to
+  # its uid before nfs-server exports the dataset.
+  systemd.services.offline-archive-layout = {
+    description = "Prepare the offline archive directory tree";
+    after = [ "tank-offline.mount" ];
+    requires = [ "tank-offline.mount" ];
+    before = [ "nfs-server.service" ];
+    wantedBy = [ "multi-user.target" ];
+    unitConfig.RequiresMountsFor = [ offlineArchive.path ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    script = ''
+      install -d -m 0755 -o ${toString offlineArchive.uid} -g ${toString offlineArchive.uid} \
+        ${offlineArchive.path}/kiwix
     '';
   };
 
@@ -174,21 +242,26 @@ in
       ''
         /tank/media ${nodeExports mediaFsid} 10.0.10.0/24(ro,sync,no_subtree_check,root_squash,mountpoint${mediaFsid})
         /tank/cluster ${nodeExports ""}
+        ${offlineArchive.path} ${nodeExports ""} 10.0.10.0/24(ro,sync,no_subtree_check,root_squash,mountpoint)
       '';
   };
 
   systemd.services.nfs-server = {
     wants = [
       "media-extra-branches.service"
+      "offline-archive-layout.service"
       "tank-media.mount"
       "tank-backups.mount"
       "tank-cluster.mount"
+      "tank-offline.mount"
     ];
     after = [
       "media-extra-branches.service"
+      "offline-archive-layout.service"
       "tank-media.mount"
       "tank-backups.mount"
       "tank-cluster.mount"
+      "tank-offline.mount"
     ];
   };
 
@@ -217,6 +290,15 @@ in
       autosnap = true;
       autoprune = true;
     };
+    # Archive updates replace whole multi-GB files, so a few days of
+    # snapshots cover a bad update without pinning months of old copies.
+    templates.offline = {
+      hourly = 0;
+      daily = 3;
+      monthly = 0;
+      autosnap = true;
+      autoprune = true;
+    };
     datasets = {
       "tank/photos".useTemplate = [ "personal" ];
       "tank/documents".useTemplate = [ "personal" ];
@@ -227,6 +309,7 @@ in
       "tank/media".useTemplate = [ "media" ];
       "media2/media".useTemplate = [ "media" ];
       "media3/media".useTemplate = [ "media" ];
+      "${offlineArchive.dataset}".useTemplate = [ "offline" ];
       "tank/registry".useTemplate = [ "operational" ];
     };
   };
