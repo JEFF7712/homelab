@@ -150,6 +150,17 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   breaks an unrelated test fails its own main pipeline. API display-list
   truncation cannot omit checks; missing mirror evidence falls back to full
   validation.
+- **Branches that contain main validate as main** (`CI_MAIN_BACKSTOP=1`),
+  and their merge reuses that result: when a main push's tree equals a
+  branch head that contained the merge's first parent, and that branch
+  push passed validation-v2 within 24 hours, main's validation-v2 only
+  names the reused pipeline. Both runs see the same changed paths, and the
+  backstop gives the branch main's whole-suite scope, so the second run
+  proved nothing new; on 2026-11-21 nine of twelve merges matched, each
+  repeating a validation of up to 18 minutes. The policy keeps the
+  eligible heads in memory, so after a policy restart main validates
+  normally. Any other main push, including a merge after main moved on,
+  still validates.
 - **Full offline gate**: Periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
   full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).
