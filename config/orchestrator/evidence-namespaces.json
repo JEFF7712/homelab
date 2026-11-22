@@ -45,8 +45,6 @@
     "secret-source": "source of synced secrets",
     "cnpg-system": "database operator with superuser access",
     "storage": "NFS provisioner",
-    "karakeep": "personal bookmarks and archived pages; unreviewed for evidence",
-    "romm": "personal game library; unreviewed for evidence",
     "vaultwarden": "password manager; logs name accounts and client IPs",
     "cilium-secrets": "network policy and encryption material",
     "default": "unused",
