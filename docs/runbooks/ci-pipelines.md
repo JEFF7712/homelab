@@ -271,6 +271,12 @@ stalls) and completely decommissioned on 2026-11-17 (`atticd`, port 8080,
   update it.
 - A niks3 path error or exit status fails `cache-publish`, so a niks3 fault
   shows as a red maintenance run.
+- A target that fails to build (typically a VM check timing out under load)
+  also fails `cache-publish`, but only after the targets that did build are
+  pushed. Before 2026-11-21 one flaky check withheld every path, the cache
+  went cold, and each full validation rebuilt about 13 minutes of VM checks.
+  An evaluation failure, or an exit status the build report does not
+  explain, still publishes nothing.
 - Trusted key: `homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec=`.
   Rotating `/persist/niks3/signing-key` needs the new public key in every
   substituter list above first.

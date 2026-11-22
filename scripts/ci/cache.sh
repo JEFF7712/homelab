@@ -62,6 +62,10 @@ builder=${HOMELAB_CACHE_BUILDER:-$default_builder}
 NIX_CONFIG="${NIX_CONFIG:-}"$'\nfallback = true'
 export NIX_CONFIG
 started=$SECONDS
+# A failed fast-builder target still publishes the targets that built, then
+# fails the run: an all-or-nothing push let one flaky VM check keep every
+# check out of niks3, so each full validation rebuilt them (2026-11-21).
+build_status=0
 case "$builder" in
   fast)
     selection='flake: {'
@@ -72,9 +76,10 @@ case "$builder" in
     nix-fast-build --flake "$flake#" --select "$selection" \
       --eval-workers 2 --eval-max-memory-size 2048 --max-jobs 2 \
       --no-nom --out-link "$cache_work/result" \
-      --result-file "$cache_work/results.json"
-    python -m scripts.ci.cache_results "$cache_work/results.json" \
-      "${#build_targets[@]}" "$cache_work/paths" "$cache_work/derivations"
+      --result-file "$cache_work/results.json" || build_status=$?
+    python -m scripts.ci.cache_results --build-status "$build_status" \
+      "$cache_work/results.json" "${#build_targets[@]}" \
+      "$cache_work/paths" "$cache_work/derivations"
     ;;
   native)
     nix build --no-link --print-out-paths "${build_targets[@]}" > "$cache_work/paths"
@@ -89,8 +94,8 @@ echo "Cache build: builder=$builder targets=${#build_targets[@]} elapsed_seconds
 # niks3 is the only Nix cache; Attic no longer serves or receives paths
 # (docs/runbooks/ci-pipelines.md).
 if [[ -z "${NIKS3_TOKEN:-}" ]]; then
-  echo "Build succeeded; NIKS3_TOKEN is not set, so upload is skipped."
-  exit 0
+  echo "Build finished; NIKS3_TOKEN is not set, so upload is skipped."
+  exit "$build_status"
 fi
 nix flake archive --json --no-write-lock-file "$flake" > "$cache_work/archive.json"
 python -m scripts.ci.cache_sources "$cache_work/archive.json" >> "$cache_work/paths"
@@ -116,4 +121,8 @@ if [[ -s "$cache_work/niks3-errors" || "$niks3_status" -ne 0 ]]; then
     "$(wc -l < "$cache_work/niks3-errors")" "$niks3_status" >&2
   cat "$cache_work/niks3-errors" >&2
   exit 1
+fi
+if [[ "$build_status" -ne 0 ]]; then
+  echo "Published the targets that built; nix-fast-build exited $build_status." >&2
+  exit "$build_status"
 fi

@@ -31,6 +31,25 @@ class CacheResultsTest(unittest.TestCase):
             (
                 ["/nix/store/system0", "/nix/store/system1"],
                 ["/nix/store/system0.drv", "/nix/store/system1.drv"],
+                [],
+            ),
+        )
+
+    def test_failed_build_keeps_its_derivation_but_not_its_outputs(self) -> None:
+        report = {
+            "results": [
+                evaluation(0),
+                evaluation(1),
+                {"type": "BUILD", "attr": "target0", "success": True},
+                {"type": "BUILD", "attr": "target1", "success": False},
+            ]
+        }
+        self.assertEqual(
+            build_paths(report, 2),
+            (
+                ["/nix/store/system0"],
+                ["/nix/store/system0.drv", "/nix/store/system1.drv"],
+                ["target1"],
             ),
         )
 
@@ -42,6 +61,18 @@ class CacheResultsTest(unittest.TestCase):
             {"results": [valid, valid]},
             {"results": [evaluation(1)]},
             {"results": [valid, {"type": "BUILD", "success": False}]},
+            {
+                "results": [
+                    valid,
+                    {"type": "BUILD", "attr": "target9", "success": False},
+                ]
+            },
+            {
+                "results": [
+                    valid,
+                    {"type": "UPLOAD", "attr": "target0", "success": False},
+                ]
+            },
         ]
         for changes in (
             {"success": False},
@@ -87,6 +118,8 @@ class CacheResultsTest(unittest.TestCase):
                 "results = [{'type': 'EVAL', 'attr': 'target' + i, 'success': True,\n"
                 " 'drvPath': '/nix/store/system' + i + '.drv',\n"
                 " 'outputs': {'out': '/nix/store/system' + i}} for i, _ in targets]\n"
+                "results += [{'type': 'BUILD', 'attr': 'target' + i,\n"
+                " 'success': i not in os.environ['FAILED'].split()} for i, _ in targets]\n"
                 "pathlib.Path(args[args.index('--result-file') + 1]).write_text(json.dumps({'results': results}))\n"
                 "sys.exit(int(os.environ['FAST_STATUS']))\n"
             )
@@ -120,8 +153,20 @@ class CacheResultsTest(unittest.TestCase):
             receipt = directory / "pushed"
             environment = dict(os.environ)
             environment.pop("HOMELAB_CACHE_BUILDER", None)
-            for status in (0, 7):
-                with self.subTest(status=status):
+            built = {f"/nix/store/system{i}" for i in range(26)} | {
+                "/nix/store/source",
+                "/nix/store/build-input",
+            }
+            # (exit status, failed targets, expected exit, published paths):
+            # a failed target publishes the rest and still fails the run; an
+            # exit status the report does not explain publishes nothing.
+            cases = (
+                (0, "", 0, built),
+                (7, "14", 7, built - {"/nix/store/system14"}),
+                (7, "", 1, None),
+            )
+            for status, failed, expected, published in cases:
+                with self.subTest(status=status, failed=failed):
                     receipt.unlink(missing_ok=True)
                     result = subprocess.run(
                         ["bash", "scripts/ci/cache.sh"],
@@ -131,20 +176,19 @@ class CacheResultsTest(unittest.TestCase):
                             "PATH": str(directory) + os.pathsep + os.environ["PATH"],
                             "NIKS3_TOKEN": "test-only",
                             "FAST_STATUS": str(status),
+                            "FAILED": failed,
                             "PUSH_RECEIPT": str(receipt),
                         },
                         capture_output=True,
                         text=True,
                         check=False,
                     )
-                    self.assertEqual(result.returncode, status, result.stderr)
-                    if status:
+                    self.assertEqual(result.returncode, expected, result.stderr)
+                    if published is None:
                         self.assertFalse(receipt.exists())
                     else:
                         self.assertEqual(
-                            set(receipt.read_text().splitlines()),
-                            {f"/nix/store/system{i}" for i in range(26)}
-                            | {"/nix/store/source", "/nix/store/build-input"},
+                            set(receipt.read_text().splitlines()), published
                         )
 
 
