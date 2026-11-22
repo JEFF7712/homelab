@@ -135,7 +135,12 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   narrow changes run the union of their checks. A scoped lane also runs every
   unit test that names a changed file, or a directory of it at least three
   levels deep, including `ROOT / "flake" / "hosts" / ...` written in parts
-  (`reading_tests` in `scripts/ci/scope.py`). Validation infrastructure
+  (`reading_tests` in `scripts/ci/scope.py`). It also runs every test whose
+  `glob`, `rglob` or `iterdir` of a repository directory matches a changed
+  path: `(ROOT / "gitops").rglob("*.yaml")` reads every manifest, and a
+  directory part no literal names reads the whole tree. #2008 merged two
+  unclassified namespaces because the test that scans them did not run.
+  Validation infrastructure
   (`scripts/checks/`, CI config, flake inputs, and the gate's own
   `scripts/ci/` modules), shared Nix modules, and any unmapped path still force
   the full gate. The gate's modules are those that select, run or report
@@ -294,6 +299,12 @@ stalls) and completely decommissioned on 2026-11-17 (`atticd`, port 8080,
   update it.
 - A niks3 path error or exit status fails `cache-publish`, so a niks3 fault
   shows as a red maintenance run.
+- A target that fails to build (typically a VM check timing out under load)
+  also fails `cache-publish`, but only after the targets that did build are
+  pushed. Before 2026-11-21 one flaky check withheld every path, the cache
+  went cold, and each full validation rebuilt about 13 minutes of VM checks.
+  An evaluation failure, or an exit status the build report does not
+  explain, still publishes nothing.
 - Trusted key: `homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec=`.
   Rotating `/persist/niks3/signing-key` needs the new public key in every
   substituter list above first.
@@ -318,11 +329,15 @@ keeps completed configurations out of a single long-lived evaluator.
 
 The fast builder comes from pinned nixpkgs in the `ops` or `default`
 development shell. Its selection is
-generated from the native builder's same 23 homelab targets: seven host
-systems, all thirteen checks and three development shells. `just cache-populate`
+generated from the native builder's same 26 homelab targets: seven host
+systems, all sixteen checks and three development shells. `just cache-populate`
 publishes the same target set, including the Zot service VM check. The fast
 builder uses two evaluation workers, a 2048 MiB memory budget per worker and
-two concurrent build jobs.
+two concurrent build jobs. The four VM checks (agent-workspace packet flow and
+libvirt normalization, the Zot and niks3 services) build in a second pass,
+one at a time: CI containers have no KVM, and four emulated tests sharing a
+two-CPU trusted slot timed out booting niks3's VMs on every run for six hours
+(2026-11-21).
 The initial 1536 MiB budget caused worker restarts; the matched CI runs also
 observed worker retries at the 4096 MiB combined budget in two fast runs.
 The worker budget does not cap total process memory. The CI container's

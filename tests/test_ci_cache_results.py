@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -31,6 +32,25 @@ class CacheResultsTest(unittest.TestCase):
             (
                 ["/nix/store/system0", "/nix/store/system1"],
                 ["/nix/store/system0.drv", "/nix/store/system1.drv"],
+                [],
+            ),
+        )
+
+    def test_failed_build_keeps_its_derivation_but_not_its_outputs(self) -> None:
+        report = {
+            "results": [
+                evaluation(0),
+                evaluation(1),
+                {"type": "BUILD", "attr": "target0", "success": True},
+                {"type": "BUILD", "attr": "target1", "success": False},
+            ]
+        }
+        self.assertEqual(
+            build_paths(report, 2),
+            (
+                ["/nix/store/system0"],
+                ["/nix/store/system0.drv", "/nix/store/system1.drv"],
+                ["target1"],
             ),
         )
 
@@ -42,6 +62,18 @@ class CacheResultsTest(unittest.TestCase):
             {"results": [valid, valid]},
             {"results": [evaluation(1)]},
             {"results": [valid, {"type": "BUILD", "success": False}]},
+            {
+                "results": [
+                    valid,
+                    {"type": "BUILD", "attr": "target9", "success": False},
+                ]
+            },
+            {
+                "results": [
+                    valid,
+                    {"type": "UPLOAD", "attr": "target0", "success": False},
+                ]
+            },
         ]
         for changes in (
             {"success": False},
@@ -73,22 +105,21 @@ class CacheResultsTest(unittest.TestCase):
                 "assert args[args.index('--flake') + 1] == './flake#'\n"
                 "assert args[args.index('--eval-workers') + 1] == '2'\n"
                 "assert args[args.index('--eval-max-memory-size') + 1] == '2048'\n"
-                "assert args[args.index('--max-jobs') + 1] == '2'\n"
                 "assert '--skip-cached' not in args\n"
                 "selection = args[args.index('--select') + 1]\n"
                 "targets = re.findall(r'target(\\d+) = flake\\.([^;]+);', selection)\n"
-                "assert len(targets) == 26\n"
-                "assert any(t == 'checks.x86_64-linux.zot-registry-service' for _, t in targets)\n"
-                "assert any(t == 'checks.x86_64-linux.tofu-types' for _, t in targets)\n"
-                "assert any(t == 'checks.x86_64-linux.tofu-config' for _, t in targets)\n"
-                "assert targets[0][1] == 'nixosConfigurations.nas-01.config.system.build.toplevel'\n"
-                "assert targets[-1][1] == 'devShells.x86_64-linux.ops'\n"
-                "assert sum('.config.system.build.toplevel' in t for _, t in targets) == 7\n"
+                "jobs = args[args.index('--max-jobs') + 1]\n"
+                "with open(os.environ['CALLS'], 'a') as calls:\n"
+                " calls.write(json.dumps([jobs, targets]) + '\\n')\n"
+                "failed = [i for i, _ in targets if i in os.environ['FAILED'].split()]\n"
                 "results = [{'type': 'EVAL', 'attr': 'target' + i, 'success': True,\n"
                 " 'drvPath': '/nix/store/system' + i + '.drv',\n"
                 " 'outputs': {'out': '/nix/store/system' + i}} for i, _ in targets]\n"
+                "results += [{'type': 'BUILD', 'attr': 'target' + i,\n"
+                " 'success': i not in failed} for i, _ in targets]\n"
                 "pathlib.Path(args[args.index('--result-file') + 1]).write_text(json.dumps({'results': results}))\n"
-                "sys.exit(int(os.environ['FAST_STATUS']))\n"
+                "stray = jobs == '2' and os.environ['STRAY'] == '1'\n"
+                "sys.exit(7 if failed or stray else 0)\n"
             )
             nix = directory / "nix"
             nix.write_text(
@@ -120,9 +151,25 @@ class CacheResultsTest(unittest.TestCase):
             receipt = directory / "pushed"
             environment = dict(os.environ)
             environment.pop("HOMELAB_CACHE_BUILDER", None)
-            for status in (0, 7):
-                with self.subTest(status=status):
+            built = {f"/nix/store/system{i}" for i in range(26)} | {
+                "/nix/store/source",
+                "/nix/store/build-input",
+            }
+            calls = directory / "calls.jsonl"
+            # (stray exit, failed targets, expected exit, published paths):
+            # a failed target in either pass publishes the rest and still
+            # fails the run; an exit status its report does not explain
+            # publishes nothing.
+            cases = (
+                ("0", "", 0, built),
+                ("0", "14", 7, built - {"/nix/store/system14"}),
+                ("0", "3", 7, built - {"/nix/store/system3"}),
+                ("1", "", 1, None),
+            )
+            for stray, failed, expected, published in cases:
+                with self.subTest(stray=stray, failed=failed):
                     receipt.unlink(missing_ok=True)
+                    calls.unlink(missing_ok=True)
                     result = subprocess.run(
                         ["bash", "scripts/ci/cache.sh"],
                         cwd=ROOT,
@@ -130,22 +177,49 @@ class CacheResultsTest(unittest.TestCase):
                             **environment,
                             "PATH": str(directory) + os.pathsep + os.environ["PATH"],
                             "NIKS3_TOKEN": "test-only",
-                            "FAST_STATUS": str(status),
+                            "STRAY": stray,
+                            "FAILED": failed,
+                            "CALLS": str(calls),
                             "PUSH_RECEIPT": str(receipt),
                         },
                         capture_output=True,
                         text=True,
                         check=False,
                     )
-                    self.assertEqual(result.returncode, status, result.stderr)
-                    if status:
+                    self.assertEqual(result.returncode, expected, result.stderr)
+                    if published is None:
                         self.assertFalse(receipt.exists())
                     else:
                         self.assertEqual(
-                            set(receipt.read_text().splitlines()),
-                            {f"/nix/store/system{i}" for i in range(26)}
-                            | {"/nix/store/source", "/nix/store/build-input"},
+                            set(receipt.read_text().splitlines()), published
                         )
+                    # VM checks build alone, after the other targets.
+                    [(jobs, targets), (serial_jobs, serial)] = [
+                        json.loads(line) for line in calls.read_text().splitlines()
+                    ]
+                    self.assertEqual((jobs, serial_jobs), ("2", "1"))
+                    self.assertEqual(
+                        [t for _, t in serial],
+                        [
+                            "checks.x86_64-linux.agent-workspace-packet-flow",
+                            "checks.x86_64-linux.agent-workspace-libvirt-normalization",
+                            "checks.x86_64-linux.zot-registry-service",
+                            "checks.x86_64-linux.niks3-cache-service",
+                        ],
+                    )
+                    self.assertEqual(len(targets) + len(serial), 26)
+                    self.assertEqual(
+                        targets[0][1],
+                        "nixosConfigurations.nas-01.config.system.build.toplevel",
+                    )
+                    self.assertEqual(targets[-1][1], "devShells.x86_64-linux.ops")
+                    self.assertEqual(
+                        sum(".config.system.build.toplevel" in t for _, t in targets),
+                        7,
+                    )
+                    self.assertIn(
+                        "checks.x86_64-linux.tofu-config", [t for _, t in targets]
+                    )
 
 
 if __name__ == "__main__":
