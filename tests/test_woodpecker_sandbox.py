@@ -63,14 +63,17 @@ class SandboxConfigurationTest(unittest.TestCase):
         self.assertEqual(worker["WOODPECKER_BACKEND"], "docker")
         self.assertIn("tier=sandbox", worker["WOODPECKER_AGENT_LABELS"])
         self.assertEqual(worker["WOODPECKER_BACKEND_DOCKER_LIMIT_MEM"], "8589934592")
-        self.assertEqual(worker["WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA"], "300000")
+        self.assertEqual(worker["WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA"], "600000")
         self.assertEqual(
             self.config["serverCpuQuota"],
             {"sandbox": "600000", "trusted": "200000", "deploy": "200000"},
         )
         self.assertEqual(self.config["workerDocker"]["cgroup-parent"], "ci.slice")
         self.assertEqual(self.config["workerLimits"]["MemoryMax"], "10G")
-        self.assertEqual(self.config["workerLimits"]["CPUQuota"], "300%")
+        # Bursting past the kubelet's three-CPU reservation must not grow
+        # it: pods keep their allocatable and win contention by weight.
+        self.assertEqual(self.config["workerLimits"]["CPUQuota"], "600%")
+        self.assertEqual(self.config["workerLimits"]["CPUWeight"], 50)
         self.assertIn(
             "--kubelet-arg=system-reserved=cpu=8,memory=17408Mi",
             self.config["workerKubelet"],
