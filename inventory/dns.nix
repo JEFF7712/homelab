@@ -102,5 +102,11 @@
       unboundOrder = 12;
       adguardOrder = 10;
     }
+    {
+      name = "kiwix.homelab";
+      address = "10.0.40.18";
+      description = "Kiwix offline library load-balancer VIP: LAN-only plain HTTP, so it needs no WAN, tunnel or certificate renewal";
+      unboundOrder = 13;
+    }
   ];
 }

@@ -48,7 +48,7 @@
 - Cables: 90° SATA data pack — $9.89
 - Storage: 2× WD PC SN520 256 GB NVMe 2280 — $56.00
 - Storage: Seagate Exos X16 ST10000NM002G, 10 TB SAS — $110.00
-- Storage: Seagate BarraCuda ST2000DM008, 2 TB, 7200 RPM, 256 MB cache, SATA 6 Gb/s, 3.5" (media2 pool, merged into /tank/media) — $50.00
+- Storage: Seagate BarraCuda ST2000DM008, 2 TB, 7200 RPM, 256 MB cache, SATA 6 Gb/s, 3.5" (media2 pool: offline archive at /tank/offline; no-create branch of /tank/media) — $50.00
 - Storage: WD RE4 WD1003FBYZ, 1 TB, 7200 RPM, SATA (salvaged, ~78k power-on hours) — local backup disk — $0.00
 - Storage: WD Re WD3000FYYZ, 3 TB, 7200 RPM, SATA (salvaged, ~85k power-on hours; media3 pool, merged into /tank/media) — $0.00
 - NIC: Realtek 2.5 GbE (onboard)

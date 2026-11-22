@@ -435,9 +435,13 @@ def determine(root: Path, env: Mapping[str, str] | None = None) -> Scope:
     scope = _determine(root, env)
     source = env.get("CI_PIPELINE_SOURCE") or env.get("CI_PIPELINE_EVENT", "")
     # A pull request's CI_COMMIT_BRANCH is its target, so only a push counts.
+    # The policy sets CI_MAIN_BACKSTOP on a branch push that contains main,
+    # whose merge then reuses this validation instead of running its own.
     if (
         source != "push"
-        or env.get("CI_COMMIT_BRANCH") != "main"
+        or (
+            env.get("CI_COMMIT_BRANCH") != "main" and env.get("CI_MAIN_BACKSTOP") != "1"
+        )
         or scope.mode
         not in {
             "documentation",

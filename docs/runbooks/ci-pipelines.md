@@ -8,7 +8,19 @@ to GitHub as the off-site source copy; recovery is in
 
 All agents use Docker. Sandbox jobs receive no production credentials,
 host mounts, Docker socket, privileged mode, or host Nix trust. Containers
-have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
+have an 8 GiB memory limit; the CPU quota is per agent (below). The Docker
+daemon uses ci.slice.
+
+Sandbox and trusted job containers get `/dev/kvm`, so NixOS VM checks run
+under KVM instead of TCG. Under TCG the four VM checks took a median 10
+minutes of every full gate, one at a time, and `niks3-cache-service` missed
+its shell timeout in every `cache-publish` run of 2026-11-21, which then
+published nothing. Woodpecker passes step `devices` only to repositories
+with volume trust, which the policy keeps cleared, so the agents carry
+`flake/patches/woodpecker-agent-devices.patch`: `WOODPECKER_BACKEND_DOCKER_DEVICES`
+adds agent-chosen devices to every container of that agent. Deploy-tier
+containers do not get it. `/dev/kvm` exposes the host kernel's KVM
+interface to job code; it grants no file, socket or credential access.
 Validation runs in the slim `ci` dev shell; protected operations run in
 the `ops` shell, which adds registry, cache, and release clients but leaves
 out the virtualization and GUI closure of the default shell (2.4 GiB instead
@@ -143,6 +155,17 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   breaks an unrelated test fails its own main pipeline. API display-list
   truncation cannot omit checks; missing mirror evidence falls back to full
   validation.
+- **Branches that contain main validate as main** (`CI_MAIN_BACKSTOP=1`),
+  and their merge reuses that result: when a main push's tree equals a
+  branch head that contained the merge's first parent, and that branch
+  push passed validation-v2 within 24 hours, main's validation-v2 only
+  names the reused pipeline. Both runs see the same changed paths, and the
+  backstop gives the branch main's whole-suite scope, so the second run
+  proved nothing new; on 2026-11-21 nine of twelve merges matched, each
+  repeating a validation of up to 18 minutes. The policy keeps the
+  eligible heads in memory, so after a policy restart main validates
+  normally. Any other main push, including a merge after main moved on,
+  still validates.
 - **Full offline gate**: Periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
   full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).
@@ -359,9 +382,10 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
   and the other check names in the same breakdown. Each measures the Nix
   invocation, including substitution and dependencies, rather than only
   the check's test process. `scripts/checks/flake_jobs.py` builds VM tests
-  in their own pool, one per four CPUs of quota and at least one, because
-  CI guests run under TCG and two in a two-CPU container miss their boot
-  timeouts. Other checks build half the quota at once (at least two;
+  in their own pool. With `/dev/kvm` that is one per two CPUs of quota,
+  at most two beside host evaluation in the 8 GiB limit; without it, one
+  per four CPUs, because TCG guests two at a time in a two-CPU container
+  miss their boot timeouts. At least one either way. Other checks build half the quota at once (at least two;
   `CI_FLAKE_BUILD_JOBS` overrides), so rebuilt VM tests no longer queue the
   unit suite behind them, and `repository-contract` splits the unit suite
   by module across `NIX_BUILD_CORES` workers (`scripts.ci.tests --jobs`).

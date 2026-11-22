@@ -1,0 +1,71 @@
+--- a/pipeline/backend/docker/config.go
++++ b/pipeline/backend/docker/config.go
+@@ -26,6 +26,7 @@
+ 	enableIPv6    bool
+ 	network       string
+ 	volumes       []string
++	devices       []string
+ 	apparmor      string
+ 	resourceLimit resourceLimit
+ 	stopTimeout   int64
+@@ -71,5 +72,15 @@
+ 		conf.volumes = append(conf.volumes, strings.Join(parts, ":"))
+ 	}
+ 
++	for _, device := range strings.Split(c.String("backend-docker-devices"), ",") {
++		if device == "" {
++			continue
++		}
++		if len(toDev([]string{device})) != 1 {
++			return conf, fmt.Errorf("invalid device '%s' provided in WOODPECKER_BACKEND_DOCKER_DEVICES", device)
++		}
++		conf.devices = append(conf.devices, device)
++	}
++
+ 	return conf, nil
+ }
+--- a/pipeline/backend/docker/convert.go
++++ b/pipeline/backend/docker/convert.go
+@@ -121,6 +121,8 @@
+ 	if len(step.Devices) != 0 {
+ 		config.Devices = toDev(step.Devices)
+ 	}
++	// Agent-wide devices need no repository trust: the agent operator chose them.
++	config.Devices = append(config.Devices, toDev(conf.devices)...)
+ 	if len(step.Volumes) != 0 {
+ 		config.Binds = step.Volumes
+ 	}
+--- a/pipeline/backend/docker/convert_test.go
++++ b/pipeline/backend/docker/convert_test.go
+@@ -146,6 +146,17 @@
+ 	assert.Nil(t, hostConfig.SecurityOpt)
+ }
+ 
++func TestToHostConfigAgentDevices(t *testing.T) {
++	hostConfig, err := toHostConfig(testCmdStep, &config{devices: []string{"/dev/kvm:/dev/kvm"}})
++
++	assert.NoError(t, err)
++	assert.EqualValues(t, []container.DeviceMapping{{
++		PathOnHost:        "/dev/kvm",
++		PathInContainer:   "/dev/kvm",
++		CgroupPermissions: "rwm",
++	}}, hostConfig.Devices)
++}
++
+ func TestStepToConfig(t *testing.T) {
+ 	// StepTypeCommands
+ 	conf, err := testEngine.toConfig(testCmdStep, BackendOptions{})
+--- a/pipeline/backend/docker/flags.go
++++ b/pipeline/backend/docker/flags.go
+@@ -57,6 +57,11 @@
+ 		Usage:   "backend docker volumes (comma separated)",
+ 	},
+ 	&cli.StringFlag{
++		Sources: cli.EnvVars("WOODPECKER_BACKEND_DOCKER_DEVICES"),
++		Name:    "backend-docker-devices",
++		Usage:   "host devices added to every container (comma separated)",
++	},
++	&cli.StringFlag{
+ 		Sources: cli.EnvVars("WOODPECKER_BACKEND_DOCKER_APPARMOR_PROFILE"),
+ 		Name:    "backend-docker-apparmor-profile",
+ 		Usage:   "AppArmor profile applied to backend Docker containers",

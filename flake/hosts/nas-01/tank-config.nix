@@ -145,12 +145,26 @@
         mountpoint = "none";
         xattr = "sa";
       };
-      datasets.media = {
-        type = "zfs_fs";
-        mountpoint = "/mnt/media-2tb";
-        options = {
-          mountpoint = "legacy";
-          recordsize = "1M";
+      datasets = {
+        # Takes no new files (no-create branch in nas-data.nix); the disk
+        # holds the offline archive below.
+        media = {
+          type = "zfs_fs";
+          mountpoint = "/mnt/media-2tb";
+          options = {
+            mountpoint = "legacy";
+            recordsize = "1M";
+          };
+        };
+        # Offline knowledge archive (Kiwix ZIMs). Created on the running pool
+        # by offline-archive-dataset in nas-data.nix.
+        offline = {
+          type = "zfs_fs";
+          mountpoint = "/tank/offline";
+          options = {
+            mountpoint = "legacy";
+            recordsize = "1M";
+          };
         };
       };
     };
