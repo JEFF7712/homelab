@@ -102,7 +102,13 @@ reuse evidence falls back to source validation.
 
 Cron reuse is a separate mechanism: a successful main validation for the same
 commit can be reused within 24 hours, and a schedule defers gated work while
-main validation is running. See the scheduling section below and
+main validation is running. When a validation of the commit failed within the
+last hour, schedules skip gated work instead of revalidating (a
+`main-validation-failed` marker); after that hour the next schedule
+revalidates, so a flaky failure heals. Before 2026-11-21 every promote run
+revalidated a red main, holding a sandbox slot ten minutes in fifteen. The
+watchdog always runs ungated, and `cache-publish` runs ungated whenever a
+schedule defers or skips, so a red main no longer lets the Nix cache go cold. See the scheduling section below and
 `scripts/ci/policy.py`.
 
 ### Safe change-based scoping
