@@ -35,9 +35,11 @@ and its kubelet reserves 8 GiB for typical concurrent CI (one validation
 and one operation) beside the system's 2 GiB and the agent workspaces'
 14 GiB, so GPU pods there are not scheduled into CI memory. monerod on
 homelab-04 is capped at 2 GiB, and the CPU-only, NFS-backed games apps
-prefer homelab-02 and homelab-03. The homelab-05 CI slice is limited to three CPUs and 10 GiB, with that budget
-reserved from the kubelet alongside the Omarchy VM. Jobs retain the two-CPU
-and 8 GiB container limits.
+prefer homelab-02 and homelab-03. On homelab-05 the kubelet reserves three
+CPUs and 10 GiB for CI alongside the Omarchy VM; the CI slice is capped at
+10 GiB and may burst to six CPUs, with CPUWeight 50 so pods win when they
+compete, as on homelab-04. A hard three-CPU cap left full gates CPU-bound
+while the host idled. Jobs keep the 8 GiB container limit.
 
 Job Nix builds as the `cibld` users (UIDs 40001+) that every server-owned
 Nix step adds to its container as its first command, selected by
@@ -445,7 +447,12 @@ full validation beside it. When the previous run
 of the same schedule (Woodpecker records the cron name as the sender) is
 still pending or running, the new run emits only a failing
 `schedule-overlap` workflow: the schedule outlives its interval and needs
-attention, and the repository monitor alerts on it.
+attention, and the repository monitor alerts on it. A run created more than
+six hours earlier (`STRANDED_SCHEDULE_SECONDS`) does not count: an agent
+restart, such as homelab-04 switching itself, kills the job but leaves the
+pipeline marked running, and on 2026-11-21 such a run failed every later
+`promote` until it left the 50-pipeline window. Cancel stranded pipelines
+by hand (`POST /api/repos/1/pipelines/<n>/cancel`).
 
 Same-repository PRs normally defer to branch push validation as described
 above. When the metadata or reuse checks cannot establish that path, the PR

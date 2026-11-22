@@ -36,6 +36,7 @@ from scripts.ci.platform_backup import snapshot_database
 from scripts.ci.policy import (
     DEPLOY_AUTHORS,
     SCHEDULES,
+    STRANDED_SCHEDULE_SECONDS,
     VALIDATION,
     VALIDATION_COMMAND,
     SourceMirror,
@@ -744,6 +745,35 @@ class PolicyTest(unittest.TestCase):
             )[1],
             "validating",
         )
+
+    def test_a_stranded_schedule_run_does_not_block_its_successors(self) -> None:
+        request = {
+            "pipeline": {"cron": "promote", "commit": SHA, "number": 9, "event": "cron"}
+        }
+        now = 100000
+        run = {
+            "number": 8,
+            "event": "cron",
+            "sender": "promote",
+            "status": "running",
+            "commit": SHA,
+            "branch": "main",
+        }
+        details = {8: {"workflows": []}}
+        for age, overlap in (
+            (STRANDED_SCHEDULE_SECONDS, True),
+            (STRANDED_SCHEDULE_SECONDS + 1, False),
+        ):
+            with self.subTest(age=age):
+                self.assertEqual(
+                    schedule_state(
+                        request,
+                        [dict(run, created=now - age)],
+                        details.__getitem__,
+                        now,
+                    )[0],
+                    overlap,
+                )
 
     def test_schedules_wait_for_main_validation_in_flight(self) -> None:
         self.request["pipeline"].update(event="cron", cron="maintenance")

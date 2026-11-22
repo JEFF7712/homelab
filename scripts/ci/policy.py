@@ -338,6 +338,11 @@ SCHEDULES: dict[str, tuple[str, ...]] = {
 }
 
 
+# A schedule run still marked running this long after creation lost its
+# job: an agent restart kills the container but Woodpecker never closes the
+# pipeline. Counting it as an overlap failed every promote run after
+# pipeline #19804 was stranded by the homelab-04 switch on 2026-11-21.
+STRANDED_SCHEDULE_SECONDS = 6 * 3600
 # A red main commit was revalidated by every schedule run: four full
 # validations an hour on the sandbox tier, each failing the same test, which
 # held a sandbox slot ten minutes in fifteen and queued agents' PRs behind
@@ -360,7 +365,8 @@ def schedule_state(
     """(overlap, main validation) for a cron request on the current main commit.
 
     Overlap: another run of the same schedule (Woodpecker records the cron
-    name as the sender) is still pending or running. Main validation is
+    name as the sender) is still pending or running, unless it was created
+    more than STRANDED_SCHEDULE_SECONDS ago. Main validation is
     "validated" when a push, manual, or cron pipeline already passed
     validation-v2 for this commit within 24 hours, "validating" when one is
     still running it, "failed" when one failed it within the retry interval,
@@ -373,6 +379,7 @@ def schedule_state(
         and item.get("sender") == name
         and item.get("status") in {"pending", "running"}
         and item.get("number") != pipeline.get("number")
+        and now - item.get("created", 0) <= STRANDED_SCHEDULE_SECONDS
         for item in pipelines
     )
     state = "none"

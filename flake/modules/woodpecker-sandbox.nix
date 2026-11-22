@@ -70,8 +70,13 @@ in
         "woodpecker-sandbox-agent.env".restartUnits = [ "woodpecker-agent-sandbox.service" ];
         woodpecker-sandbox-ssh-key.restartUnits = [ "woodpecker-sandbox-tunnel.service" ];
       };
+      # The kubelet reserves three CPUs for CI (homelab-05 default.nix);
+      # the slice may burst to six while the host is idle, as on homelab-04,
+      # and CPUWeight keeps pods ahead when they compete. At a hard three,
+      # full gates ran CPU-bound (1,114 s throttled in a 445 s Python lane,
+      # pipeline #19844) while the host sat at load 3 of 12 threads.
       systemd.slices.ci.sliceConfig = {
-        CPUQuota = "300%";
+        CPUQuota = "600%";
         CPUWeight = 50;
         MemoryHigh = "8G";
         MemoryMax = "10G";
@@ -137,9 +142,8 @@ in
           WOODPECKER_MAX_WORKFLOWS = "1";
           WOODPECKER_HEALTHCHECK = "false";
           WOODPECKER_BACKEND_DOCKER_LIMIT_MEM = "8589934592";
-          # The whole ci slice: its 300% is what homelab-05's kubelet
-          # reserves for CI, so growing it would shrink pod allocatable.
-          WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = "300000";
+          # The whole ci slice; one slot, so the job may use all of it.
+          WOODPECKER_BACKEND_DOCKER_LIMIT_CPU_QUOTA = "600000";
           WOODPECKER_BACKEND_DOCKER_DEVICES = cfg.kvmDevice;
         };
         environmentFile = [ config.sops.secrets."woodpecker-sandbox-agent.env".path ];
