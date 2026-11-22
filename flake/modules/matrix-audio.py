@@ -3,69 +3,23 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
-import random
 import signal
 import socket
 import subprocess
-import sys
 import threading
 import time
-from array import array
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-RATE = 24000
+RATE = 48000
 KINDS = ("launch", "boom", "crackle", "fizz", "salute")
 MAX_VOICES = 8
 LEASE = 0.8
 APP = "Matrix Fireworks"
-
-
-def synthesize(kind: str, seed: int) -> bytes:
-    rng = random.Random(seed)
-    duration = {
-        "launch": 0.85,
-        "boom": 1.2,
-        "crackle": 0.7,
-        "fizz": 1.8,
-        "salute": 0.5,
-    }[kind]
-    samples = array("h")
-    low = 0.0
-    phase = 0.0
-    for i in range(int(RATE * duration)):
-        t = i / RATE
-        noise = rng.uniform(-1, 1)
-        low += 0.06 * (noise - low)
-        attack = min(1.0, t / 0.008)
-        if kind == "launch":
-            phase += 2 * math.pi * (650 + 1500 * t / duration) / RATE
-            value = (0.35 * math.sin(phase) + 0.08 * noise) * math.sin(
-                math.pi * t / duration
-            ) ** 2
-        elif kind in ("boom", "salute"):
-            value = (
-                2.3 * low + 0.22 * math.sin(2 * math.pi * (48 + seed % 20) * t)
-            ) * math.exp(-t * 5)
-            if kind == "salute":
-                value += noise * math.exp(-t * 25) * 0.4
-        elif kind == "crackle":
-            pulse = ((i // 100 + seed) % 13) < 3
-            value = noise * (0.7 if pulse else 0.03) * math.exp(-t * 3)
-        else:
-            value = (noise - low) * 0.25 * math.sin(math.pi * t / duration) ** 2
-        samples.append(
-            int(
-                max(-0.85, min(0.85, attack * min(1.0, (duration - t) / 0.02) * value))
-                * 32767
-            )
-        )
-    if sys.byteorder != "little":
-        samples.byteswap()
-    return samples.tobytes()
 
 
 class Session:
@@ -195,14 +149,40 @@ class SpeakerMonitor:
 
 class Player:
     def __init__(self, directory: Path) -> None:
+        manifest_data = (directory / "manifest.json").read_bytes()
+        manifest = json.loads(manifest_data)
+        if (
+            manifest["version"] != 1
+            or manifest["rate"] != RATE
+            or manifest["format"] != "s16le"
+            or manifest["channels"] != 1
+            or set(manifest["samples"]) != set(KINDS)
+        ):
+            raise ValueError("unsupported recorded sound library")
         self.samples: dict[str, list[Path]] = {}
+        total = 0
         for kind in KINDS:
             paths = []
-            for seed in range(3):
-                path = directory / f"{kind}-{seed}.pcm"
-                path.write_bytes(synthesize(kind, seed))
+            for sample in manifest["samples"][kind]:
+                name = sample["file"]
+                if Path(name).name != name or not name.endswith(".pcm"):
+                    raise ValueError("invalid sample filename")
+                path = directory / name
+                size = path.stat().st_size
+                total += size
+                if (
+                    not RATE // 4 <= sample["frames"] <= RATE * 3
+                    or size != sample["frames"] * 2
+                    or total > 8 * 1024 * 1024
+                    or hashlib.sha256(path.read_bytes()).hexdigest() != sample["sha256"]
+                ):
+                    raise ValueError(f"invalid recorded sample: {name}")
                 paths.append(path)
+            if not paths:
+                raise ValueError(f"missing recorded samples: {kind}")
             self.samples[kind] = paths
+        self.library = hashlib.sha256(manifest_data).hexdigest()
+        self.next_sample = dict.fromkeys(KINDS, 0)
         self.voices: list[subprocess.Popen[bytes]] = []
         self.played = 0
         self.dropped = 0
@@ -225,7 +205,8 @@ class Player:
             self.dropped += 1
             return
         paths = self.samples[event["kind"]]
-        path = paths[self.played % len(paths)]
+        index = self.next_sample[event["kind"]]
+        path = paths[index % len(paths)]
         gain = int(65536 * volume * event["strength"] / math.sqrt(MAX_VOICES))
         try:
             voice = subprocess.Popen(
@@ -251,6 +232,7 @@ class Player:
             self.failed += 1
             return
         self.voices.append(voice)
+        self.next_sample[event["kind"]] = index + 1
         self.played += 1
 
     def silence(self) -> None:
@@ -290,6 +272,7 @@ def serve(host: str, port: int, directory: Path, mac: str) -> None:
                     failed=player.failed,
                     voices=len(player.voices),
                     stops=player.stops,
+                    library=player.library,
                 )
             ).encode()
             self.send_response(200)
@@ -335,7 +318,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8891)
-    parser.add_argument("--directory", type=Path, required=True)
+    parser.add_argument("--samples", type=Path, required=True)
     parser.add_argument("--mac", required=True)
     args = parser.parse_args()
-    serve(args.host, args.port, args.directory, args.mac)
+    serve(args.host, args.port, args.samples, args.mac)

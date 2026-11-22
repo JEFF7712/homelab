@@ -65,8 +65,12 @@ CI status comes from the existing repository monitor's five-minute collection
 cycle. The CI panel shows the age of the most recent collection; pending builds
 use an indeterminate animation rather than an invented completion percentage.
 
-Fireworks optionally sends synthesized launch whistles, burst booms, crackles,
-and willow/fountain fizz to the NAS bedroom Bose speaker. The bedroom dashboard
+Fireworks optionally sends sound cues for recorded fuse ignitions, burst booms,
+crackles, and willow/fountain fizz to the NAS bedroom Bose speaker. The NAS
+rotates fifteen edited CC0 recordings installed locally at 48 kHz. Recording
+sources and edits are listed in
+[`CREDITS.md`](../../flake/modules/matrix-audio-samples/CREDITS.md).
+The bedroom dashboard
 has Fireworks Audio, Volume, and Audio Sync controls. Audio Sync delays only
 Fireworks visuals by 0 to 1000 ms to compensate for speaker latency; start near
 300 ms and tune on the physical speaker. This is a timing offset, not measured

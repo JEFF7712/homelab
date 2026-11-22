@@ -118,12 +118,18 @@ acknowledged frames. Keep laptop senders stopped throughout.
 ## Fireworks audio
 
 `flake/modules/matrix-audio.nix` owns the `matrix-audio` service on nas-01;
-`matrix-audio.py` synthesizes its fixed sound library into its private runtime
-directory. A dedicated unprivileged user plays raw PCM through `pacat` and the
+`matrix-audio.py` validates and loads fifteen recorded CC0 clips from the
+immutable Nix store. The 1.48 MiB library is mono 48 kHz signed 16-bit PCM,
+with three variations per cue and independent rotation. Sources, licenses,
+crop positions, and SHA256 hashes live beside the clips in
+[`matrix-audio-samples`](../../flake/modules/matrix-audio-samples/CREDITS.md).
+Launches use recorded fuse ignition; fizz uses a close sparkler recording.
+A dedicated unprivileged user plays raw PCM through `pacat` and the
 existing PulseAudio socket, targeting only the paired bedroom Bose Bluetooth
 sink. It never falls back to a different speaker. The service has eight voices,
 a 128 MiB memory limit, and a 25% CPU quota. No sound downloads or new Python
-dependencies are required.
+dependencies are required at runtime. Missing, malformed, or corrupt samples
+fail startup instead of falling back to synthetic audio.
 
 The matrix sends nonblocking UDP event packets on port 8891, admitted only
 from the pod network and inventory-defined cluster nodes (Cilium can masquerade
@@ -137,7 +143,9 @@ effects if another playback stream uses it or monitoring fails.
 
 Read-only receiver health is at `http://10.0.30.20:8891/health`: `connected`,
 `yielding`, `monitor_error`, `received`, `rejected`, `played`, `failed`, `voices`,
-and `stops` distinguish packet receipt from playback attempts. A zero `failed`
+and `stops` distinguish packet receipt from playback attempts. `library` is the
+SHA256 of the installed sample manifest, verified with every clip at startup.
+A zero `failed`
 count and completed pacat streams establish delivery to PulseAudio, not physical
 audibility. Inspect the service journal as `agent-observer` for systemd failures.
 The matrix health file also reports its audio packet and send-error counts.
