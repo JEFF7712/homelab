@@ -1,0 +1,17 @@
+# Vault database, attachments and Sends on nas-01 /tank/cluster (sanoid
+# snapshots and the nightly external backup). Never pruned: deleting this
+# claim deletes every vault.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  name: vaultwarden-data
+  namespace: vaultwarden
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-cluster
+  resources:
+    requests:
+      storage: 2Gi

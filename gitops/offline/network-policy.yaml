@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: offline-isolate-ingress
+  namespace: offline
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    # 1. The update Job verifies the server it just refreshed
+    - from:
+        - podSelector: {}
+    # 2. Prometheus/Alloy scrapers
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+    # 3. LAN clients reaching the 10.0.40.18 VIP
+    - from:
+        - ipBlock:
+            cidr: 10.0.0.0/16
+    # 4. NetBird clients keep their 100.64.0.0/10 mesh source address
+    - from:
+        - ipBlock:
+            cidr: 100.64.0.0/10

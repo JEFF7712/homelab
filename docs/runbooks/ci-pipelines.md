@@ -8,7 +8,19 @@ to GitHub as the off-site source copy; recovery is in
 
 All agents use Docker. Sandbox jobs receive no production credentials,
 host mounts, Docker socket, privileged mode, or host Nix trust. Containers
-have an 8 GiB memory limit and two CPU quota. The Docker daemon uses ci.slice.
+have an 8 GiB memory limit; the CPU quota is per agent (below). The Docker
+daemon uses ci.slice.
+
+Sandbox and trusted job containers get `/dev/kvm`, so NixOS VM checks run
+under KVM instead of TCG. Under TCG the four VM checks took a median 10
+minutes of every full gate, one at a time, and `niks3-cache-service` missed
+its shell timeout in every `cache-publish` run of 2026-11-21, which then
+published nothing. Woodpecker passes step `devices` only to repositories
+with volume trust, which the policy keeps cleared, so the agents carry
+`flake/patches/woodpecker-agent-devices.patch`: `WOODPECKER_BACKEND_DOCKER_DEVICES`
+adds agent-chosen devices to every container of that agent. Deploy-tier
+containers do not get it. `/dev/kvm` exposes the host kernel's KVM
+interface to job code; it grants no file, socket or credential access.
 Validation runs in the slim `ci` dev shell; protected operations run in
 the `ops` shell, which adds registry, cache, and release clients but leaves
 out the virtualization and GUI closure of the default shell (2.4 GiB instead
@@ -123,7 +135,12 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   narrow changes run the union of their checks. A scoped lane also runs every
   unit test that names a changed file, or a directory of it at least three
   levels deep, including `ROOT / "flake" / "hosts" / ...` written in parts
-  (`reading_tests` in `scripts/ci/scope.py`). Validation infrastructure
+  (`reading_tests` in `scripts/ci/scope.py`). It also runs every test whose
+  `glob`, `rglob` or `iterdir` of a repository directory matches a changed
+  path: `(ROOT / "gitops").rglob("*.yaml")` reads every manifest, and a
+  directory part no literal names reads the whole tree. #2008 merged two
+  unclassified namespaces because the test that scans them did not run.
+  Validation infrastructure
   (`scripts/checks/`, CI config, flake inputs, and the gate's own
   `scripts/ci/` modules), shared Nix modules, and any unmapped path still force
   the full gate. The gate's modules are those that select, run or report
@@ -138,6 +155,17 @@ Validation steps invoke `python -m scripts.ci.validate repository`:
   breaks an unrelated test fails its own main pipeline. API display-list
   truncation cannot omit checks; missing mirror evidence falls back to full
   validation.
+- **Branches that contain main validate as main** (`CI_MAIN_BACKSTOP=1`),
+  and their merge reuses that result: when a main push's tree equals a
+  branch head that contained the merge's first parent, and that branch
+  push passed validation-v2 within 24 hours, main's validation-v2 only
+  names the reused pipeline. Both runs see the same changed paths, and the
+  backstop gives the branch main's whole-suite scope, so the second run
+  proved nothing new; on 2026-11-21 nine of twelve merges matched, each
+  repeating a validation of up to 18 minutes. The policy keeps the
+  eligible heads in memory, so after a policy restart main validates
+  normally. Any other main push, including a merge after main moved on,
+  still validates.
 - **Full offline gate**: Periodic cron runs, release tags, and
   any changes touching shared Nix files or infrastructure paths unconditionally run the
   full offline gate (`just check`, whose flake lane is `scripts/checks/flake.sh`).
@@ -271,6 +299,12 @@ stalls) and completely decommissioned on 2026-11-17 (`atticd`, port 8080,
   update it.
 - A niks3 path error or exit status fails `cache-publish`, so a niks3 fault
   shows as a red maintenance run.
+- A target that fails to build (typically a VM check timing out under load)
+  also fails `cache-publish`, but only after the targets that did build are
+  pushed. Before 2026-11-21 one flaky check withheld every path, the cache
+  went cold, and each full validation rebuilt about 13 minutes of VM checks.
+  An evaluation failure, or an exit status the build report does not
+  explain, still publishes nothing.
 - Trusted key: `homelab-niks3-1:LXFpoJ6mA2PYYca5dMeXCu+I2Qqt6i8WeOlh5qTUhec=`.
   Rotating `/persist/niks3/signing-key` needs the new public key in every
   substituter list above first.
@@ -295,11 +329,15 @@ keeps completed configurations out of a single long-lived evaluator.
 
 The fast builder comes from pinned nixpkgs in the `ops` or `default`
 development shell. Its selection is
-generated from the native builder's same 23 homelab targets: seven host
-systems, all thirteen checks and three development shells. `just cache-populate`
+generated from the native builder's same 26 homelab targets: seven host
+systems, all sixteen checks and three development shells. `just cache-populate`
 publishes the same target set, including the Zot service VM check. The fast
 builder uses two evaluation workers, a 2048 MiB memory budget per worker and
-two concurrent build jobs.
+two concurrent build jobs. The four VM checks (agent-workspace packet flow and
+libvirt normalization, the Zot and niks3 services) build in a second pass,
+one at a time: CI containers have no KVM, and four emulated tests sharing a
+two-CPU trusted slot timed out booting niks3's VMs on every run for six hours
+(2026-11-21).
 The initial 1536 MiB budget caused worker restarts; the matched CI runs also
 observed worker retries at the 4096 MiB combined budget in two fast runs.
 The worker budget does not cap total process memory. The CI container's
@@ -344,9 +382,10 @@ Timing visibility is provided by `scripts.ci.run` and `scripts.ci.timings_report
   and the other check names in the same breakdown. Each measures the Nix
   invocation, including substitution and dependencies, rather than only
   the check's test process. `scripts/checks/flake_jobs.py` builds VM tests
-  in their own pool, one per four CPUs of quota and at least one, because
-  CI guests run under TCG and two in a two-CPU container miss their boot
-  timeouts. Other checks build half the quota at once (at least two;
+  in their own pool. With `/dev/kvm` that is one per two CPUs of quota,
+  at most two beside host evaluation in the 8 GiB limit; without it, one
+  per four CPUs, because TCG guests two at a time in a two-CPU container
+  miss their boot timeouts. At least one either way. Other checks build half the quota at once (at least two;
   `CI_FLAKE_BUILD_JOBS` overrides), so rebuilt VM tests no longer queue the
   unit suite behind them, and `repository-contract` splits the unit suite
   by module across `NIX_BUILD_CORES` workers (`scripts.ci.tests --jobs`).
