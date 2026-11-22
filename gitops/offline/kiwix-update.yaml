@@ -1,0 +1,130 @@
+# Weekly library refresh (docs/runbooks/offline-library.md). Steps run in
+# order; a failed book or check fails the Job (JobFailed alert) without
+# taking any served book away:
+#   fetch   - download new releases of books.json, verify, add them to zim/
+#   library - rebuild library.xml from library-files.txt, replace atomically
+#   finish  - the live server lists exactly those books and can open/search
+#             them; only then move superseded releases to previous/
+# Checking is cheap when nothing changed; a new Wikipedia release takes
+# hours at the 20 MiB/s cap, and a killed run resumes its partial download.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kiwix-update
+  namespace: offline
+spec:
+  schedule: "0 3 * * 0"
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 86400
+      template:
+        metadata:
+          labels:
+            app: kiwix-update
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          initContainers:
+            - name: fetch
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+              command:
+                - python3
+                - -I
+                - /app/update.py
+                - fetch
+                - --root=/data
+                - --books=/app/books.json
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+                - name: archive
+                  mountPath: /data
+                  subPath: kiwix
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+            - name: library
+              image: registry.rupan.dev/upstream/ghcr.io/kiwix/kiwix-serve@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5  # yamllint disable-line rule:line-length
+              workingDir: /data
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  rm -f library.next.xml
+                  printf '<library version="20110515">\n</library>\n' > library.next.xml
+                  while read -r zim; do
+                    /usr/local/bin/kiwix-manage library.next.xml add "$zim"
+                  done < library-files.txt
+                  mv library.next.xml library.xml
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: archive
+                  mountPath: /data
+                  subPath: kiwix
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 512Mi
+          containers:
+            - name: finish
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+              command:
+                - python3
+                - -I
+                - /app/update.py
+                - finish
+                - --root=/data
+                - --books=/app/books.json
+                - --url=http://kiwix.offline.svc.cluster.local
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+                - name: archive
+                  mountPath: /data
+                  subPath: kiwix
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+          volumes:
+            - name: script
+              configMap:
+                name: kiwix-update
+            - name: archive
+              persistentVolumeClaim:
+                claimName: offline-archive
