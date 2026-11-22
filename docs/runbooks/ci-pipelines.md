@@ -203,9 +203,15 @@ Nix-integration subset rather than running the suite twice. The sandbox has no
 `python -m scripts.ci.tests --nix-integration` selects exactly those modules
 and the Python lane runs them with `SKIP_NIX_EVAL=0`. Before this, only the Zot
 and agent-workspace modules ran, and a stale `tests.test_host_secrets`
-assertion stayed red on `main` for days without failing CI. The subset takes
-about 95 s and peaks near 0.8 GB; keep each module's `nix eval` to one host at
-a time so it fits beside the flake lane's evaluators.
+assertion stayed red on `main` for days without failing CI. The subset runs
+its modules on two workers (`CI_NIX_INTEGRATION_JOBS`), about 120 s instead of
+176 s serially, and each module's evaluator peaks near 0.8 GB; keep each
+module's `nix eval` to one host at a time so two fit beside the flake lane's
+evaluators. Exporting host facts from the flake evaluation instead was
+considered and set aside: `nix-eval-jobs` evaluates each attribute in its own
+worker, so the facts would repeat the host evaluations there, and one
+attribute holding every host's facts brings back the single-evaluator memory
+peak.
 
 The flake lane evaluates every check and every host configuration with
 `nix-eval-jobs` (two workers, each restarted past 2048 MiB) instead of

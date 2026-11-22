@@ -14,6 +14,7 @@ from scripts.deploy_fleet import (
     CRASH_LOOP_WINDOW,
     ETCD_HEALTH,
     FLEET_HOSTS,
+    INTERRUPTIBLE_LABEL,
     POSTGRES_CLUSTERS,
     ClusterLease,
     FleetDeployer,
@@ -1190,12 +1191,13 @@ class FleetClosureTest(unittest.TestCase):
         }
 
     @staticmethod
-    def pod(name, owner):
+    def pod(name, owner, labels=None):
         return {
             "metadata": {
                 "namespace": "immich",
                 "name": name,
                 "ownerReferences": [{"kind": owner, "name": name}],
+                "labels": labels or {},
             }
         }
 
@@ -1228,6 +1230,22 @@ class FleetClosureTest(unittest.TestCase):
         self.run_deployment(job_pods=[[("home-assistant-0", "StatefulSet")]])
         self.assertEqual(
             self.node_steps(), ["cordon", "list-pods", "drain", "uncordon"]
+        )
+
+    def test_interruptible_job_pods_do_not_delay_the_drain(self):
+        # soularr resumes on its next run; waiting 1200s for it only to
+        # drain it anyway held the fleet lease three times by 2026-11-22.
+        soularr = ("soularr-123", "Job", {INTERRUPTIBLE_LABEL: "true"})
+        backup = ("library-to-local-repo-abc", "Job")
+        self.run_deployment(job_pods=[[soularr]])
+        self.assertEqual(
+            self.node_steps(), ["cordon", "list-pods", "drain", "uncordon"]
+        )
+        self.commands.clear()
+        self.run_deployment(job_pods=[[soularr, backup], [soularr]])
+        self.assertEqual(
+            self.node_steps(),
+            ["cordon", "list-pods", "list-pods", "drain", "uncordon"],
         )
 
     def test_drain_proceeds_once_the_job_wait_limit_is_reached(self):
