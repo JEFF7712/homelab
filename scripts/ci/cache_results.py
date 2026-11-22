@@ -69,26 +69,38 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Validate nix-fast-build cache results"
     )
-    parser.add_argument("report", type=Path)
+    parser.add_argument(
+        "--report",
+        nargs=2,
+        action="append",
+        required=True,
+        metavar=("STATUS", "PATH"),
+        help="one nix-fast-build pass: its exit status and result file",
+    )
     parser.add_argument("count", type=int)
     parser.add_argument("paths", type=Path)
     parser.add_argument("derivations", type=Path)
-    parser.add_argument(
-        "--build-status",
-        type=int,
-        default=0,
-        help="nix-fast-build's exit status; nonzero must name a failed target",
-    )
     args = parser.parse_args()
-    paths, derivations, failed = build_paths(
-        json.loads(args.report.read_text()), args.count
-    )
-    # An exit status the report does not explain publishes nothing.
-    if bool(failed) != bool(args.build_status):
-        raise SystemExit(
-            f"nix-fast-build exited {args.build_status} but the report lists"
-            f" {len(failed)} failed target(s); publishing nothing"
-        )
+    results: list[object] = []
+    for status, path in args.report:
+        report = json.loads(Path(path).read_text())
+        if not isinstance(report, dict) or not isinstance(report.get("results"), list):
+            raise SystemExit(f"{path}: build report must contain a results list")
+        failed_here = [
+            result
+            for result in report["results"]
+            if isinstance(result, dict)
+            and result.get("type") == "BUILD"
+            and result.get("success") is not True
+        ]
+        # An exit status its report does not explain publishes nothing.
+        if bool(failed_here) != (status != "0"):
+            raise SystemExit(
+                f"nix-fast-build exited {status} but {path} lists"
+                f" {len(failed_here)} failed target(s); publishing nothing"
+            )
+        results.extend(report["results"])
+    paths, derivations, failed = build_paths({"results": results}, args.count)
     if failed:
         print(
             "Publishing the targets that built; failed: " + ", ".join(failed),

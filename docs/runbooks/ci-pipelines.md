@@ -301,11 +301,15 @@ keeps completed configurations out of a single long-lived evaluator.
 
 The fast builder comes from pinned nixpkgs in the `ops` or `default`
 development shell. Its selection is
-generated from the native builder's same 23 homelab targets: seven host
-systems, all thirteen checks and three development shells. `just cache-populate`
+generated from the native builder's same 26 homelab targets: seven host
+systems, all sixteen checks and three development shells. `just cache-populate`
 publishes the same target set, including the Zot service VM check. The fast
 builder uses two evaluation workers, a 2048 MiB memory budget per worker and
-two concurrent build jobs.
+two concurrent build jobs. The four VM checks (agent-workspace packet flow and
+libvirt normalization, the Zot and niks3 services) build in a second pass,
+one at a time: CI containers have no KVM, and four emulated tests sharing a
+two-CPU trusted slot timed out booting niks3's VMs on every run for six hours
+(2026-11-21).
 The initial 1536 MiB budget caused worker restarts; the matched CI runs also
 observed worker retries at the 4096 MiB combined budget in two fast runs.
 The worker budget does not cap total process memory. The CI container's
