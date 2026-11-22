@@ -21,6 +21,8 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      # The image owns /run as UID 1000 for rootless s6. Do not hide it
+      # behind an emptyDir owned by root: s6 rejects that ownership.
       containers:
         - name: karakeep
           image: registry.rupan.dev/upstream/ghcr.io/karakeep-app/karakeep@sha256:6f7d32ef296ddf1fc7c67ff56b8a201b7006a6a47b92b202afee1338841b353d  # yamllint disable-line rule:line-length
@@ -82,8 +84,6 @@ spec:
               mountPath: /assets
             - name: tmp
               mountPath: /tmp
-            - name: run
-              mountPath: /run
           resources:
             requests:
               cpu: 100m
@@ -118,8 +118,6 @@ spec:
           persistentVolumeClaim:
             claimName: assets
         - name: tmp
-          emptyDir: {}
-        - name: run
           emptyDir: {}
       nodeSelector:
         kubernetes.io/hostname: homelab-03
