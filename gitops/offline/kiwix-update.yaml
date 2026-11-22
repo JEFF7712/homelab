@@ -58,12 +58,14 @@ spec:
                 - name: archive
                   mountPath: /data
                   subPath: kiwix
+              # Page cache of the file being written counts here; update.py
+              # writes it back and evicts it every 64 MiB, so this is headroom.
               resources:
                 requests:
                   cpu: 100m
-                  memory: 64Mi
-                limits:
                   memory: 256Mi
+                limits:
+                  memory: 1Gi
             - name: library
               image: registry.rupan.dev/upstream/ghcr.io/kiwix/kiwix-serve@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5  # yamllint disable-line rule:line-length
               workingDir: /data
