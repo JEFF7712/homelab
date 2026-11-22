@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: karakeep-backup
+  namespace: karakeep
+spec:
+  schedule: 15 1 * * *
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: OnFailure
+          securityContext:
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:46837ed3105db0029b6d656816185c6258e3b39690532fb782428e0a5fd76182  # yamllint disable-line rule:line-length
+              command:
+                - python
+                - /scripts/backup.py
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop:
+                    - ALL
+              volumeMounts:
+                - name: data
+                  mountPath: /data
+                  readOnly: true
+                - name: assets
+                  mountPath: /assets
+                  readOnly: true
+                - name: dumps
+                  mountPath: /dumps
+                - name: script
+                  mountPath: /scripts
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 512Mi
+          volumes:
+            - name: data
+              persistentVolumeClaim:
+                claimName: data
+            - name: assets
+              persistentVolumeClaim:
+                claimName: assets
+            - name: dumps
+              persistentVolumeClaim:
+                claimName: db-dumps
+            - name: script
+              configMap:
+                name: karakeep-backup
+            - name: tmp
+              emptyDir: {}
+          nodeSelector:
+            kubernetes.io/hostname: homelab-03

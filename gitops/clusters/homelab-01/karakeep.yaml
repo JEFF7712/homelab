@@ -1,0 +1,28 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: karakeep
+  namespace: flux-system
+spec:
+  interval: 10m0s
+  path: ./gitops/karakeep
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: flux-system
+  dependsOn:
+    - name: secrets
+    - name: storage
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: karakeep
+      namespace: karakeep
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: chrome
+      namespace: karakeep
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: meilisearch
+      namespace: karakeep

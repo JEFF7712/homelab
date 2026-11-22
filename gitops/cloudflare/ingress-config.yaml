@@ -125,4 +125,8 @@ data:
         service: http://questarr.media:80
       - hostname: games.rupan.dev
         service: http://gameyfin.media:80
+      - hostname: karakeep.rupan.dev
+        service: http://karakeep.karakeep:80
+      - hostname: romm.rupan.dev
+        service: http://romm.romm:80
       - service: http_status:404
