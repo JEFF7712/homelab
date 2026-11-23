@@ -254,7 +254,11 @@ system, which a gated deployment activated and verified. Order and checks:
 - nas-01 next, only when a platform backup succeeded in the last two hours, no
   backup, restore drill or repository maintenance is running and
   `zpool status -x` is healthy. Otherwise it is deferred to the next night with
-  an ntfy notice. After its reboot the datasets, NFS and caches are checked.
+  an ntfy notice. After its reboot the datasets, NFS and caches are checked,
+  then for five minutes any controller-owned pod stuck in
+  `CreateContainerConfigError: failed to prepare subPath` (its NFS mounts
+  predate the reboot) is deleted once per owner so it is recreated; an ntfy
+  notice lists them. A pod still stuck afterwards fails the run.
 - homelab-04 last, because the CI job runs there. It is drained, a transient
   `homelab-reboot-watch-homelab-04` unit on homelab-01 uncordons it once it
   reports Ready on the installed kernel (within 20 minutes), and its reboot is
