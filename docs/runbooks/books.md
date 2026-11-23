@@ -46,3 +46,11 @@ until the rescan finds the file.
   `s6-setuidgid abc sh /books-handoff/qbit-finished.sh books "<content path>"`.
 - After an NFS outage the calibre-web pod can stick in
   `CreateContainerConfigError: failed to prepare subPath`; delete the pod.
+
+## Weekly missing-book search
+
+`bookshelf-missing-search` (`gitops/media/bookshelf-missing-search.yaml`,
+Sundays 03:47) asks Bookshelf to search every monitored book that has no
+file. It reads only `BOOKSHELF_API_KEY` from `media-app`. Run it on demand
+with `kubectl -n media create job --from=cronjob/bookshelf-missing-search
+<name>`; the search itself runs inside Bookshelf (System → Tasks → Queue).
