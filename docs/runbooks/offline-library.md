@@ -62,7 +62,8 @@ the served data is older than `max_age_days` in
    server and the newest Geofabrik US extract, both checked against their
    published MD5, and unpacks the index beside the served one.
 2. `build` (Valhalla image) builds routing tiles from the extract on
-   node-local disk (about an hour, up to 14 GiB RAM) and copies them to
+   node-local disk (about an hour, up to 12 GiB RAM, borrowed rather than
+   reserved) and copies them to
    `routing/`.
 3. `finish` points `current` at the new data, restarts both servers through
    the `geo-update` service account (allowed to restart only those two),
