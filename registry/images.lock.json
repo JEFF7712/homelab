@@ -7338,6 +7338,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/media/registry-sources.yaml:50"
+      ],
+      "destination_repository": "upstream/lscr.io/linuxserver/qbittorrent",
+      "destination_tags": [
+        "5.3.0_v2.1.2-ls488",
+        "retention-deployed-afed7399d0f336ee"
+      ],
+      "digest": "sha256:afed7399d0f336ee22d6d011b3c8c50a44e3810f0af6e3c4083d79e566f1677a",
+      "id": "upstream-linuxserver-qbittorrent-16bd4dc9cde9",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:afed7399d0f336ee22d6d011b3c8c50a44e3810f0af6e3c4083d79e566f1677a",
+        "reference": "lscr.io/linuxserver/qbittorrent:5.3.0_v2.1.2-ls488@sha256:afed7399d0f336ee22d6d011b3c8c50a44e3810f0af6e3c4083d79e566f1677a",
+        "registry": "lscr.io",
+        "repository": "linuxserver/qbittorrent",
+        "tag": "5.3.0_v2.1.2-ls488"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/media/registry-sources.yaml:54"
       ],
       "destination_repository": "upstream/lscr.io/linuxserver/qbittorrent",
