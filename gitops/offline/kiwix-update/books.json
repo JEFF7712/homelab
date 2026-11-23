@@ -44,6 +44,7 @@
     {"name": "devdocs_en_sqlite"},
     {"name": "devdocs_en_nginx"},
     {"name": "devdocs_en_ansible"},
-    {"name": "devdocs_en_terraform"}
+    {"name": "devdocs_en_terraform"},
+    {"name": "gutenberg_en_all"}
   ]
 }

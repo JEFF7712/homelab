@@ -1,12 +1,14 @@
 # Weekly library refresh (docs/runbooks/offline-library.md). Steps run in
 # order; a failed book or check fails the Job (JobFailed alert) without
 # taking any served book away:
-#   fetch   - download new releases of books.json, verify, add them to zim/
+#   fetch   - download new releases of books.json, verify, add them to zim/;
+#             refresh the world map once it is older than maps.json allows
 #   library - rebuild library.xml from library-files.txt, replace atomically
 #   finish  - the live server lists exactly those books and can open/search
-#             them; only then move superseded releases to previous/
-# Checking is cheap when nothing changed; a new Wikipedia release takes
-# hours at the 20 MiB/s cap, and a killed run resumes its partial download.
+#             them, and maps.homelab serves the viewer and planet; only then
+#             move superseded releases to previous/ and delete old planets
+# Checking is cheap when nothing changed; a new Wikipedia release or planet
+# takes hours at the 20 MiB/s cap, and a killed run resumes its download.
 apiVersion: batch/v1
 kind: CronJob
 metadata:
@@ -46,6 +48,8 @@ spec:
                 - fetch
                 - --root=/data
                 - --books=/app/books.json
+                - --maps=/app/maps.json
+                - --maps-root=/maps
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
@@ -58,6 +62,9 @@ spec:
                 - name: archive
                   mountPath: /data
                   subPath: kiwix
+                - name: archive
+                  mountPath: /maps
+                  subPath: maps
               # Page cache of the file being written counts here; update.py
               # writes it back and evicts it every 64 MiB, so this is headroom.
               resources:
@@ -105,6 +112,8 @@ spec:
                 - --root=/data
                 - --books=/app/books.json
                 - --url=http://kiwix.offline.svc.cluster.local
+                - --maps-root=/maps
+                - --maps-url=http://offline-web.offline.svc.cluster.local
               securityContext:
                 allowPrivilegeEscalation: false
                 readOnlyRootFilesystem: true
@@ -117,6 +126,9 @@ spec:
                 - name: archive
                   mountPath: /data
                   subPath: kiwix
+                - name: archive
+                  mountPath: /maps
+                  subPath: maps
               resources:
                 requests:
                   cpu: 50m

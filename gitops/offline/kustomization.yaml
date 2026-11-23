@@ -5,6 +5,7 @@ resources:
   - network-policy.yaml
   - storage.yaml
   - kiwix.yaml
+  - web.yaml
   - kiwix-update.yaml
 configMapGenerator:
   # update.py is tested from this rendered ConfigMap
@@ -16,3 +17,11 @@ configMapGenerator:
     files:
       - kiwix-update/update.py
       - kiwix-update/books.json
+      - kiwix-update/maps.json
+  - name: offline-web
+    namespace: offline
+    options:
+      disableNameSuffixHash: true
+    files:
+      - web/nginx.conf
+      - web/index.html

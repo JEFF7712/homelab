@@ -104,6 +104,14 @@
     "server": "10.0.40.18"
   },
   {
+    "description": "Offline world map on the offline library VIP; nginx there routes it by name",
+    "domain": "homelab",
+    "enabled": "1",
+    "hostname": "maps",
+    "rr": "A",
+    "server": "10.0.40.18"
+  },
+  {
     "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
     "domain": "rupan.dev",
     "enabled": "1",
