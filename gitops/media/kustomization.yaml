@@ -20,6 +20,7 @@ resources:
   - frontend.yaml
   - recommender.yaml
   - games.yaml
+  - questarr-romm-rescan.yaml
   - clamav.yaml
 
 # Script ConfigMaps are generated from the source files beside this file.
@@ -106,3 +107,7 @@ configMapGenerator:
       disableNameSuffixHash: true
     files:
       - lookup.py=navidrome-lookup/lookup.py
+  - name: questarr-romm-rescan
+    namespace: media
+    files:
+      - questarr-romm-rescan.mjs

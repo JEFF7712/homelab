@@ -113,8 +113,7 @@ spec:
         - name: state
           persistentVolumeClaim:
             claimName: state
-        # Use the exact media-library export; subPath limits the container view.
-        # Mounting the subdirectory as an NFS export root caches stale root attributes.
+        # Same export as media-library; subPath narrows the container's view.
         - name: imports
           nfs:
             server: 10.0.30.20

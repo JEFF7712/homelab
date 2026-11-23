@@ -9,6 +9,7 @@ exclude:
     - win
     - linux
     - mac
+    - ".*"
 system:
   platforms:
     Switch: switch

@@ -102,9 +102,15 @@ New Windows imports use `win`, while existing `PC` and `Linux` directories stay
 in place. Gameyfin continues scanning the same parent and serves both layouts.
 
 RomM mounts the existing `/tank/media` NFS export with `subPath: games/pc`
-at `/romm/library/roms`. Use the same export root as Questarr: mounting
-`/tank/media/games/pc` directly returned stale root attributes and omitted newly
-created console directories from scans, even while direct file access worked.
+at `/romm/library/roms`. A two-minute `questarr-romm-rescan` job provides reliable discovery: this NAS
+can retain a directory's modification time after NFS creates, so cross-node
+RomM scans can miss new entries even with client caching disabled. The job
+refreshes directory timestamps on Questarr's shared mount (never file contents
+or file timestamps), then queues a quick scan with Questarr's saved scoped
+token. It skips PC and hidden directories and never follows symlinks. An
+immediate after-import scan remains enabled; allow a few minutes for the
+scheduled reconciliation to catch a new console folder. The job runs as the
+same non-root user as Questarr, with no extra credentials or public endpoint.
 `gitops/romm/library-config.yml` excludes PC folders and maps the legacy
 `Switch` directory. Its Git-managed config is read-only in the UI; edit the
 source for scanning exclusions. The init container copies existing PICO-8
