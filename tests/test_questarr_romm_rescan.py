@@ -119,3 +119,16 @@ class RommDirectoryRefreshTests(unittest.TestCase):
         self.assertEqual(affinity["topologyKey"], "kubernetes.io/hostname")
         self.assertEqual(affinity["labelSelector"], deployment["spec"]["selector"])
         self.assertNotEqual(template["metadata"]["labels"]["app"], "questarr")
+
+    def test_projected_configmap_symlink_runs_the_cli_instead_of_silently_exiting(self):
+        with tempfile.TemporaryDirectory() as directory:
+            projected = Path(directory) / "rescan.mjs"
+            projected.symlink_to(MODULE)
+            result = subprocess.run(
+                ["node", str(projected)], text=True, capture_output=True, check=False
+            )
+            # The local test host lacks Questarr's /app backend. Reaching its import
+            # proves the CLI ran; the broken entrypoint silently returned success.
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("RomM library reconciliation failed:", result.stderr)
+            self.assertIn("/app/dist/server/romm.js", result.stderr)
