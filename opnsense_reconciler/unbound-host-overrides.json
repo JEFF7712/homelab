@@ -102,5 +102,197 @@
     "hostname": "kiwix",
     "rr": "A",
     "server": "10.0.40.18"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "arcade",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "books",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "ci",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "demo",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "grafana",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "ha",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "ism",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "ma",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "majorfinder",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "media",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "music",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "nix-agent",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "notes",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "ntfy",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "obsidian",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "photo",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "photos",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "rupanism",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "seerr",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "soluble",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "spatia",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "uwagent",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "vault",
+    "rr": "A",
+    "server": "10.0.40.19"
+  },
+  {
+    "description": "LAN gateway: same-name HTTPS on the LAN without the Cloudflare Tunnel",
+    "domain": "rupan.dev",
+    "enabled": "1",
+    "hostname": "www",
+    "rr": "A",
+    "server": "10.0.40.19"
   }
 ]

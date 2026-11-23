@@ -19,6 +19,7 @@ let
       ./hosts.nix
       ./networks.nix
       ./dns.nix
+      ./lan-gateway.nix
       ./static-routes.nix
     ]
     ++ extraModules;
