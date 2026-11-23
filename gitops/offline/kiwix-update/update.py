@@ -3,11 +3,15 @@
 fetch: for each book in books.json, find the newest release in the Kiwix
 OPDS catalog, download it into staging (resumable, rate limited), check its
 size, SHA-256 and ZIM header, and rename it into zim/ beside the release it
-replaces. Writes the files the library should list (newest release of each
+replaces. A download that fails its SHA-256 has only the pieces whose
+metalink SHA-1 differs fetched again; mirrors behind the download redirector
+can serve a short or damaged copy, and a 100 GB book is not worth refetching
+for that. Writes the files the library should list (newest release of each
 book) and the books that failed. A failed book keeps its served release.
 
 finish: wait until kiwix-serve lists exactly the library's books, load each
-book's main page and, where it has a full-text index, run a search. Only
+book's main page and, where it has a full-text index, run a search (a
+replica that has not reloaded the library yet gets until the timeout). Only
 then move superseded releases to previous/ (one kept per book). Fails when
 verification or any fetch failed.
 """
@@ -75,6 +79,21 @@ class Release:
 class Metalink:
     size: int
     sha256: str
+    piece_length: int = 0
+    pieces: tuple[str, ...] = ()
+
+    def piece(self, index: int) -> tuple[int, int]:
+        """Offset and length of one piece."""
+        offset = index * self.piece_length
+        return offset, min(self.piece_length, self.size - offset)
+
+
+class Damaged(UpdateError):
+    """The file's SHA-256 is wrong; `pieces` lists the pieces that differ."""
+
+    def __init__(self, message: str, pieces: list[int]) -> None:
+        super().__init__(message)
+        self.pieces = pieces
 
 
 def load_books(path: Path) -> list[Book]:
@@ -120,7 +139,17 @@ def parse_metalink(document: bytes, filename: str) -> Metalink:
         )
         if size is None or not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise UpdateError(f"{filename}: metalink has no size or SHA-256")
-        return Metalink(int(size), digest)
+        pieces = entry.find(f"{METALINK}pieces")
+        if pieces is None or pieces.get("type") != "sha-1":
+            return Metalink(int(size), digest)
+        hashes = tuple(
+            (hash_.text or "").strip().lower()
+            for hash_ in pieces.iter(f"{METALINK}hash")
+        )
+        length = int(pieces.get("length", "0"))
+        if length <= 0 or len(hashes) != -(-int(size) // length):
+            return Metalink(int(size), digest)
+        return Metalink(int(size), digest, length, hashes)
     raise UpdateError(f"{filename}: metalink does not describe this file")
 
 
@@ -151,14 +180,22 @@ def drop_cache(handle: BinaryIO) -> None:
     os.posix_fadvise(handle.fileno(), 0, 0, os.POSIX_FADV_DONTNEED)
 
 
-def download(url: str, part: Path, size: int, rate: int) -> None:
+def download(url: str, part: Path, size: int, rate: int, attempts: int = 3) -> None:
     """Resume `part` up to `size` bytes, sleeping to stay under `rate` B/s."""
-    offset = part.stat().st_size if part.exists() else 0
-    if offset > size:
-        part.unlink()
-        offset = 0
-    if offset == size:
-        return
+    for _ in range(attempts):
+        offset = part.stat().st_size if part.exists() else 0
+        if offset > size:
+            part.unlink()
+            offset = 0
+        if offset == size:
+            return
+        resume(url, part, offset, rate)
+    if part.stat().st_size != size:
+        raise UpdateError(f"{url}: got {part.stat().st_size} of {size} bytes")
+
+
+def resume(url: str, part: Path, offset: int, rate: int) -> None:
+    """Append what the server sends from `offset`; it may stop short."""
     request = urllib.request.Request(
         url, headers={"User-Agent": USER_AGENT, "Range": f"bytes={offset}-"}
     )
@@ -177,8 +214,27 @@ def download(url: str, part: Path, size: int, rate: int) -> None:
                 if ahead > 0:
                     time.sleep(ahead)
             drop_cache(output)
-    if part.stat().st_size != size:
-        raise UpdateError(f"{url}: got {part.stat().st_size} of {size} bytes")
+
+
+def fetch_range(url: str, part: Path, offset: int, length: int) -> None:
+    """Overwrite `length` bytes of `part` at `offset` with the server's copy."""
+    request = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Range": f"bytes={offset}-{offset + length - 1}",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=120) as response:
+        if response.status != 206:
+            raise UpdateError(f"{url}: server ignored the range")
+        data = response.read(length + 1)
+    if len(data) != length:
+        raise UpdateError(f"{url}: got {len(data)} of {length} bytes at {offset}")
+    with part.open("r+b") as output:
+        output.seek(offset)
+        output.write(data)
+        drop_cache(output)
 
 
 def verify_file(path: Path, expected: Metalink) -> None:
@@ -189,14 +245,45 @@ def verify_file(path: Path, expected: Metalink) -> None:
             raise UpdateError(f"{path.name}: not a ZIM file")
         handle.seek(0)
         digest = hashlib.sha256()
+        damaged = []
         read = 0
-        while chunk := handle.read(CHUNK):
+        # Read piece by piece when the metalink has pieces, so each read is
+        # also checked against its piece's SHA-1.
+        while chunk := handle.read(expected.piece_length or CHUNK):
             digest.update(chunk)
+            if expected.pieces:
+                index = read // expected.piece_length
+                if hashlib.sha1(chunk).hexdigest() != expected.pieces[index]:
+                    damaged.append(index)
             read += len(chunk)
-            if read % FLUSH_EVERY < CHUNK:
+            if read % FLUSH_EVERY < len(chunk):
                 drop_cache(handle)
     if digest.hexdigest() != expected.sha256:
-        raise UpdateError(f"{path.name}: SHA-256 mismatch")
+        raise Damaged(f"{path.name}: SHA-256 mismatch", damaged)
+
+
+def verify_or_repair(
+    url: str,
+    part: Path,
+    expected: Metalink,
+    repair: Callable[[str, Path, int, int], None],
+    rounds: int = 3,
+) -> None:
+    """Verify `part`, refetching damaged pieces up to `rounds` times."""
+    for _ in range(rounds):
+        try:
+            verify_file(part, expected)
+            return
+        except Damaged as error:
+            if not error.pieces:
+                raise
+            print(
+                f"{part.name}: refetching {len(error.pieces)} damaged pieces",
+                flush=True,
+            )
+            for index in error.pieces:
+                repair(url, part, *expected.piece(index))
+    verify_file(part, expected)
 
 
 def update_book(
@@ -205,6 +292,7 @@ def update_book(
     *,
     fetch: Callable[[str], bytes],
     transfer: Callable[[str, Path, int], None],
+    repair: Callable[[str, Path, int, int], None],
     reserve: int,
 ) -> str:
     query = urllib.parse.urlencode({"name": book.name, "count": 100})
@@ -223,7 +311,7 @@ def update_book(
     check_space(root, max(expected.size - done, 0), reserve)
     transfer(release.url, part, expected.size)
     try:
-        verify_file(part, expected)
+        verify_or_repair(release.url, part, expected, repair)
     except UpdateError:
         part.unlink()
         raise
@@ -256,6 +344,7 @@ def fetch_all(args: argparse.Namespace) -> int:
                 book,
                 fetch=http_get,
                 transfer=lambda url, part, size: download(url, part, size, args.rate),
+                repair=fetch_range,
                 reserve=args.reserve,
             )
             print(result, flush=True)
@@ -311,18 +400,26 @@ def verify_server(root: Path, url: str, timeout: float) -> list[str]:
         if time.monotonic() > deadline:
             return [f"server lists {len(served)} books, library has {len(wanted)}"]
         time.sleep(10)
-    problems = []
+    checks = []
     for book_id, content, indexed in served:
-        checks = [f"{url}{content}"]
+        checks.append(f"{url}{content}")
         if indexed:
             checks.append(f"{url}/search?books.id={book_id}&pattern=the")
+    # The catalog answer came from one replica; another may still be loading
+    # the new library, so failed checks are retried until the deadline.
+    while True:
+        problems = []
         for check in checks:
             try:
                 http_get(check, timeout=120)
             except OSError as error:
-                problems.append(f"{check}: {error}")
+                problems.append((check, error))
+        if not problems or time.monotonic() > deadline:
+            break
+        checks = [check for check, _ in problems]
+        time.sleep(10)
     print(f"verified {len(served)} books, {len(problems)} problems", flush=True)
-    return problems
+    return [f"{check}: {error}" for check, error in problems]
 
 
 def rotate(root: Path, books: list[Book]) -> list[str]:
