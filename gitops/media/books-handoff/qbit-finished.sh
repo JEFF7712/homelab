@@ -7,8 +7,7 @@ set -eu
 [ "${1:-}" = books ] || exit 0
 src=${2:?content path}
 handoff=${BOOKS_HANDOFF_DIR:-/data/books/handoff}
-staging="$handoff/.staging"
-mkdir -p "$staging"
+mkdir -p "$handoff"
 # One record per book in Calibre: prefer EPUB, else AZW3, else MOBI.
 for ext in epub azw3 mobi; do
   list=$(find "$src" -type f -iname "*.$ext")
@@ -16,8 +15,9 @@ for ext in epub azw3 mobi; do
   printf '%s\n' "$list" | while IFS= read -r file; do
     name=$(basename "$file")
     [ -e "$handoff/$name" ] && continue
-    cp "$file" "$staging/$name"
-    mv "$staging/$name" "$handoff/$name"
+    # Hidden until complete: ingest-mover.sh skips dotfiles.
+    cp "$file" "$handoff/.$name.part"
+    mv "$handoff/.$name.part" "$handoff/$name"
   done
   exit 0
 done

@@ -37,7 +37,11 @@ until the rescan finds the file.
   the file from ingest either way; the copy in `/data/downloads/books` stays.
   Look for `ran into the following error` above it. `KeyError` means
   `dirs.json` (`gitops/media/configs.yaml`) lacks a key the image reads;
-  `No such file or directory: 'calibredb'` means `/app/calibre` fell off the
-  container `PATH` (the read-only rootfs blocks CWA's own symlink step).
-- Re-run a hand-off for a finished torrent from the qBittorrent pod:
-  `sh /books-handoff/qbit-finished.sh books "<content path>"`.
+  `No such file or directory: 'calibredb'` (or a download 500 with
+  `NoneType + str`) means `calibre_postinstall` could not link Calibre's
+  tools into `/usr/bin`; the container needs a writable root filesystem.
+- Re-run a hand-off for a finished torrent from the qBittorrent pod, as
+  qBittorrent's user so the handoff folder stays writable for the hook:
+  `s6-setuidgid abc sh /books-handoff/qbit-finished.sh books "<content path>"`.
+- After an NFS outage the calibre-web pod can stick in
+  `CreateContainerConfigError: failed to prepare subPath`; delete the pod.

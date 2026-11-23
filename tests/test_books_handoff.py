@@ -101,7 +101,7 @@ class IngestMover(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp())
         self.handoff = tmp / "handoff"
         self.ingest = tmp / "ingest"
-        (self.handoff / ".staging").mkdir(parents=True)
+        self.handoff.mkdir()
         self.ingest.mkdir()
         self.env = {
             "BOOKS_HANDOFF_DIR": str(self.handoff),
@@ -110,11 +110,11 @@ class IngestMover(unittest.TestCase):
 
     def test_moves_ready_files_only(self):
         (self.handoff / "Matter.epub").write_text("x")
-        (self.handoff / ".staging" / "Partial.epub").write_text("x")
+        (self.handoff / ".Partial.epub.part").write_text("x")
         out = run_script("ingest-mover.sh", "--once", env=self.env)
         self.assertIn("handed off Matter.epub", out)
         self.assertEqual(sorted(p.name for p in self.ingest.iterdir()), ["Matter.epub"])
-        self.assertTrue((self.handoff / ".staging" / "Partial.epub").exists())
+        self.assertTrue((self.handoff / ".Partial.epub.part").exists())
 
     def test_name_collision_waits(self):
         (self.handoff / "Matter.epub").write_text("new")
@@ -187,12 +187,13 @@ class CalibreDirs(unittest.TestCase):
             },
         )
 
-    def test_bundled_calibre_is_on_path(self):
+    def test_calibre_can_install_its_binaries(self):
+        # cwa-init forces config_binariesdir=/usr/bin; calibre_postinstall must
+        # be able to link calibredb there for ingest and downloads to work.
         spec = deployment("calibre-web")["spec"]["template"]["spec"]
         cwa = next(c for c in spec["containers"] if c["name"] == "calibre-web")
-        env = {e["name"]: e.get("value") for e in cwa["env"]}
-        self.assertIn("/app/calibre", env["PATH"].split(":"))
-        self.assertIn("/usr/bin", env["PATH"].split(":"))
+        self.assertFalse(cwa["securityContext"]["readOnlyRootFilesystem"])
+        self.assertFalse(cwa["securityContext"]["allowPrivilegeEscalation"])
 
 
 if __name__ == "__main__":
