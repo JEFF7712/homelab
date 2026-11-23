@@ -20,6 +20,26 @@ NEW = "/nix/store/" + "b" * 32 + "-linux-6.18.62"
 IN_WINDOW = datetime(2026, 11, 11, 9, 30, tzinfo=UTC)
 
 
+def stuck_pod(
+    namespace: str,
+    name: str,
+    *,
+    owned: bool = True,
+    message: str = 'failed to prepare subPath for volumeMount "media"',
+    terminating: bool = False,
+) -> dict:
+    meta: dict = {"namespace": namespace, "name": name}
+    if owned:
+        meta["ownerReferences"] = [{"kind": "ReplicaSet", "name": name[:-6]}]
+    if terminating:
+        meta["deletionTimestamp"] = "2026-11-23T09:30:00Z"
+    waiting = {"reason": "CreateContainerConfigError", "message": message}
+    return {
+        "metadata": meta,
+        "status": {"containerStatuses": [{"state": {"waiting": waiting}}]},
+    }
+
+
 class Fleet:
     """Hosts that boot the installed system when a reboot is scheduled."""
 
@@ -32,6 +52,10 @@ class Fleet:
         self.busy: dict[str, str] = {}
         self.pools = "all pools are healthy"
         self.commands: list[tuple[str, str]] = []
+        # Pods in the cluster, and names whose replacement is stuck again.
+        self.pods: list[dict] = []
+        self.stuck_again: set[str] = set()
+        self.deleted_pods: list[str] = []
 
     def __call__(self, argv, **options):
         if argv[0] == "kubectl":
@@ -52,6 +76,17 @@ class Fleet:
                         }
                     )
                 )
+            if argv[1:3] == ["get", "pods"]:
+                return self.ok(json.dumps({"items": self.pods}))
+            if argv[3:5] == ["delete", "pod"]:
+                namespace, name = argv[2], argv[5]
+                self.deleted_pods.append(f"{namespace}/{name}")
+                self.pods = [
+                    pod for pod in self.pods if pod["metadata"]["name"] != name
+                ]
+                if any(name.startswith(prefix) for prefix in self.stuck_again):
+                    self.pods.append(stuck_pod(namespace, name + "-x"))
+                return self.ok("")
             return self.ok("")
         assert argv[0] == "ssh", argv
         name = IP_TO_NAME[argv[-2].split("@")[1]]
@@ -171,7 +206,7 @@ class FleetRebootTest(unittest.TestCase):
             [
                 entry
                 for entry in kubectl
-                if entry not in ("get nodes", "annotate --overwrite")
+                if entry not in ("get nodes", "annotate --overwrite", "get pods")
             ],
             [
                 "cordon homelab-02",
@@ -185,6 +220,8 @@ class FleetRebootTest(unittest.TestCase):
         rebooter.wait_postgres_ready.assert_called_once()
         rebooter.verify_nas_datasets.assert_called_once()
         rebooter.verify_nas_appliance.assert_called_once()
+        # The NAS reboot is followed by the stale-NFS-mount pod watch.
+        self.assertIn("get pods", kubectl)
 
     def test_the_ci_host_is_handed_to_a_watcher(self) -> None:
         fleet = Fleet({"homelab-04"})
@@ -303,6 +340,54 @@ class FleetRebootTest(unittest.TestCase):
 
     def test_ignore_window_requires_dry_run(self) -> None:
         self.assertEqual(main(["--ignore-window"], runner=Fleet(set())), 2)
+
+
+class NfsPodRecoveryTest(unittest.TestCase):
+    rebooter = FleetRebootTest.rebooter
+
+    def test_nas_reboot_recreates_pods_stuck_on_stale_mounts(self) -> None:
+        fleet = Fleet({"nas-01"})
+        fleet.pods = [
+            stuck_pod("media", "calibre-web-84b7b6b476-c4fkw"),
+            stuck_pod("media", "orphan-pod-abcde", owned=False),
+            stuck_pod("media", "other-error-abcde", message="secret not found"),
+            stuck_pod("media", "going-away-abcde", terminating=True),
+        ]
+        rebooter = self.rebooter(fleet)
+        result = rebooter.maintain()
+        self.assertEqual(fleet.deleted_pods, ["media/calibre-web-84b7b6b476-c4fkw"])
+        self.assertIn(
+            {"host": "nas-01", "status": "rebooted"},
+            [
+                {k: v for k, v in h.items() if k != "duration_seconds"}
+                for h in result["hosts"]
+            ],
+        )
+        titles = [c.args[0] for c in rebooter.notifier.call_args_list]
+        self.assertIn("Pods recreated after NAS reboot", titles)
+
+    def test_pod_stuck_again_halts_the_run(self) -> None:
+        fleet = Fleet({"nas-01"})
+        fleet.pods = [stuck_pod("media", "calibre-web-84b7b6b476-c4fkw")]
+        fleet.stuck_again = {"calibre-web-84b7b6b476-c4fkw"}
+        rebooter = self.rebooter(fleet)
+        with self.assertRaisesRegex(FleetDeploymentError, "still stuck on NFS"):
+            rebooter.maintain()
+        titles = [c.args[0] for c in rebooter.notifier.call_args_list]
+        self.assertIn("[ALERT] Fleet reboot halted", titles)
+
+    def test_only_the_nas_reboot_checks_pods(self) -> None:
+        fleet = Fleet({"homelab-02"})
+        fleet.pods = [stuck_pod("media", "calibre-web-84b7b6b476-c4fkw")]
+        self.rebooter(fleet).maintain()
+        self.assertNotIn(("kubectl", "get pods"), fleet.commands)
+        self.assertEqual(fleet.deleted_pods, [])
+
+    def test_dry_run_deletes_nothing(self) -> None:
+        fleet = Fleet({"nas-01"})
+        fleet.pods = [stuck_pod("media", "calibre-web-84b7b6b476-c4fkw")]
+        self.rebooter(fleet, dry_run=True).maintain()
+        self.assertEqual(fleet.deleted_pods, [])
 
 
 if __name__ == "__main__":

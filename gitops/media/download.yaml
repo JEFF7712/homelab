@@ -31,7 +31,7 @@ spec:
         # world-writable like the other download folders.
         - name: fix-permissions
           image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
-          command: ["sh", "-c", "chown -R 1000:1000 /config-qbit && mkdir -p /data/downloads /data/downloads/games /data/games/pc && chown 1000:1000 /data/downloads /data/downloads/games /data/games /data/games/pc && chmod 0777 /data/downloads/games && chmod 2777 /data/games/pc"]  # yamllint disable-line rule:line-length
+          command: ["sh", "-c", "chown -R 1000:1000 /config-qbit && mkdir -p /data/downloads /data/downloads/games /data/games/pc && chown 1000:1000 /data/downloads /data/downloads/games /data/games /data/games/pc && chmod 0777 /data/downloads/games && chmod 2777 /data/games/pc && mkdir -p /data/downloads/books /data/books/handoff && chown 911:1001 /data/downloads/books /data/books/handoff && chmod 0777 /data/books/handoff"]  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -68,6 +68,15 @@ spec:
               sed -i '/^\[BitTorrent\]$/a Session\\GlobalMaxSeedingMinutes=-1' "$CONF"
               sed -i '/^\[BitTorrent\]$/a Session\\GlobalMaxRatio=-1' "$CONF"
               sed -i '/^\[BitTorrent\]$/a Session\\DiskIOType=SimplePreadPwrite' "$CONF"
+              # Books download outside Calibre's ingest folder and are copied
+              # there on completion (gitops/media/books-handoff/).
+              CATS="/config-qbit/qBittorrent/categories.json"
+              if [ -f "$CATS" ]; then
+                sed -i 's|"save_path": "/data/books/ingest"|"save_path": "/data/downloads/books"|' "$CATS"
+              fi
+              sed -i '/^\[AutoRun\]$/,/^\[/{/^\[AutoRun\]$/d;/^\[/!d}' "$CONF"
+              HOOK='/bin/sh /books-handoff/qbit-finished.sh \"%L\" \"%F\"'
+              printf '\n[AutoRun]\nenabled=true\nprogram=%s\n' "$HOOK" >> "$CONF"
           volumeMounts:
             - name: qbit-config
               mountPath: /config-qbit
@@ -168,6 +177,9 @@ spec:
               mountPath: /tmp
             - name: run
               mountPath: /run
+            - name: books-handoff
+              mountPath: /books-handoff
+              readOnly: true
           readinessProbe:
             tcpSocket:
               port: 8080
@@ -192,6 +204,9 @@ spec:
         - name: qbit-config
           persistentVolumeClaim:
             claimName: download-config
+        - name: books-handoff
+          configMap:
+            name: books-handoff
         - name: gluetun-config
           emptyDir: {}
         - name: tmp

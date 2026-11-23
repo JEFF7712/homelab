@@ -820,6 +820,10 @@ spec:
     name: homelab-media-values
     creationPolicy: Owner
   data:
+    - secretKey: BOOKSHELF_API_KEY
+      remoteRef:
+        key: homelab-values
+        property: BOOKSHELF_API_KEY
     - secretKey: GEMINI_API_KEY
       remoteRef:
         key: homelab-values

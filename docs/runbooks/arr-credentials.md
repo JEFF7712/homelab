@@ -1,6 +1,6 @@
 # Media download-chain credentials
 
-The qBittorrent WebUI password and the Sonarr/Radarr/Lidarr/Seerr API keys
+The qBittorrent WebUI password and the Sonarr/Radarr/Lidarr/Bookshelf/Seerr API keys
 live in app databases on PVCs, not in Git. `arr-credential-sync`
 (`gitops/media/arr-secret-sync.yaml`, every 15 min) enforces them from the
 `media-app` Secret, which ExternalSecrets fills from SOPS-backed
@@ -15,10 +15,10 @@ hour) before checking sync or restarting consumers. The sync CronJob runs every
 
 | SOPS property | Pushed to |
 |---|---|
-| `QBITTORRENT_USERNAME` / `QBITTORRENT_PASSWORD` | Radarr, Sonarr, Lidarr qBittorrent download clients |
+| `QBITTORRENT_USERNAME` / `QBITTORRENT_PASSWORD` | Radarr, Sonarr, Lidarr, Bookshelf qBittorrent download clients |
 | `SONARR_API_KEY`, `RADARR_API_KEY` | Seerr server settings |
 | `JELLYFIN_SEERR_API_KEY` | Seerr Jellyfin settings |
-| `LIDARR_API_KEY`, `SEERR_API_KEY` | Used by the sync job for API auth |
+| `LIDARR_API_KEY`, `BOOKSHELF_API_KEY`, `SEERR_API_KEY` | Used by the sync job for API auth |
 
 The job is test-first: it runs each download client's own connection test
 and only rewrites the password when the test fails. Any failure exits
@@ -33,11 +33,11 @@ qBittorrent restart behind the VPN tunnel, so it stays a manual step):
 1. qBittorrent WebUI (torrent.rupan.dev) -> Tools -> Options -> Web UI ->
    change password, Apply.
 2. Update the `QBITTORRENT_PASSWORD` SOPS property (same value).
-3. After ESO refresh, the next sync job pushes it to Radarr/Sonarr/Lidarr.
+3. After ESO refresh, the next sync job pushes it to Radarr/Sonarr/Lidarr/Bookshelf.
    Verify: `kubectl -n media logs -l job-name --tail=20` shows
    `OK: all credentials in sync`, or check the *arr UIs' download clients.
 
-## Rotate a Sonarr, Radarr or Lidarr API key
+## Rotate a Sonarr, Radarr, Lidarr or Bookshelf API key
 
 API keys live in each app's `config.xml` on its config PVC and need an app
 restart, so this is also manual:
@@ -45,7 +45,7 @@ restart, so this is also manual:
 1. Stop the app (`kubectl scale -n media deploy/<app> --replicas=0`).
 2. Edit `/config/config.xml` on the PVC (or via a debug pod), set `<ApiKey>`.
 3. Scale back up, update the matching SOPS property
-   (`SONARR_API_KEY`, `RADARR_API_KEY`, `LIDARR_API_KEY`).
+   (`SONARR_API_KEY`, `RADARR_API_KEY`, `LIDARR_API_KEY`, `BOOKSHELF_API_KEY`).
    Seerr uses its own application settings; do not apply the *arr `config.xml`
    procedure to it. Update `SEERR_API_KEY` in SOPS after rotating it in Seerr.
 4. The sync job restores Seerr's stored server keys automatically.

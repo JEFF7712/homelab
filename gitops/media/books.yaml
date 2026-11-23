@@ -15,6 +15,10 @@ spec:
     metadata:
       labels:
         app: calibre-web
+      annotations:
+        # dirs.json is a subPath mount, which never refreshes in a running
+        # pod: bump this whenever calibre-web-dirs changes.
+        media.rupan.dev/calibre-web-dirs: "2"
     spec:
       automountServiceAccountToken: false
       securityContext:
@@ -37,7 +41,10 @@ spec:
           image: registry.rupan.dev/upstream/docker.io/crocodilestick/calibre-web-automated@sha256:5e00373854247750cc3e4479b492ae09293ff5e06ed10177f226634d97888679  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
+            # cwa-init pins app.db's binaries dir to /usr/bin on every start and
+            # calibre_postinstall links calibredb/ebook-convert there; with a
+            # read-only rootfs ingest and metadata-embedding downloads fail.
+            readOnlyRootFilesystem: false
           env:
             - name: PUID
               value: "1000"
@@ -82,7 +89,36 @@ spec:
               memory: 256Mi
             limits:
               memory: 1Gi
+        # Finished book downloads reach Calibre through this rename; see
+        # gitops/media/books-handoff/ingest-mover.sh.
+        - name: ingest-mover
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          command: ["sh", "/books-handoff/ingest-mover.sh"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            # calibre-web's abc user is PUID 1000 now that its rootfs is
+            # writable, and cwa-init chowns the ingest folder to it.
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+          volumeMounts:
+            - name: media
+              mountPath: /books
+              subPath: books
+            - name: books-handoff
+              mountPath: /books-handoff
+              readOnly: true
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              memory: 32Mi
       volumes:
+        - name: books-handoff
+          configMap:
+            name: books-handoff
         - name: config
           persistentVolumeClaim:
             claimName: calibre-config

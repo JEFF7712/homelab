@@ -16,6 +16,8 @@ CoreDNS ordering is independent of the other resolver views. Enabled AdGuard
 and CoreDNS records must also appear in Unbound. Disabled records are omitted
 from CoreDNS. The two
 Unbound-only homelab VIP records remain outside the AdGuard rewrite view.
+`inventory/lan-gateway.nix` adds Unbound-only records from
+`config/lan-gateway.json`; see [LAN gateway](lan-gateway.md).
 `just tofu-render` generates `inventory/adguard-rewrites.json` and
 `opnsense_reconciler/unbound-host-overrides.json`, plus the exact CoreDNS
 manifest at `gitops/platform/coredns-custom.yaml`; never edit these outputs.

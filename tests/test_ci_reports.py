@@ -4,7 +4,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -48,15 +47,25 @@ class ReportsTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
             self.assertIsNone(run.anon_bytes(directory))
-            (directory / "memory.stat").write_text("anon 3000\nfile 9000\n")
-            sampler = run.AnonPeak(directory, interval=0.01)
-            with sampler:
-                time.sleep(0.05)
-                (directory / "memory.stat").write_text("anon 7000\nfile 1\n")
-                time.sleep(0.05)
-                (directory / "memory.stat").write_text("anon 2000\n")
-                time.sleep(0.05)
-            self.assertEqual(sampler.peak, 7000)
+            stat = directory / "memory.stat"
+            # A stopped sampler takes exactly one sample per call, so the
+            # peak is checked without racing a thread under CI load.
+            sampler = run.AnonPeak(directory)
+            sampler.stopped.set()
+            for text, peak in (
+                ("anon 3000\nfile 9000\n", 3000),
+                ("anon 7000\nfile 1\n", 7000),
+                ("anon 2000\n", 7000),
+            ):
+                stat.write_text(text)
+                sampler.sample()
+                self.assertEqual(sampler.peak, peak)
+            # Used as a context manager it samples at least once, then stops.
+            stat.write_text("anon 5000\n")
+            with run.AnonPeak(directory, interval=3600) as running:
+                pass
+            self.assertFalse(running.thread.is_alive())
+            self.assertEqual(running.peak, 5000)
             self.assertIsNone(run.AnonPeak(None).peak)
 
     def test_timing_records_counter_deltas_and_distinguishes_pipeline_age(self) -> None:

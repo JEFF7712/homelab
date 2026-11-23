@@ -1,0 +1,476 @@
+# US place search (Photon) and directions (Valhalla) for http://maps.homelab.
+# The data lives in the archive (maps/search, maps/routing on nas-01) so it
+# can be served without the internet; each server copies it to node-local
+# NVMe at start, because Photon's index must not run from the NAS's HDD.
+# geo-update refreshes it once it is older than geo.json allows (90 days):
+#   fetch   - download the Photon US index and the Geofabrik US extract
+#   build   - turn the extract into Valhalla tiles on node-local disk
+#   finish  - switch to the new data, restart the servers, search and route
+#             through maps.homelab; only then delete the old data
+# A failed check restores the previous data. docs/runbooks/offline-library.md
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: geo-update
+  namespace: offline
+automountServiceAccountToken: false
+---
+# finish restarts the two servers after switching their data; nothing else.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: geo-update
+  namespace: offline
+rules:
+  - apiGroups: [apps]
+    resources: [deployments]
+    resourceNames: [maps-search, maps-routing]
+    verbs: [get, patch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: geo-update
+  namespace: offline
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: geo-update
+subjects:
+  - kind: ServiceAccount
+    name: geo-update
+    namespace: offline
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: geo-update
+  namespace: offline
+spec:
+  # Monthly check; data is only replaced once it is 90 days old.
+  schedule: "0 4 1 * *"
+  timeZone: America/Chicago
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 3600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 172800
+      template:
+        metadata:
+          labels:
+            app: geo-update
+        spec:
+          serviceAccountName: geo-update
+          automountServiceAccountToken: true
+          restartPolicy: Never
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          # The tile build needs the RAM and NVMe of the 32 GB nodes.
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values: [homelab-04, homelab-05]
+              preferredDuringSchedulingIgnoredDuringExecution:
+                - weight: 100
+                  preference:
+                    matchExpressions:
+                      - key: kubernetes.io/hostname
+                        operator: In
+                        values: [homelab-05]
+          initContainers:
+            - name: fetch
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+              command:
+                - python3
+                - -I
+                - /app/geo.py
+                - fetch
+                - --maps-root=/maps
+                - --geo=/app/geo.json
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+                - name: archive
+                  mountPath: /maps
+                  subPath: maps
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 256Mi
+                limits:
+                  memory: 1Gi
+            - name: build
+              image: registry.rupan.dev/upstream/ghcr.io/valhalla/valhalla@sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de  # yamllint disable-line rule:line-length
+              command: [/bin/sh, /app/build-routing.sh]
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+                - name: archive
+                  mountPath: /maps
+                  subPath: maps
+                - name: work
+                  mountPath: /work
+                - name: tmp
+                  mountPath: /tmp
+              # Quarterly and an hour long: it borrows idle capacity instead of
+              # reserving it, since homelab-05's requests are nearly all
+              # allocated (homelab-04 holds most of its RAM back for CI).
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                  ephemeral-storage: 60Gi
+                limits:
+                  memory: 12Gi
+          containers:
+            - name: finish
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+              command:
+                - python3
+                - -I
+                - /app/geo.py
+                - finish
+                - --maps-root=/maps
+                - --geo=/app/geo.json
+                - --maps-url=http://offline-web.offline.svc.cluster.local
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+                - name: archive
+                  mountPath: /maps
+                  subPath: maps
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+          volumes:
+            - name: script
+              configMap:
+                name: kiwix-update
+            - name: archive
+              persistentVolumeClaim:
+                claimName: offline-archive
+            - name: work
+              emptyDir:
+                sizeLimit: 120Gi
+            - name: tmp
+              emptyDir:
+                sizeLimit: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maps-search
+  namespace: offline
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  # Two copies of the index would not fit beside each other in RAM.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: maps-search
+  template:
+    metadata:
+      labels:
+        app: maps-search
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [homelab-04, homelab-05]
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [homelab-05]
+      initContainers:
+        # Waits (rather than crash-looping) until geo-update has built the
+        # first index, then copies the served one to local NVMe.
+        - name: load
+          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              until [ -d /maps/search/current/photon_data ]; do
+                echo "waiting for geo-update to build the search index"
+                sleep 300
+              done
+              rm -rf /data/photon_data
+              cp -a /maps/search/current/photon_data /data/
+              echo "loaded $(readlink /maps/search/current)"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: archive
+              mountPath: /maps
+              subPath: maps
+              readOnly: true
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      containers:
+        - name: photon
+          image: registry.rupan.dev/upstream/docker.io/library/eclipse-temurin@sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56  # yamllint disable-line rule:line-length
+          command:
+            - java
+            - -Xmx4g
+            - -Djava.io.tmpdir=/tmp
+            - -jar
+            - /maps/search/photon-1.3.0.jar
+            - serve
+            - -data-dir
+            - /data
+            - -listen-ip
+            - 0.0.0.0
+            - -listen-port
+            - "2322"
+            - -max-results
+            - "20"
+          ports:
+            - name: http
+              containerPort: 2322
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          startupProbe:
+            httpGet:
+              path: /api?q=chicago&limit=1
+              port: http
+            periodSeconds: 15
+            failureThreshold: 80
+          readinessProbe:
+            httpGet:
+              path: /api?q=chicago&limit=1
+              port: http
+            periodSeconds: 30
+            timeoutSeconds: 10
+          # The index is memory-mapped: page cache beyond the heap is
+          # reclaimable, so the limit leaves room above -Xmx for it.
+          resources:
+            requests:
+              cpu: 200m
+              memory: 5Gi
+              ephemeral-storage: 40Gi
+            limits:
+              memory: 8Gi
+          volumeMounts:
+            - name: archive
+              mountPath: /maps
+              subPath: maps
+              readOnly: true
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: archive
+          persistentVolumeClaim:
+            claimName: offline-archive
+            readOnly: true
+        - name: data
+          emptyDir:
+            sizeLimit: 60Gi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: maps-search
+  namespace: offline
+spec:
+  selector:
+    app: maps-search
+  ports:
+    - name: http
+      port: 2322
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maps-routing
+  namespace: offline
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: maps-routing
+  template:
+    metadata:
+      labels:
+        app: maps-routing
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [homelab-04, homelab-05]
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              preference:
+                matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [homelab-05]
+      initContainers:
+        - name: load
+          image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              until [ -f /maps/routing/current/valhalla_tiles.tar ]; do
+                echo "waiting for geo-update to build the routing tiles"
+                sleep 300
+              done
+              cp /maps/routing/current/valhalla_tiles.tar /maps/routing/current/valhalla.json /data/
+              echo "loaded $(readlink /maps/routing/current)"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: archive
+              mountPath: /maps
+              subPath: maps
+              readOnly: true
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      containers:
+        - name: valhalla
+          image: registry.rupan.dev/upstream/ghcr.io/valhalla/valhalla@sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de  # yamllint disable-line rule:line-length
+          command: [valhalla_service, /data/valhalla.json, "2"]
+          ports:
+            - name: http
+              containerPort: 8002
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          startupProbe:
+            httpGet:
+              path: /status
+              port: http
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: http
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 1Gi
+              ephemeral-storage: 30Gi
+            limits:
+              memory: 4Gi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: archive
+          persistentVolumeClaim:
+            claimName: offline-archive
+            readOnly: true
+        - name: data
+          emptyDir:
+            sizeLimit: 40Gi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: maps-routing
+  namespace: offline
+spec:
+  selector:
+    app: maps-routing
+  ports:
+    - name: http
+      port: 8002
+      targetPort: http
