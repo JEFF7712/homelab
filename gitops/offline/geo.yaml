@@ -135,13 +135,16 @@ spec:
                   mountPath: /work
                 - name: tmp
                   mountPath: /tmp
+              # Quarterly and an hour long: it borrows idle capacity instead of
+              # reserving it, since homelab-05's requests are nearly all
+              # allocated (homelab-04 holds most of its RAM back for CI).
               resources:
                 requests:
-                  cpu: "2"
-                  memory: 6Gi
+                  cpu: 500m
+                  memory: 1Gi
                   ephemeral-storage: 60Gi
                 limits:
-                  memory: 14Gi
+                  memory: 12Gi
           containers:
             - name: finish
               image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
