@@ -64,6 +64,13 @@ configMapGenerator:
     files:
       - beets/config.yaml
       - beets/nightly.py
+  - name: books-handoff
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - books-handoff/qbit-finished.sh
+      - books-handoff/ingest-mover.sh
   - name: arr-credential-sync
     namespace: media
     options:
