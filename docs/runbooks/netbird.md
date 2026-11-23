@@ -4,6 +4,8 @@ Peer client config and dashboard control plane are separate. `flake/modules/adgu
 
 OPNsense gives the peer a stable public endpoint so remote peers behind strict NAT connect P2P instead of through the NetBird cloud relay: `tofu/opnsense/` forwards WAN UDP 51820 to `10.0.30.10:51820` with a matching WAN pass rule, and `opnsense_reconciler/outbound-nat-rules.json` keeps that source port static on egress so the STUN-discovered candidate is `wanip:51820`. Without it, peers such as `akshath-lenovo7` fall back to `Relayed` and drop whenever the relay session resets, recovering only on the hourly ICE retry. Check with `netbird status -d` on `adguard-netbird-01` (`Connection type: P2P`).
 
+LAN hosts can open connections to remote peers (for example CI deploying `home-pc-01`) only because `adguard-netbird-01` masquerades LAN-sourced traffic leaving `wt0` to its own NetBird address (`networking.nftables.tables.netbird-lan-egress` in `netbird.nix`). Without it the packet keeps its `10.0.x` source, and the receiving peer's WireGuard drops it whenever it assigned the LAN route to another routing peer (`predmarkbot-vm` also routes these networks). Such flows therefore reach a peer as `adguard-netbird-01`, so a policy with `adguard-netbird-01` as the source peer admits them; for example `homelab-to-home-pc-01` (TCP 22 to `home-pc-01`).
+
 ## When agents should use it
 
 - Peer approval, rename, or group assignment from the dashboard side.
