@@ -760,9 +760,10 @@ class ManifestTest(unittest.TestCase):
         )
         service = self.objects[("Service", "offline-web")]
         self.assertEqual(service["spec"]["type"], "LoadBalancer")
-        # The namespace policy admits LAN sources, so they must not be SNATed.
-        self.assertEqual(service["spec"]["externalTrafficPolicy"], "Local")
-        # The data-plane probe runs on a node; only the web port admits it.
+        # Local replies bypass OPNsense for clients on the node VLAN, which
+        # then drops the half-seen connection; forwarded traffic arrives from
+        # node addresses, so the node policy below must admit it.
+        self.assertEqual(service["spec"]["externalTrafficPolicy"], "Cluster")
         nodes = self.objects[("CiliumNetworkPolicy", "offline-web-from-nodes")]
         self.assertEqual(
             nodes["spec"]["endpointSelector"]["matchLabels"], {"app": "offline-web"}
