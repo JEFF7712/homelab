@@ -107,8 +107,8 @@ metadata:
 spec:
   type: LoadBalancer
   loadBalancerClass: io.cilium/bgp-control-plane
-  # Cluster, like every other VIP: a node without a pod forwards from its
-  # node address, which offline-web-from-nodes admits. Local broke clients on
+  # Cluster, like every other VIP: a node without a pod forwards it as world
+  # traffic, which offline-web-ingress admits. Local broke clients on
   # the node VLAN (CI on homelab-04): the pod replied straight to them, so
   # OPNsense saw one direction of the connection and dropped it.
   externalTrafficPolicy: Cluster
