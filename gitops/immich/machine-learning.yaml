@@ -23,7 +23,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: immich-machine-learning
-          image: registry.rupan.dev/upstream/ghcr.io/immich-app/immich-machine-learning@sha256:f4e7275c9fbd956ed7bccc738ac57890bcbd9f9c17844d2ea0b137e38a083454  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/immich-app/immich-machine-learning@sha256:739405742a79bd7447227c553bb62ed5491aa36acf00bc667af7f9c93b6fae91  # yamllint disable-line rule:line-length
           env:
             - name: MPLCONFIGDIR
               value: /tmp/matplotlib
