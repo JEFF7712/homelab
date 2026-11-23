@@ -12,14 +12,16 @@ The technical procedure behind this guide is the
 ## What is in the archive
 
 Everything lives on nas-01, dataset `media2/offline` (the 2 TB Seagate disk),
-mounted at `/tank/offline`. About 660 GB once the first full update finishes.
+mounted at `/tank/offline`. About 680 GB once the first full update finishes.
 
 | Area | Contents |
 | --- | --- |
-| Reference | Wikipedia (English, with images), Wiktionary, Wikibooks, Wikivoyage (travel) |
-| Medicine | mdwiki (WikiProject Medicine), LibreTexts Medicine |
-| Repair and making | iFixit repair guides, DIY Stack Exchange, Gardening Stack Exchange, Electronics Stack Exchange |
-| Science and maths | LibreTexts Chemistry, Physics, Mathematics, Engineering, Biology; Chemistry, Physics and Math Stack Exchange |
+| Emergencies | Post Disaster Resource Library, Ready.gov, Water Treatment Library |
+| Reference | Wikipedia (English, with images), Wiktionary, Wikibooks, Wikivoyage (travel), Wikisource (original texts), Wikiversity |
+| Medicine | Military Medicine (field and trauma care), Medical Library, Surviving Residency quick guides, mdwiki (WikiProject Medicine), LibreTexts Medicine, Medical Sciences Stack Exchange |
+| Food | USDA Guide to Home Canning, Food for Preppers, Public Domain Recipes, Cooking Stack Exchange |
+| Repair and making | iFixit repair guides; Appropedia (low-tech solutions), energypedia (off-grid power), Low-Tech Magazine, A Library of Knots; Stack Exchange for DIY, Gardening, Electronics, Motor Vehicle Mechanics, Woodworking, Bicycles, Outdoors, Amateur Radio and Engineering |
+| Science and maths | LibreTexts Chemistry, Physics, Mathematics, Engineering, Biology; Chemistry, Physics, Math, Biology and Earth Science Stack Exchange; PhET science simulations |
 | Computing | Stack Overflow, Super User, Ask Ubuntu, Unix & Linux, Server Fault, Arch Wiki; DevDocs for Nix, Python, NumPy, pandas, Matplotlib, PyTorch, Kubernetes, Docker, Bash, Git, C, C++, Rust, Go, JavaScript, TypeScript, PostgreSQL, SQLite, nginx, Ansible, Terraform |
 | Books | Project Gutenberg (about 70,000 public-domain books in English) |
 | Maps | The whole world's street map from OpenStreetMap (Protomaps build) |
