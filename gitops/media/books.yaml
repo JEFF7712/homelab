@@ -15,6 +15,10 @@ spec:
     metadata:
       labels:
         app: calibre-web
+      annotations:
+        # dirs.json is a subPath mount, which never refreshes in a running
+        # pod: bump this whenever calibre-web-dirs changes.
+        media.rupan.dev/calibre-web-dirs: "2"
     spec:
       automountServiceAccountToken: false
       securityContext:
