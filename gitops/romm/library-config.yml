@@ -1,0 +1,14 @@
+# Questarr shares its historical /data/games/pc import root with RomM.
+# Gameyfin continues to serve the complete library; RomM indexes consoles only.
+exclude:
+  platforms:
+    - PC
+    - Linux
+    - Mac
+    - Windows
+    - win
+    - linux
+    - mac
+system:
+  platforms:
+    Switch: switch

@@ -94,7 +94,8 @@ spec:
           # filesystem stays read-only and nothing runs as root. 911:1001 with
           # group users matches qBittorrent's effective abc user, so imports can
           # hardlink its downloads (fs.protected_hardlinks needs the same owner).
-          command: ["node", "dist/server/index.js"]
+          # Inherit the shared library group and keep new console folders writable by RomM.
+          command: ["sh", "-c", "umask 0002; exec node dist/server/index.js"]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

@@ -72,6 +72,12 @@ spec:
           volumeMounts:
             - name: state
               mountPath: /romm
+            - name: imports
+              mountPath: /romm/library/roms
+            - name: library-config
+              mountPath: /romm/config/config.yml
+              subPath: config.yml
+              readOnly: true
             - name: redis
               mountPath: /redis-data
             - name: tmp
@@ -106,6 +112,14 @@ spec:
         - name: state
           persistentVolumeClaim:
             claimName: state
+        # Same existing export as media-library, narrowed to the game import root.
+        - name: imports
+          nfs:
+            server: 10.0.30.20
+            path: /tank/media/games/pc
+        - name: library-config
+          configMap:
+            name: romm-library-config
         - name: redis
           emptyDir: {}
         - name: tmp
@@ -127,7 +141,21 @@ spec:
           command:
             - sh
             - -ec
-            - mkdir -p /romm/library/roms /romm/library/bios /romm/assets /romm/config /romm/resources
+            - |
+              mkdir -p /romm/library/roms /romm/library/bios /romm/assets /romm/config /romm/resources
+              # Keep the original cartridge in retained state; copy it before overlaying the library.
+              mkdir -p /imports/pico
+              for source in /romm/library/roms/pico/*.p8.png; do
+                [ -f "$source" ] || continue
+                target="/imports/pico/$(basename "$source")"
+                if [ ! -e "$target" ]; then
+                  cp "$source" "$target"
+                  cmp "$source" "$target"
+                fi
+              done
+              # Existing media root belongs to uid 1000. New Questarr folders inherit its group.
+              chmod 2777 /imports
+              chmod 2775 /imports/pico
           securityContext:
             runAsNonRoot: true
             runAsUser: 1000
@@ -140,6 +168,8 @@ spec:
           volumeMounts:
             - name: state
               mountPath: /romm
+            - name: imports
+              mountPath: /imports
           resources:
             requests:
               cpu: 10m

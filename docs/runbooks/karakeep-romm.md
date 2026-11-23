@@ -33,10 +33,12 @@ recoverable with the existing Flux/operator identity. Namespace declarations
 live in `gitops/secrets/namespaces.yaml` so secret creation precedes app startup.
 Do not rotate the authentication/database keys when restoring data.
 
-RomM starts with an empty library. Upload owned/homebrew ROMs in its web UI or
+RomM shares Questarr console imports (see [games](games.md#romm-integration)).
+Upload owned/homebrew ROMs in its web UI or
 place platform folders under `/romm/library/roms/<platform>/`. The retained
 `romm/state` NFS PVC contains library, saves, config and fetched resources.
-It is separate from Gameyfin's existing PC game library; neither library is moved.
+The ROM directory overlays the shared media import root; PC folders are excluded
+from RomM scans. Its original state library remains retained for recovery.
 
 ## Storage and scheduling
 
