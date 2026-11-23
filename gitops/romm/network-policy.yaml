@@ -24,8 +24,12 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: media
           podSelector:
-            matchLabels:
-              app: questarr
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - questarr
+                  - questarr-romm-rescan
       ports:
         - protocol: TCP
           port: 8080

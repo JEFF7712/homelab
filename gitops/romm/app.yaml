@@ -74,6 +74,7 @@ spec:
               mountPath: /romm
             - name: imports
               mountPath: /romm/library/roms
+              subPath: games/pc
             - name: library-config
               mountPath: /romm/config/config.yml
               subPath: config.yml
@@ -112,11 +113,11 @@ spec:
         - name: state
           persistentVolumeClaim:
             claimName: state
-        # Same existing export as media-library, narrowed to the game import root.
+        # Same export as media-library; subPath narrows the container's view.
         - name: imports
           nfs:
             server: 10.0.30.20
-            path: /tank/media/games/pc
+            path: /tank/media
         - name: library-config
           configMap:
             name: romm-library-config
@@ -170,6 +171,7 @@ spec:
               mountPath: /romm
             - name: imports
               mountPath: /imports
+              subPath: games/pc
           resources:
             requests:
               cpu: 10m

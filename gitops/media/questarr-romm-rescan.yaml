@@ -1,0 +1,86 @@
+# Reuse Questarr's encrypted token and import root; no credentials in this job.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: questarr-romm-rescan
+  namespace: media
+spec:
+  schedule: '*/2 * * * *'
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 90
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 110
+      template:
+        metadata:
+          labels:
+            app: questarr-romm-rescan
+        spec:
+          restartPolicy: Never
+          # Questarr uses SQLite WAL on NFS: readers must share its client/kernel.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app: questarr
+                  topologyKey: kubernetes.io/hostname
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 911
+            runAsGroup: 1001
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: rescan
+              image: registry.rupan.dev/upstream/ghcr.io/doezer/questarr@sha256:495a1648f1ad8dddd4c7f96b4bf817d9d061bfd5608ef520522f0d891415e972  # yamllint disable-line rule:line-length
+              command: [node, /scripts/questarr-romm-rescan.mjs]
+              workingDir: /tmp
+              env:
+                - name: SQLITE_DB_PATH
+                  value: /app/data/sqlite.db
+                - name: HOME
+                  value: /tmp
+                - name: ROMM_IMPORT_ROOT
+                  value: /data/games/pc
+                # Match RomM's Git-managed scanning exclusions.
+                - name: EXCLUDED_PLATFORMS
+                  value: '["PC","Linux","Mac","Windows","win","linux","mac",".*"]'
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 64Mi
+                limits:
+                  memory: 256Mi
+              volumeMounts:
+                - name: state
+                  mountPath: /app/data
+                - name: media
+                  mountPath: /data
+                - name: script
+                  mountPath: /scripts
+                  readOnly: true
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: state
+              persistentVolumeClaim:
+                claimName: questarr-data
+            - name: media
+              persistentVolumeClaim:
+                claimName: media-library
+            - name: script
+              configMap:
+                name: questarr-romm-rescan
+            - name: tmp
+              emptyDir: {}
