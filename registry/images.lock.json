@@ -5514,6 +5514,48 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/offline/registry-sources.yaml:22"
+      ],
+      "destination_repository": "upstream/docker.io/library/eclipse-temurin",
+      "destination_tags": [
+        "21.0.12.1_1-jre",
+        "retention-deployed-f37956012e0cb884"
+      ],
+      "digest": "sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+      "id": "upstream-library-eclipse-temurin-7957cc22dca6",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/s390x",
+        "unknown/unknown",
+        "windows/amd64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "reference": "docker.io/library/eclipse-temurin:21.0.12.1_1-jre@sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56",
+        "registry": "docker.io",
+        "repository": "library/eclipse-temurin",
+        "tag": "21.0.12.1_1-jre"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/romm/registry-sources.yaml:8"
       ],
       "destination_repository": "upstream/docker.io/library/mariadb",
@@ -10861,6 +10903,44 @@
         "registry": "nvcr.io",
         "repository": "nvidia/k8s-device-plugin",
         "tag": "v0.17.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/offline/registry-sources.yaml:20"
+      ],
+      "destination_repository": "upstream/ghcr.io/valhalla/valhalla",
+      "destination_tags": [
+        "3.9.1",
+        "retention-deployed-4fd114eb1d26b8fc"
+      ],
+      "digest": "sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de",
+      "id": "upstream-valhalla-valhalla-504086f13161",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de",
+        "reference": "ghcr.io/valhalla/valhalla:3.9.1@sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de",
+        "registry": "ghcr.io",
+        "repository": "valhalla/valhalla",
+        "tag": "3.9.1"
       }
     },
     {
