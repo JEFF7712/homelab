@@ -10,6 +10,7 @@ resources:
   - arr.yaml
   - arr-secret-sync.yaml
   - arr-queue-hygiene.yaml
+  - bookshelf-missing-search.yaml
   - spotify-sync.yaml
   - soularr.yaml
   - download.yaml

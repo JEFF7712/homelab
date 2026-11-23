@@ -204,5 +204,46 @@ class CalibreDirs(unittest.TestCase):
         self.assertFalse(cwa["securityContext"]["allowPrivilegeEscalation"])
 
 
+class MissingBookSearch(unittest.TestCase):
+    def cronjob(self) -> dict:
+        return next(
+            d
+            for d in rendered("media")
+            if d["kind"] == "CronJob"
+            and d["metadata"]["name"] == "bookshelf-missing-search"
+        )
+
+    def test_weekly_search_command(self):
+        cj = self.cronjob()
+        self.assertEqual(cj["spec"]["schedule"], "47 3 * * 0")
+        self.assertEqual(cj["spec"]["concurrencyPolicy"], "Forbid")
+        container = cj["spec"]["jobTemplate"]["spec"]["template"]["spec"]["containers"][
+            0
+        ]
+        script = container["command"][-1]
+        self.assertIn('"name":"MissingBookSearch"', script)
+        self.assertIn("http://bookshelf.media/api/v1/command", script)
+
+    def test_reads_only_the_bookshelf_key(self):
+        container = self.cronjob()["spec"]["jobTemplate"]["spec"]["template"]["spec"][
+            "containers"
+        ][0]
+        self.assertNotIn("envFrom", container)
+        self.assertEqual(
+            container["env"],
+            [
+                {
+                    "name": "BOOKSHELF_API_KEY",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "media-app",
+                            "key": "BOOKSHELF_API_KEY",
+                        }
+                    },
+                }
+            ],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
