@@ -101,7 +101,10 @@ before searching so a multi-platform title is imported for the right console.
 New Windows imports use `win`, while existing `PC` and `Linux` directories stay
 in place. Gameyfin continues scanning the same parent and serves both layouts.
 
-RomM mounts just this existing NFS subdirectory at `/romm/library/roms`.
+RomM mounts the existing `/tank/media` NFS export with `subPath: games/pc`
+at `/romm/library/roms`. Use the same export root as Questarr: mounting
+`/tank/media/games/pc` directly returned stale root attributes and omitted newly
+created console directories from scans, even while direct file access worked.
 `gitops/romm/library-config.yml` excludes PC folders and maps the legacy
 `Switch` directory. Its Git-managed config is read-only in the UI; edit the
 source for scanning exclusions. The init container copies existing PICO-8
