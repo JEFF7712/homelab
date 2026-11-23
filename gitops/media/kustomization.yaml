@@ -65,6 +65,12 @@ configMapGenerator:
     files:
       - beets/config.yaml
       - beets/nightly.py
+  - name: bookshelf-missing-search
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - bookshelf-missing-search/weekly.py
   - name: books-handoff
     namespace: media
     options:
