@@ -316,6 +316,11 @@ in
 
   systemd.services.nas-backup-local = {
     description = "Encrypted backup of irreplaceable tank data to the local backup disk";
+    # A changed unit would otherwise be stopped mid-run and restarted by
+    # activation, which then waits for the whole backup: the 2026-11-23
+    # nixpkgs switch killed a 40-minute run and held nas-01's deploy for 53
+    # minutes. The next timer run picks up the new unit.
+    restartIfChanged = false;
     after = [
       "mnt-backup\\x2dlocal.mount"
       "tank-cluster.mount"
