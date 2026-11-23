@@ -102,6 +102,8 @@ dataset also keeps three daily ZFS snapshots.
 ## Portable copy
 
 The cluster copy does not help when the NAS, the cluster or power is down.
+The [doomsday guide](../DOOMSDAY.md) has the full procedure for each case;
+in short:
 Keep an independent copy on a laptop or phone: management (10.0.10.0/24)
 can mount `nas-01:/tank/offline` read-only over NFS; copy `kiwix/zim/` with
 `rsync` and open it with a Kiwix reader. `maps/planet.pmtiles` opens in
