@@ -107,10 +107,11 @@ metadata:
 spec:
   type: LoadBalancer
   loadBalancerClass: io.cilium/bgp-control-plane
-  # Only nodes running a pod announce the VIP, so LAN traffic arrives with
-  # its own address, which network-policy.yaml admits. With Cluster, a node
-  # without a pod forwards it from its node address, and the policy drops it.
-  externalTrafficPolicy: Local
+  # Cluster, like every other VIP: a node without a pod forwards from its
+  # node address, which offline-web-from-nodes admits. Local broke clients on
+  # the node VLAN (CI on homelab-04): the pod replied straight to them, so
+  # OPNsense saw one direction of the connection and dropped it.
+  externalTrafficPolicy: Cluster
   selector:
     app: offline-web
   ports:
