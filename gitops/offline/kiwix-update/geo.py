@@ -162,7 +162,9 @@ def unpack_photon(archive: Path, target: Path) -> None:
     building = target.with_name(f"{target.name}.next")
     shutil.rmtree(building, ignore_errors=True)
     building.mkdir()
-    with tarfile.open(archive, mode="r|bz2") as dump:
+    # The dump is several bzip2 streams back to back (a parallel compressor);
+    # the streaming "r|bz2" mode stops after the first, file mode reads all.
+    with tarfile.open(archive, mode="r:bz2") as dump:
         for member in dump:
             if member.name != "photon_data" and not member.name.startswith(
                 "photon_data/"
@@ -294,7 +296,13 @@ def fetch_geo(args: argparse.Namespace) -> int:
             print(message, flush=True)
             if target:
                 pending[part] = target
-        except (update.UpdateError, OSError, ValueError, tarfile.TarError) as error:
+        except (
+            update.UpdateError,
+            OSError,
+            ValueError,
+            EOFError,
+            tarfile.TarError,
+        ) as error:
             failed.append(part)
             print(f"{part}: FAILED: {error}", file=sys.stderr, flush=True)
     update.write_atomic(root / STATE, json.dumps(pending) + "\n")
