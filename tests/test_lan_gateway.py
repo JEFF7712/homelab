@@ -9,7 +9,6 @@ from __future__ import annotations
 import ipaddress
 import json
 import re
-import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -33,20 +32,14 @@ def enabled_hosts() -> list[str]:
     return [host["name"] for host in config()["hosts"] if host.get("enabled", True)]
 
 
-def access_inventory() -> dict[str, Any]:
-    output = subprocess.run(
-        [
-            "nix-instantiate",
-            "--eval",
-            "--strict",
-            "--json",
-            str(ROOT / "tofu/cloudflare-access/inventory.nix"),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout
-    return json.loads(output)
+def access_applications() -> list[dict[str, Any]]:
+    """Rendered Access applications; `just tofu-check` keeps them current."""
+    rendered_json = json.loads(
+        (ROOT / "tofu/cloudflare-access/applications.tf.json").read_text()
+    )
+    return list(
+        rendered_json["resource"]["cloudflare_zero_trust_access_application"].values()
+    )
 
 
 def objects() -> dict[tuple[str, str], dict[str, Any]]:
@@ -188,7 +181,7 @@ class RendererTest(unittest.TestCase):
 class ExposureTest(unittest.TestCase):
     def test_lan_hosts_have_only_bypass_access_policies(self) -> None:
         """Access never sees LAN traffic, so a gated host would lose its login."""
-        applications = access_inventory()["applications"].values()
+        applications = access_applications()
         for name in enabled_hosts():
             with self.subTest(host=name):
                 matching = [

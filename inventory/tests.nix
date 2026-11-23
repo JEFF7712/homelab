@@ -12,7 +12,11 @@ let
       extraModules = [ module ];
     };
   inventory = import ./. { inherit lib; };
-  firstDNS = builtins.head inventory.dns.records;
+  # A host-backed record with every view; list merging puts later modules'
+  # records (such as the LAN gateway's) first, so select it by name.
+  firstDNS = lib.findFirst (
+    record: record.name == "registry.rupan.dev"
+  ) (throw "registry.rupan.dev record missing") inventory.dns.records;
   replaceDNS = record: load { dns = lib.mkForce [ record ]; };
   movedNAS = load { hosts.nas-01.address = lib.mkForce "10.0.30.21"; };
   movedCI = load { hosts.homelab-04.address = lib.mkForce "10.0.30.24"; };
