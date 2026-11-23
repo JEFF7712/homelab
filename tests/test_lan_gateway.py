@@ -20,7 +20,7 @@ from scripts import lan_gateway
 from tests.gitops_render import rendered
 
 ROOT = Path(__file__).resolve().parents[1]
-LB_POOL = (ipaddress.IPv4Address("10.0.40.10"), ipaddress.IPv4Address("10.0.40.19"))
+LB_POOL = (ipaddress.IPv4Address("10.0.40.10"), ipaddress.IPv4Address("10.0.40.99"))
 BYPASS = "${cloudflare_zero_trust_access_policy.bypass.id}"
 
 

@@ -33,3 +33,11 @@ until the rescan finds the file.
   in `/config/qBittorrent/qBittorrent.conf` and the torrent's category.
 - Imported books that never appear: CWA moves failures to
   `/config/processed_books/failed` in the calibre-web pod.
+- CWA logs "Successfully processed" even when the import failed, and deletes
+  the file from ingest either way; the copy in `/data/downloads/books` stays.
+  Look for `ran into the following error` above it. `KeyError` means
+  `dirs.json` (`gitops/media/configs.yaml`) lacks a key the image reads;
+  `No such file or directory: 'calibredb'` means `/app/calibre` fell off the
+  container `PATH` (the read-only rootfs blocks CWA's own symlink step).
+- Re-run a hand-off for a finished torrent from the qBittorrent pod:
+  `sh /books-handoff/qbit-finished.sh books "<content path>"`.

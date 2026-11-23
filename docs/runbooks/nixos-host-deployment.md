@@ -188,6 +188,13 @@ an activation failure, and uncordons only after successful host recovery. A drai
 failure also attempts to restore scheduling. It does not roll back hosts that already completed before
 a later host failed. Follow the affected host or service runbook for recovery.
 
+A switch that outlives its 600-second SSH session keeps running in the
+`homelab-fleet-switch` unit. The deployer then waits up to 45 more minutes for
+that unit to end. If the host runs the new system, it carries on with the usual
+health checks; otherwise, it restores the previous system as for any failed
+activation. Before 2026-11-23 the restore started at once, collided with the
+still-running unit, and left nas-01 for the operator.
+
 homelab-04, the CI host, deploys last. Its switch restarts Docker and kills the
 deploy job driving it. The switch itself finishes in the transient
 `homelab-fleet-switch` unit (`journalctl -u homelab-fleet-switch`), but the job
