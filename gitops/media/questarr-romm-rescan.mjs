@@ -1,7 +1,7 @@
-import { readdir, lstat } from 'node:fs/promises';
+import { readdir, lstat, realpath } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { resolve, join } from 'node:path';
+import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const run = promisify(execFile);
@@ -40,7 +40,9 @@ async function main() {
   console.log(`Refreshed ${count} console directories and queued a RomM quick scan`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+// Kubernetes projects ConfigMap files through symlinks; Node resolves the module URL.
+const entrypoint = process.argv[1] && await realpath(process.argv[1]).catch(() => null);
+if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
   main().then(() => process.exit(0)).catch((error) => {
     console.error(`RomM library reconciliation failed: ${error.message}`);
     process.exit(1);
