@@ -3,7 +3,7 @@
 Owner: `gitops/offline/`. Storage: `media2/offline` on nas-01, see
 [NFS access](nfs-access.md#offline-archive). Image:
 `gitops/offline/registry-sources.yaml`. Tests:
-`python -m unittest tests.test_offline_library tests.test_nas_storage`.
+`python -m unittest tests.test_offline_library tests.test_offline_geo tests.test_nas_storage`.
 
 Wikipedia, Stack Exchange, DevDocs, LibreTexts, iFixit, Project Gutenberg
 and similar ZIM archives are served read-only at <http://kiwix.homelab>, and
@@ -16,8 +16,9 @@ that could expire during a long outage. Each book has a stable alias without
 its date (`/content/wikipedia_en_all_maxi`), so bookmarks survive updates;
 the map keeps its view in the URL (`#zoom/lat/lon`).
 
-The map has no place search or routing; browse to a place by panning and
-zooming.
+Inside the US the map also searches places and addresses (Photon) and plans
+driving, cycling and walking routes (Valhalla), both from data in the
+archive. Outside the US it is a map only.
 
 ## Layout
 
@@ -38,7 +39,42 @@ zooming.
 | `planet_<YYYYMMDD>.pmtiles` | World map builds (about 140 GB each) |
 | `planet.pmtiles` | Symlink to the served build |
 | `assets/` | Viewer scripts, fonts and sprites from `maps.json` |
-| `staging/` | Partial map download |
+| `staging/` | Partial map, search and extract downloads |
+| `search/photon-<YYYYMMDD>/` | Unpacked Photon US index (about 30 GB) |
+| `search/photon-<version>.jar` | Photon server, pinned by SHA-256 in `geo.json` |
+| `routing/us-<YYMMDD>/` | Valhalla US tiles (`valhalla_tiles.tar`) and `valhalla.json` |
+| `search/current`, `routing/current` | Symlinks to the served data |
+
+### Search and directions
+
+`maps-search` (Photon in a Java image) and `maps-routing` (Valhalla) run one
+pod each on homelab-05 (or homelab-04). Each copies its `current` data from
+the NAS to node-local NVMe at start, because Photon's index must not run from
+spinning disk; that takes a few minutes, and until the first build exists the
+pods wait in `Init`. nginx on `offline-web` sends `/api/search`,
+`/api/reverse` and `/api/route` to them.
+
+The `geo-update` CronJob (the 1st of each month, 04:00) refreshes them once
+the served data is older than `max_age_days` in
+`gitops/offline/kiwix-update/geo.json` (90):
+
+1. `fetch` downloads the newest Photon US index from the GraphHopper dump
+   server and the newest Geofabrik US extract, both checked against their
+   published MD5, and unpacks the index beside the served one.
+2. `build` (Valhalla image) builds routing tiles from the extract on
+   node-local disk (about an hour, up to 14 GiB RAM) and copies them to
+   `routing/`.
+3. `finish` points `current` at the new data, restarts both servers through
+   the `geo-update` service account (allowed to restart only those two),
+   then searches for Chicago and plans a Chicago to Milwaukee route through
+   `maps.homelab`. Only then does it delete the old data; if anything fails
+   it points `current` back and restarts again.
+
+Run it now (first build, or after a failure):
+
+```sh
+HOMELAB_AUTHORIZED=1 kubectl -n offline create job --from=cronjob/geo-update geo-update-manual-$(date +%s)
+```
 
 ## Updates
 
@@ -108,7 +144,9 @@ Keep an independent copy on a laptop or phone: management (10.0.10.0/24)
 can mount `nas-01:/tank/offline` read-only over NFS; copy `kiwix/zim/` with
 `rsync` and open it with a Kiwix reader. `maps/planet.pmtiles` opens in
 any PMTiles viewer, but Organic Maps is the better choice on a phone: it
-has offline search and routing.
+has offline search and routing anywhere it has a downloaded region. Search
+and directions here need the cluster; the data (`maps/search`,
+`maps/routing`) is on the NAS and is worth copying too.
 
 ## Checks
 
@@ -117,6 +155,9 @@ has offline search and routing.
   `kubectl -n offline port-forward svc/offline-web 8080:80`).
 - `curl -s -H 'Host: maps.homelab' -r 0-6 http://<vip or forward>/planet.pmtiles`
   prints `PMTiles`.
+- `curl -s -H 'Host: maps.homelab' 'http://<vip or forward>/api/search?q=Chicago&limit=1'`
+  returns a feature, and a POST to `/api/route` with two US points returns a
+  `trip`.
 - `kubectl -n offline get cronjob,job,pods`
 - Outage test: with the WAN unplugged, search and open a book and pan the
   map; restart a kiwix and an offline-web pod and confirm they come back
