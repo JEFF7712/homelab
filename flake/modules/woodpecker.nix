@@ -86,10 +86,12 @@ let
   policySource = pkgs.runCommand "woodpecker-policy-source" { } ''
     mkdir -p $out/scripts/ci $out/scripts/verifier $out/config/ci
     cp ${../../scripts/verifier/enforcement.py} $out/scripts/verifier/enforcement.py
+    cp ${../../scripts/verifier/freshness.py} $out/scripts/verifier/freshness.py
     cp ${../../config/ci/projectctl-contracts.json} $out/config/ci/projectctl-contracts.json
     cp ${../../scripts/ci/policy.py} $out/scripts/ci/policy.py
     cp ${../../scripts/ci/deployment_source.py} $out/scripts/ci/deployment_source.py
     cp ${../../config/ci/ship-routes.json} $out/config/ci/ship-routes.json
+    cp ${../../config/ci/schedules.json} $out/config/ci/schedules.json
     cp ${../../scripts/ci/deployment_risk.py} $out/scripts/ci/deployment_risk.py
     PYTHONPATH=$out ${python}/bin/python -m scripts.ci.deployment_risk ${authoritySource} > $out/authority-baseline.json
     cp ${../../scripts/ci/applications.py} $out/scripts/ci/applications.py
@@ -135,6 +137,7 @@ let
     ''}
   '';
   sandboxModule = config.homelab.woodpeckerSandbox;
+  capacity = (import ./woodpecker-capacity.nix).homelab-04;
   agent = tier: count: cpus: {
     enable = true;
     package = sandboxModule.agentPackage;
@@ -364,27 +367,19 @@ in
         NoNewPrivileges = true;
       };
     };
+    # Slot counts and CPUs live in woodpecker-capacity.nix, which agents tune.
     services.woodpecker-agents.agents = {
-      # One sandbox slot: a second 8G validation overcommitted the host's
-      # memory; homelab-05 carries the other sandbox slot. Six CPUs: at two,
-      # parallel gate lanes spent more time throttled than running (#12452:
-      # 1,098 s throttled in a 348 s gate), and at four full gates still
-      # spent a median 400 s throttled. The ci slice caps all slots at
-      # ten CPUs and CPUWeight keeps pods ahead under contention. Validation
-      # and cache-publish build NixOS VM checks, so both tiers get KVM.
-      sandbox = lib.recursiveUpdate (agent "sandbox" 1 6) {
+      # Validation and cache-publish build NixOS VM checks, so both tiers get
+      # KVM.
+      sandbox = lib.recursiveUpdate (agent "sandbox" capacity.sandbox.slots capacity.sandbox.cpus) {
         environment.WOODPECKER_BACKEND_DOCKER_DEVICES = sandboxModule.kvmDevice;
       };
-      # Two trusted slots: scheduled read-only work holds at most one (its
-      # shared concurrency group), so pushes and operator plans keep the other.
-      trusted = lib.recursiveUpdate (agent "trusted" 2 2) {
+      trusted = lib.recursiveUpdate (agent "trusted" capacity.trusted.slots capacity.trusted.cpus) {
         environment.WOODPECKER_BACKEND_DOCKER_DEVICES = sandboxModule.kvmDevice;
       };
-      # Operations serialize per resource group, so a second deploy slot lets
-      # unrelated mutations (a cache push and a Home Assistant apply) overlap.
-      # Its containers also join the deploy network, the only one that
-      # reaches the operation lock service.
-      deploy = lib.recursiveUpdate (agent "deploy" 2 2) {
+      # Deploy containers join the deploy network, the only one that reaches
+      # the operation lock service.
+      deploy = lib.recursiveUpdate (agent "deploy" capacity.deploy.slots capacity.deploy.cpus) {
         environment.WOODPECKER_BACKEND_DOCKER_NETWORK = deployNetwork;
       };
     };

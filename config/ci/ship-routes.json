@@ -121,7 +121,6 @@
         "scripts/k3s_backup_source.py"
       ],
       "operations": [
-        "deploy-fleet-dry-run",
         "deploy-fleet"
       ],
       "auto": true
@@ -158,6 +157,7 @@
         "flake/modules/projectctl.nix",
         "config/ci/projectctl-contracts.json",
         "config/ci/ship-routes.json",
+        "config/ci/schedules.json",
         "secrets/woodpecker-clone.sops.env",
         "scripts/ci/build_users.py",
         "scripts/ci/container_release.py",
@@ -180,7 +180,6 @@
         "secrets/registry-ci-issuer.sops.json"
       ],
       "operations": [
-        "deploy-ci-host-dry-run",
         "deploy-ci-host"
       ],
       "auto": true
@@ -191,7 +190,6 @@
         "scripts/ci/state.py"
       ],
       "operations": [
-        "deploy-fleet-dry-run",
         "deploy-fleet"
       ],
       "auto": true

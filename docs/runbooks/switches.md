@@ -37,8 +37,9 @@ drift report: inspect the plan and owning source through the normal workflow.
 The existing ntfy token is cron-only. Manual `switches-drift` runs require no
 notification credential and report failures in CI. The `nightly` CI schedule
 runs `switches-drift-nightly` alongside the existing Access and OPNsense checks.
-Enrollment is an exact-approval change to `SCHEDULES` in the CI policy; changing
-the schedule never grants apply permission.
+Enrollment is a change to `config/ci/schedules.json`; the CI policy runs only
+read-only scheduled operations and agent-granted mutations, so changing the
+schedule never grants apply permission.
 
 Port roles and cable endpoints live beside port settings in `inventory.nix`.
 They generate the [port map](../network/switch-port-map.md) and topology through

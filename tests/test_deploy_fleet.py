@@ -14,6 +14,7 @@ from scripts.deploy_fleet import (
     CRASH_LOOP_WINDOW,
     ETCD_HEALTH,
     FLEET_HOSTS,
+    INTERRUPTIBLE_LABEL,
     POSTGRES_CLUSTERS,
     ClusterLease,
     FleetDeployer,
@@ -459,6 +460,66 @@ class DeployFleetTest(unittest.TestCase):
             sleeps,
             [CRASH_LOOP_INTERVAL] * int(CRASH_LOOP_WINDOW / CRASH_LOOP_INTERVAL)
             + [10.0],
+        )
+
+    def preview_run(self, failing_preview: str = "") -> tuple[list[list[str]], bool]:
+        executed: list[list[str]] = []
+
+        def mock_runner(
+            argv: list[str], **kwargs: object
+        ) -> subprocess.CompletedProcess[str]:
+            del kwargs
+            executed.append(argv)
+            if (
+                failing_preview
+                and argv[0] == "ssh"
+                and any(failing_preview in part for part in argv[:-1])
+                and "dry-activate" in argv[-1]
+            ):
+                return subprocess.CompletedProcess(argv, 1, "", "activation failed")
+            if "node" in argv and "get" in argv:
+                return subprocess.CompletedProcess(argv, 0, "True", "")
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        deployer = self.deployer(
+            targets=[FLEET_HOSTS["homelab-02"], FLEET_HOSTS["homelab-03"]],
+            skip_preflight=True,
+            skip_cooldown=True,
+            runner=mock_runner,
+        )
+        try:
+            deployer.execute()
+        except Exception:
+            return executed, False
+        return executed, True
+
+    def test_every_activation_is_previewed_before_the_first_switch(self) -> None:
+        executed, ok = self.preview_run()
+        self.assertTrue(ok)
+        previews = [
+            i
+            for i, cmd in enumerate(executed)
+            if cmd[0] == "ssh" and "switch-to-configuration dry-activate" in cmd[-1]
+        ]
+        disruptive = [
+            i
+            for i, cmd in enumerate(executed)
+            if cmd[:2] == ["kubectl", "cordon"]
+            or (cmd[0] == "ssh" and "switch-to-configuration switch" in cmd[-1])
+        ]
+        self.assertEqual(len(previews), 2)
+        self.assertLess(max(previews), min(disruptive))
+
+    def test_a_failed_preview_stops_before_any_host_is_touched(self) -> None:
+        address = FLEET_HOSTS["homelab-03"].ip
+        executed, ok = self.preview_run(failing_preview=f"@{address}")
+        self.assertFalse(ok)
+        self.assertFalse(
+            any(
+                cmd[:2] == ["kubectl", "cordon"]
+                or (cmd[0] == "ssh" and "switch-to-configuration switch" in cmd[-1])
+                for cmd in executed
+            )
         )
 
     def test_deployer_stateful_anchor_verifies_postgres(self) -> None:
@@ -1130,12 +1191,13 @@ class FleetClosureTest(unittest.TestCase):
         }
 
     @staticmethod
-    def pod(name, owner):
+    def pod(name, owner, labels=None):
         return {
             "metadata": {
                 "namespace": "immich",
                 "name": name,
                 "ownerReferences": [{"kind": owner, "name": name}],
+                "labels": labels or {},
             }
         }
 
@@ -1168,6 +1230,22 @@ class FleetClosureTest(unittest.TestCase):
         self.run_deployment(job_pods=[[("home-assistant-0", "StatefulSet")]])
         self.assertEqual(
             self.node_steps(), ["cordon", "list-pods", "drain", "uncordon"]
+        )
+
+    def test_interruptible_job_pods_do_not_delay_the_drain(self):
+        # soularr resumes on its next run; waiting 1200s for it only to
+        # drain it anyway held the fleet lease three times by 2026-11-22.
+        soularr = ("soularr-123", "Job", {INTERRUPTIBLE_LABEL: "true"})
+        backup = ("library-to-local-repo-abc", "Job")
+        self.run_deployment(job_pods=[[soularr]])
+        self.assertEqual(
+            self.node_steps(), ["cordon", "list-pods", "drain", "uncordon"]
+        )
+        self.commands.clear()
+        self.run_deployment(job_pods=[[soularr, backup], [soularr]])
+        self.assertEqual(
+            self.node_steps(),
+            ["cordon", "list-pods", "list-pods", "drain", "uncordon"],
         )
 
     def test_drain_proceeds_once_the_job_wait_limit_is_reached(self):

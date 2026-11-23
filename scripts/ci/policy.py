@@ -37,9 +37,13 @@ from scripts.ci.development_projects import (
     load_development_projects,
 )
 from scripts.ci.development_projects import configuration as development_configuration
+from scripts.verifier.freshness import narrowed, overlap
 
 IMAGE = "registry.rupan.dev/upstream/docker.io/nixos/nix@sha256:7a007c766426c1877758ddc5cb87a965ac131fc78c582ce0083d922d51ae945c"
 VALIDATION = "validation-v2"
+# Validates a merged tree whose validation-v2 reused an independent branch
+# head's result; deployment does not wait for it.
+BACKSTOP = "main-backstop"
 # Job steps build as the unprivileged users that BUILD_USERS adds first;
 # see scripts/ci/build_users.py for why neither the image's nixbld users nor
 # root work.
@@ -115,6 +119,17 @@ def find_branch_validation(
         for commit, (head_tree, main) in records.items()
         if head_tree == tree and main == parent
     }
+    return green_branch_push(heads, pipelines, details, now)
+
+
+def green_branch_push(
+    heads: set[str],
+    pipelines: list[dict[str, Any]],
+    details: Callable[[int], dict[str, Any]],
+    now: int,
+) -> dict[str, Any] | None:
+    """A same-repository branch push of one of heads that passed validation-v2
+    within 24 hours."""
     for item in pipelines:
         if (
             item.get("commit") not in heads
@@ -271,71 +286,27 @@ def find_reusable_validation(
     return None
 
 
-# Scheduled operations by Woodpecker cron name (config/ci/woodpecker-crons.json).
-# The frequent schedule carries only short registry and watchdog work so it
-# finishes well inside its interval; slow host dry runs and proofs run nightly.
-# A schedule that outlives its interval queues behind itself and every queued
-# operation then fails the current-main check, so an overlapping run reports
-# a failing schedule-overlap workflow instead of queueing more work.
-SCHEDULES: dict[str, tuple[str, ...]] = {
-    "maintenance": (
-        "webhook-watchdog",
-        "registry-lock-import",
-        "registry-drift-check",
-        "registry-retention-reconcile",
-        "registry-resolve",
-        "registry-auth-consistency",
-        # FRR can hold the VIP routes without installing them, which went
-        # unnoticed for six hours on 2026-11-02; this probes them through
-        # OPNsense and posts to ntfy when they stop answering.
-        "vip-dataplane-watch",
-        # The CI host's switch kills the deploy job driving it, which then
-        # never uncordons the host; this releases such a cordon once the
-        # host runs the desired system healthily (2026-11-16: two hours).
-        "fleet-cordon-heal",
-        # Post-merge housekeeping lives here rather than on every main push,
-        # so a merge's pipeline (the parent deployments need) ends quickly.
-        "sync-to-github",
-        "cache-publish",
-    ),
-    # Promotion is the application release path, so it runs often and alone.
-    "promote": (
-        "registry-promote-first-party",
-        "registry-promote-nix-agent",
-        # One upstream image step per run (scripts/ci/registry_advance.py).
-        "registry-advance",
-    ),
-    "nightly": (
-        "registry-gc-fixture",
-        "cloudflare-access-drift",
-        "switches-drift-nightly",
-        "opnsense-plan",
-        "opnsense-dataplane",
-        "opnsense-inventory",
-        "nas-proof",
-        "deploy-fleet-dry-run",
-        # Delivers main to the fleet after its dry run, including the night's
-        # nixpkgs update. It runs only when the deployed authorization
-        # baseline admits main (held_schedule_targets).
-        "deploy-fleet",
-        "deploy-agent-workspace-host-dry-run",
-        "deploy-home-assistant-dry-run",
-        # Retries the open laptop lock update and delivers new main commits.
-        "nixos-deploy",
-    ),
-    # Proposes the fleet's nixpkgs update early enough for its PR to merge
-    # before the nightly delivery.
-    "fleet-lock": ("fleet-lock-update",),
-    # Reboots hosts onto the installed kernel; the operation only acts inside
-    # 03:00-05:00 America/Chicago, so two UTC runs cover daylight saving.
-    "fleet-reboot": ("fleet-reboot",),
-    "weekly": (
-        "nixos-lock-update",
-        "registry-cve-audit",
-        # One Madgrades /terms call unless a new term is out; then a refresh PR.
-        "uwagent-grades-refresh",
-    ),
-}
+# Scheduled operations by Woodpecker cron name, from config/ci/schedules.json.
+# Agents own that file; the policy runs only read-only scheduled operations and
+# mutations the catalog grants to agents (scheduled_target_allowed), so a
+# schedule never runs an operator-only operation. A schedule that outlives its
+# interval queues behind itself and every queued operation then fails the
+# current-main check, so an overlapping run reports a failing
+# schedule-overlap workflow instead of queueing more work.
+SCHEDULES_PATH = Path(__file__).resolve().parents[2] / "config/ci/schedules.json"
+
+
+def load_schedules(path: Path = SCHEDULES_PATH) -> dict[str, tuple[str, ...]]:
+    schedules = json.loads(path.read_text())["schedules"]
+    return {name: tuple(entry["operations"]) for name, entry in schedules.items()}
+
+
+SCHEDULES = load_schedules()
+
+
+def scheduled_target_allowed(operation: dict[str, Any]) -> bool:
+    """A schedule may run read-only operations and agent-granted mutations."""
+    return not operation["mutation"] or bool(operation.get("agent"))
 
 
 # A schedule run still marked running this long after creation lost its
@@ -541,6 +512,49 @@ class SourceMirror:
             return None
         return tree, parent
 
+    def independent_head(self, commit: str) -> str | None:
+        """The branch head of a merge whose two sides are independent.
+
+        Independence is the merge policy's freshness rule
+        (scripts/verifier/freshness.py) between the merge base and each
+        parent: the head merged without revalidation because main's newer
+        changes could not interact with it. Call after push_changes; anything
+        unreadable counts as dependent.
+        """
+        no_fetch = {"GIT_TERMINAL_PROMPT": "0", "GIT_NO_LAZY_FETCH": "1"}
+
+        def reader(revision: str) -> Callable[[str], str | None]:
+            def read(path: str) -> str | None:
+                try:
+                    return self.git("show", f"{revision}:{path}", env=no_fetch).decode()
+                except (OSError, subprocess.SubprocessError, UnicodeDecodeError):
+                    return None
+
+            return read
+
+        try:
+            with self.lock:
+                parents = self.git("rev-list", "--parents", "-n", "1", commit).split()
+                if len(parents) != 3:
+                    return None
+                main, head = (item.decode() for item in parents[1:])
+                base = self.git("merge-base", main, head).decode().strip()
+                sides = {}
+                for name, target in (("branch", head), ("main", main)):
+                    out = self.git(
+                        "diff", "--name-only", "--no-renames", "-z", base, target
+                    )
+                    sides[name] = [os.fsdecode(p) for p in out.split(b"\0") if p]
+                reasons = overlap(
+                    sides["branch"],
+                    sides["main"],
+                    narrowed(sides["branch"], reader(base), reader(head)),
+                    narrowed(sides["main"], reader(base), reader(main)),
+                )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return None if reasons else head
+
     def push_changes(
         self, commit: str, credentials: dict[str, Any]
     ) -> tuple[str, ...] | None:
@@ -652,6 +666,7 @@ def configuration(
     held_targets: dict[str, list[str]] | None = None,
     main_backstop: bool = False,
     branch_validation: dict[str, Any] | None = None,
+    independent_validation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     repo, pipeline = request["repo"], request["pipeline"]
     if (
@@ -851,6 +866,48 @@ def configuration(
                     ],
                 },
             )
+        elif event == "push" and main and independent_validation is not None:
+            # The branch head passed validation and main's newer changes are
+            # independent of it, so deployment may start from that result.
+            # main-backstop still validates the merged tree: nothing gates on
+            # it, and a failure turns main red and alerts.
+            add(
+                VALIDATION,
+                {
+                    "when": [{"event": event}],
+                    "labels": {"tier": "sandbox", "type": "docker"},
+                    "steps": [
+                        {
+                            "name": VALIDATION,
+                            "image": IMAGE,
+                            "commands": [
+                                "echo "
+                                + shlex.quote(
+                                    "Reusing validation of the independent branch head"
+                                    f" from pipeline #{independent_validation.get('number')}"
+                                    f" ({independent_validation.get('commit')});"
+                                    f" {BACKSTOP} validates the merged tree"
+                                )
+                            ],
+                        }
+                    ],
+                },
+            )
+            add(
+                BACKSTOP,
+                {
+                    "when": [{"event": event}],
+                    "labels": {"tier": "sandbox", "type": "docker"},
+                    "steps": [
+                        {
+                            "name": BACKSTOP,
+                            "image": IMAGE,
+                            "environment": validation_env,
+                            "commands": [BUILD_USERS, VALIDATION_COMMAND],
+                        }
+                    ],
+                },
+            )
         elif not (
             reuse_main_validation or defer_to_main_validation or skip_failed_main
         ):
@@ -938,6 +995,32 @@ def configuration(
                 for target in schedule:
                     if target == "webhook-watchdog":
                         continue
+                    if not scheduled_target_allowed(operations[target]):
+                        # Agents edit the schedules; an operator-only mutation
+                        # listed there fails visibly instead of running.
+                        add(
+                            f"{target}-operator-only",
+                            {
+                                "when": [{"event": "cron"}],
+                                "labels": {"tier": "sandbox", "type": "docker"},
+                                "steps": [
+                                    {
+                                        "name": f"{target}-operator-only",
+                                        "image": IMAGE,
+                                        "commands": [
+                                            "echo "
+                                            + shlex.quote(
+                                                f"{target} is operator-only and cannot"
+                                                " run on a schedule"
+                                            )
+                                            + " >&2",
+                                            "exit 1",
+                                        ],
+                                    }
+                                ],
+                            },
+                        )
+                        continue
                     if target in held:
                         # A host deployment that would activate unapproved
                         # authorization or storage changes waits for the
@@ -998,9 +1081,11 @@ def configuration(
             )
     if current != pipeline["commit"] and not source_compatible:
         raise StaleDeployment("Operation source must be the current main commit")
+    # A parent may still be running: main-backstop does not gate deployment,
+    # and validation-v2 must have passed (checked below) either way.
     if (
         not parent
-        or parent.get("status") not in {"success", "failure"}
+        or parent.get("status") not in {"success", "failure", "running"}
         or parent.get("commit") != pipeline["commit"]
     ):
         raise ValueError("Successful validation of this commit is required")
@@ -1009,7 +1094,8 @@ def configuration(
         or parent.get("ref") != "refs/heads/main"
     ):
         raise ValueError("Parent must be main-branch validation")
-    if (now or int(time.time())) - parent.get("finished", 0) > 86400:
+    validated = parent.get("finished") or parent.get("created", 0)
+    if (now or int(time.time())) - validated > 86400:
         raise ValueError("Validation has expired; run validation again")
     workflows = parent.get("workflows", [])
     if not any(
@@ -1163,6 +1249,7 @@ def resolve_configuration(
         )
         current = tip["commit"]["id"]
     branch_validation = None
+    independent_validation = None
     if (
         request["pipeline"].get("event") == "push"
         and request["pipeline"].get("ref") == "refs/heads/main"
@@ -1193,6 +1280,25 @@ def resolve_configuration(
                 )
             except Exception:
                 branch_validation = None
+        if branch_validation is None:
+            head = mirror.independent_head(current)
+            token = os.environ.get("POLICY_API_TOKEN", "")
+            if head is not None and token:
+                try:
+                    independent_validation = green_branch_push(
+                        {head},
+                        api(
+                            "http://127.0.0.1:8000/api/repos/1/pipelines?perPage=50",
+                            token,
+                        ),
+                        lambda number: api(
+                            f"http://127.0.0.1:8000/api/repos/1/pipelines/{number}",
+                            token,
+                        ),
+                        int(time.time()),
+                    )
+                except Exception:
+                    independent_validation = None
     source_compatible = False
     if (
         request["pipeline"].get("event") == "deployment"
@@ -1250,6 +1356,7 @@ def resolve_configuration(
         held_targets=held_targets,
         main_backstop=main_backstop,
         branch_validation=branch_validation,
+        independent_validation=independent_validation,
     )
 
 

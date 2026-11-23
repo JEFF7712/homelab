@@ -63,6 +63,11 @@ DRAIN_TIMEOUT = 300.0
 # draining; the cordon keeps new ones off. Past the limit it drains anyway.
 JOB_WAIT_TIMEOUT = 1200.0
 JOB_WAIT_INTERVAL = 30.0
+# Pods of Jobs that resume on their next run carry this label and are drained
+# without waiting. soularr runs about 80 minutes an hour, so every deploy of
+# its node waited the full 1200s and then killed it anyway (three times in
+# nine fleet deploys by 2026-11-22), holding the fleet lease the whole time.
+INTERRUPTIBLE_LABEL = "homelab.fleet/interruptible"
 # Marks a cordon the deployer placed. The CI host's switch kills the deploy
 # job before it can uncordon, so the next run releases a marked cordon once
 # the node runs the desired system healthily. Operator cordons carry no mark.
@@ -941,6 +946,7 @@ class FleetDeployer:
                 owner.get("kind") == "Job"
                 for owner in pod["metadata"].get("ownerReferences") or []
             )
+            and (pod["metadata"].get("labels") or {}).get(INTERRUPTIBLE_LABEL) != "true"
         )
 
     def wait_for_jobs(self, node_name: str) -> None:
@@ -1657,6 +1663,15 @@ class FleetDeployer:
                             "status": "unchanged",
                             "duration_seconds": 0.0,
                         }
+                    )
+            if not self.dry_run:
+                # Preview every activation before the first switch, so a
+                # host whose activation would fail stops the run while the
+                # fleet is untouched. This replaced the separate dry-run
+                # operation that preceded every deployment (about 3 minutes).
+                for host in changed:
+                    self.activate_system(
+                        host, self.prepared[host.name][1], dry_run=True
                     )
             for host in changed:
                 host_started = time.monotonic()

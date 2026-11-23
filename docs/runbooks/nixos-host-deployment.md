@@ -133,13 +133,14 @@ approval path; do not bypass it while recovering a failed deployment.
 
 ## Protected CI deployment
 
-The `deploy-fleet-dry-run` and `deploy-fleet` operations in
+The `deploy-fleet` operation (and the optional `deploy-fleet-dry-run`) in
 `config/ci/operations.json` consider the full configured fleet and skip any
 host already running its evaluated desired closure. The CI policy
 rejects per-run variable overrides, so the `DEPLOY_TARGETS` environment is not
 a supported way to scope these operations. Run them only when the full fleet is
-within the authorized change scope. The deploy operation requires its matching
-dry-run prerequisite and fresh successful validation for the same source commit.
+within the authorized change scope. The deploy operation requires fresh
+successful validation for the same source commit, builds every changed host and
+previews each activation before switching any.
 Known changes to disjoint resources may advance main without invalidating that
 source; unknown or related changes require a fresh prerequisite.
 See [CI pipeline operations](ci-pipelines.md) for the operation lifecycle.
@@ -166,7 +167,10 @@ prepares changed closures, then cordons and drains affected k3s nodes. Between
 the cordon and the drain it waits up to 20 minutes for pods of running Jobs on
 the node (backups, restore drills) to finish, so a drain does not evict them
 mid-run; past that limit, or when the pod list cannot be read, it drains
-anyway. It runs
+anyway. Jobs that resume on their next run label their pods
+`homelab.fleet/interruptible: "true"` and are drained at once: soularr runs
+about 80 minutes an hour, so every deploy of its node waited the full 20
+minutes, killed it anyway and held the fleet lease meanwhile. It runs
 the prepared closure's `switch-to-configuration dry-activate` in dry-run mode
 and `switch-to-configuration switch` for apply, verifies k3s readiness, newly
 failed units and crash-looping services, then uncordons the node. Stateful k3s nodes also wait for PostgreSQL readiness.

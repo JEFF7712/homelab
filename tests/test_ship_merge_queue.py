@@ -241,6 +241,7 @@ class MergeUnderLeaseTest(unittest.TestCase):
             "head": {"sha": "a" * 40, "ref": "feat/x"},
         }
         shipper.wait_status = lambda sha, label, pull=None: None
+        shipper.await_operator = lambda number: None
         attempts = [LeaseLost("lost"), "m" * 40]
 
         def merge_locked(number: int) -> str:
