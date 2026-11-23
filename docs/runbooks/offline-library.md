@@ -35,7 +35,7 @@ each book in `gitops/offline/kiwix-update/books.json`:
    beside the release it replaces. It refuses a download that would leave
    less than 100 GiB free. A failed book keeps serving its current release.
    Download mirrors sometimes send a short or damaged copy: a download that
-   stops short is resumed (three tries), and one that fails its SHA-256
+   stops short or stalls is resumed (five tries, a minute apart), and one that fails its SHA-256
    has only the 4 MiB pieces whose metalink SHA-1 differs fetched again
    (three rounds) before it is discarded.
 2. `library` rebuilds `library.xml` from the newest release of each book and

@@ -353,6 +353,39 @@ class TransferTest(unittest.TestCase):
             self.assertEqual(part.read_bytes(), body)
         self.assertEqual(ranges, ["bytes=0-", "bytes=600-"])
 
+    def test_stalled_mirror_is_resumed_and_persistent_failure_raises(self) -> None:
+        body = zim_bytes(bytes(1000))
+        calls: list[str] = []
+
+        class Response(io.BytesIO):
+            status = 206
+
+        def urlopen(request: Any, timeout: float) -> Response:
+            calls.append(request.get_header("Range"))
+            if len(calls) == 1:
+                raise TimeoutError("The read operation timed out")
+            return Response(body)
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            mock.patch.object(MOD["urllib"].request, "urlopen", urlopen),
+            mock.patch.object(MOD["time"], "sleep"),
+        ):
+            part = Path(directory) / "a_2026-01.zim.part"
+            MOD["download"]("https://example/a.zim", part, len(body), 1 << 40)
+            self.assertEqual(part.read_bytes(), body)
+            self.assertEqual(calls, ["bytes=0-", "bytes=0-"])
+
+            def stalled(request: Any, timeout: float) -> Response:
+                raise TimeoutError("The read operation timed out")
+
+            part.unlink()
+            with (
+                mock.patch.object(MOD["urllib"].request, "urlopen", stalled),
+                self.assertRaises(TimeoutError),
+            ):
+                MOD["download"]("https://example/a.zim", part, len(body), 1 << 40)
+
     def test_range_fetch_overwrites_one_piece_in_place(self) -> None:
         class Response(io.BytesIO):
             status = 206

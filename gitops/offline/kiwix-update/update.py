@@ -41,6 +41,7 @@ ZIM_MAGIC = 0x044D495A
 RELEASE = re.compile(r"/(?P<stem>[^/]+)_(?P<date>\d{4}-\d{2})\.zim\.meta4$")
 CHUNK = 1 << 20
 FLUSH_EVERY = 64 << 20
+RETRY_DELAY = 60
 USER_AGENT = "homelab-offline-library/1 (+https://kiwix.org)"
 LIBRARY_FILES = "library-files.txt"
 FAILED = "fetch-failed.json"
@@ -180,16 +181,26 @@ def drop_cache(handle: BinaryIO) -> None:
     os.posix_fadvise(handle.fileno(), 0, 0, os.POSIX_FADV_DONTNEED)
 
 
-def download(url: str, part: Path, size: int, rate: int, attempts: int = 3) -> None:
-    """Resume `part` up to `size` bytes, sleeping to stay under `rate` B/s."""
-    for _ in range(attempts):
+def download(url: str, part: Path, size: int, rate: int, attempts: int = 5) -> None:
+    """Resume `part` up to `size` bytes, sleeping to stay under `rate` B/s.
+
+    A mirror that stops short or stalls past the read timeout is retried
+    from where it stopped; the last attempt's error fails the book.
+    """
+    for attempt in range(1, attempts + 1):
         offset = part.stat().st_size if part.exists() else 0
         if offset > size:
             part.unlink()
             offset = 0
         if offset == size:
             return
-        resume(url, part, offset, rate)
+        try:
+            resume(url, part, offset, rate)
+        except OSError as error:
+            if attempt == attempts:
+                raise
+            print(f"{part.name}: {error}; resuming", flush=True)
+            time.sleep(RETRY_DELAY)
     if part.stat().st_size != size:
         raise UpdateError(f"{url}: got {part.stat().st_size} of {size} bytes")
 
