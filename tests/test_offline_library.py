@@ -761,15 +761,16 @@ class ManifestTest(unittest.TestCase):
         service = self.objects[("Service", "offline-web")]
         self.assertEqual(service["spec"]["type"], "LoadBalancer")
         # Local replies bypass OPNsense for clients on the node VLAN, which
-        # then drops the half-seen connection; forwarded traffic arrives from
-        # node addresses, so the node policy below must admit it.
+        # then drops the half-seen connection.
         self.assertEqual(service["spec"]["externalTrafficPolicy"], "Cluster")
-        nodes = self.objects[("CiliumNetworkPolicy", "offline-web-from-nodes")]
+        # VIP traffic forwarded by a node without a pod arrives as world (from
+        # the node's address), so only an entity rule admits LAN clients.
+        ingress = self.objects[("CiliumNetworkPolicy", "offline-web-ingress")]
         self.assertEqual(
-            nodes["spec"]["endpointSelector"]["matchLabels"], {"app": "offline-web"}
+            ingress["spec"]["endpointSelector"]["matchLabels"], {"app": "offline-web"}
         )
-        (rule,) = nodes["spec"]["ingress"]
-        self.assertEqual(sorted(rule["fromEntities"]), ["host", "remote-node"])
+        (rule,) = ingress["spec"]["ingress"]
+        self.assertEqual(sorted(rule["fromEntities"]), ["host", "remote-node", "world"])
         self.assertEqual(
             rule["toPorts"][0]["ports"], [{"port": "8080", "protocol": "TCP"}]
         )

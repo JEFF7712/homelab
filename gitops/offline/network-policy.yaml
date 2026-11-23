@@ -25,14 +25,17 @@ spec:
         - ipBlock:
             cidr: 100.64.0.0/10
 ---
-# CI jobs (Docker on homelab-04, a cluster node) and anything else on a node
-# reach the VIP with a node identity, which the CIDR rules above never match.
-# OPNsense's data-plane probe of 10.0.40.18 runs that way. Admit node traffic
-# to the web front's port only.
+# VIP traffic reaches offline-web through a node that usually runs no
+# offline-web pod (OPNsense routes 10.0.40.18 to homelab-01). In tunnel mode
+# that node forwards it with its own address and the world identity, so the
+# CIDR rules above never match a LAN client; nodes themselves (and CI, which
+# runs on homelab-04) arrive as host or remote-node. Only the LAN and the
+# NetBird mesh can route to the VIP, so admitting world on the web port
+# admits exactly them. Kiwix itself stays reachable only through this front.
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 metadata:
-  name: offline-web-from-nodes
+  name: offline-web-ingress
   namespace: offline
 spec:
   endpointSelector:
@@ -40,6 +43,7 @@ spec:
       app: offline-web
   ingress:
     - fromEntities:
+        - world
         - host
         - remote-node
       toPorts:
