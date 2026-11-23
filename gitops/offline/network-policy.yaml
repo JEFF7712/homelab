@@ -24,3 +24,25 @@ spec:
     - from:
         - ipBlock:
             cidr: 100.64.0.0/10
+---
+# CI jobs (Docker on homelab-04, a cluster node) and anything else on a node
+# reach the VIP with a node identity, which the CIDR rules above never match.
+# OPNsense's data-plane probe of 10.0.40.18 runs that way. Admit node traffic
+# to the web front's port only.
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: offline-web-from-nodes
+  namespace: offline
+spec:
+  endpointSelector:
+    matchLabels:
+      app: offline-web
+  ingress:
+    - fromEntities:
+        - host
+        - remote-node
+      toPorts:
+        - ports:
+            - port: "8080"
+              protocol: TCP

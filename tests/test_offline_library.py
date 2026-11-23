@@ -762,6 +762,16 @@ class ManifestTest(unittest.TestCase):
         self.assertEqual(service["spec"]["type"], "LoadBalancer")
         # The namespace policy admits LAN sources, so they must not be SNATed.
         self.assertEqual(service["spec"]["externalTrafficPolicy"], "Local")
+        # The data-plane probe runs on a node; only the web port admits it.
+        nodes = self.objects[("CiliumNetworkPolicy", "offline-web-from-nodes")]
+        self.assertEqual(
+            nodes["spec"]["endpointSelector"]["matchLabels"], {"app": "offline-web"}
+        )
+        (rule,) = nodes["spec"]["ingress"]
+        self.assertEqual(sorted(rule["fromEntities"]), ["host", "remote-node"])
+        self.assertEqual(
+            rule["toPorts"][0]["ports"], [{"port": "8080", "protocol": "TCP"}]
+        )
         vip = service["metadata"]["annotations"]["io.cilium/lb-ipam-ips"]
         dns = (ROOT / "inventory/dns.nix").read_text()
         for name in ("kiwix", "maps"):
