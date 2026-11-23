@@ -83,8 +83,13 @@ kubectl -n cloudflare logs deploy/lan-gateway --tail=50
 
 If the Service stays `<pending>`, another LoadBalancer Service already holds
 `10.0.40.19` through automatic allocation; pick a free pool address and update
-`config/lan-gateway.json`, `gitops/lan-gateway/service.yaml`, and the rendered
-overrides together.
+`config/lan-gateway.json`, `gitops/lan-gateway/service.yaml`, the rendered
+overrides, and the `/healthz` target in
+`opnsense_reconciler/lb-data-plane-targets.json` together.
+
+`vip-dataplane-watch` probes `http://10.0.40.19/healthz` through OPNsense every
+maintenance run and posts to ntfy when the VIP stops answering; see
+[OPNsense BGP proof](opnsense-bgp-proof.md#vips-time-out-while-bgp-is-up).
 
 ## Recovery
 
