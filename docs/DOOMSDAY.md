@@ -26,9 +26,11 @@ mounted at `/tank/offline`. About 680 GB once the first full update finishes.
 | Books | Project Gutenberg (about 70,000 public-domain books in English) |
 | Maps | The whole world's street map from OpenStreetMap (Protomaps build) |
 
-The exact list is `gitops/offline/kiwix-update/books.json`. The map has no
-place search and no turn-by-turn directions; plan routes with it by eye, or
-use Organic Maps on a phone (see Preparation).
+The exact list is `gitops/offline/kiwix-update/books.json`. Inside the US,
+the map's panel searches places and addresses and gives driving, cycling and
+walking directions with turn-by-turn steps; elsewhere it is a map only.
+Search and directions need the cluster running (Scenario 1), so also keep
+Organic Maps on a phone (see Preparation).
 
 ## Scenario 1: the internet is down, the house has power
 
@@ -123,8 +125,8 @@ on the same disk and do not survive losing it.
    (`nix profile install nixpkgs#kiwix-tools nixpkgs#caddy`).
 3. Phone: install Kiwix and copy a few smaller books onto it (mdwiki, iFixit,
    Wikivoyage, Wikipedia if it fits). Install Organic Maps and download the
-   regions you might need; it searches and routes offline, which this map
-   cannot.
+   regions you might need; it searches and routes offline without the
+   homelab, and outside the US.
 4. Keep a copy of this guide on the drive, on the phone and on paper.
 5. Now and then, with the WAN unplugged, open a book, run a search and pan the
    map, to prove the copy in the house works without the internet.

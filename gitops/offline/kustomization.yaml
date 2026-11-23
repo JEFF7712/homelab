@@ -6,6 +6,7 @@ resources:
   - storage.yaml
   - kiwix.yaml
   - web.yaml
+  - geo.yaml
   - kiwix-update.yaml
 configMapGenerator:
   # update.py is tested from this rendered ConfigMap
@@ -18,6 +19,9 @@ configMapGenerator:
       - kiwix-update/update.py
       - kiwix-update/books.json
       - kiwix-update/maps.json
+      - kiwix-update/geo.py
+      - kiwix-update/geo.json
+      - kiwix-update/build-routing.sh
   - name: offline-web
     namespace: offline
     options:
