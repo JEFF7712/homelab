@@ -82,6 +82,11 @@ let
     };
   deployNetwork = "ci-deploy";
   deployBridge = "br-cideploy";
+  ensureDeployNetwork = ''
+    docker network inspect ${deployNetwork} >/dev/null 2>&1 || docker network create \
+      --driver bridge --subnet 10.255.31.0/24 --gateway 10.255.31.1 \
+      -o com.docker.network.bridge.name=${deployBridge} ${deployNetwork}
+  '';
   oplockPort = 8031;
   policySource = pkgs.runCommand "woodpecker-policy-source" { } ''
     mkdir -p $out/scripts/ci $out/scripts/verifier $out/config/ci
@@ -399,11 +404,14 @@ in
         Type = "oneshot";
         RemainAfterExit = true;
       };
-      script = ''
-        docker network inspect ${deployNetwork} >/dev/null 2>&1 || docker network create \
-          --driver bridge --subnet 10.255.31.0/24 --gateway 10.255.31.1 \
-          -o com.docker.network.bridge.name=${deployBridge} ${deployNetwork}
-      '';
+      script = ensureDeployNetwork;
+    };
+    # The weekly system prune deletes every network without a container,
+    # including an idle deploy network, and the oneshot above stays active, so
+    # nothing recreated it and deploy jobs failed to start (2026-11-23).
+    systemd.services.docker-prune = {
+      path = [ config.virtualisation.docker.package ];
+      postStart = ensureDeployNetwork;
     };
     # Woodpecker cannot limit a catalog group to one running operation, so
     # operations hold the group's lock here for the life of a connection.
