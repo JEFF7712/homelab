@@ -56,11 +56,13 @@ by removing and re-adding the branch.
 ## Offline archive
 
 `media2/offline` (2 TB Seagate, mounted at `/tank/offline`) holds the Kiwix
-library that `gitops/offline` serves at `http://kiwix.homelab` (10.0.40.18); see
-[offline library](offline-library.md).
-`offline-archive-dataset` creates the dataset on the running pool, and
-`offline-archive-layout` creates `kiwix/` owned by uid 1000 before
-`nfs-server` starts. The k3s nodes mount it writable and management read-only
+library and world map that `gitops/offline` serves at `http://kiwix.homelab`
+and `http://maps.homelab` (10.0.40.18); see
+[offline library](offline-library.md). The dataset was created by hand
+(`zfs create -o mountpoint=legacy -o recordsize=1M media2/offline`); disko
+creates datasets only at install, and the deploy preflight refuses nas-01
+without it. `offline-archive-layout` creates `kiwix/` and `maps/` owned by
+uid 1000 before `nfs-server` starts. The k3s nodes mount it writable and management read-only
 (for copying it to a portable drive). It is excluded from restic because it
 can be downloaded again; the `offline` sanoid template keeps three daily
 snapshots.

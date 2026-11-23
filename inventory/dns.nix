@@ -108,5 +108,11 @@
       description = "Kiwix offline library load-balancer VIP: LAN-only plain HTTP, so it needs no WAN, tunnel or certificate renewal";
       unboundOrder = 13;
     }
+    {
+      name = "maps.homelab";
+      address = "10.0.40.18";
+      description = "Offline world map on the offline library VIP; nginx there routes it by name";
+      unboundOrder = 14;
+    }
   ];
 }

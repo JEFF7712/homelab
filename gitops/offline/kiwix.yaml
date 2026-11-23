@@ -1,6 +1,7 @@
 # Kiwix offline library: serves every ZIM in /tank/offline/kiwix (nas-01,
-# media2/offline) read-only at http://kiwix.homelab on a LAN VIP. Plain HTTP
-# on purpose: no tunnel, WAN or certificate renewal is needed to read it.
+# media2/offline) read-only at http://kiwix.homelab, through the offline-web
+# front on the LAN VIP (web.yaml). Plain HTTP on purpose: no tunnel, WAN or
+# certificate renewal is needed to read it.
 # kiwix-update.yaml downloads and swaps the ZIMs and rewrites library.xml;
 # --monitorLibrary reloads it without a restart.
 apiVersion: apps/v1
@@ -117,13 +118,8 @@ kind: Service
 metadata:
   name: kiwix
   namespace: offline
-  labels:
-    bgp-advertise: "true"
-  annotations:
-    io.cilium/lb-ipam-ips: 10.0.40.18
 spec:
-  type: LoadBalancer
-  loadBalancerClass: io.cilium/bgp-control-plane
+  type: ClusterIP
   selector:
     app: kiwix
   ports:

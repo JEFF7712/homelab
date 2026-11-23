@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offline map</title>
+  <!-- Every file is served from the archive; nothing here needs the internet. -->
+  <link rel="stylesheet" href="/assets/maplibre-gl.css">
+  <script src="/assets/maplibre-gl.js"></script>
+  <script src="/assets/pmtiles.js"></script>
+  <script src="/assets/basemaps.js"></script>
+  <style>
+    html, body, #map { margin: 0; height: 100%; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    const protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol("pmtiles", protocol.tile);
+    const flavor = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    const map = new maplibregl.Map({
+      container: "map",
+      hash: true,
+      center: [-96, 38],
+      zoom: 3,
+      style: {
+        version: 8,
+        glyphs: `${location.origin}/assets/fonts/{fontstack}/{range}.pbf`,
+        sprite: `${location.origin}/assets/sprites/v4/${flavor}`,
+        sources: {
+          protomaps: {
+            type: "vector",
+            url: `pmtiles://${location.origin}/planet.pmtiles`,
+            attribution: '<a href="https://openstreetmap.org/copyright">&copy; OpenStreetMap</a>',
+          },
+        },
+        layers: basemaps.layers("protomaps", basemaps.namedFlavor(flavor), { lang: "en" }),
+      },
+    });
+    map.addControl(new maplibregl.NavigationControl());
+    map.addControl(new maplibregl.ScaleControl());
+  </script>
+</body>
+</html>

@@ -121,29 +121,6 @@ in
     '';
   };
 
-  # disko creates datasets only at install time, so the archive dataset is
-  # created on the running media2 pool before its mount. Creation is the only
-  # change this unit makes.
-  systemd.services.offline-archive-dataset = {
-    description = "Create the offline archive dataset";
-    after = [ "zfs-import.target" ];
-    requires = [ "zfs-import.target" ];
-    before = [ "tank-offline.mount" ];
-    path = [ pkgs.zfs ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      if ! zfs list -H -o name ${offlineArchive.dataset} >/dev/null 2>&1; then
-        zfs create -o mountpoint=legacy -o recordsize=1M ${offlineArchive.dataset}
-      fi
-    '';
-  };
-  fileSystems."${offlineArchive.path}".options = [
-    "x-systemd.requires=offline-archive-dataset.service"
-  ];
-
   # The k3s updater runs unprivileged, so its tree must exist and belong to
   # its uid before nfs-server exports the dataset.
   systemd.services.offline-archive-layout = {
@@ -159,7 +136,7 @@ in
     };
     script = ''
       install -d -m 0755 -o ${toString offlineArchive.uid} -g ${toString offlineArchive.uid} \
-        ${offlineArchive.path}/kiwix
+        ${offlineArchive.path}/kiwix ${offlineArchive.path}/maps
     '';
   };
 

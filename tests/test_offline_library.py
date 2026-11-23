@@ -7,11 +7,14 @@ download are fakes.
 
 from __future__ import annotations
 
+import base64
+import datetime
 import hashlib
 import io
 import json
 import re
 import sys
+import tarfile
 import tempfile
 import types
 import unittest
@@ -441,6 +444,11 @@ class LibraryAndRotationTest(unittest.TestCase):
             "handmade_2020-01.zim",
         ):
             (self.archive.root / "zim" / name).write_bytes(zim_bytes(b""))
+        self.maps = self.archive.root / "maps"
+        self.maps.mkdir()
+        for name in ("planet_20260801.pmtiles", "planet_20261122.pmtiles"):
+            (self.maps / name).write_bytes(b"PMTiles\x03")
+        (self.maps / "planet.pmtiles").symlink_to("planet_20261122.pmtiles")
 
     def test_library_lists_newest_release_of_each_book_and_unclaimed_files(
         self,
@@ -470,7 +478,9 @@ class LibraryAndRotationTest(unittest.TestCase):
         )
         self.assertEqual(self.archive.names("previous"), ["devdocs_en_nix_2026-01.zim"])
 
-    def run_finish(self, problems: list[str], failed: list[str]) -> int:
+    def run_finish(
+        self, problems: list[str], failed: list[str], map_problems: tuple[str, ...] = ()
+    ) -> int:
         books = self.archive.root / "books.json"
         books.write_text(
             json.dumps(
@@ -484,9 +494,21 @@ class LibraryAndRotationTest(unittest.TestCase):
         )
         (self.archive.root / MOD["FAILED"]).write_text(json.dumps(failed))
         args = SimpleNamespace(
-            root=self.archive.root, books=books, url="http://x", timeout=1
+            root=self.archive.root,
+            books=books,
+            url="http://x",
+            timeout=1,
+            maps_root=self.maps,
+            maps_url="http://web",
+            maps_host="maps.homelab",
         )
-        with mock.patch.dict(MOD, {"verify_server": lambda *_: problems}):
+        with mock.patch.dict(
+            MOD,
+            {
+                "verify_server": lambda *_: problems,
+                "verify_maps": lambda *_: map_problems,
+            },
+        ):
             return MOD["finish"](args)
 
     def test_failed_verification_keeps_superseded_release_served(self) -> None:
@@ -494,10 +516,187 @@ class LibraryAndRotationTest(unittest.TestCase):
         self.assertIn("devdocs_en_nix_2026-01.zim", self.archive.names("zim"))
         self.assertEqual(self.archive.names("previous"), [])
 
+    def test_map_problems_keep_older_planets_and_fail_the_job(self) -> None:
+        self.assertEqual(self.run_finish([], [], ("planet 404",)), 1)
+        self.assertEqual(
+            sorted(p.name for p in self.maps.glob("planet_*")),
+            ["planet_20260801.pmtiles", "planet_20261122.pmtiles"],
+        )
+        self.assertEqual(self.run_finish([], []), 0)
+        self.assertEqual(
+            sorted(p.name for p in self.maps.glob("planet_*")),
+            ["planet_20261122.pmtiles"],
+        )
+
     def test_fetch_failure_still_rotates_verified_books_but_fails_the_job(self) -> None:
         self.assertEqual(self.run_finish([], ["wikipedia_en_all_maxi"]), 1)
         self.assertNotIn("devdocs_en_nix_2026-01.zim", self.archive.names("zim"))
         self.assertEqual(self.run_finish([], []), 0)
+
+
+def pmtiles(payload: bytes) -> bytes:
+    return b"PMTiles\x03" + payload
+
+
+def builds(*entries: tuple[str, bytes | None]) -> bytes:
+    """A Protomaps builds.json; a None body lists a build with no MD5."""
+    listed = []
+    for key, body in entries:
+        entry: dict[str, Any] = {"key": key, "size": len(body or b"x")}
+        if body is not None:
+            entry["md5sum"] = base64.b64encode(hashlib.md5(body).digest()).decode()
+        listed.append(entry)
+    return json.dumps(listed).encode()
+
+
+class MapTest(unittest.TestCase):
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.root = Path(directory.name)
+        self.bodies: dict[str, bytes] = {}
+        self.listing = b"[]"
+        self.downloads: list[str] = []
+
+    def fetch(self, url: str) -> bytes:
+        self.assertEqual(url, MOD["MAP_BUILDS"])
+        return self.listing
+
+    def transfer(self, url: str, part: Path, size: int) -> None:
+        self.downloads.append(url)
+        part.write_bytes(self.bodies[url][:size])
+
+    def publish(self, date: str, body: bytes, served: bytes | None = None) -> None:
+        self.listing = builds((f"{date}.pmtiles", body))
+        self.bodies[f"{MOD['MAP_DOWNLOADS']}/{date}.pmtiles"] = (
+            body if served is None else served
+        )
+
+    def update(self, today: str = "2026-11-23") -> str:
+        return MOD["update_map"](
+            self.root,
+            fetch=self.fetch,
+            transfer=self.transfer,
+            reserve=0,
+            max_age_days=90,
+            today=datetime.date.fromisoformat(today),
+        )
+
+    def served(self) -> str:
+        return MOD["os"].readlink(self.root / "planet.pmtiles")
+
+    def test_newest_build_with_a_checksum_is_chosen(self) -> None:
+        build = MOD["latest_map"](
+            builds(
+                ("20261101.pmtiles", b"a"),
+                ("20261122.pmtiles", b"b"),
+                ("20261123.pmtiles", None),
+                ("20261124.pmtiles.tmp", b"c"),
+            )
+        )
+        self.assertEqual(build.filename, "planet_20261122.pmtiles")
+        self.assertEqual(build.md5, hashlib.md5(b"b").hexdigest())
+        with self.assertRaises(UpdateError):
+            MOD["latest_map"](builds(("20261123.pmtiles", None)))
+
+    def test_first_run_installs_and_links_the_planet(self) -> None:
+        body = pmtiles(b"tiles")
+        self.publish("20261122", body)
+        self.assertIn("installed planet_20261122.pmtiles", self.update())
+        self.assertEqual(self.served(), "planet_20261122.pmtiles")
+        self.assertEqual((self.root / "planet.pmtiles").read_bytes(), body)
+        self.assertEqual(list((self.root / "staging").iterdir()), [])
+
+    def test_young_map_is_not_checked_and_old_map_is_replaced(self) -> None:
+        (self.root / "planet_20261001.pmtiles").write_bytes(pmtiles(b"old"))
+        self.publish("20261122", pmtiles(b"new"))
+        self.assertIn("current", self.update(today="2026-12-01"))
+        self.assertEqual(self.served(), "planet_20261001.pmtiles")
+        self.assertEqual(self.downloads, [])
+        self.assertIn("installed", self.update(today="2027-01-15"))
+        self.assertEqual(self.served(), "planet_20261122.pmtiles")
+        self.assertTrue((self.root / "planet_20261001.pmtiles").exists())
+
+    def test_bad_download_keeps_the_served_map(self) -> None:
+        (self.root / "planet_20260101.pmtiles").write_bytes(pmtiles(b"old"))
+        self.publish("20261122", pmtiles(b"new"), served=pmtiles(b"bad"))
+        with self.assertRaisesRegex(UpdateError, "MD5"):
+            self.update()
+        self.publish("20261122", b"<html>")
+        with self.assertRaisesRegex(UpdateError, "PMTiles"):
+            self.update()
+        self.assertEqual(self.served(), "planet_20260101.pmtiles")
+        self.assertEqual(list((self.root / "staging").iterdir()), [])
+
+    def test_assets_are_pinned_unpacked_and_installed_once(self) -> None:
+        tarball = io.BytesIO()
+        with tarfile.open(fileobj=tarball, mode="w:gz") as archive:
+            for name, data in (
+                ("top/fonts/Noto Sans Regular/0-255.pbf", b"glyphs"),
+                ("top/sprites/v4/light.json", b"{}"),
+                ("top/scripts/create_fonts.sh", b"#!/bin/sh"),
+            ):
+                info = tarfile.TarInfo(name)
+                info.size = len(data)
+                archive.addfile(info, io.BytesIO(data))
+        files = {"https://x/a.js": b"js", "https://x/assets.tar.gz": tarball.getvalue()}
+        assets = [
+            {
+                "url": "https://x/a.js",
+                "path": "a.js",
+                "sha256": hashlib.sha256(b"js").hexdigest(),
+            },
+            {
+                "url": "https://x/assets.tar.gz",
+                "unpack": ["fonts/", "sprites/v4/"],
+                "sha256": hashlib.sha256(files["https://x/assets.tar.gz"]).hexdigest(),
+            },
+        ]
+        fetched: list[str] = []
+
+        def fetch(url: str) -> bytes:
+            fetched.append(url)
+            return files[url]
+
+        install = MOD["install_assets"]
+        self.assertEqual(install(self.root, assets, fetch), "map assets: installed")
+        target = self.root / "assets"
+        self.assertEqual((target / "a.js").read_bytes(), b"js")
+        self.assertEqual(
+            (target / "fonts/Noto Sans Regular/0-255.pbf").read_bytes(), b"glyphs"
+        )
+        self.assertTrue((target / "sprites/v4/light.json").exists())
+        self.assertFalse((target / "scripts").exists())
+        self.assertEqual(install(self.root, assets, fetch), "map assets: current")
+        self.assertEqual(len(fetched), 2)
+
+        files["https://x/a.js"] = b"tampered"
+        assets[0] = {**assets[0], "url": "https://x/a.js", "path": "b.js"}
+        with self.assertRaisesRegex(UpdateError, "SHA-256"):
+            install(self.root, assets, fetch)
+        self.assertEqual((target / "a.js").read_bytes(), b"js")
+
+    def test_server_check_sends_the_maps_host_and_reads_the_planet_header(
+        self,
+    ) -> None:
+        requests: list[tuple[str, dict[str, str]]] = []
+
+        def http_get(url: str, timeout: float = 60, headers: Any = None) -> bytes:
+            requests.append((url, headers))
+            if url.endswith("/planet.pmtiles"):
+                return b"PMTiles\x03"
+            if url.endswith("/"):
+                return b'url: "pmtiles://host/planet.pmtiles"'
+            return b"data"
+
+        with mock.patch.dict(MOD, {"http_get": http_get}):
+            self.assertEqual(MOD["verify_maps"]("http://web", "maps.homelab"), [])
+        self.assertTrue(all(h["Host"] == "maps.homelab" for _, h in requests))
+        planet = next(h for url, h in requests if url.endswith("planet.pmtiles"))
+        self.assertEqual(planet["Range"], "bytes=0-7")
+
+        with mock.patch.dict(MOD, {"http_get": lambda *a, **k: b""}):
+            self.assertEqual(len(MOD["verify_maps"]("http://web", "maps.homelab")), 4)
 
 
 class CatalogParsingTest(unittest.TestCase):
@@ -537,6 +736,17 @@ class ManifestTest(unittest.TestCase):
         self.assertIn("fetch", pod["initContainers"][0]["command"])
         self.assertIn("library-files.txt", pod["initContainers"][1]["command"][-1])
         self.assertIn("finish", pod["containers"][0]["command"])
+        for container in (pod["initContainers"][0], pod["containers"][0]):
+            mounts = {
+                m["mountPath"]: m.get("subPath") for m in container["volumeMounts"]
+            }
+            self.assertEqual(mounts["/maps"], "maps")
+            self.assertIn("--maps-root=/maps", container["command"])
+        self.assertIn("--maps=/app/maps.json", pod["initContainers"][0]["command"])
+        self.assertIn(
+            "--maps-url=http://offline-web.offline.svc.cluster.local",
+            pod["containers"][0]["command"],
+        )
 
     def test_server_reads_the_archive_read_only_on_the_lan_vip(self) -> None:
         pod = self.objects[("Deployment", "kiwix")]["spec"]["template"]["spec"]
@@ -544,13 +754,60 @@ class ManifestTest(unittest.TestCase):
         self.assertIn("--monitorLibrary", server["command"])
         mount = next(m for m in server["volumeMounts"] if m["name"] == "archive")
         self.assertTrue(mount["readOnly"])
-        service = self.objects[("Service", "kiwix")]
+        # Kiwix sits behind offline-web, which holds the VIP for both names.
+        self.assertEqual(
+            self.objects[("Service", "kiwix")]["spec"]["type"], "ClusterIP"
+        )
+        service = self.objects[("Service", "offline-web")]
+        self.assertEqual(service["spec"]["type"], "LoadBalancer")
         vip = service["metadata"]["annotations"]["io.cilium/lb-ipam-ips"]
         dns = (ROOT / "inventory/dns.nix").read_text()
-        record = re.search(r'name = "kiwix\.homelab";\s*address = "([0-9.]+)";', dns)
-        self.assertIsNotNone(record)
-        assert record is not None
-        self.assertEqual(record.group(1), vip)
+        for name in ("kiwix", "maps"):
+            record = re.search(
+                rf'name = "{name}\.homelab";\s*address = "([0-9.]+)";', dns
+            )
+            self.assertIsNotNone(record, name)
+            assert record is not None
+            self.assertEqual(record.group(1), vip)
+        targets = json.loads(
+            (ROOT / "opnsense_reconciler/lb-data-plane-targets.json").read_text()
+        )
+        self.assertIn(f"http://{vip}/catalog/v2/root.xml", [t["url"] for t in targets])
+
+    def test_web_front_routes_maps_by_name_and_everything_else_to_kiwix(
+        self,
+    ) -> None:
+        config = self.objects[("ConfigMap", "offline-web")]["data"]
+        nginx = config["nginx.conf"]
+        self.assertIn("listen 8080 default_server;", nginx)
+        self.assertIn("proxy_pass http://kiwix.offline.svc.cluster.local;", nginx)
+        self.assertIn("server_name maps.homelab maps;", nginx)
+        self.assertIn("root /archive/maps;", nginx)
+        self.assertIn("/planet.pmtiles", config["index.html"])
+        # The viewer loads nothing from the internet.
+        self.assertNotRegex(
+            config["index.html"], r"<(script|link)[^>]+(src|href)=\"https?:"
+        )
+        pod = self.objects[("Deployment", "offline-web")]["spec"]["template"]["spec"]
+        mount = next(
+            m for m in pod["containers"][0]["volumeMounts"] if m["name"] == "archive"
+        )
+        self.assertEqual(mount["mountPath"], "/archive")
+        self.assertTrue(mount["readOnly"])
+        self.assertNotIn("subPath", mount)
+
+    def test_map_assets_are_versioned_and_pinned(self) -> None:
+        manifest = json.loads(
+            config_map("offline", "kiwix-update")["data"]["maps.json"]
+        )
+        self.assertGreater(manifest["max_age_days"], 0)
+        for asset in manifest["assets"]:
+            with self.subTest(url=asset["url"]):
+                self.assertRegex(asset["sha256"], r"^[0-9a-f]{64}$")
+                self.assertRegex(
+                    asset["url"], r"@\d+\.\d+\.\d+/|/archive/[0-9a-f]{40}\."
+                )
+                self.assertTrue("path" in asset or "unpack" in asset)
         pv = self.objects[("PersistentVolume", "offline-archive-nfs")]["spec"]["nfs"]
         self.assertEqual(pv["path"], "/tank/offline")
 

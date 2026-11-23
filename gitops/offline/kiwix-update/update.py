@@ -8,23 +8,32 @@ metalink SHA-1 differs fetched again; mirrors behind the download redirector
 can serve a short or damaged copy, and a 100 GB book is not worth refetching
 for that. Writes the files the library should list (newest release of each
 book) and the books that failed. A failed book keeps its served release.
+Then, when the installed world map is older than maps.json allows, the
+newest Protomaps planet build is downloaded the same way (size, MD5 from the
+build list, PMTiles header) and planet.pmtiles is pointed at it; the map
+viewer's scripts, fonts and sprites are installed from pinned SHA-256s.
 
 finish: wait until kiwix-serve lists exactly the library's books, load each
 book's main page and, where it has a full-text index, run a search (a
 replica that has not reloaded the library yet gets until the timeout). Only
-then move superseded releases to previous/ (one kept per book). Fails when
-verification or any fetch failed.
+then move superseded releases to previous/ (one kept per book). The map
+server must serve the viewer, its assets and the planet header before older
+planet files are deleted. Fails when verification or any fetch failed.
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
+import datetime
 import hashlib
+import io
 import json
 import os
 import re
 import shutil
 import sys
+import tarfile
 import time
 import urllib.parse
 import urllib.request
@@ -45,6 +54,12 @@ RETRY_DELAY = 60
 USER_AGENT = "homelab-offline-library/1 (+https://kiwix.org)"
 LIBRARY_FILES = "library-files.txt"
 FAILED = "fetch-failed.json"
+MAP_BUILDS = "https://build-metadata.protomaps.dev/builds.json"
+MAP_DOWNLOADS = "https://build.protomaps.com"
+MAP_BUILD = re.compile(r"(?P<date>\d{8})\.pmtiles")
+MAP_FILE = re.compile(r"planet_(?P<date>\d{8})\.pmtiles")
+MAP_LINK = "planet.pmtiles"
+PMTILES_MAGIC = b"PMTiles\x03"
 
 
 class UpdateError(Exception):
@@ -97,6 +112,21 @@ class Damaged(UpdateError):
         self.pieces = pieces
 
 
+@dataclass(frozen=True)
+class MapBuild:
+    date: str
+    size: int
+    md5: str
+
+    @property
+    def filename(self) -> str:
+        return f"planet_{self.date}.pmtiles"
+
+    @property
+    def url(self) -> str:
+        return f"{MAP_DOWNLOADS}/{self.date}.pmtiles"
+
+
 def load_books(path: Path) -> list[Book]:
     books = [Book(**entry) for entry in json.loads(path.read_text())["books"]]
     stems = [book.stem for book in books]
@@ -105,8 +135,12 @@ def load_books(path: Path) -> list[Book]:
     return books
 
 
-def http_get(url: str, timeout: float = 60) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+def http_get(
+    url: str, timeout: float = 60, headers: dict[str, str] | None = None
+) -> bytes:
+    request = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT, **(headers or {})}
+    )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
 
@@ -342,6 +376,167 @@ def library_files(root: Path, books: list[Book]) -> list[Path]:
     return sorted(newest) + unclaimed
 
 
+def latest_map(builds: bytes) -> MapBuild:
+    """The newest planet build that has a size and an MD5 to check."""
+    candidates = []
+    for build in json.loads(builds):
+        match = MAP_BUILD.fullmatch(str(build.get("key", "")))
+        if match and build.get("md5sum") and build.get("size"):
+            md5 = base64.b64decode(build["md5sum"]).hex()
+            candidates.append(MapBuild(match["date"], int(build["size"]), md5))
+    if not candidates:
+        raise UpdateError("no Protomaps planet build lists an MD5")
+    return max(candidates, key=lambda build: build.date)
+
+
+def map_files(root: Path) -> list[Path]:
+    """Installed planet files, oldest first."""
+    return sorted(path for path in root.iterdir() if MAP_FILE.fullmatch(path.name))
+
+
+def map_date(path: Path) -> datetime.date:
+    match = MAP_FILE.fullmatch(path.name)
+    if match is None:
+        raise UpdateError(f"{path.name}: not a planet file")
+    return datetime.datetime.strptime(match["date"], "%Y%m%d").date()
+
+
+def link_map(root: Path, target: Path) -> None:
+    """Point planet.pmtiles at `target` in one rename."""
+    link = root / MAP_LINK
+    if link.is_symlink() and os.readlink(link) == target.name:
+        return
+    temporary = root / f".{MAP_LINK}.tmp"
+    temporary.unlink(missing_ok=True)
+    temporary.symlink_to(target.name)
+    os.replace(temporary, link)
+
+
+def verify_map(path: Path, build: MapBuild) -> None:
+    if path.stat().st_size != build.size:
+        raise UpdateError(f"{path.name}: size {path.stat().st_size} != {build.size}")
+    with path.open("rb") as handle:
+        if handle.read(len(PMTILES_MAGIC)) != PMTILES_MAGIC:
+            raise UpdateError(f"{path.name}: not a PMTiles v3 file")
+        handle.seek(0)
+        digest = hashlib.md5(usedforsecurity=False)
+        read = 0
+        while chunk := handle.read(CHUNK):
+            digest.update(chunk)
+            read += len(chunk)
+            if read % FLUSH_EVERY < len(chunk):
+                drop_cache(handle)
+    if digest.hexdigest() != build.md5:
+        raise UpdateError(f"{path.name}: MD5 mismatch")
+
+
+def update_map(
+    root: Path,
+    *,
+    fetch: Callable[[str], bytes],
+    transfer: Callable[[str, Path, int], None],
+    reserve: int,
+    max_age_days: int,
+    today: datetime.date,
+) -> str:
+    """Install the newest planet build once the served one is too old."""
+    installed = map_files(root)
+    if installed:
+        link_map(root, installed[-1])
+        if (today - map_date(installed[-1])).days < max_age_days:
+            return f"maps: current ({installed[-1].name})"
+    build = latest_map(fetch(MAP_BUILDS))
+    if installed and installed[-1].name >= build.filename:
+        return f"maps: current ({installed[-1].name}, newest build)"
+    staging = root / "staging"
+    staging.mkdir(exist_ok=True)
+    part = staging / f"{build.filename}.part"
+    for stale in staging.glob("planet_*.pmtiles.part"):
+        if stale != part:
+            stale.unlink()
+    done = part.stat().st_size if part.exists() else 0
+    check_space(root, max(build.size - done, 0), reserve)
+    transfer(build.url, part, build.size)
+    try:
+        verify_map(part, build)
+    except UpdateError:
+        part.unlink()
+        raise
+    os.replace(part, root / build.filename)
+    link_map(root, root / build.filename)
+    return f"maps: installed {build.filename}"
+
+
+def install_assets(
+    root: Path, assets: list[dict[str, str]], fetch: Callable[[str], bytes]
+) -> str:
+    """Install the viewer's pinned files into assets/ unless already there.
+
+    An asset with `unpack` is a tarball: members under those top-level paths
+    (after the archive's own top directory) are extracted.
+    """
+    stamp = hashlib.sha256(json.dumps(assets, sort_keys=True).encode()).hexdigest()
+    target = root / "assets"
+    marker = target / ".manifest"
+    if marker.exists() and marker.read_text() == stamp:
+        return "map assets: current"
+    build = root / "assets.next"
+    shutil.rmtree(build, ignore_errors=True)
+    build.mkdir()
+    for asset in assets:
+        data = fetch(asset["url"])
+        if hashlib.sha256(data).hexdigest() != asset["sha256"]:
+            raise UpdateError(f"{asset['url']}: SHA-256 mismatch")
+        if "unpack" in asset:
+            prefixes = tuple(asset["unpack"])
+            with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+                for member in archive.getmembers():
+                    name = member.name.split("/", 1)[-1]
+                    if "/" in member.name and name.startswith(prefixes):
+                        member.name = name
+                        archive.extract(member, build, filter="data")
+        else:
+            (build / asset["path"]).write_bytes(data)
+    (build / ".manifest").write_text(stamp)
+    old = root / "assets.old"
+    shutil.rmtree(old, ignore_errors=True)
+    if target.exists():
+        os.replace(target, old)
+    os.replace(build, target)
+    shutil.rmtree(old, ignore_errors=True)
+    return "map assets: installed"
+
+
+def fetch_maps(args: argparse.Namespace) -> list[str]:
+    """Update the map and its viewer; the names of the parts that failed."""
+    manifest = json.loads(args.maps.read_text())
+    failed = []
+    steps: list[tuple[str, Callable[[], str]]] = [
+        (
+            "maps",
+            lambda: update_map(
+                args.maps_root,
+                fetch=http_get,
+                transfer=lambda url, part, size: download(url, part, size, args.rate),
+                reserve=args.reserve,
+                max_age_days=manifest["max_age_days"],
+                today=datetime.date.today(),
+            ),
+        ),
+        (
+            "map assets",
+            lambda: install_assets(args.maps_root, manifest["assets"], http_get),
+        ),
+    ]
+    for name, step in steps:
+        try:
+            print(step(), flush=True)
+        except (UpdateError, OSError, ValueError, tarfile.TarError) as error:
+            failed.append(name)
+            print(f"{name}: FAILED: {error}", file=sys.stderr, flush=True)
+    return failed
+
+
 def fetch_all(args: argparse.Namespace) -> int:
     root: Path = args.root
     for directory in ("zim", "previous", "staging"):
@@ -368,6 +563,7 @@ def fetch_all(args: argparse.Namespace) -> int:
         if path not in claimed:
             print(f"{path.name}: not in books.json; still served", flush=True)
     write_atomic(root / LIBRARY_FILES, "".join(f"zim/{p.name}\n" for p in files))
+    failed += fetch_maps(args)
     write_atomic(root / FAILED, json.dumps(failed) + "\n")
     return 0
 
@@ -433,6 +629,45 @@ def verify_server(root: Path, url: str, timeout: float) -> list[str]:
     return [f"{check}: {error}" for check, error in problems]
 
 
+def verify_maps(url: str, host: str) -> list[str]:
+    """Problems with the map server; empty when it serves viewer and map."""
+    headers = {"Host": host}
+    checks: list[tuple[str, dict[str, str], Callable[[bytes], bool]]] = [
+        ("/", headers, lambda body: b"/planet.pmtiles" in body),
+        ("/assets/maplibre-gl.js", headers, lambda body: len(body) > 0),
+        (
+            "/assets/fonts/Noto%20Sans%20Regular/0-255.pbf",
+            headers,
+            lambda body: len(body) > 0,
+        ),
+        (
+            f"/{MAP_LINK}",
+            {**headers, "Range": f"bytes=0-{len(PMTILES_MAGIC) - 1}"},
+            lambda body: body == PMTILES_MAGIC,
+        ),
+    ]
+    problems = []
+    for path, request_headers, valid in checks:
+        try:
+            if not valid(http_get(f"{url}{path}", headers=request_headers)):
+                problems.append(f"{url}{path} (Host {host}): unexpected content")
+        except OSError as error:
+            problems.append(f"{url}{path} (Host {host}): {error}")
+    print(f"verified map server, {len(problems)} problems", flush=True)
+    return problems
+
+
+def prune_maps(root: Path) -> list[str]:
+    """Delete planet files planet.pmtiles no longer points at."""
+    served = os.readlink(root / MAP_LINK)
+    removed = []
+    for old in map_files(root):
+        if old.name != served:
+            old.unlink()
+            removed.append(f"{old.name} deleted")
+    return removed
+
+
 def rotate(root: Path, books: list[Book]) -> list[str]:
     """Move superseded releases to previous/, keeping one per book."""
     moved = []
@@ -456,6 +691,15 @@ def finish(args: argparse.Namespace) -> int:
     else:
         for line in rotate(root, load_books(args.books)):
             print(line, flush=True)
+    map_problems = verify_maps(args.maps_url, args.maps_host)
+    for problem in map_problems:
+        print(problem, file=sys.stderr)
+    if map_problems:
+        print("older planet files kept", file=sys.stderr)
+    elif (args.maps_root / MAP_LINK).is_symlink():
+        for line in prune_maps(args.maps_root):
+            print(line, flush=True)
+    problems += map_problems
     failed = json.loads((root / FAILED).read_text())
     if failed:
         print(f"fetch failed for: {', '.join(failed)}", file=sys.stderr)
@@ -470,10 +714,15 @@ def main(argv: list[str] | None = None) -> int:
     fetch.add_argument("--books", type=Path, required=True)
     fetch.add_argument("--rate", type=int, default=20 << 20, help="bytes per second")
     fetch.add_argument("--reserve", type=int, default=100 << 30, help="bytes kept free")
+    fetch.add_argument("--maps", type=Path, required=True, help="maps.json")
+    fetch.add_argument("--maps-root", type=Path, required=True)
     done = commands.add_parser("finish")
     done.add_argument("--root", type=Path, required=True)
     done.add_argument("--books", type=Path, required=True)
     done.add_argument("--url", required=True)
+    done.add_argument("--maps-root", type=Path, required=True)
+    done.add_argument("--maps-url", required=True)
+    done.add_argument("--maps-host", default="maps.homelab")
     done.add_argument("--timeout", type=float, default=300)
     args = parser.parse_args(argv)
     return fetch_all(args) if args.command == "fetch" else finish(args)

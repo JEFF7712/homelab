@@ -92,7 +92,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Book downloads: Bookshelf, qBittorrent and Calibre](runbooks/books.md)
 - [Bookshelf state backup and recovery](runbooks/bookshelf-recovery.md)
 - [Game downloads and library](runbooks/games.md)
-- [Offline library (Kiwix)](runbooks/offline-library.md)
+- [Offline library (Kiwix and maps)](runbooks/offline-library.md)
 - [NAS game share](runbooks/nas-game-share.md)
 - [pod-agent on the homelab](runbooks/pod-agent.md)
 
