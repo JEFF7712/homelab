@@ -89,6 +89,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Lidarr queue hygiene](runbooks/arr-queue-hygiene.md)
 - [Nightly beets tagging](runbooks/beets.md)
 - [Media memory management](runbooks/media-memory.md)
+- [Book downloads: Bookshelf, qBittorrent and Calibre](runbooks/books.md)
 - [Bookshelf state backup and recovery](runbooks/bookshelf-recovery.md)
 - [Game downloads and library](runbooks/games.md)
 - [Offline library (Kiwix)](runbooks/offline-library.md)
