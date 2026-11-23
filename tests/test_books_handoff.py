@@ -6,6 +6,7 @@ pod never wake Calibre's inotify watcher. These tests run the rendered
 scripts and the qBittorrent config init against temporary directories.
 """
 
+import json
 import os
 import subprocess
 import tempfile
@@ -172,6 +173,19 @@ class Wiring(unittest.TestCase):
         self.assertEqual((ctx["runAsUser"], ctx["runAsGroup"]), (911, 1001))
         books = next(m for m in mover["volumeMounts"] if m["name"] == "media")
         self.assertEqual((books["mountPath"], books["subPath"]), ("/books", "books"))
+
+
+class CalibreDirs(unittest.TestCase):
+    def test_dirs_json_has_ingest_processor_keys(self):
+        dirs = json.loads(config_map("media", "calibre-web-dirs")["data"]["dirs.json"])
+        self.assertEqual(
+            dirs,
+            {
+                "ingest_folder": "/cwa-book-ingest",
+                "calibre_library_dir": "/calibre-library",
+                "tmp_conversion_dir": "/config/.cwa_conversion_tmp",
+            },
+        )
 
 
 if __name__ == "__main__":
