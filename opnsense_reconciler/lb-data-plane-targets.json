@@ -8,5 +8,10 @@
     "description": "Home Assistant web UI",
     "expect_status": 200,
     "url": "http://10.0.40.13:8123/manifest.json"
+  },
+  {
+    "description": "LAN gateway router",
+    "expect_status": 200,
+    "url": "http://10.0.40.19/healthz"
   }
 ]
