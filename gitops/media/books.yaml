@@ -49,6 +49,11 @@ spec:
               value: "1000"
             - name: TZ
               value: America/Chicago
+            # calibre_postinstall cannot link calibredb into /usr/bin on the
+            # read-only rootfs, and the ingest processor runs it from PATH.
+            # The image default PATH with the bundled Calibre appended.
+            - name: PATH
+              value: /lsiopy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/app/calibre
           ports:
             - containerPort: 8083
           volumeMounts:

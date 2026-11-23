@@ -187,6 +187,13 @@ class CalibreDirs(unittest.TestCase):
             },
         )
 
+    def test_bundled_calibre_is_on_path(self):
+        spec = deployment("calibre-web")["spec"]["template"]["spec"]
+        cwa = next(c for c in spec["containers"] if c["name"] == "calibre-web")
+        env = {e["name"]: e.get("value") for e in cwa["env"]}
+        self.assertIn("/app/calibre", env["PATH"].split(":"))
+        self.assertIn("/usr/bin", env["PATH"].split(":"))
+
 
 if __name__ == "__main__":
     unittest.main()
