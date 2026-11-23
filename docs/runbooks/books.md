@@ -47,10 +47,13 @@ until the rescan finds the file.
 - After an NFS outage the calibre-web pod can stick in
   `CreateContainerConfigError: failed to prepare subPath`; delete the pod.
 
-## Weekly missing-book search
+## Weekly Bookshelf maintenance
 
 `bookshelf-missing-search` (`gitops/media/bookshelf-missing-search.yaml`,
-Sundays 03:47) asks Bookshelf to search every monitored book that has no
-file. It reads only `BOOKSHELF_API_KEY` from `media-app`. Run it on demand
-with `kubectl -n media create job --from=cronjob/bookshelf-missing-search
-<name>`; the search itself runs inside Bookshelf (System → Tasks → Queue).
+script `bookshelf-missing-search/weekly.py`, Sundays 03:47) rescans the
+library, removes queue entries whose book Calibre has imported (Bookshelf
+only: the torrent keeps seeding, nothing is blocklisted), then searches every
+monitored book with no file. It reads only `BOOKSHELF_API_KEY` from
+`media-app`. Run it on demand with `kubectl -n media create job
+--from=cronjob/bookshelf-missing-search <name>`. Bookshelf's health page
+keeps warning "Enable Completed Download Handling"; that is expected.

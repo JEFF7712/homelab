@@ -1,8 +1,7 @@
-# Weekly backlog search for monitored books that are still missing.
-#
-# Bookshelf only watches indexer RSS feeds between manual searches, so an
-# older title that is first posted as an ebook later is never picked up.
-# This asks Bookshelf to search every monitored, missing book once a week.
+# Weekly Bookshelf maintenance (bookshelf-missing-search/weekly.py): rescan the
+# library, clear queue entries Calibre has imported, then search every
+# monitored book that is still missing. Bookshelf only watches indexer RSS
+# between searches, so older titles posted as ebooks later need this.
 # Runbook: docs/runbooks/books.md
 ---
 apiVersion: batch/v1
@@ -28,16 +27,8 @@ spec:
               type: RuntimeDefault
           containers:
             - name: search
-              image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
-              command:
-                - sh
-                - -c
-                - >-
-                  wget -q -O - -T 60
-                  --header "X-Api-Key: $BOOKSHELF_API_KEY"
-                  --header "Content-Type: application/json"
-                  --post-data '{"name":"MissingBookSearch","monitored":true}'
-                  http://bookshelf.media/api/v1/command
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:c6ead215bfd31f1e433d968853b7a769989117115b728874824e6c0a27cb96fc  # yamllint disable-line rule:line-length
+              command: ["python3", "/app/weekly.py"]
               env:
                 - name: BOOKSHELF_API_KEY
                   valueFrom:
@@ -50,9 +41,17 @@ spec:
                 runAsUser: 1000
                 runAsGroup: 1000
                 runAsNonRoot: true
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
               resources:
                 requests:
                   cpu: 10m
-                  memory: 16Mi
-                limits:
                   memory: 32Mi
+                limits:
+                  memory: 128Mi
+          volumes:
+            - name: script
+              configMap:
+                name: bookshelf-missing-search
