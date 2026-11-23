@@ -34,10 +34,16 @@ each book in `gitops/offline/kiwix-update/books.json`:
    catalog metalink) and ZIM header. Only then does it rename it into `zim/`,
    beside the release it replaces. It refuses a download that would leave
    less than 100 GiB free. A failed book keeps serving its current release.
+   Download mirrors sometimes send a short or damaged copy: a download that
+   stops short is resumed (three tries), and one that fails its SHA-256
+   has only the 4 MiB pieces whose metalink SHA-1 differs fetched again
+   (three rounds) before it is discarded.
 2. `library` rebuilds `library.xml` from the newest release of each book and
    replaces it atomically; `--monitorLibrary` reloads it without a restart.
 3. `finish` waits until the server lists exactly the library's books, opens
-   each one's main page, and runs a search on each indexed book. Only then
+   each one's main page, and runs a search on each indexed book. Failed
+   checks are retried until the timeout, because the second replica may
+   still be loading the new library. Only then
    does it move superseded releases to `previous/`, deleting the older copy
    there. Any failed fetch or check fails the Job, which raises the
    `JobFailed` alert.

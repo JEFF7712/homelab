@@ -54,13 +54,22 @@ def feed(*hrefs: str) -> bytes:
     return f'<feed xmlns="http://www.w3.org/2005/Atom">{links}</feed>'.encode()
 
 
-def metalink(filename: str, body: bytes, digest: str | None = None) -> bytes:
+def metalink(
+    filename: str, body: bytes, digest: str | None = None, piece: int = 0
+) -> bytes:
     digest = digest or hashlib.sha256(body).hexdigest()
+    pieces = ""
+    if piece:
+        hashes = "".join(
+            f"<hash>{hashlib.sha1(body[i : i + piece]).hexdigest()}</hash>"
+            for i in range(0, len(body), piece)
+        )
+        pieces = f'<pieces length="{piece}" type="sha-1">{hashes}</pieces>'
     return (
         '<metalink xmlns="urn:ietf:params:xml:ns:metalink">'
         f'<file name="{filename}"><size>{len(body)}</size>'
         f'<hash type="md5">00</hash><hash type="sha-256">{digest}</hash>'
-        "</file></metalink>"
+        f"{pieces}</file></metalink>"
     ).encode()
 
 
@@ -73,13 +82,25 @@ class Archive:
             (root / name).mkdir()
         self.responses: dict[str, bytes] = {}
         self.bodies: dict[str, bytes] = {}
+        self.served: dict[str, bytes] = {}
         self.fetched: list[str] = []
+        self.repaired: list[tuple[int, int]] = []
 
-    def publish(self, stem: str, date: str, body: bytes, digest: str | None = None):
+    def publish(
+        self,
+        stem: str,
+        date: str,
+        body: bytes,
+        digest: str | None = None,
+        piece: int = 0,
+        served: bytes | None = None,
+    ):
+        """Publish a release; `served` is what a full download returns."""
         filename = f"{stem}_{date}.zim"
         url = f"{CATALOG_URL}/test/{filename}"
-        self.responses[f"{url}.meta4"] = metalink(filename, body, digest)
+        self.responses[f"{url}.meta4"] = metalink(filename, body, digest, piece)
         self.bodies[url] = body
+        self.served[url] = body if served is None else served
         return f"{url}.meta4"
 
     def catalog(self, *meta4: str) -> None:
@@ -92,7 +113,13 @@ class Archive:
         return self.responses[url]
 
     def transfer(self, url: str, part: Path, size: int) -> None:
-        part.write_bytes(self.bodies[url][:size])
+        part.write_bytes(self.served[url][:size])
+
+    def repair(self, url: str, part: Path, offset: int, length: int) -> None:
+        self.repaired.append((offset, length))
+        with part.open("r+b") as output:
+            output.seek(offset)
+            output.write(self.bodies[url][offset : offset + length])
 
     def update(self, book: Any, reserve: int = 0) -> str:
         return MOD["update_book"](
@@ -100,6 +127,7 @@ class Archive:
             book,
             fetch=self.fetch,
             transfer=self.transfer,
+            repair=self.repair,
             reserve=reserve,
         )
 
@@ -141,6 +169,20 @@ class ReleaseSelectionTest(unittest.TestCase):
         )
         self.assertEqual(parsed.size, 3)
         self.assertEqual(parsed.sha256, hashlib.sha256(b"abc").hexdigest())
+        self.assertEqual(parsed.pieces, ())
+
+    def test_metalink_piece_hashes_are_read_only_when_complete(self) -> None:
+        body = b"abcdefgh"
+        parsed = MOD["parse_metalink"](
+            metalink("a_2026-01.zim", body, piece=3), "a_2026-01.zim"
+        )
+        self.assertEqual(parsed.piece_length, 3)
+        self.assertEqual(parsed.pieces[2], hashlib.sha1(b"gh").hexdigest())
+        self.assertEqual(parsed.piece(2), (6, 2))
+        short = metalink("a_2026-01.zim", body, piece=3).replace(
+            f"<hash>{hashlib.sha1(b'gh').hexdigest()}</hash>".encode(), b""
+        )
+        self.assertEqual(MOD["parse_metalink"](short, "a_2026-01.zim").pieces, ())
 
     def test_books_manifest_is_valid_and_unique(self) -> None:
         source = config_map("offline", "kiwix-update")["data"]["books.json"]
@@ -198,6 +240,32 @@ class UpdateBookTest(unittest.TestCase):
         with self.assertRaisesRegex(UpdateError, "SHA-256"):
             self.archive.update(self.book)
         self.assertEqual(self.archive.names("zim"), ["devdocs_en_nix_2026-01.zim"])
+        self.assertEqual(self.archive.names("staging"), [])
+
+    def test_damaged_pieces_are_refetched_instead_of_the_whole_file(self) -> None:
+        body = zim_bytes(bytes(range(256)) * 4)
+        damaged = bytearray(body)
+        damaged[600] ^= 0xFF
+        self.archive.catalog(
+            self.archive.publish(
+                "devdocs_en_nix", "2026-10", body, piece=256, served=bytes(damaged)
+            )
+        )
+        self.assertIn("installed", self.archive.update(self.book))
+        self.assertEqual(self.archive.repaired, [(512, 256)])
+        self.assertEqual(
+            (self.archive.root / "zim/devdocs_en_nix_2026-10.zim").read_bytes(), body
+        )
+
+    def test_wrong_checksum_with_matching_pieces_is_not_repaired(self) -> None:
+        self.archive.catalog(
+            self.archive.publish(
+                "devdocs_en_nix", "2026-10", zim_bytes(b"new"), "0" * 64, piece=4
+            )
+        )
+        with self.assertRaisesRegex(UpdateError, "SHA-256"):
+            self.archive.update(self.book)
+        self.assertEqual(self.archive.repaired, [])
         self.assertEqual(self.archive.names("staging"), [])
 
     def test_non_zim_download_is_rejected(self) -> None:
@@ -261,6 +329,70 @@ class PageCacheTest(unittest.TestCase):
             MOD["verify_file"](part, expected)
             self.assertGreaterEqual(len(evicted) - downloaded, len(body) // 2048)
         self.assertEqual(set(evicted), {MOD["os"].POSIX_FADV_DONTNEED})
+
+
+class TransferTest(unittest.TestCase):
+    def test_short_response_is_resumed_in_the_same_run(self) -> None:
+        body = zim_bytes(bytes(1000))
+        ranges: list[str] = []
+
+        class Response(io.BytesIO):
+            status = 206
+
+        def urlopen(request: Any, timeout: float) -> Response:
+            ranges.append(request.get_header("Range"))
+            start = int(request.get_header("Range")[6:].split("-")[0])
+            return Response(body[start : start + 600])
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            mock.patch.object(MOD["urllib"].request, "urlopen", urlopen),
+        ):
+            part = Path(directory) / "a_2026-01.zim.part"
+            MOD["download"]("https://example/a.zim", part, len(body), 1 << 40)
+            self.assertEqual(part.read_bytes(), body)
+        self.assertEqual(ranges, ["bytes=0-", "bytes=600-"])
+
+    def test_range_fetch_overwrites_one_piece_in_place(self) -> None:
+        class Response(io.BytesIO):
+            status = 206
+
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            mock.patch.object(
+                MOD["urllib"].request, "urlopen", lambda *a, **k: Response(b"XY")
+            ),
+        ):
+            part = Path(directory) / "a.zim.part"
+            part.write_bytes(b"abcdef")
+            MOD["fetch_range"]("https://example/a.zim", part, 2, 2)
+            self.assertEqual(part.read_bytes(), b"abXYef")
+
+    def test_server_checks_are_retried_until_a_lagging_replica_catches_up(
+        self,
+    ) -> None:
+        feed_xml = b"""<feed xmlns="http://www.w3.org/2005/Atom"><entry>
+            <id>urn:uuid:aaa</id><tags>_ftindex:no</tags>
+            <link type="text/html" href="/content/a_2026-01"/></entry></feed>"""
+        attempts: list[str] = []
+
+        def http_get(url: str, timeout: float = 60) -> bytes:
+            if "/catalog/" in url:
+                return feed_xml
+            attempts.append(url)
+            if len(attempts) == 1:
+                raise MOD["urllib"].error.HTTPError(url, 404, "Not Found", {}, None)
+            return b"ok"
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "library.xml").write_text('<library><book id="aaa"/></library>')
+            with (
+                mock.patch.dict(MOD, {"http_get": http_get}),
+                mock.patch.object(MOD["time"], "sleep"),
+            ):
+                self.assertEqual(MOD["verify_server"](root, "http://x", 60), [])
+        self.assertEqual(attempts, ["http://x/content/a_2026-01"] * 2)
 
 
 class LibraryAndRotationTest(unittest.TestCase):
