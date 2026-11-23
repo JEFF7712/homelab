@@ -3792,6 +3792,41 @@
       ],
       "destination_repository": "upstream/ghcr.io/home-assistant/home-assistant",
       "destination_tags": [
+        "2026.11.3",
+        "retention-deployed-fbbd521bd989893b"
+      ],
+      "digest": "sha256:fbbd521bd989893b6c350877d17e1eb1126b6a1bfb715c28e6945f1c82ae0093",
+      "id": "upstream-home-assistant-home-assistant-2b675afdd840",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.manifest.v1+json",
+      "platforms": [],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:fbbd521bd989893b6c350877d17e1eb1126b6a1bfb715c28e6945f1c82ae0093",
+        "reference": "ghcr.io/home-assistant/home-assistant:2026.11.3@sha256:fbbd521bd989893b6c350877d17e1eb1126b6a1bfb715c28e6945f1c82ae0093",
+        "registry": "ghcr.io",
+        "repository": "home-assistant/home-assistant",
+        "tag": "2026.11.3"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/home-assistant/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/ghcr.io/home-assistant/home-assistant",
+      "destination_tags": [
         "2026.11.2",
         "retention-deployed-69193f00e76147a1"
       ],
