@@ -16,6 +16,7 @@ if ((${#sourced_configs[@]})); then
   shellcheck --shell=bash --exclude=SC2034 "${sourced_configs[@]}"
 fi
 python -m scripts.websites.render --check
+python -m scripts.lan_gateway --check
 schema_root="$PWD/schemas/kubernetes"
 core_schema_root="$PWD/schemas/kubernetes-core/v1.35.7-standalone-strict"
 if [[ ! -d "$schema_root" ]]; then

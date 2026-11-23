@@ -175,6 +175,20 @@ let
           "grafana.homelab"
           "ntfy.homelab"
         ];
+    lanGatewayRecords =
+      builtins.length (
+        builtins.filter (record: record.server == "10.0.40.19") inventory.dns.unboundOverrides
+      ) == builtins.length (lib.importJSON ../config/lan-gateway.json).hosts;
+    lanGatewayNameCollision = rejects (load {
+      dns = [
+        {
+          name = "photos.rupan.dev";
+          address = "10.0.40.16";
+          description = "collides with a LAN gateway record";
+          unboundOrder = 98;
+        }
+      ];
+    });
     movedNASDNS =
       (builtins.head (
         builtins.filter (record: record.domain == "registry.rupan.dev") movedNAS.dns.adguardRewrites

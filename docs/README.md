@@ -61,6 +61,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [NetBird management API for agents](runbooks/netbird.md)
 - [Cloudflare Tunnel `homelab`](runbooks/cloudflare-tunnel.md)
 - [Cloudflare Access](runbooks/cloudflare-access.md)
+- [LAN gateway](runbooks/lan-gateway.md)
 - [Monero onion P2P](runbooks/monero-onion.md)
 - [Network outage monitor](runbooks/network-monitor.md)
 - [Host journal shipping](runbooks/host-log-shipping.md)
