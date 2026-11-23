@@ -146,7 +146,7 @@ spec:
             - name: tmp
               mountPath: /tmp
         - name: qbittorrent
-          image: registry.rupan.dev/upstream/lscr.io/linuxserver/qbittorrent@sha256:3d4c4545d51a690a0df15a2ff99038823a88a9822df8e794526447b9afbd7384  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/lscr.io/linuxserver/qbittorrent@sha256:afed7399d0f336ee22d6d011b3c8c50a44e3810f0af6e3c4083d79e566f1677a  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
