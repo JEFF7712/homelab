@@ -13,8 +13,10 @@ scans it to learn which books exist.
    run-on-finished hook.
 2. On completion the hook (`gitops/media/books-handoff/qbit-finished.sh`)
    copies one format per book (EPUB, else AZW3, else MOBI) into
-   `/data/books/handoff`.
-3. The `ingest-mover` sidecar in the calibre-web pod renames handed-off files
+   `/data/books/handoff` (mode 0777: qBittorrent writes as uid 911, the
+   sidecar empties it as uid 1000).
+3. The `ingest-mover` sidecar in the calibre-web pod (uid 1000, the same user
+   cwa-init gives the ingest folder) renames handed-off files
    into `/data/books/ingest` every minute. The library is NFS: writes from the
    qBittorrent pod never raise the inotify events Calibre's ingest watcher
    needs, but a rename inside the calibre-web pod does.
@@ -22,8 +24,7 @@ scans it to learn which books exist.
    folder rescan.
 
 Bookshelf's Completed Download Handling is turned off (Settings → Download
-Clients): it runs as uid 1000 and cannot write the 911:1001 library, and an
-import would duplicate Calibre's. Queue entries therefore stay "downloaded"
+Clients): its import would duplicate Calibre's. Queue entries therefore stay "downloaded"
 until the rescan finds the file.
 
 ## Diagnose

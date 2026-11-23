@@ -97,8 +97,10 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            runAsUser: 911
-            runAsGroup: 1001
+            # calibre-web's abc user is PUID 1000 now that its rootfs is
+            # writable, and cwa-init chowns the ingest folder to it.
+            runAsUser: 1000
+            runAsGroup: 1000
             runAsNonRoot: true
           volumeMounts:
             - name: media

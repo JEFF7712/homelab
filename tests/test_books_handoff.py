@@ -125,6 +125,14 @@ class IngestMover(unittest.TestCase):
         self.assertTrue((self.handoff / "Matter.epub").exists())
 
 
+class HandoffPermissions(unittest.TestCase):
+    def test_handoff_folder_is_shared_between_users(self):
+        # qBittorrent (911) writes the folder; the sidecar (1000) empties it.
+        spec = deployment("qbittorrent")["spec"]["template"]["spec"]
+        init = next(c for c in spec["initContainers"] if c["name"] == "fix-permissions")
+        self.assertIn("chmod 0777 /data/books/handoff", init["command"][-1])
+
+
 class QbitConfigInit(unittest.TestCase):
     def run_init(self, root: Path) -> None:
         init = next(
@@ -166,11 +174,11 @@ class Wiring(unittest.TestCase):
         qbit = next(c for c in spec["containers"] if c["name"] == "qbittorrent")
         self.assertIn("/books-handoff", [m["mountPath"] for m in qbit["volumeMounts"]])
 
-    def test_calibre_sidecar_runs_as_library_owner(self):
+    def test_calibre_sidecar_runs_as_calibre_user(self):
         spec = deployment("calibre-web")["spec"]["template"]["spec"]
         mover = next(c for c in spec["containers"] if c["name"] == "ingest-mover")
         ctx = mover["securityContext"]
-        self.assertEqual((ctx["runAsUser"], ctx["runAsGroup"]), (911, 1001))
+        self.assertEqual((ctx["runAsUser"], ctx["runAsGroup"]), (1000, 1000))
         books = next(m for m in mover["volumeMounts"] if m["name"] == "media")
         self.assertEqual((books["mountPath"], books["subPath"]), ("/books", "books"))
 
