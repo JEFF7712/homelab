@@ -107,6 +107,10 @@ metadata:
 spec:
   type: LoadBalancer
   loadBalancerClass: io.cilium/bgp-control-plane
+  # Only nodes running a pod announce the VIP, so LAN traffic arrives with
+  # its own address, which network-policy.yaml admits. With Cluster, a node
+  # without a pod forwards it from its node address, and the policy drops it.
+  externalTrafficPolicy: Local
   selector:
     app: offline-web
   ports:

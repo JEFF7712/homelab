@@ -760,6 +760,8 @@ class ManifestTest(unittest.TestCase):
         )
         service = self.objects[("Service", "offline-web")]
         self.assertEqual(service["spec"]["type"], "LoadBalancer")
+        # The namespace policy admits LAN sources, so they must not be SNATed.
+        self.assertEqual(service["spec"]["externalTrafficPolicy"], "Local")
         vip = service["metadata"]["annotations"]["io.cilium/lb-ipam-ips"]
         dns = (ROOT / "inventory/dns.nix").read_text()
         for name in ("kiwix", "maps"):
