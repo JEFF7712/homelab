@@ -7,6 +7,7 @@ offline: downloads, the cluster and the servers are fakes.
 
 from __future__ import annotations
 
+import bz2
 import datetime
 import hashlib
 import importlib.util
@@ -166,6 +167,45 @@ class SearchTest(GeoTestCase):
         with self.assertRaisesRegex(UpdateError, "unexpected"):
             geo.unpack_photon(archive, self.root / "search/photon-20261117")
         self.assertFalse((self.root / "search/photon-20261117").exists())
+
+    def test_unpack_reads_every_bzip2_stream_of_a_parallel_dump(self) -> None:
+        # The real US dump is several bzip2 streams back to back; streaming
+        # mode stopped after the first with EOFError (2026-11-23).
+        raw = io.BytesIO()
+        with tarfile.open(fileobj=raw, mode="w") as archive:
+            for name in ("photon_data", "photon_data/a", "photon_data/b"):
+                info = tarfile.TarInfo(name)
+                if name == "photon_data":
+                    info.type = tarfile.DIRTYPE
+                    archive.addfile(info)
+                else:
+                    info.size = 4096
+                    archive.addfile(info, io.BytesIO(name[-1].encode() * 4096))
+        data = raw.getvalue()
+        middle = (len(data) // 2) // 512 * 512
+        dump = self.root / "dump.tar.bz2"
+        dump.write_bytes(bz2.compress(data[:middle]) + bz2.compress(data[middle:]))
+        geo.unpack_photon(dump, self.root / "search/photon-20261117")
+        unpacked = self.root / "search/photon-20261117/photon_data"
+        self.assertEqual((unpacked / "b").read_bytes(), b"b" * 4096)
+
+    def test_one_failing_part_does_not_stop_the_others(self) -> None:
+        geo_file = self.root / "geo.json"
+        geo_file.write_text(json.dumps(CONFIG))
+        args = SimpleNamespace(maps_root=self.root, geo=geo_file, rate=1, reserve=0)
+
+        def broken(*_: Any, **__: Any) -> tuple[str, str | None]:
+            raise EOFError("End of stream already reached")
+
+        with (
+            mock.patch.object(geo, "install_jar", lambda *_: "search server: current"),
+            mock.patch.object(geo, "update_search", broken),
+            mock.patch.object(
+                geo, "prepare_routing", lambda *_, **__: ("routing: ok", None)
+            ),
+        ):
+            self.assertEqual(geo.fetch_geo(args), 0)
+        self.assertEqual(json.loads((self.root / geo.FAILED).read_text()), ["search"])
 
 
 class RoutingTest(GeoTestCase):
