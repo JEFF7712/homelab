@@ -7,6 +7,7 @@ and `registry/images.lock.json`. Tunnel rules: `gitops/cloudflare/ingress-config
 questarr.rupan.dev -> Questarr -> Prowlarr (indexers) -> qBittorrent (AirVPN)
   -> /tank/media/downloads/games -> Questarr import (unpack, hardlink)
   -> /tank/media/games/pc -> Gameyfin (games.rupan.dev) and \\nas-01\games
+                         -> RomM (romm.rupan.dev), console folders only
 ```
 
 - **Questarr** (`questarr.media:80`, port 5000): pick games with IGDB metadata,
@@ -89,3 +90,38 @@ kubectl -n media logs deploy/gameyfin
 - Upgrades: bump the digest in `registry-sources.yaml`, import it through the
   registry lane (`docs/runbooks/local-registry.md`), then update the digest in
   `games.yaml`.
+
+## RomM integration
+
+Questarr 1.6.0 uses its existing import root `/data/games/pc` for all platforms
+(the `pc` component is historical). Settings > RomM enables platform folders,
+post-import scans and six-hour ownership sync. Console imports now use RomM
+slugs such as `nes`, `snes`, `gba`, and `psx`; select the game's target platform
+before searching so a multi-platform title is imported for the right console.
+New Windows imports use `win`, while existing `PC` and `Linux` directories stay
+in place. Gameyfin continues scanning the same parent and serves both layouts.
+
+RomM mounts just this existing NFS subdirectory at `/romm/library/roms`.
+`gitops/romm/library-config.yml` excludes PC folders and maps the legacy
+`Switch` directory. Its Git-managed config is read-only in the UI; edit the
+source for scanning exclusions. The init container copies existing PICO-8
+cartridges into the shared library with byte verification, leaving the retained
+state copy intact. Restoring the previous app manifest reveals the original
+library again. Saves, database, BIOS and resources retain their existing paths
+and backups; ROM files use the existing media dataset snapshots.
+
+Questarr connects to `http://romm.romm.svc.cluster.local` with a dedicated RomM
+client token (`platforms.read`, `roms.read`, `tasks.run`) encrypted in Questarr's
+database. RomM admits only Questarr pods from the media namespace to port 8080.
+The existing downloader/indexer credentials, VPN and hardlink transfer mode are
+unchanged. The shared root is setgid group 1000 and Questarr starts with umask
+0002 so newly created platform directories allow RomM uploads too. Hardlinked
+payloads retain their original mode; RomM can read and play those files.
+
+To check: use Settings > RomM > Test Connection, then Sync; a completed import
+should log `Asked RomM to rescan its library after an import`. Check the RomM
+scan task and confirm the target game appears. PC games should remain absent
+from RomM. Availability depends on indexers and selected platform; browser
+emulation supports only some systems. A pending or failed download is not an
+import verification. Disable RomM integration to stop scan/sync calls; changing
+folder naming back affects future imports and never moves existing files.

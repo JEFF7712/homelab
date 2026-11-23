@@ -13,3 +13,7 @@ configMapGenerator:
       - backup.py
     options:
       disableNameSuffixHash: true
+  - name: romm-library-config
+    namespace: romm
+    files:
+      - config.yml=library-config.yml
