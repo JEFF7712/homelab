@@ -110,7 +110,8 @@ or file timestamps), then queues a quick scan with Questarr's saved scoped
 token. It skips PC and hidden directories and never follows symlinks. An
 immediate after-import scan remains enabled; allow a few minutes for the
 scheduled reconciliation to catch a new console folder. The job runs as the
-same non-root user as Questarr, with no extra credentials or public endpoint.
+same non-root user as Questarr and is colocated with it for SQLite WAL safety,
+with no extra credentials or public endpoint.
 `gitops/romm/library-config.yml` excludes PC folders and maps the legacy
 `Switch` directory. Its Git-managed config is read-only in the UI; edit the
 source for scanning exclusions. The init container copies existing PICO-8

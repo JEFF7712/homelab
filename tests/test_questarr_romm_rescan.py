@@ -90,3 +90,32 @@ class RommDirectoryRefreshTests(unittest.TestCase):
             set(json.loads(env["EXCLUDED_PLATFORMS"])),
             set(config["exclude"]["platforms"]),
         )
+
+    def test_scheduled_reader_shares_questarr_node_but_not_its_service_selector(self):
+        import yaml
+
+        resources = list(
+            yaml.safe_load_all(
+                subprocess.check_output(
+                    ["kubectl", "kustomize", str(ROOT / "gitops/media")], text=True
+                )
+            )
+        )
+        deployment = next(
+            r
+            for r in resources
+            if r["kind"] == "Deployment" and r["metadata"]["name"] == "questarr"
+        )
+        job = next(
+            r
+            for r in resources
+            if r["kind"] == "CronJob"
+            and r["metadata"]["name"] == "questarr-romm-rescan"
+        )
+        template = job["spec"]["jobTemplate"]["spec"]["template"]
+        affinity = template["spec"]["affinity"]["podAffinity"][
+            "requiredDuringSchedulingIgnoredDuringExecution"
+        ][0]
+        self.assertEqual(affinity["topologyKey"], "kubernetes.io/hostname")
+        self.assertEqual(affinity["labelSelector"], deployment["spec"]["selector"])
+        self.assertNotEqual(template["metadata"]["labels"]["app"], "questarr")

@@ -20,6 +20,14 @@ spec:
             app: questarr-romm-rescan
         spec:
           restartPolicy: Never
+          # Questarr uses SQLite WAL on NFS: readers must share its client/kernel.
+          affinity:
+            podAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchLabels:
+                      app: questarr
+                  topologyKey: kubernetes.io/hostname
           automountServiceAccountToken: false
           securityContext:
             runAsNonRoot: true
