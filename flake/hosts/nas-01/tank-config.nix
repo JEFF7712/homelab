@@ -156,8 +156,8 @@
             recordsize = "1M";
           };
         };
-        # Offline knowledge archive (Kiwix ZIMs). Created on the running pool
-        # by offline-archive-dataset in nas-data.nix.
+        # Offline knowledge archive (Kiwix ZIMs, maps). Created by hand on the
+        # running pool; the deploy preflight refuses nas-01 without it.
         offline = {
           type = "zfs_fs";
           mountpoint = "/tank/offline";

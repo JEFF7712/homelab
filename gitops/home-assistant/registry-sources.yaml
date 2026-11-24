@@ -16,6 +16,6 @@ metadata:
   name: home-assistant-registry-sources
 items:
   # Home Assistant (deployment.yaml)
-  - image: ghcr.io/home-assistant/home-assistant:2026.11.2@sha256:69193f00e76147a1649a910d39673680e37ce4362dfb410a328a806a824f2000  # yamllint disable-line rule:line-length
+  - image: ghcr.io/home-assistant/home-assistant:2026.11.3@sha256:fbbd521bd989893b6c350877d17e1eb1126b6a1bfb715c28e6945f1c82ae0093  # yamllint disable-line rule:line-length
   # Matter server (deployment.yaml)
   - image: ghcr.io/matter-js/matterjs-server:1.5.5@sha256:ee149c7c67eff0e90f131e8f0d628f7b099591ec58473c8cda1209e8ae4df66e  # yamllint disable-line rule:line-length

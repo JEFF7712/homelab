@@ -32,6 +32,8 @@ Triage ladder for the k3s cluster (Flux-reconciled, `gitops/clusters/homelab-01/
 - Moonlight on homelab-05 is supervised by `moonlight-stream.service`, not the sway exec it replaced: `systemctl status moonlight-stream` separates a dead client from an idle one, and `moonlight list <host>` as kiosk separates unpaired/unreachable from idle.
 
 - A Service named `romm` injects `ROMM_PORT=tcp://...`, which nginx rejects as a listen port. Set `enableServiceLinks: false` and an explicit `ROMM_PORT=8080`; see [Karakeep and RomM](../../docs/runbooks/karakeep-romm.md).
+- A pod stuck in `CreateContainerConfigError: failed to prepare subPath` with NFS volumes kept the mounts from before an NFS outage, usually the nightly `fleet-reboot` restarting nas-01 (03:00-05:00); NFS returns but the pod never does. Delete the pod.
+- calibre-web-automated needs a writable rootfs: cwa-init pins `/usr/bin` as Calibre's binaries dir and links `calibredb` there. With a read-only rootfs, ingest logs "Successfully processed" but imports nothing, and downloads 500 with `NoneType + str`. See [book downloads](../../docs/runbooks/books.md).
 - Meilisearch minor releases can reject an existing index database. Keep its engine compatible with the persisted version and use a planned migration; its repository is held in `config/registry/advance-policy.json`.
 
 ## Reply shape

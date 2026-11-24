@@ -28,4 +28,5 @@ resources:
   - voice.yaml
   - websites.yaml
   - karakeep.yaml
+  - lan-gateway.yaml
   - romm.yaml
