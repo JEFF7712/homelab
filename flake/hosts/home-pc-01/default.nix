@@ -25,6 +25,16 @@
     "kernel.hardlockup_panic" = 1;
     "kernel.panic" = 10;
   };
+  # A suspended remote host drops off NetBird: Plasma's idle suspend took it
+  # offline for three hours on 2026-11-23. Screens still blank; the machine
+  # never sleeps.
+  systemd.targets = {
+    sleep.enable = false;
+    suspend.enable = false;
+    hibernate.enable = false;
+    hybrid-sleep.enable = false;
+    suspend-then-hibernate.enable = false;
+  };
   # SP5100 TCO hardware watchdog resets the machine if systemd stops petting it.
   systemd.settings.Manager = {
     RuntimeWatchdogSec = "30s";

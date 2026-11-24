@@ -42,6 +42,8 @@ deploy-home-pc-01`.
 - **Watchdog:** the SP5100 TCO watchdog resets the PC 30 s after systemd stops
   responding, and lockups panic and reboot after 10 s, so a hang never strands
   the remote host.
+- **No sleep:** the sleep targets are disabled. Plasma's idle suspend took the
+  PC off NetBird for three hours on 2026-11-23; screens still blank.
 - **TPM:** the HP ACPI TPM2 table is broken (`tpm_crb_acpi` `-EBUSY`);
   `systemd.tpm2.enable = false` avoids two 90 s waits for `/dev/tpm0`.
 - **GPU:** the installer kernel hung in `amdgpu` flip-done timeouts; the latest

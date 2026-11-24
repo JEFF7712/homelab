@@ -215,6 +215,12 @@ in
           )).address;
         ports = [ 443 ];
       }
+      {
+        # home-pc-01-ssh relay: read-only agent-observer access to the remote
+        # desktop (docs/runbooks/home-pc-01.md).
+        address = fleetInventory.hosts.adguard-netbird-01.address;
+        ports = [ 2201 ];
+      }
     ]
     ++
       map
