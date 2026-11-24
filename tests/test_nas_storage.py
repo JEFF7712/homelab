@@ -42,11 +42,12 @@ class NasStorageTest(unittest.TestCase):
             services = builtins.mapAttrs (_: service: {
               inherit (service) after wants requires unitConfig serviceConfig;
             }) {
-              inherit (system.config.systemd.services) nas-backup-local zot nfs-server registry-backup media-extra-branches offline-archive-dataset offline-archive-layout;
+              inherit (system.config.systemd.services) nas-backup-local zot nfs-server registry-backup media-extra-branches offline-archive-layout;
             };
             scripts = builtins.mapAttrs (_: service: service.script) {
-              inherit (system.config.systemd.services) media-extra-branches offline-archive-dataset;
+              inherit (system.config.systemd.services) media-extra-branches offline-archive-layout;
             };
+            unitNames = builtins.attrNames system.config.systemd.services;
             exports = system.config.services.nfs.server.exports;
             sanoid = builtins.mapAttrs (_: dataset: dataset.useTemplate) system.config.services.sanoid.datasets;
           }
@@ -196,12 +197,15 @@ class NasStorageTest(unittest.TestCase):
         self.assertEqual(mount["device"], "media2/offline")
         self.assertEqual(mount["fsType"], "zfs")
         self.assertIn("nofail", mount["options"])
-        self.assertIn(
-            "x-systemd.requires=offline-archive-dataset.service", mount["options"]
+        # The dataset exists; the deploy preflight refuses a host without it,
+        # so no unit creates it.
+        self.assertNotIn("offline-archive-dataset", self.configuration["unitNames"])
+        self.assertFalse(
+            any("offline-archive-dataset" in option for option in mount["options"])
         )
-        create = self.configuration["scripts"]["offline-archive-dataset"]
-        self.assertIn("zfs create", create)
-        self.assertNotIn("destroy", create)
+        script = self.configuration["scripts"]["offline-archive-layout"]
+        self.assertIn("/tank/offline/kiwix", script)
+        self.assertIn("/tank/offline/maps", script)
         layout = self.configuration["services"]["offline-archive-layout"]
         self.assertIn("tank-offline.mount", layout["requires"])
         self.assertIn(

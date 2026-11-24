@@ -96,6 +96,63 @@ class DeployFleetTest(unittest.TestCase):
         self.assertNotIn("systemd-run", dry_run)
         self.assertIn(self.NEW + "/bin/switch-to-configuration dry-activate", dry_run)
 
+    def switch_runner(self, states: list[str], running: str, *, timeout: bool = True):
+        """SSH runner whose switch session times out while the unit runs on."""
+        calls: list[str] = []
+
+        def runner(argv, **options):
+            del options
+            command = argv[-1]
+            calls.append(command)
+            if "/bin/switch-to-configuration switch" in command:
+                if timeout:
+                    raise subprocess.TimeoutExpired(argv, 600.0)
+                return subprocess.CompletedProcess(argv, 4, "", "failed units")
+            if command == "systemctl is-active homelab-fleet-switch":
+                state = states.pop(0) if states else "inactive"
+                return subprocess.CompletedProcess(argv, 0, state + "\n", "")
+            if command == "readlink -e /run/current-system":
+                return subprocess.CompletedProcess(argv, 0, running, "")
+            return subprocess.CompletedProcess(argv, 0, "", "")
+
+        return runner, calls
+
+    def test_timed_out_switch_that_activates_is_not_rolled_back(self) -> None:
+        # Regression (2026-11-23): nas-01's switch outlived the 600s session
+        # waiting on backups, and the rollback collided with the unit.
+        runner, calls = self.switch_runner(["active", "active"], self.NEW)
+        sleeps: list[float] = []
+        deployer = FleetDeployer(
+            targets=["nas-01"], runner=runner, sleeper=sleeps.append
+        )
+        deployer.activate_system(FLEET_HOSTS["nas-01"], self.NEW)
+        self.assertEqual(calls.count("systemctl is-active homelab-fleet-switch"), 3)
+        self.assertEqual(len(sleeps), 2)
+
+    def test_timed_out_switch_that_did_not_activate_fails(self) -> None:
+        runner, _ = self.switch_runner([], self.OLD)
+        deployer = FleetDeployer(targets=["nas-01"], runner=runner)
+        with self.assertRaisesRegex(FleetDeploymentError, "without activating"):
+            deployer.activate_system(FLEET_HOSTS["nas-01"], self.NEW)
+
+    def test_switch_that_never_ends_fails_before_recovery(self) -> None:
+        runner, _ = self.switch_runner(["active"] * 100, self.NEW)
+        deployer = FleetDeployer(
+            targets=["nas-01"], runner=runner, sleeper=lambda _: None
+        )
+        with (
+            patch("scripts.deploy_fleet.SWITCH_SETTLE_TIMEOUT", 0.0),
+            self.assertRaisesRegex(FleetDeploymentError, "still running"),
+        ):
+            deployer.activate_system(FLEET_HOSTS["nas-01"], self.NEW)
+
+    def test_failed_switch_is_not_waited_on(self) -> None:
+        runner, calls = self.switch_runner([], self.NEW, timeout=False)
+        deployer = FleetDeployer(targets=["nas-01"], runner=runner)
+        with self.assertRaisesRegex(FleetDeploymentError, "exit code 4"):
+            deployer.activate_system(FLEET_HOSTS["nas-01"], self.NEW)
+        self.assertNotIn("systemctl is-active homelab-fleet-switch", calls)
+
     def test_nas_missing_dataset_blocks_rebuild_even_when_preflight_skipped(
         self,
     ) -> None:

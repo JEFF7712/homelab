@@ -46,6 +46,33 @@ Before changing a secret:
    or a display filter such as `cat`, `head`, `jq`, or `yq`; redirect it, or
    pipe it into a program that prints only what it derives.
 
+### Adding a value without the Flux identity
+
+Agent workspaces hold only the `agent_rupan` identity, which decrypts nothing
+under `gitops/secrets/`. Editing an existing manifest there (`sops`,
+`sops set`) needs the Flux identity, so an agent cannot add a property to
+`homelab-values` itself. Do not ask for the Flux key on the agent VM, and do
+not stop at a "run this with the key" handoff. Encryption needs only the
+public recipient, so put the new value in a new manifest instead:
+
+1. Read the value at its source without printing it, for example from the
+   consuming app's config with `kubectl exec`, into a shell variable.
+2. Create `gitops/secrets/<purpose>.sops.yaml` as a Secret and encrypt it in
+   place with `sops -e -i`; the `.sops.yaml` rule supplies the Flux recipient.
+   Pipe the plaintext through stdin or a temp file deleted afterwards; never
+   commit or echo it. Add the file to `gitops/secrets/kustomization.yaml`.
+3. If the consumer reads the Secret directly (as `romm` and `karakeep` do),
+   create it in the consumer's namespace. If it reaches the consumer through
+   an ESO projection, create it in `secret-source`, add its name to the
+   `eso-local-reader` Role's `resourceNames` in `gitops/eso/local-reader.yaml`,
+   and point the projection's `remoteRef.key` at it, as
+   `cnpg-wal-archive` does in `gitops/eso/domain-stores.yaml`.
+
+The agent cannot run `sops -d` on the new file afterwards; validate it with
+the GitOps checks and verify the consumer after Flux applies it. Giving
+`agent_rupan` decrypt access to `gitops/secrets/` changes `.sops.yaml`, which
+is enforcement code and needs the operator's approval.
+
 For a new secret or recipient change, first update the reviewed SOPS policy and
 the relevant service runbook. Confirm recipient access and the manifest's
 Kustomize inclusion before authorizing deployment. Do not guess a recipient or

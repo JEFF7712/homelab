@@ -121,29 +121,6 @@ in
     '';
   };
 
-  # disko creates datasets only at install time, so the archive dataset is
-  # created on the running media2 pool before its mount. Creation is the only
-  # change this unit makes.
-  systemd.services.offline-archive-dataset = {
-    description = "Create the offline archive dataset";
-    after = [ "zfs-import.target" ];
-    requires = [ "zfs-import.target" ];
-    before = [ "tank-offline.mount" ];
-    path = [ pkgs.zfs ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    script = ''
-      if ! zfs list -H -o name ${offlineArchive.dataset} >/dev/null 2>&1; then
-        zfs create -o mountpoint=legacy -o recordsize=1M ${offlineArchive.dataset}
-      fi
-    '';
-  };
-  fileSystems."${offlineArchive.path}".options = [
-    "x-systemd.requires=offline-archive-dataset.service"
-  ];
-
   # The k3s updater runs unprivileged, so its tree must exist and belong to
   # its uid before nfs-server exports the dataset.
   systemd.services.offline-archive-layout = {
@@ -159,7 +136,7 @@ in
     };
     script = ''
       install -d -m 0755 -o ${toString offlineArchive.uid} -g ${toString offlineArchive.uid} \
-        ${offlineArchive.path}/kiwix
+        ${offlineArchive.path}/kiwix ${offlineArchive.path}/maps
     '';
   };
 
@@ -316,6 +293,11 @@ in
 
   systemd.services.nas-backup-local = {
     description = "Encrypted backup of irreplaceable tank data to the local backup disk";
+    # A changed unit would otherwise be stopped mid-run and restarted by
+    # activation, which then waits for the whole backup: the 2026-11-23
+    # nixpkgs switch killed a 40-minute run and held nas-01's deploy for 53
+    # minutes. The next timer run picks up the new unit.
+    restartIfChanged = false;
     after = [
       "mnt-backup\\x2dlocal.mount"
       "tank-cluster.mount"
