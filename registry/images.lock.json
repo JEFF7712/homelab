@@ -6921,6 +6921,51 @@
       ],
       "destination_repository": "upstream/docker.io/library/python",
       "destination_tags": [
+        "retention-deployed-c3f4160f1cceaf4d"
+      ],
+      "digest": "sha256:c3f4160f1cceaf4daa49e2b0b693cae9bb2405efe9e8f8f519dde1ea6c831248",
+      "id": "upstream-library-python-2f7ebc0b5611",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v5",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown",
+        "windows/amd64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c3f4160f1cceaf4daa49e2b0b693cae9bb2405efe9e8f8f519dde1ea6c831248",
+        "reference": "docker.io/library/python:3.15.2@sha256:c3f4160f1cceaf4daa49e2b0b693cae9bb2405efe9e8f8f519dde1ea6c831248",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.15.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/voice/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
         "retention-deployed-fa4f927f66f3ff00"
       ],
       "digest": "sha256:fa4f927f66f3ff00a0bd02ef9c8a9afce66b79be6c84741eba258691756803e4",
