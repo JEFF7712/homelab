@@ -7152,6 +7152,47 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/producer-base-images/base-images.yaml:31"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
+        "retention-deployed-b1233897230b2046"
+      ],
+      "digest": "sha256:b1233897230b2046795042a642dc2a1849774c60469bb57d1a90622b501443a0",
+      "id": "upstream-library-python-f16d64da76da",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:b1233897230b2046795042a642dc2a1849774c60469bb57d1a90622b501443a0",
+        "reference": "docker.io/library/python:3.12-slim-bookworm@sha256:b1233897230b2046795042a642dc2a1849774c60469bb57d1a90622b501443a0",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.12-slim-bookworm"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/media/registry-sources.yaml:34"
       ],
       "destination_repository": "upstream/lscr.io/linuxserver/bazarr",
