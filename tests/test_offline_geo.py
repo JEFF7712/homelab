@@ -383,12 +383,13 @@ class GeoManifestTest(unittest.TestCase):
             "requiredDuringSchedulingIgnoredDuringExecution"
         ]
         hosts = terms["nodeSelectorTerms"][0]["matchExpressions"][0]["values"]
-        self.assertEqual(sorted(hosts), ["homelab-04", "homelab-05"])
+        # homelab-04 evicted the build twice for memory (2026-11-23).
+        self.assertEqual(hosts, ["homelab-05"])
         self.assertEqual(pod["serviceAccountName"], "geo-update")
         # homelab-05's requests are nearly all allocated; a large request left
         # the first build Pending (2026-11-23), so the build borrows memory.
         build = pod["initContainers"][1]["resources"]
-        self.assertEqual(build["requests"]["memory"], "1Gi")
+        self.assertEqual(build["requests"]["memory"], "2Gi")
         self.assertEqual(build["limits"]["memory"], "12Gi")
 
     def test_update_job_may_only_restart_the_two_servers(self) -> None:
