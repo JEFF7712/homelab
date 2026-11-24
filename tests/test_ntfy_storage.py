@@ -1,5 +1,3 @@
-import subprocess
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -18,14 +16,6 @@ def release() -> dict:
         for doc in yaml.safe_load_all(RELEASE.read_text())
         if doc and doc["kind"] == "HelmRelease"
     )
-
-
-def copy_container() -> dict:
-    patches = release()["spec"]["postRenderers"][0]["kustomize"]["patches"]
-    deployment = yaml.safe_load(patches[0]["patch"])
-    spec = deployment["spec"]["template"]["spec"]
-    (container,) = spec["initContainers"]
-    return container
 
 
 class LocalClaimTests(unittest.TestCase):
@@ -50,45 +40,14 @@ class LocalClaimTests(unittest.TestCase):
         self.assertIn(f'"d {path} 0750 1000 1000 -"', HOMELAB_05.read_text())
         self.assertIn("ntfy/local-storage.yaml", KUSTOMIZATION.read_text())
 
-
-class CopyScriptTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temp.cleanup)
-        root = Path(self.temp.name)
-        self.data, self.nfs = root / "data", root / "nfs"
-        self.data.mkdir()
-        self.nfs.mkdir()
-        (self.nfs / "auth.db").write_text("users")
-        (self.nfs / "cache.db").write_text("messages")
-        script = copy_container()["command"][2]
-        self.script = script.replace("/data", str(self.data)).replace(
-            "/nfs", str(self.nfs)
-        )
-
-    def run_copy(self) -> None:
-        subprocess.run(["sh", "-euc", self.script], check=True, capture_output=True)
-
-    def test_copies_once_then_leaves_local_data_alone(self) -> None:
-        self.run_copy()
-        self.assertEqual((self.data / "auth.db").read_text(), "users")
-        self.assertEqual((self.data / "cache.db").read_text(), "messages")
-        self.assertFalse((self.data / ".incoming").exists())
-        (self.data / "cache.db").write_text("newer local messages")
-        self.run_copy()
-        self.assertEqual((self.data / "cache.db").read_text(), "newer local messages")
-
-    def test_interrupted_copy_is_redone(self) -> None:
-        (self.data / ".incoming").mkdir()
-        (self.data / ".incoming" / "cache.db").write_text("partial")
-        (self.data / "cache.db").write_text("partial")
-        self.run_copy()
-        self.assertEqual((self.data / "cache.db").read_text(), "messages")
-        self.assertTrue((self.data / ".copied-from-nfs").exists())
-
-    def test_old_claim_is_mounted_read_only(self) -> None:
-        mounts = {m["mountPath"]: m for m in copy_container()["volumeMounts"]}
-        self.assertTrue(mounts["/nfs"]["readOnly"])
+    def test_retired_nfs_claim_is_unreferenced(self) -> None:
+        sources = [RELEASE, KUSTOMIZATION, *RELEASE.parent.glob("*.yaml")]
+        for path in sources:
+            if path == STORAGE:
+                continue
+            with self.subTest(path=path.name):
+                self.assertNotIn("ntfy-ntfy-data", path.read_text())
+                self.assertNotIn("nfs-cluster", path.read_text())
 
 
 if __name__ == "__main__":
