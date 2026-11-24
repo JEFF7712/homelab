@@ -6,6 +6,7 @@
   imports = [
     ./hardware-configuration.nix
     ./access.nix
+    ./offsite-backup.nix
   ];
 
   boot.loader.systemd-boot = {
@@ -88,6 +89,21 @@
     rsync
     vim
     wget
+  ];
+
+  # FlightGear binds the Honeycomb Alpha and Bravo through its HID input
+  # (Input/HID/HoneycombAeronautical), which opens hidraw: the Bravo's 48
+  # buttons exceed the joystick API, and its autopilot and gear LEDs are HID
+  # output reports. Give the seated user access; uaccess must be tagged before
+  # 73-seat-late.rules, so this cannot live in extraRules (99-local).
+  services.udev.packages = [
+    (pkgs.writeTextFile {
+      name = "honeycomb-hidraw-udev-rules";
+      destination = "/etc/udev/rules.d/70-honeycomb-hidraw.rules";
+      text = ''
+        KERNEL=="hidraw*", ATTRS{idVendor}=="294b", TAG+="uaccess"
+      '';
+    })
   ];
 
   # The host is managed from the homelab repo. A leftover installer config

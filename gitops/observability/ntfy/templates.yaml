@@ -1,0 +1,27 @@
+# ntfy's built-in "alertmanager" template prints every label of every alert,
+# so a group of four or more pod alerts exceeded ntfy's 4 KiB message limit
+# and Alertmanager's webhook got a 400: the alerts were dropped (624 failed
+# deliveries in the week to 2026-11-24). This one prints one line per alert
+# and stops after eight.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ntfy-templates
+  namespace: observability
+data:
+  homelab-alertmanager.yml: |
+    title: |
+      {{- if eq .status "firing" }}🚨 {{ else }}✅ Resolved: {{ end -}}
+      {{ or .commonLabels.alertname "Workloads unhealthy" }}
+      {{- with .commonLabels.namespace }} in {{ . }}{{ end }}
+      {{- if gt (len .alerts) 1 }} ({{ len .alerts }}){{ end }}
+    message: |
+      {{- range $i, $a := .alerts }}{{ if lt $i 8 }}
+      {{- $l := $a.labels }}
+      {{- $what := or $l.pod $l.deployment $l.statefulset $l.cronjob $l.job_name }}
+      {{- $what = or $what $l.persistentvolumeclaim $l.zpool $l.host $l.instance $l.alertname }}
+      {{- $why := or $a.annotations.summary $a.annotations.description $l.alertname }}
+      {{ if eq $a.status "resolved" }}✓{{ else }}•{{ end }} {{ $what }}: {{ $why }}
+      {{- end }}{{ end }}
+      {{- if gt (len .alerts) 8 }}
+      … {{ len .alerts }} alerts in total{{ end }}

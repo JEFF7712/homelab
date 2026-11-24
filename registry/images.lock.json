@@ -892,10 +892,10 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000056",
-        "retention-deployed-a2b4e648794ce361"
+        "0.0.1000057",
+        "retention-deployed-32f047b3b873a311"
       ],
-      "digest": "sha256:a2b4e648794ce3610d3149db88f5c260806160c3bf8240dda7675878e58fbe4b",
+      "digest": "sha256:32f047b3b873a311b358659880b54ae5e1593f14689e7ee48fa53d1a70b6b276",
       "id": "first-party-jeff7712-quartz-21f9999c8e03",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -915,11 +915,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:a2b4e648794ce3610d3149db88f5c260806160c3bf8240dda7675878e58fbe4b",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000056@sha256:a2b4e648794ce3610d3149db88f5c260806160c3bf8240dda7675878e58fbe4b",
+        "digest": "sha256:32f047b3b873a311b358659880b54ae5e1593f14689e7ee48fa53d1a70b6b276",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000057@sha256:32f047b3b873a311b358659880b54ae5e1593f14689e7ee48fa53d1a70b6b276",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000056"
+        "tag": "0.0.1000057"
       }
     },
     {
@@ -933,10 +933,10 @@
       ],
       "destination_repository": "apps/quartz",
       "destination_tags": [
-        "0.0.1000056",
-        "retention-deployed-a2b4e648794ce361"
+        "0.0.1000057",
+        "retention-deployed-32f047b3b873a311"
       ],
-      "digest": "sha256:a2b4e648794ce3610d3149db88f5c260806160c3bf8240dda7675878e58fbe4b",
+      "digest": "sha256:32f047b3b873a311b358659880b54ae5e1593f14689e7ee48fa53d1a70b6b276",
       "id": "first-party-jeff7712-quartz-21f9999c8e03-previous",
       "kind": "first-party",
       "media_type": "application/vnd.oci.image.manifest.v1+json",
@@ -956,11 +956,11 @@
       },
       "retention_class": "deployed",
       "source": {
-        "digest": "sha256:a2b4e648794ce3610d3149db88f5c260806160c3bf8240dda7675878e58fbe4b",
-        "reference": "registry.rupan.dev/apps/quartz:0.0.1000056@sha256:a2b4e648794ce3610d3149db88f5c260806160c3bf8240dda7675878e58fbe4b",
+        "digest": "sha256:32f047b3b873a311b358659880b54ae5e1593f14689e7ee48fa53d1a70b6b276",
+        "reference": "registry.rupan.dev/apps/quartz:0.0.1000057@sha256:32f047b3b873a311b358659880b54ae5e1593f14689e7ee48fa53d1a70b6b276",
         "registry": "registry.rupan.dev",
         "repository": "apps/quartz",
-        "tag": "0.0.1000056"
+        "tag": "0.0.1000057"
       }
     },
     {
@@ -6232,6 +6232,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/producer-base-images/base-images.yaml:23"
+      ],
+      "destination_repository": "upstream/docker.io/library/node",
+      "destination_tags": [
+        "retention-deployed-32e57b5784e8875d"
+      ],
+      "digest": "sha256:32e57b5784e8875d2cc0112dcaf13f9100f2d0d9446187808738e99aee29a5a2",
+      "id": "upstream-library-node-7e8ab242b1cc",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:32e57b5784e8875d2cc0112dcaf13f9100f2d0d9446187808738e99aee29a5a2",
+        "reference": "docker.io/library/node:24-slim@sha256:32e57b5784e8875d2cc0112dcaf13f9100f2d0d9446187808738e99aee29a5a2",
+        "registry": "docker.io",
+        "repository": "library/node",
+        "tag": "24-slim"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/producer-base-images/base-images.yaml:25"
       ],
       "destination_repository": "upstream/docker.io/library/node",
@@ -6338,6 +6377,45 @@
       "source": {
         "digest": "sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c",
         "reference": "docker.io/library/node:24-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c",
+        "registry": "docker.io",
+        "repository": "library/node",
+        "tag": "24-slim"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:23"
+      ],
+      "destination_repository": "upstream/docker.io/library/node",
+      "destination_tags": [
+        "retention-deployed-873f586f3794f522"
+      ],
+      "digest": "sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530",
+      "id": "upstream-library-node-b347f1cb9d0e",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530",
+        "reference": "docker.io/library/node:24-slim@sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530",
         "registry": "docker.io",
         "repository": "library/node",
         "tag": "24-slim"
@@ -6839,6 +6917,137 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/voice/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
+        "retention-deployed-c3f4160f1cceaf4d"
+      ],
+      "digest": "sha256:c3f4160f1cceaf4daa49e2b0b693cae9bb2405efe9e8f8f519dde1ea6c831248",
+      "id": "upstream-library-python-2f7ebc0b5611",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v5",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown",
+        "windows/amd64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:c3f4160f1cceaf4daa49e2b0b693cae9bb2405efe9e8f8f519dde1ea6c831248",
+        "reference": "docker.io/library/python:3.15.2@sha256:c3f4160f1cceaf4daa49e2b0b693cae9bb2405efe9e8f8f519dde1ea6c831248",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.15.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/voice/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
+        "retention-deployed-fa4f927f66f3ff00"
+      ],
+      "digest": "sha256:fa4f927f66f3ff00a0bd02ef9c8a9afce66b79be6c84741eba258691756803e4",
+      "id": "upstream-library-python-317a6c139ace",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v5",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown",
+        "windows/amd64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:fa4f927f66f3ff00a0bd02ef9c8a9afce66b79be6c84741eba258691756803e4",
+        "reference": "docker.io/library/python:3.15.2@sha256:fa4f927f66f3ff00a0bd02ef9c8a9afce66b79be6c84741eba258691756803e4",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.15.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:31"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
+        "retention-deployed-82836454a795d9d7"
+      ],
+      "digest": "sha256:82836454a795d9d75549a9e157fd08dbac6c383292cf89e99f4248a97ce6b2ff",
+      "id": "upstream-library-python-344eab5036aa",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:82836454a795d9d75549a9e157fd08dbac6c383292cf89e99f4248a97ce6b2ff",
+        "reference": "docker.io/library/python:3.12-slim-bookworm@sha256:82836454a795d9d75549a9e157fd08dbac6c383292cf89e99f4248a97ce6b2ff",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.12-slim-bookworm"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/producer-base-images/base-images.yaml:31"
       ],
       "destination_repository": "upstream/docker.io/library/python",
@@ -6962,6 +7171,47 @@
         "registry": "docker.io",
         "repository": "library/python",
         "tag": "3.15-alpine"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:31"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
+        "retention-deployed-44cf1793efa7c7a4"
+      ],
+      "digest": "sha256:44cf1793efa7c7a476bb0f2cff81443f4a072c90c1cb127e2924933daa3e8c64",
+      "id": "upstream-library-python-b041c33f6d84",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:44cf1793efa7c7a476bb0f2cff81443f4a072c90c1cb127e2924933daa3e8c64",
+        "reference": "docker.io/library/python:3.12-slim-bookworm@sha256:44cf1793efa7c7a476bb0f2cff81443f4a072c90c1cb127e2924933daa3e8c64",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.12-slim-bookworm"
       }
     },
     {
@@ -7144,6 +7394,47 @@
         "registry": "docker.io",
         "repository": "library/python",
         "tag": "3.15.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:31"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
+        "retention-deployed-b1233897230b2046"
+      ],
+      "digest": "sha256:b1233897230b2046795042a642dc2a1849774c60469bb57d1a90622b501443a0",
+      "id": "upstream-library-python-f16d64da76da",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:b1233897230b2046795042a642dc2a1849774c60469bb57d1a90622b501443a0",
+        "reference": "docker.io/library/python:3.12-slim-bookworm@sha256:b1233897230b2046795042a642dc2a1849774c60469bb57d1a90622b501443a0",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.12-slim-bookworm"
       }
     },
     {
@@ -7684,6 +7975,45 @@
         "registry": "lscr.io",
         "repository": "linuxserver/qbittorrent",
         "tag": "5.3.0_v2.1.2-ls487"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:50"
+      ],
+      "destination_repository": "upstream/lscr.io/linuxserver/qbittorrent",
+      "destination_tags": [
+        "5.3.1_v2.1.3-ls490",
+        "retention-deployed-1fa2f9692501f27c"
+      ],
+      "digest": "sha256:1fa2f9692501f27ce51c4fffd771d63ec38f1163cb648941c324344b7c5a3915",
+      "id": "upstream-linuxserver-qbittorrent-6bc876871e8d",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:1fa2f9692501f27ce51c4fffd771d63ec38f1163cb648941c324344b7c5a3915",
+        "reference": "lscr.io/linuxserver/qbittorrent:5.3.1_v2.1.3-ls490@sha256:1fa2f9692501f27ce51c4fffd771d63ec38f1163cb648941c324344b7c5a3915",
+        "registry": "lscr.io",
+        "repository": "linuxserver/qbittorrent",
+        "tag": "5.3.1_v2.1.3-ls490"
       }
     },
     {

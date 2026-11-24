@@ -59,15 +59,17 @@ check_change() {
   state_set "${key}" "${status}"
 }
 
+# Ready=Unknown is a reconcile in progress, not a failure; counting it sent
+# a notice whenever a deploy touched a new Kustomization.
 flux_bad="$(
   kubectl get kustomizations.kustomize.toolkit.fluxcd.io -A -o json | jq -r '
     .items[]
-    | select((.status.conditions // [] | map(select(.type == "Ready" and .status == "True")) | length) == 0)
+    | select(.status.conditions // [] | any(.type == "Ready" and .status == "False"))
     | "\(.metadata.namespace)/\(.metadata.name): \(.status.conditions[-1].reason // "NotReady") \(.status.conditions[-1].message // "")"
   '
   kubectl get helmreleases.helm.toolkit.fluxcd.io -A -o json | jq -r '
     .items[]
-    | select((.status.conditions // [] | map(select(.type == "Ready" and .status == "True")) | length) == 0)
+    | select(.status.conditions // [] | any(.type == "Ready" and .status == "False"))
     | "\(.metadata.namespace)/\(.metadata.name): \(.status.conditions[-1].reason // "NotReady") \(.status.conditions[-1].message // "")"
   '
 )"
@@ -119,30 +121,7 @@ else
   check_change "pods" "ok" "Pod runtime issue" "Pod runtime issues recovered" "No pods are in critical waiting states."
 fi
 
-cronjob_bad="$(
-  kubectl get cronjobs,jobs -A -o json | jq -r '
-    (.items | map(select(.kind == "CronJob" and ((.spec.suspend // false) | not)))) as $cjs
-    | (.items | map(select(.kind == "Job"))) as $jobs
-    | $cjs[]
-    | . as $cj
-    | [
-        $jobs[]
-        | select(
-            .metadata.namespace == $cj.metadata.namespace
-            and ((.metadata.ownerReferences // []) | any(.kind == "CronJob" and .name == $cj.metadata.name))
-          )
-      ]
-    | sort_by(.metadata.creationTimestamp // "")
-    | last // empty
-    | select((.status.conditions // [] | map(select(.type == "Failed" and .status == "True")) | length) > 0)
-    | "\(.metadata.namespace)/\($cj.metadata.name) (\(.metadata.name)): \((.status.conditions // [] | map(select(.type == "Failed" and .status == "True"))[0].reason) // "Failed")"
-  ' | sort -u
-)"
-if [ -n "${cronjob_bad}" ]; then
-  check_change "cronjobs" "bad" "CronJob failure" "CronJobs recovered" "${cronjob_bad}"
-else
-  check_change "cronjobs" "ok" "CronJob failure" "CronJobs recovered" "Every active CronJob succeeded on its latest run."
-fi
+# Failed CronJob runs alert through Alertmanager (CronJobLastRunFailed).
 
 cloudflare_bad="$(kubectl -n cloudflare get deployment cloudflared -o json | jq -r '
   (.spec.replicas // 0) as $desired

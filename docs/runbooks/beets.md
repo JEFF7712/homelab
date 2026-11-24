@@ -1,7 +1,8 @@
 # Nightly beets tagging
 
-The `media/beets-nightly` CronJob runs at 03:00 America/Chicago. Its owning
-sources are `gitops/media/music.yaml` and the `beets-config` ConfigMap, which
+The `media/beets-nightly` CronJob runs at 05:30 America/Chicago, after the
+03:00-05:00 fleet-reboot window that restarts nas-01. Its owning sources are
+`gitops/media/music.yaml` and the `beets-config` ConfigMap, which
 `gitops/media/kustomization.yaml` generates from `gitops/media/beets/config.yaml`
 and `gitops/media/beets/nightly.py`. Flux deploys both through the media
 Kustomization.

@@ -27,3 +27,11 @@ data:
         }
         forward . /etc/resolv.conf
     }
+  public.server: |
+    rupan.dev:53 {
+        errors
+        cache 30
+        forward . 10.0.30.10 10.0.30.1 {
+            policy sequential
+        }
+    }
