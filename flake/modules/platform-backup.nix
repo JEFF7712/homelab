@@ -42,6 +42,9 @@ in
 
     systemd.services.platform-backup = {
       description = "Back up Git, CI, state, and recovery credentials";
+      # Activation must not stop a running backup and wait for a fresh one;
+      # the timer picks up a changed unit on its next run.
+      restartIfChanged = false;
       unitConfig.RequiresMountsFor =
         "/persist"
         + lib.optionalString (

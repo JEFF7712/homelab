@@ -407,11 +407,14 @@ in
         apiVersion = "cilium.io/v2alpha1";
         kind = "CiliumLoadBalancerIPPool";
         metadata.name = "vlan40-pool";
+        # The VLAN 40 firewall rules and OPNsense BGP already cover the whole
+        # /24; .10-.19 was full by 2026-11-23, so the pool runs to .99 and
+        # leaves .100 and up unallocated.
         spec = {
           blocks = [
             {
               start = "10.0.40.10";
-              stop = "10.0.40.19";
+              stop = "10.0.40.99";
             }
           ];
         };

@@ -61,6 +61,7 @@ evidence from that time, not permanent health or capacity guarantees.
 - [NetBird management API for agents](runbooks/netbird.md)
 - [Cloudflare Tunnel `homelab`](runbooks/cloudflare-tunnel.md)
 - [Cloudflare Access](runbooks/cloudflare-access.md)
+- [LAN gateway](runbooks/lan-gateway.md)
 - [Monero onion P2P](runbooks/monero-onion.md)
 - [Network outage monitor](runbooks/network-monitor.md)
 - [Host journal shipping](runbooks/host-log-shipping.md)
@@ -88,9 +89,10 @@ evidence from that time, not permanent health or capacity guarantees.
 - [Lidarr queue hygiene](runbooks/arr-queue-hygiene.md)
 - [Nightly beets tagging](runbooks/beets.md)
 - [Media memory management](runbooks/media-memory.md)
+- [Book downloads: Bookshelf, qBittorrent and Calibre](runbooks/books.md)
 - [Bookshelf state backup and recovery](runbooks/bookshelf-recovery.md)
 - [Game downloads and library](runbooks/games.md)
-- [Offline library (Kiwix)](runbooks/offline-library.md)
+- [Offline library (Kiwix and maps)](runbooks/offline-library.md); for using it through a long outage, see the [doomsday guide](DOOMSDAY.md)
 - [NAS game share](runbooks/nas-game-share.md)
 - [pod-agent on the homelab](runbooks/pod-agent.md)
 
@@ -105,7 +107,6 @@ evidence from that time, not permanent health or capacity guarantees.
 
 - [Persistent agent architecture](architecture/persistent-agent.md) and [task protocol](protocols/agent-tasks.md): controller implementation and deployment gates; not deployed.
 - [Agent workflow specification](agent-workflow-spec.md): historical implementation spec; current behavior belongs to the workflow guide.
-- `docs/superpowers/specs/` and `docs/superpowers/plans/`: dated designs and implementation plans.
 - `docs/research/`: dated investigations and acceptance evidence, including [pod-agent release history](research/2026-10-07-pod-agent-release-history.md).
 - `docs/agent-tasks/`: point-in-time task exports; check file history before using a handoff. Local task state and raw runtime evidence remain in ignored `.agent-state/`.
 

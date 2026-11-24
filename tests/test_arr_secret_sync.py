@@ -21,6 +21,7 @@ EXPECTED_SECRET_KEYS = {
     "SONARR_API_KEY": "SONARR_API_KEY",
     "RADARR_API_KEY": "RADARR_API_KEY",
     "LIDARR_API_KEY": "LIDARR_API_KEY",
+    "BOOKSHELF_API_KEY": "BOOKSHELF_API_KEY",
     "SEERR_API_KEY": "SEERR_API_KEY",
     "JELLYFIN_SEERR_API_KEY": "JELLYFIN_SEERR_API_KEY",
 }
@@ -162,7 +163,13 @@ class TestArrSync(unittest.TestCase):
     def test_lidarr_uses_v1_api(self):
         roots = {a["name"]: a["api_root"] for a in MOD["ARR_APPS"]}
         self.assertEqual(
-            roots, {"sonarr": "/api/v3", "radarr": "/api/v3", "lidarr": "/api/v1"}
+            roots,
+            {
+                "sonarr": "/api/v3",
+                "radarr": "/api/v3",
+                "lidarr": "/api/v1",
+                "bookshelf": "/api/v1",
+            },
         )
         mod_api = MOD["api"]
         stub = StubApi([(200, [qbit_client()]), (200, {})])
@@ -312,6 +319,19 @@ class TestManifests(unittest.TestCase):
         got = {e["secretKey"]: e["remoteRef"]["property"] for e in data}
         for key, remote in EXPECTED_SECRET_KEYS.items():
             self.assertEqual(got.get(key), remote)
+
+    def test_sync_properties_exist_in_sops_source(self):
+        # A media-app property missing from homelab-values fails the whole
+        # ExternalSecret, so every synced key must be present (key names stay
+        # plaintext in the SOPS file).
+        sops = yaml.safe_load(
+            (ROOT / "gitops" / "secrets" / "homelab-values.sops.yaml").read_text(
+                encoding="utf-8"
+            )
+        )
+        present = set(sops.get("stringData") or {}) | set(sops.get("data") or {})
+        missing = sorted(set(EXPECTED_SECRET_KEYS.values()) - present)
+        self.assertEqual(missing, [])
 
     def test_runbook_exists(self):
         text = (ROOT / "docs" / "runbooks" / "arr-credentials.md").read_text(

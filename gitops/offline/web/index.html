@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Offline map</title>
+  <!-- Every file is served from the archive; nothing here needs the internet. -->
+  <link rel="stylesheet" href="/assets/maplibre-gl.css">
+  <script src="/assets/maplibre-gl.js"></script>
+  <script src="/assets/pmtiles.js"></script>
+  <script src="/assets/basemaps.js"></script>
+  <style>
+    :root { --bg: #ffffff; --fg: #1d2329; --muted: #5f6b76; --line: #d5dbe1; --accent: #1565c0; --hover: #eef3f8; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #1e2328; --fg: #e6eaee; --muted: #9aa5b0; --line: #3a434c; --accent: #64a8f0; --hover: #2a3138; }
+    }
+    html, body, #map { margin: 0; height: 100%; }
+    body { font: 14px/1.4 system-ui, sans-serif; color: var(--fg); }
+    #panel {
+      position: absolute; top: 10px; left: 10px; z-index: 1; width: 340px;
+      max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); overflow: auto;
+      background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .2); padding: 10px; box-sizing: border-box;
+    }
+    input, select, button { font: inherit; color: var(--fg); background: var(--bg); }
+    input, select { width: 100%; box-sizing: border-box; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; }
+    button { padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+    button:hover, .result:hover { background: var(--hover); }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .row { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+    .row > input, .row > select { flex: 1; }
+    .label { width: 38px; color: var(--muted); }
+    .result { padding: 6px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+    .result small, .note { color: var(--muted); }
+    .result .actions { display: flex; gap: 6px; margin-top: 4px; }
+    #steps { margin: 8px 0 0; padding-left: 20px; }
+    #steps li { margin: 3px 0; }
+    h2 { font-size: 14px; margin: 12px 0 0; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="panel">
+    <form id="search-form">
+      <input id="query" type="search" placeholder="Search US places and addresses" autocomplete="off">
+    </form>
+    <div id="results"></div>
+    <h2>Directions</h2>
+    <div class="row"><span class="label">From</span><input id="from" readonly placeholder="Pick a search result or the map"><button type="button" data-pick="from" title="Click the map to choose">Map</button></div>
+    <div class="row"><span class="label">To</span><input id="to" readonly placeholder="Pick a search result or the map"><button type="button" data-pick="to" title="Click the map to choose">Map</button></div>
+    <div class="row">
+      <select id="mode" aria-label="Travel mode">
+        <option value="auto">Drive</option>
+        <option value="bicycle">Bike</option>
+        <option value="pedestrian">Walk</option>
+      </select>
+      <button id="go" type="button" class="primary">Directions</button>
+      <button id="clear" type="button">Clear</button>
+    </div>
+    <div id="summary" class="note"></div>
+    <ol id="steps"></ol>
+  </div>
+  <script>
+    const protocol = new pmtiles.Protocol();
+    maplibregl.addProtocol("pmtiles", protocol.tile);
+    const flavor = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    const map = new maplibregl.Map({
+      container: "map",
+      hash: true,
+      center: [-96, 38],
+      zoom: 3,
+      style: {
+        version: 8,
+        glyphs: `${location.origin}/assets/fonts/{fontstack}/{range}.pbf`,
+        sprite: `${location.origin}/assets/sprites/v4/${flavor}`,
+        sources: {
+          protomaps: {
+            type: "vector",
+            url: `pmtiles://${location.origin}/planet.pmtiles`,
+            attribution: '<a href="https://openstreetmap.org/copyright">&copy; OpenStreetMap</a>',
+          },
+        },
+        layers: basemaps.layers("protomaps", basemaps.namedFlavor(flavor), { lang: "en" }),
+      },
+    });
+    map.addControl(new maplibregl.NavigationControl(), "top-right");
+    map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
+
+    const $ = (id) => document.getElementById(id);
+    const ends = { from: null, to: null };
+    const markers = { from: null, to: null, found: null };
+    let picking = null;
+
+    function label(properties) {
+      const street = [properties.housenumber, properties.street].filter(Boolean).join(" ");
+      const place = [properties.city, properties.state].filter(Boolean).join(", ");
+      return [properties.name || street, properties.name ? street : "", place].filter(Boolean).join(" · ");
+    }
+
+    function mark(kind, lngLat, colour) {
+      if (markers[kind]) markers[kind].remove();
+      markers[kind] = new maplibregl.Marker({ color: colour }).setLngLat(lngLat).addTo(map);
+    }
+
+    function setEnd(kind, lngLat, text) {
+      ends[kind] = { lon: lngLat[0], lat: lngLat[1] };
+      $(kind).value = text;
+      mark(kind, lngLat, kind === "from" ? "#2e7d32" : "#c62828");
+      if (ends.from && ends.to) route();
+    }
+
+    $("search-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const query = $("query").value.trim();
+      const results = $("results");
+      results.textContent = "";
+      if (!query) return;
+      const centre = map.getCenter();
+      const params = new URLSearchParams({ q: query, limit: "8", lang: "en", lat: centre.lat, lon: centre.lng });
+      try {
+        const response = await fetch(`/api/search?${params}`);
+        if (!response.ok) throw new Error(response.status);
+        const found = await response.json();
+        if (!found.features.length) {
+          results.innerHTML = '<p class="note">Nothing found in the US.</p>';
+          return;
+        }
+        for (const feature of found.features) {
+          const lngLat = feature.geometry.coordinates;
+          const text = label(feature.properties);
+          const item = document.createElement("div");
+          item.className = "result";
+          item.innerHTML = '<div></div><div class="actions"><button type="button">From here</button><button type="button">To here</button></div>';
+          item.firstChild.textContent = text;
+          item.addEventListener("click", () => {
+            map.flyTo({ center: lngLat, zoom: Math.max(map.getZoom(), 14) });
+            mark("found", lngLat, "#1565c0");
+          });
+          const [fromButton, toButton] = item.querySelectorAll("button");
+          fromButton.addEventListener("click", (e) => { e.stopPropagation(); setEnd("from", lngLat, text); });
+          toButton.addEventListener("click", (e) => { e.stopPropagation(); setEnd("to", lngLat, text); });
+          results.appendChild(item);
+        }
+      } catch (error) {
+        results.innerHTML = '<p class="note">Search is not available right now.</p>';
+      }
+    });
+
+    for (const button of document.querySelectorAll("[data-pick]")) {
+      button.addEventListener("click", () => {
+        picking = button.dataset.pick;
+        map.getCanvas().style.cursor = "crosshair";
+        $("summary").textContent = `Click the map to set ${picking === "from" ? "the start" : "the destination"}.`;
+      });
+    }
+
+    map.on("click", (event) => {
+      if (!picking) return;
+      const kind = picking;
+      picking = null;
+      map.getCanvas().style.cursor = "";
+      const lngLat = [event.lngLat.lng, event.lngLat.lat];
+      $("summary").textContent = "";
+      setEnd(kind, lngLat, `${lngLat[1].toFixed(5)}, ${lngLat[0].toFixed(5)}`);
+    });
+
+    // Valhalla encodes route shapes as polylines with six decimal places.
+    function decode(encoded) {
+      const points = [];
+      let index = 0, lat = 0, lon = 0;
+      while (index < encoded.length) {
+        for (const axis of [0, 1]) {
+          let shift = 0, result = 0, byte;
+          do {
+            byte = encoded.charCodeAt(index++) - 63;
+            result |= (byte & 0x1f) << shift;
+            shift += 5;
+          } while (byte >= 0x20);
+          const delta = result & 1 ? ~(result >> 1) : result >> 1;
+          if (axis === 0) lat += delta; else lon += delta;
+        }
+        points.push([lon / 1e6, lat / 1e6]);
+      }
+      return points;
+    }
+
+    function showRoute(coordinates) {
+      const data = { type: "Feature", geometry: { type: "LineString", coordinates } };
+      if (map.getSource("route")) {
+        map.getSource("route").setData(data);
+      } else {
+        map.addSource("route", { type: "geojson", data });
+        map.addLayer({ id: "route", type: "line", source: "route", paint: { "line-color": "#1565c0", "line-width": 5, "line-opacity": 0.8 } });
+      }
+      const bounds = coordinates.reduce((box, point) => box.extend(point), new maplibregl.LngLatBounds(coordinates[0], coordinates[0]));
+      map.fitBounds(bounds, { padding: 60 });
+    }
+
+    async function route() {
+      if (!ends.from || !ends.to) {
+        $("summary").textContent = "Choose a start and a destination first.";
+        return;
+      }
+      $("summary").textContent = "Planning route…";
+      $("steps").textContent = "";
+      try {
+        const response = await fetch("/api/route", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ locations: [ends.from, ends.to], costing: $("mode").value, directions_options: { units: "miles" } }),
+        });
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || response.status);
+        const trip = body.trip;
+        const minutes = Math.round(trip.summary.time / 60);
+        const duration = minutes >= 60 ? `${Math.floor(minutes / 60)} h ${minutes % 60} min` : `${minutes} min`;
+        $("summary").textContent = `${trip.summary.length.toFixed(1)} miles, about ${duration}`;
+        showRoute(trip.legs.flatMap((leg) => decode(leg.shape)));
+        for (const maneuver of trip.legs.flatMap((leg) => leg.maneuvers)) {
+          const step = document.createElement("li");
+          step.textContent = maneuver.length ? `${maneuver.instruction} (${maneuver.length.toFixed(1)} mi)` : maneuver.instruction;
+          $("steps").appendChild(step);
+        }
+      } catch (error) {
+        $("summary").textContent = `No route: ${error.message}. Directions cover the US only.`;
+      }
+    }
+
+    $("go").addEventListener("click", route);
+    $("mode").addEventListener("change", () => { if (ends.from && ends.to) route(); });
+    $("clear").addEventListener("click", () => {
+      for (const kind of ["from", "to", "found"]) {
+        if (markers[kind]) markers[kind].remove();
+        markers[kind] = null;
+      }
+      ends.from = ends.to = null;
+      $("from").value = $("to").value = "";
+      $("summary").textContent = "";
+      $("steps").textContent = "";
+      $("results").textContent = "";
+      if (map.getSource("route")) map.getSource("route").setData({ type: "FeatureCollection", features: [] });
+    });
+  </script>
+</body>
+</html>

@@ -6,7 +6,8 @@ approval-context, doctor, and cancel. Every command returns a versioned JSON
 envelope. Request journals intent without executing infrastructure writes.
 Status and doctor are read-only. A request in a preapproved routine scope is
 queued for automatic execution. Other scopes require signed operator approval.
-See the [original protocol design](../superpowers/specs/2026-10-15-projectctl-protocol-design.md).
+The original protocol design was removed from the tree; read it with
+`git show 2a740f57:docs/superpowers/specs/2026-10-15-projectctl-protocol-design.md`.
 
 Implementation lives in scripts/projectctl/. The worker uses supported Forgejo
 and Woodpecker APIs, rechecks authorization on protected main before every write,

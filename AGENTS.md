@@ -52,7 +52,7 @@ Agent workspaces share about 8 GiB of RAM across every concurrent session, and o
 
 ## Documentation Index
 
-Read narrowly. `AGENT_MAP.md` maps each concern to its owning files, checks, and runbook; `just diag <app>` names the runbooks for a live app. The full index of runbooks, gotchas, and historical plans is [docs/README.md](docs/README.md). Runbooks in `docs/runbooks/` are the authoritative procedure for live operations; plans under `docs/superpowers/` are dated records, not active state.
+Read narrowly. `AGENT_MAP.md` maps each concern to its owning files, checks, and runbook; `just diag <app>` names the runbooks for a live app. The full index of runbooks, gotchas, and historical plans is [docs/README.md](docs/README.md). Runbooks in `docs/runbooks/` are the authoritative procedure for live operations.
 
 ## Collaboration and Completion
 

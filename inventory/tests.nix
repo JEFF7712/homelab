@@ -13,7 +13,11 @@ let
       extraModules = [ module ];
     };
   inventory = import ./. { inherit lib; };
-  firstDNS = builtins.head inventory.dns.records;
+  # A host-backed record with every view; list merging puts later modules'
+  # records (such as the LAN gateway's) first, so select it by name.
+  firstDNS = lib.findFirst (
+    record: record.name == "registry.rupan.dev"
+  ) (throw "registry.rupan.dev record missing") inventory.dns.records;
   replaceDNS = record: load { dns = lib.mkForce [ record ]; };
   movedNAS = load { hosts.nas-01.address = lib.mkForce "10.0.30.21"; };
   movedCI = load { hosts.homelab-04.address = lib.mkForce "10.0.30.24"; };
@@ -182,6 +186,20 @@ let
           "grafana.homelab"
           "ntfy.homelab"
         ];
+    lanGatewayRecords =
+      builtins.length (
+        builtins.filter (record: record.server == "10.0.40.19") inventory.dns.unboundOverrides
+      ) == builtins.length (lib.importJSON ../config/lan-gateway.json).hosts;
+    lanGatewayNameCollision = rejects (load {
+      dns = [
+        {
+          name = "photos.rupan.dev";
+          address = "10.0.40.16";
+          description = "collides with a LAN gateway record";
+          unboundOrder = 98;
+        }
+      ];
+    });
     movedNASDNS =
       (builtins.head (
         builtins.filter (record: record.domain == "registry.rupan.dev") movedNAS.dns.adguardRewrites
