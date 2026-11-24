@@ -72,19 +72,14 @@ spec:
             runAsNonRoot: true
             seccompProfile:
               type: RuntimeDefault
-          # The tile build needs the RAM and NVMe of the 32 GB nodes.
+          # The tile build needs homelab-05's free RAM and NVMe. homelab-04
+          # runs CI and keeps little memory free: its kubelet evicted the
+          # build twice on 2026-11-23.
           affinity:
             nodeAffinity:
               requiredDuringSchedulingIgnoredDuringExecution:
                 nodeSelectorTerms:
                   - matchExpressions:
-                      - key: kubernetes.io/hostname
-                        operator: In
-                        values: [homelab-04, homelab-05]
-              preferredDuringSchedulingIgnoredDuringExecution:
-                - weight: 100
-                  preference:
-                    matchExpressions:
                       - key: kubernetes.io/hostname
                         operator: In
                         values: [homelab-05]
@@ -135,13 +130,12 @@ spec:
                   mountPath: /work
                 - name: tmp
                   mountPath: /tmp
-              # Quarterly and an hour long: it borrows idle capacity instead of
-              # reserving it, since homelab-05's requests are nearly all
-              # allocated (homelab-04 holds most of its RAM back for CI).
+              # Quarterly and an hour or two long; it reserves about what it
+              # was seen using and borrows the rest of homelab-05's idle RAM.
               resources:
                 requests:
                   cpu: 500m
-                  memory: 1Gi
+                  memory: 2Gi
                   ephemeral-storage: 60Gi
                 limits:
                   memory: 12Gi
@@ -268,7 +262,7 @@ spec:
           image: registry.rupan.dev/upstream/docker.io/library/eclipse-temurin@sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56  # yamllint disable-line rule:line-length
           command:
             - java
-            - -Xmx4g
+            - -Xmx3g
             - -Djava.io.tmpdir=/tmp
             - -jar
             - /maps/search/photon-1.3.0.jar
@@ -302,14 +296,16 @@ spec:
             periodSeconds: 30
             timeoutSeconds: 10
           # The index is memory-mapped: page cache beyond the heap is
-          # reclaimable, so the limit leaves room above -Xmx for it.
+          # reclaimable, so the limit leaves room above -Xmx for it. The US
+          # index is about a fifth of the planet's, for which Photon suggests
+          # an 8 GB heap.
           resources:
             requests:
               cpu: 200m
-              memory: 5Gi
+              memory: 3Gi
               ephemeral-storage: 40Gi
             limits:
-              memory: 8Gi
+              memory: 6Gi
           volumeMounts:
             - name: archive
               mountPath: /maps
@@ -441,7 +437,7 @@ spec:
           resources:
             requests:
               cpu: 100m
-              memory: 1Gi
+              memory: 512Mi
               ephemeral-storage: 30Gi
             limits:
               memory: 4Gi
