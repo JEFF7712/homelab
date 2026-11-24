@@ -153,7 +153,8 @@ metadata:
   namespace: media
 spec:
   concurrencyPolicy: Forbid
-  schedule: 0 3 * * *
+  # Starts after fleet-reboot's 03:00-05:00 window, which restarts nas-01.
+  schedule: 30 5 * * *
   timeZone: America/Chicago
   jobTemplate:
     spec:

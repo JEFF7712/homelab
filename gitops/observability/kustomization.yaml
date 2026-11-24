@@ -36,3 +36,4 @@ resources:
   - ntfy/release.yaml
   - ntfy/pvc.yaml
   - ntfy/secret.yaml
+  - ntfy/templates.yaml

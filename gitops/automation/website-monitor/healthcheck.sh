@@ -3,7 +3,8 @@ set -eu
 
 namespace="automation"
 state_cm="website-health-state"
-topic="$(cat /config/ntfy-topic)"
+config_dir="${CONFIG_DIR:-/config}"
+topic="$(cat "${config_dir}/ntfy-topic")"
 ntfy_url="http://ntfy-ntfy.observability.svc.cluster.local/${topic}"
 
 kubectl -n "${namespace}" get configmap "${state_cm}" >/dev/null 2>&1 || \
@@ -32,12 +33,18 @@ while IFS='|' read -r name url; do
   previous="$(kubectl -n "${namespace}" get configmap "${state_cm}" -o json | jq -r --arg key "${name}" '.data[$key] // ""')"
   previous_status="$(printf '%s' "${previous}" | cut -d: -f1)"
 
-  if [ "${status}" = "down" ] && [ "${previous_status}" != "down" ]; then
-    notify "Website down: ${name}" "urgent" "${url} returned HTTP ${code:-000}"
-  elif [ "${status}" = "up" ] && [ "${previous_status}" = "down" ]; then
+  # One failed probe is recorded as "failing"; only a second consecutive
+  # failure pages, so a single timeout never produces a down/recovered pair.
+  if [ "${status}" = "down" ]; then
+    if [ "${previous_status}" = "failing" ]; then
+      notify "Website down: ${name}" "urgent" "${url} returned HTTP ${code:-000} twice in a row"
+    elif [ "${previous_status}" != "down" ]; then
+      status="failing"
+    fi
+  elif [ "${previous_status}" = "down" ]; then
     notify "Website recovered: ${name}" "default" "${url} is healthy again with HTTP ${code}"
   fi
 
   kubectl -n "${namespace}" patch configmap "${state_cm}" --type merge \
     -p "$(jq -n --arg key "${name}" --arg value "${status}:${code}" '{data: {($key): $value}}')" >/dev/null
-done < /config/sites.txt
+done < "${config_dir}/sites.txt"
