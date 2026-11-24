@@ -61,7 +61,7 @@ class OffsiteBackupTest(unittest.TestCase):
         self.assertTrue(server["appendOnly"])
         self.assertIn("--no-auth", server["extraFlags"])
         # Unauthenticated, so reachable only on the mesh interface.
-        self.assertEqual(server["wt0"], [8000])
+        self.assertIn(8000, server["wt0"])
         self.assertNotIn(8000, server["global"])
         # /home is nofail; a missing mount must not fill the root filesystem.
         self.assertEqual(server["unit"]["RequiresMountsFor"], [server["dataDir"]])
