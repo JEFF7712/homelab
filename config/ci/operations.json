@@ -618,6 +618,7 @@
       "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
       "chmod 600 ~/.ssh/id_ed25519",
       "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "printf '\\n' >> ~/.ssh/known_hosts",
       "cat config/ci/remote-hosts.known_hosts >> ~/.ssh/known_hosts",
       "chmod 600 ~/.ssh/known_hosts",
       "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
