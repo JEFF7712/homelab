@@ -5,6 +5,7 @@
   ...
 }:
 let
+  sshKeys = import ./fleet-ssh-keys.nix;
   # Legacy deployment access is root-equivalent through passwordless sudo.
   # Keep its network origin limited independently of operator workstation keys.
   deploySources = [
@@ -23,7 +24,7 @@ let
   # read-only observer login, never root. Sources observed in sshd journals on
   # 2026-11-16: homelab-04 sees the VM's own address; every other host sees
   # homelab-04's masqueraded LAN address.
-  observerKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICZzDfJQDvL6axeNiY0b+iObfhjkBxzut8cGfcxr9zva developer@agent-rupan";
+  inherit (sshKeys) observerKey laptopObserverKey;
   observerSources =
     if config.networking.hostName == "homelab-04" then
       [ "172.31.10.2" ]
@@ -32,7 +33,6 @@ let
   # Operator workstation sessions (`just doctor --live`, interactive agents on
   # laptop-nixos) use a separate read-only observer key bounded to client/VPN
   # subnets rather than falling back to passwordless wheel access.
-  laptopObserverKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBGPgdA467aAFq4re73+3yM3Tws4F7GkecGh3LlN6S7/ agent-observer@laptop-nixos";
   # NetBird peers arrive directly as 100.64.0.0/10 on adguard-netbird-01 and are
   # masqueraded by adguard-netbird-01 (10.0.30.10) to the rest of the fleet.
   laptopObserverSources = [
@@ -124,9 +124,7 @@ in
       users.rupan = {
         isNormalUser = true;
         extraGroups = [ "wheel" ];
-        openssh.authorizedKeys.keys = [
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILW7MVmIGzW4Eq1NJm4+gsGwQ+iL44bIfyAa/wdQ1srQ"
-          "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFTXsL6q+O1d29vTd3TtK2F0MYPggS5KSHryvlIFBS1K"
+        openssh.authorizedKeys.keys = sshKeys.operatorKeys ++ [
           ''restrict,from="${lib.concatStringsSep "," ciDeploySources}" ${lib.fileContents ../../config/ci/fleet-deploy.pub}''
           ''restrict,from="${lib.concatStringsSep "," deploySources}" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFWt07ttKX2X+E5CbwL4To1AuwuwuIaKWUePIrAwGrK0 homelab-nas-deploy''
         ];

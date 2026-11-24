@@ -1,4 +1,24 @@
-{ ... }:
+{
+  lib,
+  pkgs,
+  fleetInventory,
+  ...
+}:
+let
+  inherit (fleetInventory) hosts;
+  # LAN hosts cannot open connections to remote NetBird peers: this routing
+  # peer's NetBird-managed forward rules drop new LAN-to-mesh flows (connections
+  # it originates itself pass). Each relay listens on this host's LAN address
+  # and reconnects from here, so the peer sees this host's mesh address
+  # (100.94.249.145) and a NetBird policy with it as the source admits the flow.
+  relays = {
+    home-pc-01-ssh = {
+      port = 2201;
+      target = "100.94.53.129:22";
+      sources = [ hosts.homelab-04.address ];
+    };
+  };
+in
 {
   users.users.rupan.extraGroups = [ "netbird" ];
 
@@ -14,25 +34,45 @@
     };
   };
 
-  # LAN-initiated traffic to a remote peer (CI deploys, backups to home-pc-01)
-  # leaves wt0 with its LAN source. The receiving peer's WireGuard admits that
-  # source only from whichever routing peer it picked for the LAN route, and
-  # NetBird policies match peers, not LAN subnets, so it is dropped. Leaving
-  # with this peer's own NetBird address makes such flows policy-addressable.
-  networking.nftables.tables.netbird-lan-egress = {
-    family = "ip";
-    content = ''
-      chain postrouting {
-        type nat hook postrouting priority srcnat; policy accept;
-        oifname "wt0" ip saddr != 100.64.0.0/10 masquerade
-      }
-    '';
-  };
+  systemd.services = {
+    netbird = {
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+    };
+  }
+  // lib.mapAttrs' (
+    name: relay:
+    lib.nameValuePair "netbird-relay-${name}" {
+      description = "Relay LAN connections to ${relay.target} over NetBird";
+      requires = [ "netbird-relay-${name}.socket" ];
+      after = [
+        "netbird-relay-${name}.socket"
+        "netbird.service"
+      ];
+      serviceConfig = {
+        ExecStart = "${pkgs.systemd}/lib/systemd/systemd-socket-proxyd --exit-idle-time=10min ${relay.target}";
+        DynamicUser = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        NoNewPrivileges = true;
+      };
+    }
+  ) relays;
 
-  systemd.services.netbird = {
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-  };
+  systemd.sockets = lib.mapAttrs' (
+    name: relay:
+    lib.nameValuePair "netbird-relay-${name}" {
+      wantedBy = [ "sockets.target" ];
+      listenStreams = [ "${hosts.adguard-netbird-01.address}:${toString relay.port}" ];
+      socketConfig.FreeBind = true;
+    }
+  ) relays;
+
+  networking.firewall.extraInputRules = lib.concatMapStringsSep "\n" (
+    relay:
+    "ip saddr { ${lib.concatStringsSep ", " relay.sources} } tcp dport ${toString relay.port} accept"
+  ) (builtins.attrValues relays);
 
   environment.persistence."/persist".directories = [
     "/var/lib/netbird"

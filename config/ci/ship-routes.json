@@ -88,6 +88,18 @@
       "auto": true
     },
     {
+      "name": "home-pc-01",
+      "paths": [
+        "flake/hosts/home-pc-01/",
+        "flake/modules/fleet-ssh-keys.nix",
+        "config/ci/remote-hosts.known_hosts"
+      ],
+      "operations": [
+        "deploy-home-pc-01"
+      ],
+      "auto": true
+    },
+    {
       "name": "agent-workspace-host",
       "paths": [
         "flake/modules/agent-workspace",

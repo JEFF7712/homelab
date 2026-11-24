@@ -611,6 +611,52 @@
     "prerequisite": "",
     "agent": true
   },
+  "deploy-home-pc-01": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "cat config/ci/remote-hosts.known_hosts >> ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes\"",
+      "export KH_OPTS=\"-o UserKnownHostsFile=$HOME/.ssh/known_hosts\"",
+      "export NIX_SSHOPTS=\"$SSH_OPTS $KH_OPTS -o StrictHostKeyChecking=yes -p 2201\"",
+      "nixos-rebuild --flake ./flake#home-pc-01 --use-remote-sudo switch --target-host rupan@10.0.30.10 --build-host rupan@10.0.30.10",
+      "ssh $NIX_SSHOPTS rupan@10.0.30.10 'test \"$(hostname)\" = home-pc-01 && systemctl is-system-running --wait && systemctl is-active netbird sshd display-manager && findmnt -rn /home'"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "fleet_deploy_ssh_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "home-pc-01",
+    "needs": [],
+    "outputs": [],
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "",
+    "agent": true
+  },
   "deploy-zigbee-gateway": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",

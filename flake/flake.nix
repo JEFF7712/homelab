@@ -89,8 +89,10 @@
               ];
             };
           fleetInventory = import ../inventory { lib = nixpkgs.lib; };
+          # Remote NetBird hosts: no LAN address, so not inventory hosts.
+          remoteHosts = [ "home-pc-01" ];
         in
-        nixpkgs.lib.genAttrs (builtins.attrNames fleetInventory.hosts) mkHost;
+        nixpkgs.lib.genAttrs (builtins.attrNames fleetInventory.hosts ++ remoteHosts) mkHost;
     }
     // flake-utils.lib.eachDefaultSystem (
       system:
