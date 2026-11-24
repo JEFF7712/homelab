@@ -6882,6 +6882,47 @@
       ],
       "destination_repository": "upstream/docker.io/library/python",
       "destination_tags": [
+        "retention-deployed-82836454a795d9d7"
+      ],
+      "digest": "sha256:82836454a795d9d75549a9e157fd08dbac6c383292cf89e99f4248a97ce6b2ff",
+      "id": "upstream-library-python-344eab5036aa",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:82836454a795d9d75549a9e157fd08dbac6c383292cf89e99f4248a97ce6b2ff",
+        "reference": "docker.io/library/python:3.12-slim-bookworm@sha256:82836454a795d9d75549a9e157fd08dbac6c383292cf89e99f4248a97ce6b2ff",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.12-slim-bookworm"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/producer-base-images/base-images.yaml:31"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
         "retention-deployed-e697c81897302a4c"
       ],
       "digest": "sha256:e697c81897302a4c4333bade000d98038fbb21eb064f8ee1fd42d02ebcd9d337",
