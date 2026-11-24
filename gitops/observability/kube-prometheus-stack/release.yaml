@@ -253,7 +253,9 @@ spec:
             - device
           group_wait: 30s
           group_interval: 5m
-          repeat_interval: 4h
+          # A standing warning (a full pool, a failed nightly job) is re-sent
+          # once a day rather than six times.
+          repeat_interval: 24h
           routes:
             - matchers:
                 - alertname = "Watchdog"
@@ -266,7 +268,14 @@ spec:
               receiver: critical
               group_wait: 10s
               group_interval: 2m
-              repeat_interval: 1h
+              repeat_interval: 4h
+            # One broken workload raises up to six pod and controller alerts;
+            # send one message per namespace instead of one per alert name.
+            - matchers:
+                - alertname =~ "KubePodNotReady|KubePodCrashLooping|KubePodStuckPending|KubeContainerWaiting|KubeDeploymentReplicasMismatch|KubeDeploymentRolloutStuck|KubeStatefulSetReplicasMismatch|KubeDaemonSetRolloutStuck"  # yamllint disable-line rule:line-length
+              receiver: ntfy-default
+              group_by:
+                - namespace
         inhibit_rules:
           - source_matchers:
               - severity = "critical"
@@ -344,7 +353,7 @@ spec:
           - name: ntfy-critical
             webhook_configs:
               # yamllint disable-line rule:line-length
-              - url: http://ntfy-ntfy.observability.svc.cluster.local/homelab-alerts?template=alertmanager&priority=urgent&tags=rotating_light,fire
+              - url: http://ntfy-ntfy.observability.svc.cluster.local/homelab-alerts?template=homelab-alertmanager&priority=urgent&tags=rotating_light,fire
                 send_resolved: true
                 http_config:
                   authorization:
@@ -353,7 +362,7 @@ spec:
           - name: ntfy-default
             webhook_configs:
               # yamllint disable-line rule:line-length
-              - url: http://ntfy-ntfy.observability.svc.cluster.local/homelab-alerts?template=alertmanager&priority=default&tags=warning
+              - url: http://ntfy-ntfy.observability.svc.cluster.local/homelab-alerts?template=homelab-alertmanager&priority=default&tags=warning
                 send_resolved: true
                 http_config:
                   authorization:

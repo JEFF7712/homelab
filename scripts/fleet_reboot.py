@@ -20,7 +20,11 @@ datasets and caches for the NAS) before the node is uncordoned.
 The NAS goes after the k3s nodes and the DNS appliance, and only when a
 platform backup finished in the last two hours, no backup, drill or
 maintenance unit is running and every ZFS pool is healthy; otherwise it waits
-for the next night. The CI host runs this job, so it cannot reboot itself and
+for the next night. After the NAS is back, pods whose containers
+restarted during the outage can stay in CreateContainerConfigError with
+"failed to prepare subPath" for good (calibre-web, 2026-11-23); for five
+minutes the run deletes any such controller-owned pod so it is recreated with
+fresh mounts, and fails if one is still stuck afterwards. The CI host runs this job, so it cannot reboot itself and
 check the result: it goes last, drained, with a watcher on the first
 control-plane node that uncordons it once it reports Ready on the installed
 kernel, and its reboot scheduled shortly after the job exits.
@@ -91,6 +95,9 @@ SYSTEM_BIN = "/run/current-system/sw/bin"
 REBOOT_DOWN_TIMEOUT = 180.0
 REBOOT_UP_TIMEOUT = 900.0
 POLL_SECONDS = 10.0
+# Pods that kept NFS subPath mounts across a NAS reboot never start again.
+NFS_POD_WATCH = 300.0
+SUBPATH_ERROR = "failed to prepare subPath"
 
 
 @dataclass(frozen=True)
@@ -296,6 +303,81 @@ class FleetRebooter(FleetDeployer):
             self.verify_nas_datasets(host)
             self.verify_nas_appliance(host.ip)
 
+    def stuck_nfs_pods(self) -> dict[str, str]:
+        """Controller-owned pods stuck on a stale NFS subPath mount.
+
+        Maps namespace/pod to its owner, namespace/Kind/name.
+        """
+        result = run_command(
+            ["kubectl", "get", "pods", "--all-namespaces", "-o", "json"],
+            runner=self.runner,
+            timeout=60.0,
+        )
+        try:
+            pods = json.loads(result.stdout)["items"]
+        except (ValueError, KeyError, TypeError) as err:
+            raise FleetDeploymentError(f"could not list pods: {err}") from err
+        stuck: dict[str, str] = {}
+        for pod in pods:
+            meta = pod.get("metadata") or {}
+            owners = meta.get("ownerReferences") or []
+            if meta.get("deletionTimestamp") or not owners:
+                continue
+            status = pod.get("status") or {}
+            waiting = [
+                (c.get("state") or {}).get("waiting") or {}
+                for c in (status.get("initContainerStatuses") or [])
+                + (status.get("containerStatuses") or [])
+            ]
+            if any(
+                w.get("reason") == "CreateContainerConfigError"
+                and SUBPATH_ERROR in w.get("message", "")
+                for w in waiting
+            ):
+                namespace = meta["namespace"]
+                owner = owners[0]
+                stuck[f"{namespace}/{meta['name']}"] = (
+                    f"{namespace}/{owner.get('kind')}/{owner.get('name')}"
+                )
+        return stuck
+
+    def recover_nfs_pods(self) -> list[str]:
+        """Recreate pods the NAS reboot left on stale NFS mounts.
+
+        Deletes each stuck pod's controller-owned pod at most once per owner,
+        watching for NFS_POD_WATCH, and returns the pods deleted. Raises if a
+        pod is still stuck afterwards, including a replacement that got stuck
+        again.
+        """
+        if self.dry_run:
+            return []
+        deleted: list[str] = []
+        owners_done: set[str] = set()
+        waited = 0.0
+        while True:
+            for pod, owner in sorted(self.stuck_nfs_pods().items()):
+                if owner in owners_done:
+                    continue
+                namespace, name = pod.split("/", 1)
+                logger.warning("Recreating %s, stuck on a stale NFS mount", pod)
+                run_command(
+                    ["kubectl", "-n", namespace, "delete", "pod", name, "--wait=false"],
+                    runner=self.runner,
+                    timeout=30.0,
+                )
+                deleted.append(pod)
+                owners_done.add(owner)
+            if waited >= NFS_POD_WATCH:
+                break
+            self.sleeper(POLL_SECONDS)
+            waited += POLL_SECONDS
+        if still := sorted(self.stuck_nfs_pods()):
+            raise FleetDeploymentError(
+                "pods still stuck on NFS mounts after the NAS reboot: "
+                + ", ".join(still)
+            )
+        return deleted
+
     def reboot_host(self, host: HostConfig) -> None:
         is_k3s = host.host_type in ("k3s-worker", "k3s-stateful")
         failed_before = self.failed_units(host)
@@ -315,6 +397,15 @@ class FleetRebooter(FleetDeployer):
                 lambda: self.reachable(host), REBOOT_UP_TIMEOUT, f"{host.name} to boot"
             )
             self.verify_rebooted(host, failed_before)
+            if host.host_type == "appliance-nas" and (
+                recreated := self.recover_nfs_pods()
+            ):
+                self.notify(
+                    title="Pods recreated after NAS reboot",
+                    message="Stuck on stale NFS mounts: " + ", ".join(recreated),
+                    priority="default",
+                    tags=["recycle"],
+                )
             if is_k3s:
                 self.uncordon_node(host.name)
                 cordoned = False

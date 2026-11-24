@@ -68,6 +68,10 @@ in
       requires = [ "tank-s3.mount" ];
       serviceConfig = {
         DynamicUser = lib.mkForce false;
+        # The permission pre-start ran past the default 90s while activation
+        # re-imported tank and restarted backups (2026-11-23), leaving WAL
+        # archiving down until an operator restarted Garage.
+        TimeoutStartSec = "5min";
         User = "garage";
         Group = "garage";
         ExecStartPre = [

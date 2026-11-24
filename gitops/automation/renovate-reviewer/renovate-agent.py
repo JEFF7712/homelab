@@ -213,13 +213,22 @@ def process_forgejo_pr(owner, repo, pr, state):
       and existing.get("native_automerge") == native_automerge
       and existing.get("action") == action):
     return
-  guidance = (
-    "Native automerge enabled; Renovate merges after required checks pass."
-    if native_automerge else f"Approve this exact commit in the PR: {APPROVAL_COMMAND} {sha}"
-  )
-  check_summary = ", ".join(f"{name}: {value}" for name, value in required_checks.items())
-  notify(f"Renovate Forgejo: {repo}#{number}", "default" if action == "merged" or native_automerge else "high",
-    f"{pr.get('title', '')}\nchecks: {check_summary}\naction: {action}\n{guidance}", click=pr.get("html_url"))
+  # Renovate rebases open PRs onto main every run, so a new head alone is not
+  # news. Notify when the PR's outcome changes, or when a fresh head is ready
+  # for exact-commit approval.
+  outcome = {"required_checks": required_checks, "native_automerge": native_automerge, "action": action}
+  pr_key = f"forgejo-{owner}-{repo}-{number}"
+  previous = json.loads(state.get("data", {}).get(pr_key, "{}"))
+  awaiting_approval = action == "waiting" and checks_state == "success" and not native_automerge
+  if previous.get("outcome") != outcome or (awaiting_approval and previous.get("sha") != sha):
+    guidance = (
+      "Native automerge enabled; Renovate merges after required checks pass."
+      if native_automerge else f"Approve this exact commit in the PR: {APPROVAL_COMMAND} {sha}"
+    )
+    check_summary = ", ".join(f"{name}: {value}" for name, value in required_checks.items())
+    notify(f"Renovate Forgejo: {repo}#{number}", "default" if action == "merged" or native_automerge else "high",
+      f"{pr.get('title', '')}\nchecks: {check_summary}\naction: {action}\n{guidance}", click=pr.get("html_url"))
+  patch_state(pr_key, json.dumps({"outcome": outcome, "sha": sha, "processed_at": int(time.time())}, sort_keys=True))
   patch_state(key, json.dumps({"platform": "forgejo", "repo": f"{owner}/{repo}", "number": number, "sha": sha, "checks": checks_state, "required_checks": required_checks, "native_automerge": native_automerge, "approval": {"approved": bool(approval), "method": "comment" if approval else ""}, "action": action, "processed_at": int(time.time())}, sort_keys=True))
 
 def main():

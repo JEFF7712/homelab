@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: ntfy
-      version: 1.8.0
+      version: 1.8.1
       sourceRef:
         kind: HelmRepository
         name: helmforge
@@ -18,7 +18,7 @@ spec:
         images:
           - name: docker.io/binwiederhier/ntfy
             newName: registry.rupan.dev/upstream/docker.io/binwiederhier/ntfy  # yamllint disable-line rule:line-length
-            digest: sha256:59250e1d8be2ee2186c4560322f625faef22ace380331f05b63f8842dbd62602
+            digest: sha256:038da2be5e668fee6d36a62884eea48975e1b71c29a56964e5298c1b9165a573
   values:
     ntfy:
       baseUrl: https://ntfy.rupan.dev
@@ -39,6 +39,16 @@ spec:
             secretKeyRef:
               name: ntfy-auth
               key: auth-access
+      extraConfig: |
+        template-dir: /etc/ntfy-templates
+    extraVolumes:
+      - name: templates
+        configMap:
+          name: ntfy-templates
+    extraVolumeMounts:
+      - name: templates
+        mountPath: /etc/ntfy-templates
+        readOnly: true
     podAnnotations:
       migration.rupan.dev/ntfy-auth-format: v2
     persistence:

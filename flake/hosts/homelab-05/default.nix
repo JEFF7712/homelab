@@ -30,12 +30,15 @@ in
 
   networking.hostName = "homelab-05";
 
-  # Retained local Prometheus TSDB and Loki store; their PVs bind only on this
-  # host. Loki runs as 10001:10001 (chart pod security context).
+  # Retained local Prometheus TSDB, Loki store and ntfy databases; their PVs
+  # bind only on this host. Loki runs as 10001:10001 and ntfy as 1000:1000
+  # (chart pod security contexts). ntfy's SQLite files moved off NFS, where
+  # its file locking stalled publishes with "database is locked".
   systemd.tmpfiles.rules = [
     "d /persist/prometheus 0750 1000 2000 -"
     "d /persist/prometheus/prometheus-db 0750 1000 2000 -"
     "d /persist/loki 0750 10001 10001 -"
+    "d /persist/ntfy 0750 1000 1000 -"
   ];
 
   # The e1000e transmit queue hung on 2026-10-16 and never recovered.

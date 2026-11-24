@@ -57,6 +57,16 @@ CRASH_LOOP_PROBE = (
 # rescheduled from the previous node a minute earlier, stopped 128s after its
 # eviction and failed a 120s drain of homelab-03.
 DRAIN_TIMEOUT = 300.0
+# The switch runs as the transient unit below and outlives its SSH session.
+# On 2026-11-23 nas-01's switch waited 53 minutes on restarted backups; the
+# 600s session timed out and the rollback failed at once, because the fixed
+# unit name refused a second switch while the first still ran. After a
+# timeout the deployer now waits for that unit to end and judges the host by
+# the system it runs.
+SWITCH_UNIT = "homelab-fleet-switch"
+SWITCH_SESSION_TIMEOUT = 600.0
+SWITCH_SETTLE_TIMEOUT = 2700.0
+SWITCH_POLL_INTERVAL = 15.0
 # A drain evicts running Job pods mid-run: on 2026-11-17 and 11-18 it killed
 # the Immich library backup, whose restic lock then failed every retry. After
 # cordoning, the deployer waits for pods of running Jobs on the node before
@@ -1136,7 +1146,7 @@ class FleetDeployer:
             # with `journalctl -u homelab-fleet-switch`.
             switch = [
                 "systemd-run",
-                "--unit=homelab-fleet-switch",
+                f"--unit={SWITCH_UNIT}",
                 "--collect",
                 "--no-ask-password",
                 "--quiet",
@@ -1145,10 +1155,45 @@ class FleetDeployer:
                 *switch,
             ]
         commands.append(shlex.join(["sudo", "-n", *switch]))
-        run_command(
-            self.ssh_command(host.ip, " && ".join(commands)),
-            runner=self.runner,
-            timeout=600.0,
+        try:
+            run_command(
+                self.ssh_command(host.ip, " && ".join(commands)),
+                runner=self.runner,
+                timeout=SWITCH_SESSION_TIMEOUT,
+            )
+        except FleetDeploymentError as err:
+            if dry_run or not isinstance(err.__cause__, subprocess.TimeoutExpired):
+                raise
+            self.await_switch(host, path)
+
+    def await_switch(self, host: HostConfig, path: str) -> None:
+        """Wait for a switch that outlived its session, then check what it activated."""
+        deadline = time.monotonic() + SWITCH_SETTLE_TIMEOUT
+        while True:
+            state = run_command(
+                self.ssh_command(host.ip, f"systemctl is-active {SWITCH_UNIT}"),
+                runner=self.runner,
+                timeout=30.0,
+                check=False,
+            ).stdout.strip()
+            if state not in {"active", "activating", "deactivating", "reloading"}:
+                break
+            if time.monotonic() >= deadline:
+                raise FleetDeploymentError(
+                    f"{host.name}: {SWITCH_UNIT} still running after "
+                    f"{SWITCH_SESSION_TIMEOUT + SWITCH_SETTLE_TIMEOUT:.0f}s; let it "
+                    "finish before restoring the previous system"
+                )
+            logger.info("[%s] Waiting for %s to finish", host.name, SWITCH_UNIT)
+            self.sleeper(SWITCH_POLL_INTERVAL)
+        running = self.running_system(host)
+        if running != path:
+            raise FleetDeploymentError(
+                f"{host.name}: {SWITCH_UNIT} ended without activating {path} "
+                f"(running {running})"
+            )
+        logger.warning(
+            "[%s] Switch outlived its session but activated %s", host.name, path
         )
 
     def rebuild_host(self, host: HostConfig) -> None:

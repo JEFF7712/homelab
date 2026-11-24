@@ -4,6 +4,12 @@ kind: ConfigMap
 metadata:
   name: calibre-web-dirs
   namespace: media
+# Keys read by calibre-web-automated's ingest processor
+# (scripts/ingest_processor.py get_dirs); a missing key crashes every ingest.
 data:
   dirs.json: |
-    {"ingest_folder": "/cwa-book-ingest", "library_folder": "/calibre-library"}
+    {
+      "ingest_folder": "/cwa-book-ingest",
+      "calibre_library_dir": "/calibre-library",
+      "tmp_conversion_dir": "/config/.cwa_conversion_tmp"
+    }

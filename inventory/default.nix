@@ -19,6 +19,7 @@ let
       ./hosts.nix
       ./networks.nix
       ./dns.nix
+      ./lan-gateway.nix
       ./static-routes.nix
     ]
     ++ extraModules;
@@ -215,6 +216,10 @@ lib.asserts.checkAssertWarn assertions [ ] {
     corednsManifest = import ./coredns.nix {
       inherit lib;
       servers = corednsServers;
+      publicUpstreams = [
+        cfg.hosts.adguard-netbird-01.address
+        cfg.networks.infrastructure.gateway
+      ];
     };
     records = cfg.dns;
     adguardRewrites = map (record: {
