@@ -705,15 +705,21 @@ class CatalogParsingTest(unittest.TestCase):
           <entry><id>urn:uuid:aaa</id>
             <tags>devdocs;_ftindex:no;_pictures:yes</tags>
             <link type="text/html" href="/content/devdocs_en_nix_2026-10"/></entry>
-          <entry><id>urn:uuid:bbb</id>
+          <entry><id>urn:uuid:bbb</id><language>eng</language>
             <tags>archlinux;_pictures:yes;_ftindex:yes</tags>
             <link type="text/html" href="/content/archlinux_en_all_maxi_2026-10"/></entry>
+          <entry><id>urn:uuid:ccc</id><language>eng,fra,deu</language>
+            <tags>lowtech;_ftindex:yes</tags>
+            <link type="text/html" href="/content/solar.lowtechmagazine.com_mul_all_2025-01"/></entry>
         </feed>"""
+        # kiwix-serve answers 400 ("confusion of tongues") to a search in a
+        # multilingual book, which failed the 2026-11-24 update.
         self.assertEqual(
             MOD["catalog_books"](document),
             [
                 ("aaa", "/content/devdocs_en_nix_2026-10", False),
                 ("bbb", "/content/archlinux_en_all_maxi_2026-10", True),
+                ("ccc", "/content/solar.lowtechmagazine.com_mul_all_2025-01", False),
             ],
         )
 
