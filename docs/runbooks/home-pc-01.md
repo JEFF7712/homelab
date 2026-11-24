@@ -34,6 +34,14 @@ is pinned for the relay endpoint in `config/ci/remote-hosts.known_hosts`. The PC
 `deploy-fleet`. Resume a failed run with `just ship --resume <sha> --deploy
 deploy-home-pc-01`.
 
+## Offsite backup
+
+The PC holds the homelab's offsite backup copy: an append-only restic
+`rest-server` on port 8000 (NetBird `wt0` only) storing
+`/home/.offsite-backup`. `adguard-netbird-01` pushes to it weekly (Mondays); see
+[external backup recovery](external-backup-recovery.md#offsite-copy-home-pc-01).
+The service sees an empty `/home` with only that directory bound in.
+
 ## Hardware quirks
 
 - **CPU idle freeze:** first-gen Ryzen can hang in C6, exposed as `C2` by

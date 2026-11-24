@@ -638,6 +638,65 @@ let
     ${pkgs.restic}/bin/restic check --read-data-subset=1/10
     echo "Integrity check passed."
   '';
+
+  # Offsite copy to home-pc-01's append-only REST server over NetBird
+  # (flake/hosts/home-pc-01/offsite-backup.nix). This host opens the
+  # connection itself, which NetBird passes; policy homelab-to-home-pc-01.
+  offsiteRepository = "rest:http://100.94.53.129:8000/homelab/";
+  offsiteScript = pkgs.writeShellScript "run-immich-offsite-copy" ''
+    set -euo pipefail
+    PROM_FILE="/var/lib/node-exporter-textfile/offsite_backup.prom"
+
+    record_metric() {
+      local status="$1" success=""
+      if [ "$status" = 1 ]; then
+        success=$(date +%s)
+      elif [ -f "$PROM_FILE" ]; then
+        success=$(grep "^offsite_backup_last_success_timestamp_seconds " "$PROM_FILE" | awk '{print $2}' || true)
+      fi
+      mkdir -p "$(dirname "$PROM_FILE")"
+      {
+        echo "# HELP offsite_backup_last_status Exit status of the offsite copy (1=success, 0=failure)"
+        echo "# TYPE offsite_backup_last_status gauge"
+        echo "offsite_backup_last_status $status"
+        if [ -n "$success" ]; then
+          echo "# HELP offsite_backup_last_success_timestamp_seconds Last completed offsite copy"
+          echo "# TYPE offsite_backup_last_success_timestamp_seconds gauge"
+          echo "offsite_backup_last_success_timestamp_seconds $success"
+        fi
+      } > "$PROM_FILE.tmp"
+      mv -f "$PROM_FILE.tmp" "$PROM_FILE"
+    }
+    trap 'record_metric 0' ERR
+
+    SOURCE="/mnt/backups/restic-repo"
+    [ -f "$SOURCE/config" ] || { echo "FAIL-CLOSED: no source repository at $SOURCE" >&2; exit 1; }
+    export RESTIC_REPOSITORY="${offsiteRepository}"
+    # One password for both: the destination is initialised from the source.
+    export RESTIC_PASSWORD_FILE="''${CREDENTIALS_DIRECTORY}/password"
+    export RESTIC_FROM_PASSWORD_FILE="$RESTIC_PASSWORD_FILE"
+
+    if ! restic cat config > /dev/null 2>&1; then
+      echo "Initialising the offsite repository with the source chunker parameters..."
+      restic init --from-repo "$SOURCE" --copy-chunker-params
+    fi
+
+    # Reads the source under a shared lock, so the nightly backups run
+    # alongside; stop by Sunday 05:30 so the 06:00 prune never meets it. An
+    # interrupted copy keeps its uploaded packs and resumes the next week.
+    BUDGET=$(( $(date -d "sunday 05:30" +%s) - $(date +%s) ))
+    # A manual Sunday run after 05:30 resolves to today; use the next Sunday.
+    if [ "$BUDGET" -lt 600 ]; then BUDGET=$((BUDGET + 604800)); fi
+    RC=0
+    timeout --signal=INT "$BUDGET" restic copy --from-repo "$SOURCE" || RC=$?
+    if [ "$RC" -ne 0 ]; then
+      echo "Offsite copy incomplete (exit $RC); resuming next run" >&2
+      record_metric 0
+      exit "$RC"
+    fi
+    record_metric 1
+    echo "Offsite copy complete"
+  '';
 in
 {
   sops.secrets.backup-restic-password = { };
@@ -780,6 +839,46 @@ in
       OnCalendar = "Sun *-*-* 08:00:00";
       Persistent = true;
       RandomizedDelaySec = "15m";
+    };
+  };
+
+  systemd.services.immich-offsite-copy = {
+    description = "Copy the external backup repository to home-pc-01 (append-only)";
+    after = [
+      "network-online.target"
+      "netbird.service"
+    ];
+    wants = [ "network-online.target" ];
+    unitConfig.RequiresMountsFor = [ "/mnt/backups" ];
+    path = [
+      pkgs.coreutils
+      pkgs.gawk
+      pkgs.gnugrep
+      pkgs.restic
+    ];
+    environment = {
+      XDG_CACHE_HOME = "/var/cache/immich-offsite-copy";
+      HOME = "/var/cache/immich-offsite-copy";
+    };
+    serviceConfig = {
+      Type = "oneshot";
+      # The script stops itself by Sunday 05:30; this is only a backstop.
+      TimeoutStartSec = "7d";
+      ExecStart = offsiteScript;
+      CacheDirectory = "immich-offsite-copy";
+      LoadCredential = [
+        "password:${config.sops.secrets.backup-restic-password.path}"
+      ];
+    };
+  };
+
+  systemd.timers.immich-offsite-copy = {
+    description = "Weekly offsite copy, after the Sunday prune and check";
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "Mon *-*-* 09:30:00";
+      Persistent = true;
+      RandomizedDelaySec = "10m";
     };
   };
 
