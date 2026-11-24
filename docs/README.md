@@ -107,7 +107,6 @@ evidence from that time, not permanent health or capacity guarantees.
 
 - [Persistent agent architecture](architecture/persistent-agent.md) and [task protocol](protocols/agent-tasks.md): controller implementation and deployment gates; not deployed.
 - [Agent workflow specification](agent-workflow-spec.md): historical implementation spec; current behavior belongs to the workflow guide.
-- `docs/superpowers/specs/` and `docs/superpowers/plans/`: dated designs and implementation plans.
 - `docs/research/`: dated investigations and acceptance evidence, including [pod-agent release history](research/2026-10-07-pod-agent-release-history.md).
 - `docs/agent-tasks/`: point-in-time task exports; check file history before using a handoff. Local task state and raw runtime evidence remain in ignored `.agent-state/`.
 

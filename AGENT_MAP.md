@@ -1,6 +1,6 @@
 # Agent Map
 
-Use this map to find the authoritative source before editing. Run `just check-changed` for path-selected source checks; use the listed focused command when a row needs a specific check. Deployment and live probes use the task’s standing delivery authorization. Plans under `docs/superpowers/plans/` are historical records, not current deployment instructions.
+Use this map to find the authoritative source before editing. Run `just check-changed` for path-selected source checks; use the listed focused command when a row needs a specific check. Deployment and live probes use the task’s standing delivery authorization.
 
 | Area | Inspect and edit | Minimum validation | Runbooks and references |
 | --- | --- | --- | --- |
