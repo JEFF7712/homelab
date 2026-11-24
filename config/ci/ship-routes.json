@@ -92,7 +92,8 @@
       "paths": [
         "flake/hosts/home-pc-01/",
         "flake/modules/fleet-ssh-keys.nix",
-        "config/ci/remote-hosts.known_hosts"
+        "config/ci/remote-hosts.known_hosts",
+        "config/uptime/"
       ],
       "operations": [
         "deploy-home-pc-01"

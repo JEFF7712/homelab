@@ -413,3 +413,56 @@ spec:
           annotations:
             summary: "Postgres instance {{ $labels.namespace }}/{{ $labels.pod }} is not reporting"
             description: "The CloudNativePG exporter on {{ $labels.pod }} reports its collector down."
+
+    # Outside-in uptime from home-pc-01's Gatus (docs/runbooks/uptime-monitor.md).
+    - name: uptime.rules
+      rules:
+        - record: homelab:external_endpoint_up:ratio_24h
+          expr: avg_over_time(gatus_results_endpoint_success{job="home-pc-01-uptime"}[24h])
+        - record: homelab:external_endpoint_up:ratio_7d
+          expr: avg_over_time(gatus_results_endpoint_success{job="home-pc-01-uptime"}[7d])
+
+        # One site down while most answer: that service, not the uplink.
+        - alert: ExternalEndpointDown
+          expr: |
+            gatus_results_endpoint_success{job="home-pc-01-uptime"} == 0
+            unless on() (
+              count(gatus_results_endpoint_success{job="home-pc-01-uptime"} == 0)
+              / count(gatus_results_endpoint_success{job="home-pc-01-uptime"}) > 0.5
+            )
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.name }} is down from outside the homelab"
+            description: >-
+              home-pc-01 has failed to load https://{{ $labels.name }}/ for 10 minutes
+              (status 5xx, timeout or expiring certificate). Check the backing service
+              and its Cloudflare tunnel route; history is on the Gatus page.
+
+        # Most sites down together: the uplink, Cloudflare or the tunnel.
+        - alert: ExternalHomelabUnreachable
+          expr: |
+            count(gatus_results_endpoint_success{job="home-pc-01-uptime"} == 0)
+            / count(gatus_results_endpoint_success{job="home-pc-01-uptime"}) > 0.5
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Most public services are unreachable from outside"
+            description: >-
+              More than half of the sites home-pc-01 probes are failing. Suspect the home
+              uplink, Cloudflare or cloudflared rather than individual services; see
+              network-monitor and the cloudflared pods.
+
+        # The desktop may be off; an hour without the probe is worth a look.
+        - alert: ExternalUptimeMonitorDown
+          expr: up{job="home-pc-01-uptime"} == 0 or absent(up{job="home-pc-01-uptime"})
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Outside-in uptime probe on home-pc-01 is not reporting"
+            description: >-
+              Prometheus cannot scrape Gatus on home-pc-01 through 10.0.30.10:2202. The PC
+              may be off or off NetBird, or the home-pc-01-uptime relay is down.
