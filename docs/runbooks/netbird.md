@@ -6,6 +6,8 @@ OPNsense gives the peer a stable public endpoint so remote peers behind strict N
 
 LAN hosts cannot open connections to remote peers through the routing peer: NetBird's own forward rules on `adguard-netbird-01` drop new LAN-to-mesh flows, and masquerading them does not help (tried 2026-11-23). Connections `adguard-netbird-01` originates itself do pass. A LAN host that must reach a peer therefore uses a relay in `netbird.nix` (`relays`): `systemd-socket-proxyd` listens on `10.0.30.10:<port>` for the named LAN sources and reconnects from the mesh address `100.94.249.145`, which a policy with `adguard-netbird-01` as the source peer admits. Current relays: `home-pc-01-ssh` (`2201` to `home-pc-01:22`, CI only). The policy `homelab-to-home-pc-01` admits `adguard-netbird-01` on TCP 22 (relay) and 8000 (offsite backup, opened by `adguard-netbird-01` itself).
 
+The "Main Network" router routes `10.0.10.0/24` through `10.0.40.0/24` via the peer group `homelab-routing-peers`, and clients may pick any member as their routing peer. Keep only LAN-attached peers (today just `adguard-netbird-01`) in that group, and keep it out of setup-key `auto_groups`. On 2026-11-24 the AWS peer `predmarkbot-vm`, auto-added by the `AWS VM` setup key, was chosen by the laptop and every homelab IP timed out. Check with `netbird status -d` on the client: the peer listing those networks must be `adguard-netbird-01`.
+
 ## When agents should use it
 
 - Peer approval, rename, or group assignment from the dashboard side.
