@@ -6388,6 +6388,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/producer-base-images/base-images.yaml:23"
+      ],
+      "destination_repository": "upstream/docker.io/library/node",
+      "destination_tags": [
+        "retention-deployed-873f586f3794f522"
+      ],
+      "digest": "sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530",
+      "id": "upstream-library-node-b347f1cb9d0e",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530",
+        "reference": "docker.io/library/node:24-slim@sha256:873f586f3794f52281bd039bf02c048a0be08fde619338f9941bad1eb6b34530",
+        "registry": "docker.io",
+        "repository": "library/node",
+        "tag": "24-slim"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/producer-base-images/base-images.yaml:25"
       ],
       "destination_repository": "upstream/docker.io/library/node",
