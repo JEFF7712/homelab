@@ -19,59 +19,6 @@ spec:
           - name: docker.io/binwiederhier/ntfy
             newName: registry.rupan.dev/upstream/docker.io/binwiederhier/ntfy  # yamllint disable-line rule:line-length
             digest: sha256:038da2be5e668fee6d36a62884eea48975e1b71c29a56964e5298c1b9165a573
-        # One-time copy of the databases from the old NFS claim into the
-        # local one (local-storage.yaml). It stages the copy and drops a
-        # marker last, so an interrupted copy is redone, never half-used.
-        # The Recreate strategy stops the old pod before this runs.
-        # The pinned image line in the patch scalar cannot carry its own
-        # yamllint comment, so line length is waived for the patch block.
-        # yamllint disable rule:line-length
-        patches:
-          - target:
-              kind: Deployment
-              name: ntfy-ntfy
-            patch: |
-              apiVersion: apps/v1
-              kind: Deployment
-              metadata:
-                name: ntfy-ntfy
-              spec:
-                template:
-                  spec:
-                    initContainers:
-                      - name: copy-from-nfs
-                        image: registry.rupan.dev/upstream/docker.io/binwiederhier/ntfy@sha256:038da2be5e668fee6d36a62884eea48975e1b71c29a56964e5298c1b9165a573
-                        command:
-                          - /bin/sh
-                          - -euc
-                          - |
-                            [ -e /data/.copied-from-nfs ] && exit 0
-                            rm -rf /data/.incoming
-                            mkdir /data/.incoming
-                            cp -R /nfs/. /data/.incoming/
-                            for f in /data/.incoming/* /data/.incoming/.[!.]*; do
-                              [ -e "$f" ] && mv -f "$f" /data/
-                            done
-                            rmdir /data/.incoming
-                            touch /data/.copied-from-nfs
-                            ls -la /data
-                        securityContext:
-                          allowPrivilegeEscalation: false
-                          capabilities:
-                            drop: [ALL]
-                          readOnlyRootFilesystem: true
-                        volumeMounts:
-                          - name: data
-                            mountPath: /data
-                          - name: nfs-data
-                            mountPath: /nfs
-                            readOnly: true
-                    volumes:
-                      - name: nfs-data
-                        persistentVolumeClaim:
-                          claimName: ntfy-ntfy-data
-                          readOnly: true
-        # yamllint enable rule:line-length
   values:
     ntfy:
       baseUrl: https://ntfy.rupan.dev

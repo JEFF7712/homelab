@@ -1,9 +1,8 @@
 # ntfy's SQLite databases (message cache, users and tokens) on homelab-05 NVMe.
 # Over NFS, SQLite file locking stalled publishes with "database is locked"
 # and HTTP 500s for minutes to hours after restarts. The host directory comes
-# from flake/hosts/homelab-05/default.nix. The previous NFS claim
-# ntfy-ntfy-data is kept and mounted read-only for the one-time copy in
-# release.yaml; the operator removes it once the local copy is confirmed.
+# from flake/hosts/homelab-05/default.nix. The databases were copied once
+# from the retired NFS claim ntfy-ntfy-data (#2173), which was then deleted.
 # Unlike the NFS claim, this has no NAS snapshots, and needs none: users,
 # tokens and ACLs are provisioned from the ntfy-auth secret on every start,
 # and the message cache only holds the last 12 hours.
