@@ -37,3 +37,4 @@ resources:
   - ntfy/pvc.yaml
   - ntfy/secret.yaml
   - ntfy/templates.yaml
+  - ntfy/local-storage.yaml
