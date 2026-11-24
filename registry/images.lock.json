@@ -7134,6 +7134,47 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/producer-base-images/base-images.yaml:31"
+      ],
+      "destination_repository": "upstream/docker.io/library/python",
+      "destination_tags": [
+        "retention-deployed-44cf1793efa7c7a4"
+      ],
+      "digest": "sha256:44cf1793efa7c7a476bb0f2cff81443f4a072c90c1cb127e2924933daa3e8c64",
+      "id": "upstream-library-python-b041c33f6d84",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:44cf1793efa7c7a476bb0f2cff81443f4a072c90c1cb127e2924933daa3e8c64",
+        "reference": "docker.io/library/python:3.12-slim-bookworm@sha256:44cf1793efa7c7a476bb0f2cff81443f4a072c90c1cb127e2924933daa3e8c64",
+        "registry": "docker.io",
+        "repository": "library/python",
+        "tag": "3.12-slim-bookworm"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/automation/renovate-dashboard.yaml:27",
         "gitops/voice/stt-groq.yaml:264",
         "observed:rendered/automation/renovate-agent-init"
