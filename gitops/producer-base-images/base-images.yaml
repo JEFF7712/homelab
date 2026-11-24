@@ -28,7 +28,7 @@ items:
   # JEFF7712/obsidian-vault quartz/Dockerfile (runner stage)
   - image: docker.io/library/nginx:1.31-alpine@sha256:b50897d5c7b1aa08067c3d90c5e8b3e47ec4e3c91c91446f67820228f7b41e34
   # JEFF7712/pod-agent Dockerfile
-  - image: docker.io/library/python:3.12-slim-bookworm@sha256:b1233897230b2046795042a642dc2a1849774c60469bb57d1a90622b501443a0  # yamllint disable-line rule:line-length
+  - image: docker.io/library/python:3.12-slim-bookworm@sha256:82836454a795d9d75549a9e157fd08dbac6c383292cf89e99f4248a97ce6b2ff  # yamllint disable-line rule:line-length
   # JEFF7712/pod-agent Dockerfile (uv copy stage)
   - image: ghcr.io/astral-sh/uv:0.13.9@sha256:d3b601f0c7b118bc1753febf7c41cc80981df678445e0254284eecf84db79a7d
   - image: docker.io/woodpeckerci/plugin-git:2.12.1@sha256:b8d2401997be68ec25d62bd753fe5d30236e029fe007a5e823177e0e485ae205  # yamllint disable-line rule:line-length
