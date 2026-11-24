@@ -575,7 +575,12 @@ def write_atomic(path: Path, text: str) -> None:
 
 
 def catalog_books(feed: bytes) -> list[tuple[str, str, bool]]:
-    """(book id, content path, has full-text index) for each served book."""
+    """(book id, content path, searchable) for each served book.
+
+    kiwix-serve refuses to search a book in several languages ("confusion of
+    tongues", HTTP 400), so only single-language books with a full-text
+    index count as searchable.
+    """
     books = []
     for entry in ET.fromstring(feed).iter(f"{ATOM}entry"):
         book_id = (entry.findtext(f"{ATOM}id") or "").removeprefix("urn:uuid:")
@@ -588,7 +593,8 @@ def catalog_books(feed: bytes) -> list[tuple[str, str, bool]]:
             "",
         )
         indexed = "_ftindex:yes" in (entry.findtext(f"{ATOM}tags") or "").split(";")
-        books.append((book_id, content, indexed))
+        one_language = "," not in (entry.findtext(f"{ATOM}language") or "")
+        books.append((book_id, content, indexed and one_language))
     return books
 
 
