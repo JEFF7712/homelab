@@ -23,6 +23,9 @@ spec:
         # local one (local-storage.yaml). It stages the copy and drops a
         # marker last, so an interrupted copy is redone, never half-used.
         # The Recreate strategy stops the old pod before this runs.
+        # The pinned image line in the patch scalar cannot carry its own
+        # yamllint comment, so line length is waived for the patch block.
+        # yamllint disable rule:line-length
         patches:
           - target:
               kind: Deployment
@@ -37,7 +40,7 @@ spec:
                   spec:
                     initContainers:
                       - name: copy-from-nfs
-                        image: docker.io/binwiederhier/ntfy
+                        image: registry.rupan.dev/upstream/docker.io/binwiederhier/ntfy@sha256:038da2be5e668fee6d36a62884eea48975e1b71c29a56964e5298c1b9165a573
                         command:
                           - /bin/sh
                           - -euc
@@ -68,6 +71,7 @@ spec:
                         persistentVolumeClaim:
                           claimName: ntfy-ntfy-data
                           readOnly: true
+        # yamllint enable rule:line-length
   values:
     ntfy:
       baseUrl: https://ntfy.rupan.dev
