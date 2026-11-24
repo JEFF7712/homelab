@@ -611,6 +611,48 @@
     "prerequisite": "",
     "agent": true
   },
+  "offsite-backup-start": {
+    "commands": [
+      "export PATH=\"/run/current-system/sw/bin:$PATH\"",
+      "mkdir -p ~/.ssh",
+      "cp \"$SSH_DEPLOY_KEY\" ~/.ssh/id_ed25519",
+      "chmod 600 ~/.ssh/id_ed25519",
+      "cp \"$HOSTS_KNOWN\" ~/.ssh/known_hosts",
+      "chmod 600 ~/.ssh/known_hosts",
+      "export SSH_OPTS=\"-i $HOME/.ssh/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=$HOME/.ssh/known_hosts -o StrictHostKeyChecking=yes\"",
+      "ssh $SSH_OPTS rupan@10.0.30.10 'sudo systemctl start --no-block immich-offsite-copy.service && sleep 20 && systemctl show immich-offsite-copy.service -p ActiveState -p Result'"
+    ],
+    "environment": {
+      "HOSTS_KNOWN": {
+        "from_secret": "hosts_known"
+      },
+      "SSH_DEPLOY_KEY": {
+        "from_secret": "fleet_deploy_ssh_key"
+      },
+      "TF_HTTP_USERNAME": "deploy",
+      "TF_HTTP_PASSWORD": {
+        "from_secret": "state_deploy_password"
+      },
+      "STATE_CA_FILE": {
+        "from_secret": "state_ca_file"
+      },
+      "FORGEJO_SOURCE_READ_TOKEN": {
+        "from_secret": "forgejo_source_read_token"
+      }
+    },
+    "file_secrets": [
+      "HOSTS_KNOWN",
+      "SSH_DEPLOY_KEY",
+      "STATE_CA_FILE"
+    ],
+    "group": "immich-offsite-copy",
+    "needs": [],
+    "outputs": [],
+    "automatic": false,
+    "mutation": true,
+    "prerequisite": "",
+    "agent": true
+  },
   "deploy-home-pc-01": {
     "commands": [
       "export PATH=\"/run/current-system/sw/bin:$PATH\"",
