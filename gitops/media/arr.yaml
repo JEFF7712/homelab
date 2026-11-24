@@ -403,11 +403,21 @@ spec:
               mountPath: /tmp
             - name: run
               mountPath: /run
+          # The SQLite databases live on NFS. While nightly NAS backups load
+          # tank, startup took over 3 minutes and /ping timed out on
+          # "database is locked"; the old liveness probe restarted it in a
+          # loop. Allow a 10-minute start and ~6 minutes of slow pings.
+          startupProbe:
+            httpGet:
+              path: /ping
+              port: 9696
+            periodSeconds: 20
+            timeoutSeconds: 10
+            failureThreshold: 30
           readinessProbe:
             httpGet:
               path: /ping
               port: 9696
-            initialDelaySeconds: 60
             periodSeconds: 20
             timeoutSeconds: 10
             failureThreshold: 5
@@ -415,10 +425,9 @@ spec:
             httpGet:
               path: /ping
               port: 9696
-            initialDelaySeconds: 120
-            periodSeconds: 20
-            timeoutSeconds: 10
-            failureThreshold: 5
+            periodSeconds: 30
+            timeoutSeconds: 20
+            failureThreshold: 12
           resources:
             requests:
               cpu: 100m

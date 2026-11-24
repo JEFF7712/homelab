@@ -45,7 +45,10 @@ class NasStorageTest(unittest.TestCase):
               inherit (system.config.systemd.services) nas-backup-local zot nfs-server registry-backup media-extra-branches offline-archive-layout;
             };
             scripts = builtins.mapAttrs (_: service: service.script) {
-              inherit (system.config.systemd.services) media-extra-branches offline-archive-layout;
+              inherit (system.config.systemd.services) media-extra-branches offline-archive-layout nas-backup-local registry-backup;
+            };
+            paths = builtins.mapAttrs (_: service: map (p: p.name) service.path) {
+              inherit (system.config.systemd.services) nas-backup-local registry-backup;
             };
             unitNames = builtins.attrNames system.config.systemd.services;
             exports = system.config.services.nfs.server.exports;
@@ -109,6 +112,23 @@ class NasStorageTest(unittest.TestCase):
             "/mnt/backup-local",
         ):
             self.assertIn(path, backup_mounts)
+
+    def test_tank_backups_run_one_at_a_time(self) -> None:
+        # Overlapping restic runs saturated tank and stalled NFS clients;
+        # ZFS ignores cgroup I/O limits, so the scripts serialize themselves.
+        for unit in ("nas-backup-local", "registry-backup"):
+            script = self.configuration["scripts"][unit]
+            lock = script.index("flock 9")
+            self.assertIn("exec 9</mnt/backup-local", script)
+            self.assertLess(lock, script.index("restic backup"))
+            self.assertIn("--read-concurrency 1", script)
+            self.assertTrue(
+                any(
+                    name.startswith("util-linux")
+                    for name in self.configuration["paths"][unit]
+                ),
+                unit,
+            )
 
     def test_media_merges_both_pools_for_nfs_export(self) -> None:
         media = self.configuration["filesystems"]["/tank/media"]

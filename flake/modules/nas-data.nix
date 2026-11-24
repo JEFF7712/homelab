@@ -38,6 +38,16 @@ let
     "thumbs"
     "encoded-video"
   ];
+  # tank is one HDD and holds the NFS exports. Backups that read it in
+  # parallel saturate it and stall NFS clients (Prowlarr liveness-looped on
+  # 2026-11-24). cgroup I/O limits do not apply: ZFS issues pool I/O from its
+  # own threads. Run one backup at a time, reading one file at a time; the
+  # lock is a directory both units can open read-only.
+  backupLock = ''
+    exec 9</mnt/backup-local
+    flock 9
+  '';
+  resticReadConcurrency = "--read-concurrency 1";
 in
 {
   networking.firewall.allowedTCPPorts = [
@@ -324,6 +334,7 @@ in
       );
     };
     script = ''
+      ${backupLock}
       export RESTIC_REPOSITORY=/mnt/backup-local/nas-restic
       export RESTIC_CACHE_DIR=$CACHE_DIRECTORY
       export RESTIC_PASSWORD_FILE=${config.sops.secrets.registry-restic-password.path}
@@ -353,7 +364,7 @@ in
       }
       trap cleanup EXIT
 
-      restic backup --host nas-01 --tag nas-data --group-by host,tags \
+      restic backup --host nas-01 --tag nas-data --group-by host,tags ${resticReadConcurrency} \
         ${
           lib.concatMapStringsSep " " (pattern: "--exclude ${lib.escapeShellArg pattern}") localBackupExcludes
         } \
@@ -400,8 +411,10 @@ in
       pkgs.restic
       pkgs.zfs
       pkgs.coreutils
+      pkgs.util-linux
     ];
     script = ''
+      ${backupLock}
       export RESTIC_REPOSITORY=/mnt/backup-local/registry-restic
       export RESTIC_PASSWORD_FILE=${config.sops.secrets.registry-restic-password.path}
       if [ ! -f "$RESTIC_REPOSITORY/config" ]; then
@@ -418,7 +431,7 @@ in
 
       # Timestamped snapshot paths are not a stable retention identity. Tag new
       # backups and leave legacy snapshots outside this policy for audited cleanup.
-      restic backup --host nas-01 --tag registry-v2 --group-by host,tags \
+      restic backup --host nas-01 --tag registry-v2 --group-by host,tags ${resticReadConcurrency} \
         "/tank/registry/.zfs/snapshot/''${snapshot#*@}" /persist/zot /var/lib/acme
       restic forget --host nas-01 --tag registry-v2 --group-by host,tags \
         --prune --keep-daily 7 --keep-weekly 5 --keep-monthly 6
