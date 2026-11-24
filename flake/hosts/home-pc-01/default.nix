@@ -7,6 +7,7 @@
     ./hardware-configuration.nix
     ./access.nix
     ./offsite-backup.nix
+    ./uptime-monitor.nix
   ];
 
   boot.loader.systemd-boot = {

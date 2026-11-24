@@ -34,6 +34,11 @@ is pinned for the relay endpoint in `config/ci/remote-hosts.known_hosts`. The PC
 `deploy-fleet`. Resume a failed run with `just ship --resume <sha> --deploy
 deploy-home-pc-01`.
 
+## Uptime monitor
+
+Gatus on port 8080 (NetBird `wt0` only) probes every public hostname from
+outside the LAN; see [uptime monitor](uptime-monitor.md).
+
 ## Offsite backup
 
 The PC holds the homelab's offsite backup copy: an append-only restic

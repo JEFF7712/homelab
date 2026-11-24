@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "comment": "Public hostnames home-pc-01 probes from outside the LAN (Gatus). tests/test_uptime_monitor.py requires every hostname in gitops/cloudflare/ingress-config.yaml to be listed here or in excluded.",
+  "excluded": {
+    "flux-wh-33b0c8004348.rupan.dev": "Flux webhook receiver: POST-only, nothing to load"
+  },
+  "groups": {
+    "sites": [
+      "rupan.dev",
+      "www.rupan.dev",
+      "photo.rupan.dev",
+      "notes.rupan.dev",
+      "ism.rupan.dev",
+      "rupanism.rupan.dev",
+      "spatia.rupan.dev",
+      "sovereign.rupan.dev",
+      "demo.rupan.dev",
+      "soluble.rupan.dev",
+      "majorfinder.rupan.dev",
+      "uwagent.rupan.dev",
+      "nix.rupan.dev",
+      "nix-agent.rupan.dev",
+      "arcade.rupan.dev",
+      "pulseagent.dev",
+      "www.pulseagent.dev",
+      "distrojeff.com",
+      "apollinestore.com",
+      "darkbitapparel.com",
+      "pod.rupan.dev",
+      "tally.rupan.dev"
+    ],
+    "personal": [
+      "photos.rupan.dev",
+      "vault.rupan.dev",
+      "obsidian.rupan.dev",
+      "karakeep.rupan.dev",
+      "books.rupan.dev",
+      "bookshelf.rupan.dev",
+      "media.rupan.dev"
+    ],
+    "media": [
+      "jellyfin.rupan.dev",
+      "navidrome.rupan.dev",
+      "music.rupan.dev",
+      "seerr.rupan.dev",
+      "recommender.rupan.dev",
+      "lidarr.rupan.dev",
+      "radarr.rupan.dev",
+      "sonarr.rupan.dev",
+      "prowlarr.rupan.dev",
+      "bazarr.rupan.dev",
+      "slskd.rupan.dev",
+      "torrent.rupan.dev",
+      "qbittorrent.rupan.dev",
+      "questarr.rupan.dev",
+      "games.rupan.dev",
+      "romm.rupan.dev"
+    ],
+    "home": [
+      "ha.rupan.dev",
+      "ma.rupan.dev",
+      "ledfx.rupan.dev",
+      "ledfx-bedroom.rupan.dev"
+    ],
+    "platform": [
+      "git.rupan.dev",
+      "ci.rupan.dev",
+      "approvals.rupan.dev",
+      "grafana.rupan.dev",
+      "ntfy.rupan.dev",
+      "renovate-status.rupan.dev"
+    ]
+  }
+}

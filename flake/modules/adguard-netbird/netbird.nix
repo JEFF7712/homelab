@@ -5,7 +5,7 @@
   ...
 }:
 let
-  inherit (fleetInventory) hosts;
+  inherit (fleetInventory) hosts networks;
   # LAN hosts cannot open connections to remote NetBird peers: this routing
   # peer's NetBird-managed forward rules drop new LAN-to-mesh flows (connections
   # it originates itself pass). Each relay listens on this host's LAN address
@@ -16,6 +16,12 @@ let
       port = 2201;
       target = "100.94.53.129:22";
       sources = [ hosts.homelab-04.address ];
+    };
+    # Gatus uptime metrics; Prometheus scrapes from the cluster nodes.
+    home-pc-01-uptime = {
+      port = 2202;
+      target = "100.94.53.129:8080";
+      sources = [ networks.infrastructure.cidr ];
     };
   };
 in
