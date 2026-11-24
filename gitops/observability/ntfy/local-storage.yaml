@@ -1,0 +1,49 @@
+# ntfy's SQLite databases (message cache, users and tokens) on homelab-05 NVMe.
+# Over NFS, SQLite file locking stalled publishes with "database is locked"
+# and HTTP 500s for minutes to hours after restarts. The host directory comes
+# from flake/hosts/homelab-05/default.nix. The previous NFS claim
+# ntfy-ntfy-data is kept and mounted read-only for the one-time copy in
+# release.yaml; the operator removes it once the local copy is confirmed.
+# Unlike the NFS claim, this has no NAS snapshots, and needs none: users,
+# tokens and ACLs are provisioned from the ntfy-auth secret on every start,
+# and the message cache only holds the last 12 hours.
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: ntfy-nvme-05
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes: [ReadWriteOnce]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-nvme
+  claimRef:
+    namespace: observability
+    name: ntfy-local
+  local:
+    path: /persist/ntfy
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - homelab-05
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ntfy-local
+  namespace: observability
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-nvme
+  volumeName: ntfy-nvme-05
+  resources:
+    requests:
+      storage: 1Gi
