@@ -19,6 +19,55 @@ spec:
           - name: docker.io/binwiederhier/ntfy
             newName: registry.rupan.dev/upstream/docker.io/binwiederhier/ntfy  # yamllint disable-line rule:line-length
             digest: sha256:038da2be5e668fee6d36a62884eea48975e1b71c29a56964e5298c1b9165a573
+        # One-time copy of the databases from the old NFS claim into the
+        # local one (local-storage.yaml). It stages the copy and drops a
+        # marker last, so an interrupted copy is redone, never half-used.
+        # The Recreate strategy stops the old pod before this runs.
+        patches:
+          - target:
+              kind: Deployment
+              name: ntfy-ntfy
+            patch: |
+              apiVersion: apps/v1
+              kind: Deployment
+              metadata:
+                name: ntfy-ntfy
+              spec:
+                template:
+                  spec:
+                    initContainers:
+                      - name: copy-from-nfs
+                        image: docker.io/binwiederhier/ntfy
+                        command:
+                          - /bin/sh
+                          - -euc
+                          - |
+                            [ -e /data/.copied-from-nfs ] && exit 0
+                            rm -rf /data/.incoming
+                            mkdir /data/.incoming
+                            cp -R /nfs/. /data/.incoming/
+                            for f in /data/.incoming/* /data/.incoming/.[!.]*; do
+                              [ -e "$f" ] && mv -f "$f" /data/
+                            done
+                            rmdir /data/.incoming
+                            touch /data/.copied-from-nfs
+                            ls -la /data
+                        securityContext:
+                          allowPrivilegeEscalation: false
+                          capabilities:
+                            drop: [ALL]
+                          readOnlyRootFilesystem: true
+                        volumeMounts:
+                          - name: data
+                            mountPath: /data
+                          - name: nfs-data
+                            mountPath: /nfs
+                            readOnly: true
+                    volumes:
+                      - name: nfs-data
+                        persistentVolumeClaim:
+                          claimName: ntfy-ntfy-data
+                          readOnly: true
   values:
     ntfy:
       baseUrl: https://ntfy.rupan.dev
@@ -53,9 +102,7 @@ spec:
       migration.rupan.dev/ntfy-auth-format: v2
     persistence:
       enabled: true
-      existingClaim: ntfy-ntfy-data
-      size: 2Gi
-      storageClass: nfs-cluster
+      existingClaim: ntfy-local
     gateway:
       enabled: false
       hostnames:

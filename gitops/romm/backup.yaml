@@ -23,7 +23,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: assets
-              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:46837ed3105db0029b6d656816185c6258e3b39690532fb782428e0a5fd76182  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/upstream/docker.io/library/python@sha256:fa4f927f66f3ff00a0bd02ef9c8a9afce66b79be6c84741eba258691756803e4  # yamllint disable-line rule:line-length
               command:
                 - python
                 - /scripts/backup.py
