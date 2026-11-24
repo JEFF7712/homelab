@@ -2,6 +2,7 @@
   pkgs,
   tofunix,
   nixosConfigurations,
+  remoteHosts,
 }:
 let
   inherit (pkgs) lib;
@@ -34,8 +35,14 @@ let
       fleetInventory = moved;
     }).terraform;
   senderAliases = (builtins.head rendered.resource.opnsense_firewall_alias).managed;
-  hosts = lib.filterAttrs (name: host: name == host.config.networking.hostName) nixosConfigurations;
+  namedHosts = lib.filterAttrs (
+    name: host: name == host.config.networking.hostName
+  ) nixosConfigurations;
+  # Remote NetBird hosts have no LAN address and stay out of the inventory.
+  hosts = removeAttrs namedHosts remoteHosts;
   checks = {
+    remoteHostsAreConfigured = builtins.all (name: namedHosts ? ${name}) remoteHosts;
+    remoteHostsStayOutOfInventory = builtins.all (name: !(inventory.hosts ? ${name})) remoteHosts;
     serviceManifestSet =
       builtins.attrNames inventory.serviceManifests == [
         "approvals"

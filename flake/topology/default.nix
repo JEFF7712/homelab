@@ -3,6 +3,7 @@
   nixpkgs,
   nix-topology,
   system,
+  remoteHosts,
 }:
 let
   pkgs = import nixpkgs {
@@ -20,9 +21,10 @@ let
     inventory = managedSwitches;
   };
   assignments = builtins.fromJSON (builtins.readFile ../../opnsense_reconciler/assignments.json);
-  hosts = lib.filterAttrs (
+  # The diagram is the LAN; remote NetBird hosts are not on it.
+  hosts = removeAttrs (lib.filterAttrs (
     name: host: name == host.config.networking.hostName
-  ) self.nixosConfigurations;
+  ) self.nixosConfigurations) remoteHosts;
   diagramNodes = lib.mapAttrs (
     _: host:
     let

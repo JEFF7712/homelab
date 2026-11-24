@@ -40,6 +40,9 @@ FLEET = {
     "homelab-05",
     "nas-01",
 }
+# Remote NetBird hosts see CI and the agent VM only as adguard-netbird-01's
+# mesh address (netbird-lan-egress masquerade); they carry no legacy NAS key.
+REMOTE = {"home-pc-01": "100.94.249.145"}
 # Groups that grant root, device, container, key or shared-data access.
 PRIVILEGED_GROUPS = {
     "adm",
@@ -107,7 +110,7 @@ class FleetSshAccessTest(unittest.TestCase):
         cls.hosts = json.loads(result.stdout)
 
     def test_every_fleet_host_is_covered(self) -> None:
-        self.assertEqual(set(self.hosts), FLEET)
+        self.assertEqual(set(self.hosts), FLEET | set(REMOTE))
 
     def test_rupan_no_longer_trusts_the_agent_vm_key(self) -> None:
         vm_key = AGENT_VM_KEY.split()[1]
@@ -115,8 +118,9 @@ class FleetSshAccessTest(unittest.TestCase):
             with self.subTest(host=host):
                 self.assertFalse(any(vm_key in key for key in settings["keys"]))
                 self.assertEqual(settings["rupanKeyFiles"], [])
-                # Two operator keys, the CI fleet key and the legacy NAS key.
-                self.assertEqual(len(settings["keys"]), 4)
+                # Two operator keys, the CI fleet key and (LAN hosts only)
+                # the legacy NAS key.
+                self.assertEqual(len(settings["keys"]), 3 if host in REMOTE else 4)
 
     def test_observer_is_an_unprivileged_login(self) -> None:
         for host, settings in self.hosts.items():
@@ -153,12 +157,17 @@ class FleetSshAccessTest(unittest.TestCase):
     ) -> None:
         for host, settings in self.hosts.items():
             with self.subTest(host=host):
-                source = AGENT_VM_SOURCES.get(host, AGENT_VM_MASQUERADE)
-                laptop_source = (
-                    LAPTOP_OBSERVER_SOURCES
-                    if host == "adguard-netbird-01"
-                    else f"{LAPTOP_OBSERVER_SOURCES},{LAPTOP_OBSERVER_MASQUERADE}"
+                source = REMOTE.get(
+                    host, AGENT_VM_SOURCES.get(host, AGENT_VM_MASQUERADE)
                 )
+                if host in REMOTE:
+                    laptop_source = "100.64.0.0/10"
+                elif host == "adguard-netbird-01":
+                    laptop_source = LAPTOP_OBSERVER_SOURCES
+                else:
+                    laptop_source = (
+                        f"{LAPTOP_OBSERVER_SOURCES},{LAPTOP_OBSERVER_MASQUERADE}"
+                    )
                 observer = settings["observer"]
                 self.assertEqual(observer["keyFiles"], [])
                 self.assertEqual(
@@ -173,6 +182,9 @@ class FleetSshAccessTest(unittest.TestCase):
         for host, settings in self.hosts.items():
             with self.subTest(host=host):
                 matching = [key for key in settings["keys"] if DEPLOY_KEY in key]
+                if host in REMOTE:
+                    self.assertEqual(matching, [])
+                    continue
                 self.assertEqual(len(matching), 1)
                 key = matching[0]
                 self.assertTrue(key.startswith('restrict,from="'))
@@ -213,6 +225,9 @@ class FleetSshAccessTest(unittest.TestCase):
                 sources = re.search(r'from="([^"]+)"', matching[0])
                 self.assertIsNotNone(sources)
                 networks = [ip_network(s) for s in sources.group(1).split(",")]
+                if host in REMOTE:
+                    self.assertEqual(networks, [ip_network(REMOTE[host])])
+                    continue
                 self.assertTrue(any(ip_address("10.0.30.14") in n for n in networks))
                 for excluded in (
                     "10.0.30.11",

@@ -66,6 +66,8 @@
     }:
     let
       kernelModulesOverlay = import ../nix/kernel-modules-overlay.nix;
+      # Remote NetBird hosts: no LAN address, so not inventory hosts.
+      remoteHosts = [ "home-pc-01" ];
     in
     {
       nixosModules.projectctl = import ./modules/projectctl.nix;
@@ -90,7 +92,7 @@
             };
           fleetInventory = import ../inventory { lib = nixpkgs.lib; };
         in
-        nixpkgs.lib.genAttrs (builtins.attrNames fleetInventory.hosts) mkHost;
+        nixpkgs.lib.genAttrs (builtins.attrNames fleetInventory.hosts ++ remoteHosts) mkHost;
     }
     // flake-utils.lib.eachDefaultSystem (
       system:
@@ -102,6 +104,7 @@
             nixpkgs
             nix-topology
             system
+            remoteHosts
             ;
         };
         opnsense = import ../tofu/opnsense { inherit pkgs tofunix; };
@@ -215,7 +218,7 @@
             '';
         checks.opnsense-types = import ../tofu/opnsense/tests.nix { inherit pkgs tofunix; };
         checks.fleet-inventory = import ../inventory/tests.nix {
-          inherit pkgs tofunix;
+          inherit pkgs tofunix remoteHosts;
           inherit (self) nixosConfigurations;
         };
         checks.topology = topology;
