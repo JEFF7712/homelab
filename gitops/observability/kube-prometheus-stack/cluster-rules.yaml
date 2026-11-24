@@ -178,6 +178,32 @@ spec:
               The immich_backup_last_success_timestamp_seconds metric is missing from
               adguard-netbird-01:9100. Check node exporter textfile collector.
 
+        # The copy is weekly and home-pc-01 is a family desktop that may be off,
+        # so one failed run is not an alert; nine days without a copy is.
+        - alert: OffsiteBackupStale
+          expr: time() - offsite_backup_last_success_timestamp_seconds{job="adguard-netbird-01-node"} > 777600
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: "Offsite backup copy to home-pc-01 is stale"
+            description: >-
+              The weekly offsite copy of the external backup repository to home-pc-01 has
+              not completed in over 9 days. Check that home-pc-01 is on and on NetBird, then
+              systemctl status immich-offsite-copy.service on adguard-netbird-01.
+
+        # The first weekly run copies the whole repository over a home uplink.
+        - alert: OffsiteBackupMissing
+          expr: absent(offsite_backup_last_success_timestamp_seconds{job="adguard-netbird-01-node"})
+          for: 10d
+          labels:
+            severity: warning
+          annotations:
+            summary: "Offsite backup copy to home-pc-01 has never completed"
+            description: >-
+              No offsite copy to home-pc-01 has completed in 10 days. Check
+              immich-offsite-copy.service on adguard-netbird-01.
+
         - alert: ZfsPoolDegraded
           expr: node_zfs_zpool_state{job="nas-01-node",state!="online"} > 0
           for: 5m

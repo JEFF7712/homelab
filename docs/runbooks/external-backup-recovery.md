@@ -222,6 +222,27 @@ ls -la /tmp/restore-local
 
 ---
 
+## Offsite Copy (home-pc-01)
+
+`immich-offsite-copy.service` (weekly, Mondays 09:30) copies this repository with `restic copy` to an append-only `rest-server` on `home-pc-01`, the family desktop at another house (`flake/hosts/home-pc-01/offsite-backup.nix`, [home-pc-01](home-pc-01.md)). The destination was initialised from this repository with `--copy-chunker-params`, so it deduplicates the same way and uses **the same repository password**. Append-only means a compromised homelab can add snapshots but cannot delete or rewrite them; nothing prunes the offsite copy. The data stays encrypted, so the desktop never sees plaintext.
+
+- **Path:** `adguard-netbird-01` connects to `rest:http://100.94.53.129:8000/homelab/` over NetBird. The server listens only on `wt0`, and the NetBird policy `homelab-to-home-pc-01` (TCP 22 and 8000) admits `adguard-netbird-01` alone. On the PC the repository is `/home/.offsite-backup/homelab`, on the 622 GB `/home` partition; the server refuses to start if that partition is missing.
+- **Timing:** it runs after the Sunday prune and check, reads under a shared restic lock beside the nightly backups, and stops itself by Sunday 05:30 so the next prune never meets it. That allows close to six days, enough for the first copy (about 116 GB) over a home uplink; an interrupted copy keeps its uploaded packs and resumes the next week.
+- **Alerts:** `offsite_backup_last_status` and `offsite_backup_last_success_timestamp_seconds` in `offsite_backup.prom` drive `OffsiteBackupStale` (warning after 9 days: a missed week plus a desktop left off) and `OffsiteBackupMissing` (warning if no copy has ever completed within 10 days).
+
+Restore from the offsite copy with the same password as this repository (see below), from any machine that can reach the PC:
+
+```sh
+export RESTIC_REPOSITORY=rest:http://100.94.53.129:8000/homelab/
+export RESTIC_PASSWORD_FILE=/path/to/backup-restic-password
+restic snapshots
+restic restore latest --tag immich --target /restore
+```
+
+With the homelab gone, copy `/home/.offsite-backup/homelab` off the PC (or run `restic -r /home/.offsite-backup/homelab ...` on it as root) and restore the same way.
+
+---
+
 ## Sensitive Key Protection & Zero-Dependency Recovery
 
 The backup contains high-value recovery materials (host SSH private keys, ZFS pool encryption keys, k3s cluster tokens, and Woodpecker signing keys). These are protected with strict defense-in-depth:
