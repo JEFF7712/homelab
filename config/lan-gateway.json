@@ -1,0 +1,29 @@
+{
+  "address": "10.0.40.19",
+  "hosts": [
+    { "name": "arcade.rupan.dev", "enabled": true },
+    { "name": "books.rupan.dev", "enabled": true },
+    { "name": "ci.rupan.dev", "enabled": true },
+    { "name": "demo.rupan.dev", "enabled": true },
+    { "name": "grafana.rupan.dev", "enabled": true },
+    { "name": "ha.rupan.dev", "enabled": true, "forwardClientAddress": false },
+    { "name": "ism.rupan.dev", "enabled": true },
+    { "name": "ma.rupan.dev", "enabled": true },
+    { "name": "majorfinder.rupan.dev", "enabled": true },
+    { "name": "media.rupan.dev", "enabled": true },
+    { "name": "music.rupan.dev", "enabled": true },
+    { "name": "nix-agent.rupan.dev", "enabled": true },
+    { "name": "notes.rupan.dev", "enabled": true },
+    { "name": "ntfy.rupan.dev", "enabled": true },
+    { "name": "obsidian.rupan.dev", "enabled": true },
+    { "name": "photo.rupan.dev", "enabled": true },
+    { "name": "photos.rupan.dev", "enabled": true },
+    { "name": "rupanism.rupan.dev", "enabled": true },
+    { "name": "seerr.rupan.dev", "enabled": true },
+    { "name": "soluble.rupan.dev", "enabled": true },
+    { "name": "spatia.rupan.dev", "enabled": true },
+    { "name": "uwagent.rupan.dev", "enabled": true },
+    { "name": "vault.rupan.dev", "enabled": true },
+    { "name": "www.rupan.dev", "enabled": true }
+  ]
+}

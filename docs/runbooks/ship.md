@@ -153,6 +153,16 @@ or host health checks restore and verify the previous system before stopping.
 Newly failed systemd units fail health verification. See
 [NixOS host deployment](nixos-host-deployment.md).
 
+A routed `deploy-fleet` delivers all of main, not only the shipped change.
+Any `inventory/` change routes it, even one that only adds DNS records. When
+main carries a nixpkgs update that the `nightly` schedule has not delivered
+yet, the ship rolls it out to every host. Before shipping such a change
+outside the nightly window, check `git log origin/main -- flake/flake.lock`.
+Run `just ship --deploy none` and let `nightly` deliver it, or ship it knowing
+the fleet will upgrade. On 2026-11-23 a DNS-only LAN gateway ship upgraded
+the fleet at 00:47, and nas-01's switch then waited 53 minutes on restarted
+backups.
+
 `just ship --resume <merge-sha>` verifies that the commit is already in main,
 selects its routes and follows deployment without pushing or opening another PR.
 Pass `--deploy <ops>` to recover only selected operations. Source validation must

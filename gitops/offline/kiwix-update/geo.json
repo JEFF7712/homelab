@@ -1,0 +1,21 @@
+{
+  "max_age_days": 90,
+  "search": {
+    "url": "https://download1.graphhopper.com/public/north-america/usa/photon-db-usa-1.0-latest.tar.bz2",
+    "jar": {
+      "url": "https://github.com/komoot/photon/releases/download/1.3.0/photon-1.3.0.jar",
+      "path": "photon-1.3.0.jar",
+      "sha256": "a89707c0045e4807b2a1180e132e68e108d998709f48b6c94b98a6e281f571a5"
+    }
+  },
+  "routing": {
+    "url": "https://download.geofabrik.de/north-america/us-latest.osm.pbf"
+  },
+  "check": {
+    "search": "Chicago",
+    "route": [
+      {"lat": 41.8781, "lon": -87.6298},
+      {"lat": 43.0389, "lon": -87.9065}
+    ]
+  }
+}

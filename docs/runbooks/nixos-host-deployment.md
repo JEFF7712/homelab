@@ -188,6 +188,13 @@ an activation failure, and uncordons only after successful host recovery. A drai
 failure also attempts to restore scheduling. It does not roll back hosts that already completed before
 a later host failed. Follow the affected host or service runbook for recovery.
 
+A switch that outlives its 600-second SSH session keeps running in the
+`homelab-fleet-switch` unit. The deployer then waits up to 45 more minutes for
+that unit to end. If the host runs the new system, it carries on with the usual
+health checks; otherwise, it restores the previous system as for any failed
+activation. Before 2026-11-23 the restore started at once, collided with the
+still-running unit, and left nas-01 for the operator.
+
 homelab-04, the CI host, deploys last. Its switch restarts Docker and kills the
 deploy job driving it. The switch itself finishes in the transient
 `homelab-fleet-switch` unit (`journalctl -u homelab-fleet-switch`), but the job
@@ -247,7 +254,11 @@ system, which a gated deployment activated and verified. Order and checks:
 - nas-01 next, only when a platform backup succeeded in the last two hours, no
   backup, restore drill or repository maintenance is running and
   `zpool status -x` is healthy. Otherwise it is deferred to the next night with
-  an ntfy notice. After its reboot the datasets, NFS and caches are checked.
+  an ntfy notice. After its reboot the datasets, NFS and caches are checked,
+  then for five minutes any controller-owned pod stuck in
+  `CreateContainerConfigError: failed to prepare subPath` (its NFS mounts
+  predate the reboot) is deleted once per owner so it is recreated; an ntfy
+  notice lists them. A pod still stuck afterwards fails the run.
 - homelab-04 last, because the CI job runs there. It is drained, a transient
   `homelab-reboot-watch-homelab-04` unit on homelab-01 uncordons it once it
   reports Ready on the installed kernel (within 20 minutes), and its reboot is

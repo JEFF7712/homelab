@@ -1,0 +1,131 @@
+# Front of the offline VIP: nginx answers http://maps.homelab from the map
+# tree in the archive (web/index.html plus maps/assets and maps/planet.pmtiles)
+# and proxies every other name, http://kiwix.homelab included, to Kiwix. One
+# VIP serves both because the LoadBalancer pool is nearly used up.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: offline-web
+  namespace: offline
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: offline-web
+  template:
+    metadata:
+      labels:
+        app: offline-web
+      annotations:
+        # Restart onto a changed nginx.conf or viewer.
+        reloader.stakater.com/auto: 'true'
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: offline-web
+      containers:
+        - name: nginx
+          image: registry.rupan.dev/upstream/docker.io/library/nginx@sha256:b50897d5c7b1aa08067c3d90c5e8b3e47ec4e3c91c91446f67820228f7b41e34  # yamllint disable-line rule:line-length
+          # Skip the image entrypoint: its templating writes under /etc/nginx.
+          command:
+            - nginx
+            - -g
+            - daemon off;
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              memory: 256Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: config
+              mountPath: /site/index.html
+              subPath: index.html
+              readOnly: true
+            # The whole archive, so nginx starts before nas-01 has made maps/.
+            - name: archive
+              mountPath: /archive
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: config
+          configMap:
+            name: offline-web
+        - name: archive
+          persistentVolumeClaim:
+            claimName: offline-archive
+            readOnly: true
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: offline-web
+  namespace: offline
+  labels:
+    bgp-advertise: "true"
+  annotations:
+    io.cilium/lb-ipam-ips: 10.0.40.18
+spec:
+  type: LoadBalancer
+  loadBalancerClass: io.cilium/bgp-control-plane
+  # Cluster, like every other VIP: a node without a pod forwards it as world
+  # traffic, which offline-web-ingress admits. Local broke clients on
+  # the node VLAN (CI on homelab-04): the pod replied straight to them, so
+  # OPNsense saw one direction of the connection and dropped it.
+  externalTrafficPolicy: Cluster
+  selector:
+    app: offline-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: offline-web
+  namespace: offline
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: offline-web

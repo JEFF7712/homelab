@@ -10,6 +10,7 @@ resources:
   - arr.yaml
   - arr-secret-sync.yaml
   - arr-queue-hygiene.yaml
+  - bookshelf-missing-search.yaml
   - spotify-sync.yaml
   - soularr.yaml
   - download.yaml
@@ -64,6 +65,19 @@ configMapGenerator:
     files:
       - beets/config.yaml
       - beets/nightly.py
+  - name: bookshelf-missing-search
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - bookshelf-missing-search/weekly.py
+  - name: books-handoff
+    namespace: media
+    options:
+      disableNameSuffixHash: true
+    files:
+      - books-handoff/qbit-finished.sh
+      - books-handoff/ingest-mover.sh
   - name: arr-credential-sync
     namespace: media
     options:
