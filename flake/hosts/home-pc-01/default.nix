@@ -70,17 +70,36 @@
   };
 
   nixpkgs.config.allowUnfree = true;
-  programs.steam.enable = true;
+  programs.steam = {
+    enable = true;
+    extraCompatPackages = [ pkgs.proton-ge-bin ];
+  };
   programs.gamemode.enable = true;
   programs.firefox.enable = true;
   environment.systemPackages = with pkgs; [
+    flightgear
     git
     htop
+    # jstest/jscal for checking the Honeycomb Alpha and Bravo.
+    linuxConsoleTools
+    mangohud
     nano
     prismlauncher
     rsync
     vim
     wget
+  ];
+
+  # The host is managed from the homelab repo. A leftover installer config
+  # would let a plain `nixos-rebuild` undo it; bootstrap files are spent.
+  systemd.tmpfiles.rules = [
+    "r /etc/nixos/configuration.nix"
+    "r /etc/nixos/hardware-configuration.nix"
+    "R /root/homelab-src"
+    "r /root/bootstrap*"
+    "r /root/probe*"
+    "r /root/.ssh/tunnel"
+    "r /root/.ssh/tunnel.pub"
   ];
 
   services.netbird.clients.default = {
