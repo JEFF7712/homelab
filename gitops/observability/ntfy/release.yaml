@@ -39,6 +39,16 @@ spec:
             secretKeyRef:
               name: ntfy-auth
               key: auth-access
+      extraConfig: |
+        template-dir: /etc/ntfy-templates
+    extraVolumes:
+      - name: templates
+        configMap:
+          name: ntfy-templates
+    extraVolumeMounts:
+      - name: templates
+        mountPath: /etc/ntfy-templates
+        readOnly: true
     podAnnotations:
       migration.rupan.dev/ntfy-auth-format: v2
     persistence:

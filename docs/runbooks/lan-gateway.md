@@ -9,8 +9,10 @@ local traffic no longer leaves the house.
 1. `config/lan-gateway.json` owns the host list and the gateway VIP
    (`10.0.40.19`).
 2. `inventory/lan-gateway.nix` turns each host into an OPNsense Unbound host
-   override for that VIP. AdGuard and CoreDNS are untouched, so pods and
-   infrastructure hosts keep resolving the public names.
+   override for that VIP. AdGuard carries no override, and CoreDNS forwards
+   `rupan.dev` to AdGuard first (Unbound only if AdGuard fails), so pods keep
+   resolving the public names. A plain `/etc/resolv.conf` forward picked
+   Unbound half the time and pods timed out on the VIP.
 3. `python -m scripts.lan_gateway` renders `gitops/lan-gateway/nginx.conf` from
    the tunnel rules in `gitops/cloudflare/ingress-config.yaml`. Each host keeps
    its tunnel rules in order, path rules included (Vaultwarden's `/admin` stays

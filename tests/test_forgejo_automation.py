@@ -447,6 +447,49 @@ class AutomationTest(unittest.TestCase):
         self.assertTrue(receipt["native_automerge"])
         self.assertFalse(receipt["approval"]["approved"])
 
+    def test_rebased_pr_notifies_only_when_its_outcome_changes(self) -> None:
+        """Renovate rebased homelab#1342 every hour, and each new head sent
+        the same failing-checks notice (2026-11-23)."""
+
+        def run(sha: str, ci: str, state: dict, automerge: bool = True) -> int:
+            scope = embedded("renovate-reviewer-script", "renovate-agent.py")
+            api = Mock(
+                side_effect=[
+                    {
+                        "statuses": [
+                            {"context": "ci/woodpecker/validation-v2", "status": ci},
+                            {"context": "policy/merge", "status": "success"},
+                        ]
+                    },
+                    [],
+                ]
+            )
+
+            def patch_state(key: str, value: str) -> None:
+                state.setdefault("data", {})[key] = value
+
+            scope.update(forgejo=api, notify=Mock(), patch_state=patch_state)
+            pr = {"number": 4, "head": {"sha": sha}}
+            if automerge:
+                pr.update(
+                    user={"login": "homelab-renovate"}, body="**Automerge**: Enabled."
+                )
+            scope["process_forgejo_pr"]("JEFF7712", "homelab", pr, state)
+            return scope["notify"].call_count
+
+        state: dict = {}
+        self.assertEqual(run("1" * 40, "failure", state), 1)
+        self.assertEqual(run("2" * 40, "failure", state), 0)
+        self.assertEqual(run("3" * 40, "success", state), 1)
+        self.assertEqual(run("4" * 40, "success", state), 0)
+
+        # An approval binds to the exact head, so each ready head is news.
+        state = {}
+        self.assertEqual(run("5" * 40, "success", state, automerge=False), 1)
+        self.assertEqual(run("6" * 40, "success", state, automerge=False), 1)
+        self.assertEqual(run("7" * 40, "failure", state, automerge=False), 1)
+        self.assertEqual(run("8" * 40, "failure", state, automerge=False), 0)
+
     def test_forgejo_https_configuration_contract(self) -> None:
         forgejo_nix = (ROOT / "flake/modules/forgejo.nix").read_text()
         self.assertIn('default = "git.rupan.dev";', forgejo_nix)
