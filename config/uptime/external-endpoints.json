@@ -4,10 +4,9 @@
   "excluded": {
     "flux-wh-33b0c8004348.rupan.dev": "Flux webhook receiver: POST-only, nothing to load"
   },
-  "public_comment": "Shown on the public page at uptime.rupan.dev: only hosts anyone can already open (no Cloudflare Access login). Admin and private tools stay on the NetBird-only page.",
+  "public_comment": "Shown on the public page at uptime.rupan.dev: only hosts anyone can already open (no Cloudflare Access login), one entry per site (no www. aliases). Admin and private tools stay on the NetBird-only page, which still probes the aliases.",
   "public": [
     "rupan.dev",
-    "www.rupan.dev",
     "photo.rupan.dev",
     "notes.rupan.dev",
     "ism.rupan.dev",
@@ -21,7 +20,6 @@
     "nix-agent.rupan.dev",
     "arcade.rupan.dev",
     "pulseagent.dev",
-    "www.pulseagent.dev",
     "distrojeff.com",
     "apollinestore.com",
     "darkbitapparel.com",
