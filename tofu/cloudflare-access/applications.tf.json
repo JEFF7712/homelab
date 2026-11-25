@@ -319,6 +319,33 @@
         "session_duration": "24h",
         "type": "self_hosted"
       },
+      "bypass_uptime_status": {
+        "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
+        "app_launcher_visible": false,
+        "auto_redirect_to_identity": false,
+        "destinations": [
+          {
+            "type": "public",
+            "uri": "uptime.rupan.dev"
+          }
+        ],
+        "domain": "uptime.rupan.dev",
+        "enable_binding_cookie": false,
+        "http_only_cookie_attribute": true,
+        "lifecycle": {
+          "prevent_destroy": true
+        },
+        "name": "Bypass - Uptime status",
+        "options_preflight_bypass": false,
+        "policies": [
+          {
+            "id": "${cloudflare_zero_trust_access_policy.bypass.id}",
+            "precedence": 1
+          }
+        ],
+        "session_duration": "24h",
+        "type": "self_hosted"
+      },
       "bypass_uwagent": {
         "account_id": "5d99d63dea23dde67ccb07e5dfb31107",
         "app_launcher_visible": true,

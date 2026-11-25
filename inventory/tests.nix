@@ -47,6 +47,7 @@ let
       builtins.attrNames inventory.serviceManifests == [
         "approvals"
         "forgejo"
+        "uptime"
         "woodpecker"
       ];
     serviceManifestsMatch = builtins.all (
