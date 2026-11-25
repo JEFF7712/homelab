@@ -66,6 +66,9 @@ class EndpointCoverageTest(unittest.TestCase):
             }
         )
         self.assertEqual(set(public) & private, set())
+        # One entry per site: no www. alias beside its bare domain.
+        aliases = {h for h in public if h.startswith("www.") and h[4:] in public}
+        self.assertEqual(aliases, set())
 
 
 class UptimeAlertTest(unittest.TestCase):
