@@ -14,7 +14,7 @@ spec:
   chart:
     spec:
       chart: kube-prometheus-stack
-      version: 93.6.0
+      version: 93.10.1
       sourceRef:
         kind: HelmRepository
         name: prometheus-community
@@ -24,7 +24,7 @@ spec:
         images:
           - name: docker.io/grafana/grafana
             newName: registry.rupan.dev/upstream/docker.io/grafana/grafana  # yamllint disable-line rule:line-length
-            digest: sha256:54e297ac67e2b72572f926892f4e06074dc4f79f2a56ed9a9ca9a88a46f28733
+            digest: sha256:d9425e704fa9dff189966b827fbc9b63befc5b443999c7b82193f1b1a73c74f7
           - name: ghcr.io/jkroepke/kube-webhook-certgen
             newName: registry.rupan.dev/upstream/ghcr.io/jkroepke/kube-webhook-certgen  # yamllint disable-line rule:line-length
             digest: sha256:8009b04f9873f7279b5adee37fdd03b6a9aa7b6751d4f69fde2683010e41cd1f
