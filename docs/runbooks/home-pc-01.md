@@ -34,6 +34,20 @@ is pinned for the relay endpoint in `config/ci/remote-hosts.known_hosts`. The PC
 `deploy-fleet`. Resume a failed run with `just ship --resume <sha> --deploy
 deploy-home-pc-01`.
 
+## Desktop
+
+`flake/hosts/home-pc-01/desktop.nix` gives the family a finished desktop: a
+Plymouth splash with the HP firmware logo (`bgrt`) and a silent boot, the
+Breeze SDDM login, Noto fonts (CJK and emoji), Chrome, LibreOffice, VLC, Zoom,
+Spotify and Discord, network printing (CUPS with Avahi), Bluetooth, fwupd
+firmware updates, KDE Connect, and Flatpak with Flathub in Discover for
+user-installed apps.
+
+The boot menu is hidden. To boot an older generation (for example after a
+bad deploy), hold **Space** while the PC powers on and pick it from the
+systemd-boot menu. `tests/test_home_pc_01.py` keeps the remote-safety settings
+(C-state limit, watchdog, panics, no sleep, `nofail` `/home`) in place.
+
 ## Uptime monitor
 
 Gatus on port 8080 (NetBird `wt0` only) probes every public hostname from
