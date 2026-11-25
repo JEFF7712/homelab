@@ -134,4 +134,6 @@ data:
         service: http_status:404
       - hostname: vault.rupan.dev
         service: http://vaultwarden.vaultwarden:80
+      - hostname: uptime.rupan.dev
+        service: http://uptime.cloudflare:2203
       - service: http_status:404

@@ -102,7 +102,8 @@ Cloudflare Access public bypass configured.
 57. `romm.rupan.dev -> http://romm.romm:80` (owner-only wildcard Access; see [Karakeep and RomM](karakeep-romm.md))
 58. `vault.rupan.dev -> http_status:404` (only `^/admin`; the Vaultwarden admin page is reachable only by port-forward. See [vaultwarden](vaultwarden.md))
 59. `vault.rupan.dev -> http://vaultwarden.vaultwarden:80` (Vaultwarden password manager, added 2026-11-21; Access app `Bypass - Vaultwarden` because Bitwarden clients cannot complete an Access login; country-restricted in `tofu/cloudflare/personal-apps.nix`. See [vaultwarden](vaultwarden.md))
-60. `http_status:404`
+60. `uptime.rupan.dev -> http://uptime.cloudflare:2203` (public Gatus status page on home-pc-01, added 2026-11-24; reached through the `home-pc-01-status` relay on adguard-netbird-01; Access app `Bypass - Uptime status` declared in `tofu/cloudflare-access/`; DNS is dashboard-managed. Lists only hosts in `public` of `config/uptime/external-endpoints.json`. See [uptime monitor](uptime-monitor.md))
+61. `http_status:404`
 
 
 Removed 2026-09-15 (v72):

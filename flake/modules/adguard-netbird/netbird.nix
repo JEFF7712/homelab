@@ -23,6 +23,13 @@ let
       target = "100.94.53.129:8080";
       sources = [ networks.infrastructure.cidr ];
     };
+    # Public status page (uptime.rupan.dev); cloudflared reaches it from the
+    # cluster nodes through the cloudflare/uptime Service.
+    home-pc-01-status = {
+      port = 2203;
+      target = "100.94.53.129:8081";
+      sources = [ networks.infrastructure.cidr ];
+    };
   };
 in
 {

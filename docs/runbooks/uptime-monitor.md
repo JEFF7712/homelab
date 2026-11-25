@@ -15,7 +15,15 @@ redirect, which still proves the path; tunnel and backend failures surface as
 
 ## Where to look
 
-- **Status page and 30-day history:** `http://100.94.53.129:8080` (or
+- **Public status page:** <https://uptime.rupan.dev>, open to anyone (Access
+  app `Bypass - Uptime status`). A second Gatus instance (`gatus-public`, port
+  8081, no metrics) lists only the hosts under `public` in the endpoint file:
+  sites and apps anyone can already open without a Cloudflare Access login.
+  Admin, private and Access-gated hosts never appear there; a test enforces it.
+  It reaches the tunnel through the `home-pc-01-status` relay
+  (`10.0.30.10:2203`) and the `cloudflare/uptime` Service, so a total home
+  outage also takes this page down; the PC keeps the history either way.
+- **Private status page and 30-day history:** `http://100.94.53.129:8080` (or
   `home-pc-01.netbird.cloud:8080`) from a `homelab-admins` NetBird device.
   Gatus keeps its history in `/var/lib/gatus/data.db` on the PC.
 - **Prometheus:** job `home-pc-01-uptime`, scraped through the

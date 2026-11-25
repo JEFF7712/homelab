@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -42,6 +43,29 @@ class EndpointCoverageTest(unittest.TestCase):
         self.assertEqual(set(hosts) - ingress_hostnames(), set())
         excluded = set(json.loads(ENDPOINTS.read_text())["excluded"])
         self.assertEqual(excluded & set(hosts), set())
+
+    def test_public_page_lists_only_probed_public_hosts(self) -> None:
+        public = json.loads(ENDPOINTS.read_text())["public"]
+        self.assertEqual(len(public), len(set(public)))
+        self.assertEqual(set(public) - set(monitored()), set())
+        # Admin, private and Access-gated hosts never reach the public page.
+        groups = json.loads(ENDPOINTS.read_text())["groups"]
+        private = (
+            set(groups["platform"])
+            | set(groups["home"])
+            | {
+                "vault.rupan.dev",
+                "sovereign.rupan.dev",
+                "tally.rupan.dev",
+                "pod.rupan.dev",
+                "radarr.rupan.dev",
+                "sonarr.rupan.dev",
+                "prowlarr.rupan.dev",
+                "torrent.rupan.dev",
+                "qbittorrent.rupan.dev",
+            }
+        )
+        self.assertEqual(set(public) & private, set())
 
 
 class UptimeAlertTest(unittest.TestCase):
@@ -192,17 +216,45 @@ class UptimeWiringTest(unittest.TestCase):
             sorted(f"https://{host}/" for host in monitored()),
         )
 
-    def test_relay_admits_only_the_cluster_network(self) -> None:
+    def test_relays_admit_only_the_cluster_network(self) -> None:
         relay = self.evaluate(
             "adguard-netbird-01.config",
-            "c: { socket = c.systemd.sockets.netbird-relay-home-pc-01-uptime"
+            "c: { metrics = c.systemd.sockets.netbird-relay-home-pc-01-uptime"
+            ".listenStreams; status = c.systemd.sockets.netbird-relay-home-pc-01-status"
             ".listenStreams; input = c.networking.firewall.extraInputRules; }",
         )
-        self.assertEqual(relay["socket"], ["10.0.30.10:2202"])
-        rules = [
-            line.strip() for line in relay["input"].splitlines() if "dport 2202" in line
-        ]
-        self.assertEqual(rules, ["ip saddr { 10.0.30.0/24 } tcp dport 2202 accept"])
+        self.assertEqual(relay["metrics"], ["10.0.30.10:2202"])
+        self.assertEqual(relay["status"], ["10.0.30.10:2203"])
+        for port in (2202, 2203):
+            rules = [
+                line.strip()
+                for line in relay["input"].splitlines()
+                if f"dport {port}" in line
+            ]
+            self.assertEqual(
+                rules, [f"ip saddr {{ 10.0.30.0/24 }} tcp dport {port} accept"]
+            )
+
+    def test_public_instance_serves_only_public_hosts_without_metrics(self) -> None:
+        unit = "gatus-public.service"
+        attribute = (
+            f"path:{ROOT}?dir=flake#nixosConfigurations.home-pc-01.config"
+            f'.systemd.units."{unit}".unit'
+        )
+        out = subprocess.run(
+            ["nix", "build", "--no-link", "--print-out-paths", attribute],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        text = (Path(out) / unit).read_text()
+        match = re.search(r"GATUS_CONFIG_PATH=(/nix/store/[^\s\"]+)", text)
+        self.assertIsNotNone(match)
+        config = yaml.safe_load(Path(match.group(1)).read_text())
+        self.assertFalse(config["metrics"])
+        self.assertEqual(config["web"]["port"], 8081)
+        public = json.loads(ENDPOINTS.read_text())["public"]
+        self.assertEqual(sorted(e["name"] for e in config["endpoints"]), sorted(public))
 
 
 if __name__ == "__main__":

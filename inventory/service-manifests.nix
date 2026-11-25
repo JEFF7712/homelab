@@ -13,6 +13,11 @@ let
       address = hosts.homelab-04.address;
       port = 8020;
     };
+    # Public Gatus page on home-pc-01, via the home-pc-01-status relay.
+    uptime = {
+      address = hosts.adguard-netbird-01.address;
+      port = 2203;
+    };
   };
 in
 lib.mapAttrs (name: service: ''

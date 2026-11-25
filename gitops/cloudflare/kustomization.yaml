@@ -8,3 +8,4 @@ resources:
   - forgejo-service.yaml
   - approvals-service.yaml
   - woodpecker-service.yaml
+  - uptime-service.yaml

@@ -391,6 +391,30 @@
       ];
       type = "self_hosted";
     };
+    # Public status page: lists only hosts that are already public
+    # (config/uptime/external-endpoints.json `public`).
+    bypass_uptime_status = {
+      app_launcher_visible = false;
+      auto_redirect_to_identity = false;
+      destinations = [
+        {
+          type = "public";
+          uri = "uptime.rupan.dev";
+        }
+      ];
+      domain = "uptime.rupan.dev";
+      enable_binding_cookie = false;
+      http_only_cookie_attribute = true;
+      name = "Bypass - Uptime status";
+      options_preflight_bypass = false;
+      policies = [
+        {
+          id = "\${cloudflare_zero_trust_access_policy.bypass.id}";
+          precedence = 1;
+        }
+      ];
+      type = "self_hosted";
+    };
     default = {
       app_launcher_visible = true;
       auto_redirect_to_identity = false;
