@@ -15,7 +15,7 @@ metadata:
   name: observability-registry-sources
 items:
   # kube-prometheus-stack 93.4.1
-  - image: docker.io/grafana/grafana:13.3.1-distroless@sha256:54e297ac67e2b72572f926892f4e06074dc4f79f2a56ed9a9ca9a88a46f28733  # yamllint disable-line rule:line-length
+  - image: docker.io/grafana/grafana:13.3.2-distroless@sha256:d9425e704fa9dff189966b827fbc9b63befc5b443999c7b82193f1b1a73c74f7  # yamllint disable-line rule:line-length
   - image: quay.io/kiwigrid/k8s-sidecar:2.14.3@sha256:52d311dcedd587421a236c4d6c621f05614c40a51386e955e0699dca97ec0880  # yamllint disable-line rule:line-length
   - image: quay.io/prometheus-operator/prometheus-operator:v0.95.2@sha256:7986c2afa118c9dea07d01c5e1a29555824582e92f6ee8607591d1a7178acf29  # yamllint disable-line rule:line-length
   - image: ghcr.io/jkroepke/kube-webhook-certgen:1.11.1@sha256:8009b04f9873f7279b5adee37fdd03b6a9aa7b6751d4f69fde2683010e41cd1f  # yamllint disable-line rule:line-length
