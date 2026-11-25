@@ -26,7 +26,7 @@ items:
   # JEFF7712/rupanism Dockerfile (deps stage)
   - image: docker.io/oven/bun:1.4-debian@sha256:3dddea58e1f8f2240eca906b023fedb944f9a8352515a35309fd0c879fe00aaa
   # JEFF7712/obsidian-vault quartz/Dockerfile (runner stage)
-  - image: docker.io/library/nginx:1.31-alpine@sha256:b50897d5c7b1aa08067c3d90c5e8b3e47ec4e3c91c91446f67820228f7b41e34
+  - image: docker.io/library/nginx:1.31-alpine@sha256:7fc0fb4af7bf006aeb31aea88069976060f8f0a0a86b667126742cc17f4e31ae
   # JEFF7712/pod-agent Dockerfile
   - image: docker.io/library/python:3.12-slim-bookworm@sha256:44cf1793efa7c7a476bb0f2cff81443f4a072c90c1cb127e2924933daa3e8c64  # yamllint disable-line rule:line-length
   # JEFF7712/pod-agent Dockerfile (uv copy stage)
