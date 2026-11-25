@@ -8,6 +8,7 @@
     ./access.nix
     ./offsite-backup.nix
     ./uptime-monitor.nix
+    ./desktop.nix
   ];
 
   boot.loader.systemd-boot = {
