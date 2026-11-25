@@ -31,7 +31,7 @@ items:
   # Prowlarr (arr.yaml)
   - image: lscr.io/linuxserver/prowlarr:2.7.0.5723-ls168@sha256:6660787a99b2e58203539583663c973b48979fc00ff2cb78dc0ea17429e1f6ef  # yamllint disable-line rule:line-length
   # Bazarr (arr.yaml)
-  - image: lscr.io/linuxserver/bazarr:v1.6.2-ls373@sha256:e0c5d45965242830c5eeddaafe9ae2b5e8ca3f6c01ecda9ee9364f550921dc50  # yamllint disable-line rule:line-length
+  - image: lscr.io/linuxserver/bazarr:v1.6.2-ls374@sha256:b3db4247d3afa0c68bc5aa311bedd67b1caf4b3eabc3a85577682970435d5013  # yamllint disable-line rule:line-length
   # FlareSolverr (arr.yaml)
   - image: ghcr.io/flaresolverr/flaresolverr:v3.5.2@sha256:c80ae007ce2ccdcd217a12426e4f039ef763ff90738c808d38810c3e59323767  # yamllint disable-line rule:line-length
   # Calibre-Web Automated (books.yaml)
