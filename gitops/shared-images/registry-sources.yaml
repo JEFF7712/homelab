@@ -28,4 +28,4 @@ items:
   # Intel GPU device plugin (platform/intel-gpu-plugin)
   - image: docker.io/intel/intel-gpu-plugin:0.37.1@sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33  # yamllint disable-line rule:line-length
   # NVIDIA device plugin (platform/nvidia-device-plugin)
-  - image: nvcr.io/nvidia/k8s-device-plugin:v0.17.0-ubi9@sha256:7089559ce6153018806857f5049085bae15b3bf6f1c8bd19d8b12f707d087dea  # yamllint disable-line rule:line-length
+  - image: nvcr.io/nvidia/k8s-device-plugin:v0.17.2-ubi9@sha256:037160a36de0f060fc21cc0cb2f795d980282ff1471b55530433ca4350b24c4f  # yamllint disable-line rule:line-length
