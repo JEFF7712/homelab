@@ -48,6 +48,10 @@ bad deploy), hold **Space** while the PC powers on and pick it from the
 systemd-boot menu. `tests/test_home_pc_01.py` keeps the remote-safety settings
 (C-state limit, watchdog, panics, no sleep, `nofail` `/home`) in place.
 
+## Games
+
+`flake/hosts/home-pc-01/gaming.nix`: Steam with Proton-GE and Protontricks for the Steam library; Wine (staging, WoW64) with Winetricks, Lutris (any installer or store), Heroic (Epic, GOG, Amazon) and Bottles (isolated per-app prefixes) for Windows games bought elsewhere; Gamescope, GameMode and MangoHud; FlightGear with the Honeycomb HID profiles; Prism Launcher.
+
 ## Uptime monitor
 
 Gatus on port 8080 (NetBird `wt0` only) probes every public hostname from

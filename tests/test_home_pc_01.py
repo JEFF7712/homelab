@@ -28,7 +28,11 @@ class HomePc01Test(unittest.TestCase):
             " theme = c.boot.plymouth.theme;"
             " timeout = c.boot.loader.timeout;"
             " generations = c.boot.loader.systemd-boot.configurationLimit;"
-            ' home = c.fileSystems."/home".options; }'
+            ' home = c.fileSystems."/home".options;'
+            " steam = c.programs.steam.enable;"
+            " protontricks = c.programs.steam.protontricks.enable;"
+            " graphics32 = c.hardware.graphics.enable32Bit;"
+            " packages = map (p: p.pname or p.name) c.environment.systemPackages; }"
         )
         cls.config = json.loads(
             subprocess.run(
@@ -63,6 +67,15 @@ class HomePc01Test(unittest.TestCase):
         # Hidden menu (hold Space to show it) still offers rollbacks.
         self.assertEqual(self.config["timeout"], 0)
         self.assertGreaterEqual(self.config["generations"], 5)
+
+    def test_runs_windows_games_from_any_store(self) -> None:
+        self.assertTrue(self.config["steam"])
+        self.assertTrue(self.config["protontricks"])
+        # Most Windows games are 32-bit or ship 32-bit launchers.
+        self.assertTrue(self.config["graphics32"])
+        for package in ("wine-staging", "winetricks", "lutris", "heroic", "bottles"):
+            with self.subTest(package=package):
+                self.assertIn(package, self.config["packages"])
 
 
 if __name__ == "__main__":
