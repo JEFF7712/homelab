@@ -20,6 +20,7 @@
   "slskd.rupan.dev"
   "torrent.rupan.dev"
   "qbittorrent.rupan.dev"
+  "audiobooks.rupan.dev"
   "books.rupan.dev"
   "media.rupan.dev"
   "bookshelf.rupan.dev"

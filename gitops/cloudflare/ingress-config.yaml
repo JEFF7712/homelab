@@ -136,4 +136,6 @@ data:
         service: http://vaultwarden.vaultwarden:80
       - hostname: uptime.rupan.dev
         service: http://uptime.cloudflare:2203
+      - hostname: audiobooks.rupan.dev
+        service: http://audiobookshelf.media:80
       - service: http_status:404
