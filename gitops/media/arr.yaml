@@ -368,19 +368,7 @@ spec:
         fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
-      initContainers:
-        - name: fix-permissions
-          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
-          command:
-            - sh
-            - -c
-            - '[ "$(stat -c ''%u:%g'' /config)" = "1000:1000" ] || chown -R 1000:1000 /config'
-          securityContext:
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-          volumeMounts:
-            - name: config
-              mountPath: /config
+      # LinuxServer repairs config ownership to its runtime UID and GID.
       containers:
         - name: prowlarr
           image: registry.rupan.dev/upstream/lscr.io/linuxserver/prowlarr@sha256:6660787a99b2e58203539583663c973b48979fc00ff2cb78dc0ea17429e1f6ef  # yamllint disable-line rule:line-length
