@@ -17,6 +17,7 @@ resources:
   - slskd.yaml
   - jellyfin.yaml
   - books.yaml
+  - audiobooks.yaml
   - music.yaml
   - frontend.yaml
   - recommender.yaml

@@ -1,0 +1,237 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: audiobookshelf-config-03
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-nvme
+  local:
+    path: /persist/audiobookshelf
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - homelab-03
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: audiobookshelf-config
+  namespace: media
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-nvme
+  resources:
+    requests:
+      storage: 5Gi
+  volumeName: audiobookshelf-config-03
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audiobookshelf
+  namespace: media
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: audiobookshelf
+  template:
+    metadata:
+      labels:
+        app: audiobookshelf
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: audiobookshelf
+          image: registry.rupan.dev/upstream/ghcr.io/advplyr/audiobookshelf@sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3  # yamllint disable-line rule:line-length
+          securityContext:
+            allowPrivilegeEscalation: false
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            - name: CONFIG_PATH
+              value: /config
+            - name: METADATA_PATH
+              value: /config/metadata
+          readinessProbe:
+            httpGet:
+              path: /healthcheck
+              port: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /audiobooks
+              subPath: audiobooks
+              readOnly: true
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: audiobookshelf-config
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-library
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audiobookshelf
+  namespace: media
+spec:
+  selector:
+    app: audiobookshelf
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: bindery-config-03
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-nvme
+  local:
+    path: /persist/bindery
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values:
+                - homelab-03
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bindery-config
+  namespace: media
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-nvme
+  resources:
+    requests:
+      storage: 5Gi
+  volumeName: bindery-config-03
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bindery
+  namespace: media
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: bindery
+  template:
+    metadata:
+      labels:
+        app: bindery
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bindery
+          image: registry.rupan.dev/upstream/ghcr.io/vavallee/bindery@sha256:5089b373d97cd74846ee5b3022844cba0d0139e57234676a57202a92bf5cec12  # yamllint disable-line rule:line-length
+          securityContext:
+            allowPrivilegeEscalation: false
+          ports:
+            - name: http
+              containerPort: 8787
+          env:
+            - name: BINDERY_LIBRARY_DIR
+              value: /config/books
+            - name: BINDERY_AUDIOBOOK_DIR
+              value: /data/audiobooks
+            - name: BINDERY_DOWNLOAD_DIR
+              value: /data/downloads/audiobooks
+            - name: BINDERY_AUDIOBOOK_DOWNLOAD_DIR
+              value: /data/downloads/audiobooks
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: config
+              mountPath: /config
+            - name: media
+              mountPath: /data/audiobooks
+              subPath: audiobooks
+              readOnly: false
+            - name: media
+              mountPath: /data/downloads/audiobooks
+              subPath: downloads/audiobooks
+              readOnly: true
+      volumes:
+        - name: config
+          persistentVolumeClaim:
+            claimName: bindery-config
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-library
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bindery
+  namespace: media
+spec:
+  selector:
+    app: bindery
+  ports:
+    - name: http
+      port: 8787
+      targetPort: http
