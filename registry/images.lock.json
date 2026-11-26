@@ -12250,6 +12250,44 @@
         "repository": "library/couchdb",
         "tag": "3.5.3"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/shared-images/registry-sources.yaml:31"
+      ],
+      "destination_repository": "upstream/nvcr.io/nvidia/k8s-device-plugin",
+      "destination_tags": [
+        "retention-deployed-037160a36de0f060",
+        "v0.17.2-ubi9"
+      ],
+      "digest": "sha256:037160a36de0f060fc21cc0cb2f795d980282ff1471b55530433ca4350b24c4f",
+      "id": "upstream-nvidia-k8s-device-plugin-2602a278b064",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:037160a36de0f060fc21cc0cb2f795d980282ff1471b55530433ca4350b24c4f",
+        "reference": "nvcr.io/nvidia/k8s-device-plugin:v0.17.2-ubi9@sha256:037160a36de0f060fc21cc0cb2f795d980282ff1471b55530433ca4350b24c4f",
+        "registry": "nvcr.io",
+        "repository": "nvidia/k8s-device-plugin",
+        "tag": "v0.17.2-ubi9"
+      }
     }
   ],
   "kind": "registry-image-lock",
