@@ -9,6 +9,7 @@
     ./offsite-backup.nix
     ./uptime-monitor.nix
     ./desktop.nix
+    ./gaming.nix
   ];
 
   boot.loader.systemd-boot = {
@@ -73,21 +74,11 @@
   };
 
   nixpkgs.config.allowUnfree = true;
-  programs.steam = {
-    enable = true;
-    extraCompatPackages = [ pkgs.proton-ge-bin ];
-  };
-  programs.gamemode.enable = true;
   programs.firefox.enable = true;
   environment.systemPackages = with pkgs; [
-    flightgear
     git
     htop
-    # jstest/jscal for checking the Honeycomb Alpha and Bravo.
-    linuxConsoleTools
-    mangohud
     nano
-    prismlauncher
     rsync
     vim
     wget
