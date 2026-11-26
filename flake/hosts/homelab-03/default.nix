@@ -10,6 +10,8 @@
 
   # Local database/index volumes; bulk assets and nightly backups stay on NAS.
   systemd.tmpfiles.rules = [
+    "d /persist/audiobookshelf 0750 1000 1000 -"
+    "d /persist/bindery 0750 1000 1000 -"
     "d /persist/karakeep 0750 1000 1000 -"
     "d /persist/karakeep-search 0750 1000 1000 -"
     "d /persist/romm-db 0750 999 999 -"

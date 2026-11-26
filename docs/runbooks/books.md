@@ -57,3 +57,21 @@ monitored book with no file. It reads only `BOOKSHELF_API_KEY` from
 `media-app`. Run it on demand with `kubectl -n media create job
 --from=cronjob/bookshelf-missing-search <name>`. Bookshelf's health page
 keeps warning "Enable Completed Download Handling"; that is expected.
+
+## Audiobook trial
+
+Bindery and Audiobookshelf are ClusterIP services in the media namespace.
+Initialize both over port-forward before giving either a client-facing route.
+Add an Audiobookshelf book library rooted at `/audiobooks`. Configure
+Bindery's audiobook root as `/data/audiobooks` and enable the Audiobookshelf
+integration for that library.
+
+Use a dedicated qBittorrent category `audiobooks` with save path
+`/data/downloads/audiobooks`. Enable the client for audiobooks only in
+Bindery and leave removal on import disabled. Use Copy import mode for the
+trial so Bindery can read the torrent files without modifying them. Keep
+the existing Bookshelf ebook category and handoff active during the trial.
+
+Application state lives on retained local volumes on homelab-03. Export
+application backups before storing library state that needs to survive
+loss of that node.
