@@ -12010,6 +12010,84 @@
         "repository": "woodpeckerci/plugin-git",
         "tag": "2.10.0"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:59"
+      ],
+      "destination_repository": "upstream/ghcr.io/advplyr/audiobookshelf",
+      "destination_tags": [
+        "2.38.0",
+        "retention-deployed-60064c23f32fd909"
+      ],
+      "digest": "sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3",
+      "id": "upstream-advplyr-audiobookshelf-4ea2ff6212ac",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3",
+        "reference": "ghcr.io/advplyr/audiobookshelf:2.38.0@sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3",
+        "registry": "ghcr.io",
+        "repository": "advplyr/audiobookshelf",
+        "tag": "2.38.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:60"
+      ],
+      "destination_repository": "upstream/ghcr.io/vavallee/bindery",
+      "destination_tags": [
+        "1.53.2",
+        "retention-deployed-5089b373d97cd748"
+      ],
+      "digest": "sha256:5089b373d97cd74846ee5b3022844cba0d0139e57234676a57202a92bf5cec12",
+      "id": "upstream-vavallee-bindery-e81fc2cd5f3c",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:5089b373d97cd74846ee5b3022844cba0d0139e57234676a57202a92bf5cec12",
+        "reference": "ghcr.io/vavallee/bindery:1.53.2@sha256:5089b373d97cd74846ee5b3022844cba0d0139e57234676a57202a92bf5cec12",
+        "registry": "ghcr.io",
+        "repository": "vavallee/bindery",
+        "tag": "1.53.2"
+      }
     }
   ],
   "kind": "registry-image-lock",
