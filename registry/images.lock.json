@@ -12288,6 +12288,44 @@
         "repository": "nvidia/k8s-device-plugin",
         "tag": "v0.17.2-ubi9"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/offline/registry-sources.yaml:20"
+      ],
+      "destination_repository": "upstream/ghcr.io/valhalla/valhalla",
+      "destination_tags": [
+        "3.9.3",
+        "retention-deployed-cf618ccafdead968"
+      ],
+      "digest": "sha256:cf618ccafdead96829282acc81a70aa00947c2f28ddcf118f0194acf2fbc7e9d",
+      "id": "upstream-valhalla-valhalla-e18fb5bb30b2",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:cf618ccafdead96829282acc81a70aa00947c2f28ddcf118f0194acf2fbc7e9d",
+        "reference": "ghcr.io/valhalla/valhalla:3.9.3@sha256:cf618ccafdead96829282acc81a70aa00947c2f28ddcf118f0194acf2fbc7e9d",
+        "registry": "ghcr.io",
+        "repository": "valhalla/valhalla",
+        "tag": "3.9.3"
+      }
     }
   ],
   "kind": "registry-image-lock",
