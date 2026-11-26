@@ -12088,6 +12088,45 @@
         "repository": "vavallee/bindery",
         "tag": "1.53.2"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:42"
+      ],
+      "destination_repository": "upstream/lscr.io/linuxserver/beets",
+      "destination_tags": [
+        "2.14.1-ls361",
+        "retention-deployed-94c3689c43f4ef99"
+      ],
+      "digest": "sha256:94c3689c43f4ef99ccfe6b117c62c4d779734f8f773b53736b1223cc5c36901e",
+      "id": "upstream-linuxserver-beets-a1497d9cc851",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:94c3689c43f4ef99ccfe6b117c62c4d779734f8f773b53736b1223cc5c36901e",
+        "reference": "lscr.io/linuxserver/beets:2.14.1-ls361@sha256:94c3689c43f4ef99ccfe6b117c62c4d779734f8f773b53736b1223cc5c36901e",
+        "registry": "lscr.io",
+        "repository": "linuxserver/beets",
+        "tag": "2.14.1-ls361"
+      }
     }
   ],
   "kind": "registry-image-lock",
