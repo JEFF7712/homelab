@@ -21,7 +21,7 @@ spec:
               type: RuntimeDefault
           containers:
             - name: pg-dump
-              image: registry.rupan.dev/upstream/docker.io/library/postgres@sha256:aa6cb33cf4c19c765cefcf48d96176258800870a9a1e930ad126200f9d825139  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/upstream/docker.io/library/postgres@sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d  # yamllint disable-line rule:line-length
               resources:
                 requests:
                   cpu: 100m
