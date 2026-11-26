@@ -20,7 +20,7 @@ items:
   # Python job runtime (automation, media, observability, voice, websites, CI)
   - image: docker.io/library/python:3.15-alpine@sha256:0f9552bb28711333da16915ec146f5e6bb44a7fdac9ced15dc17c2e0206346dd
   # PostgreSQL 17 (home-assistant/postgres.yaml and its dumps in backups)
-  - image: docker.io/library/postgres:17.11-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac  # yamllint disable-line rule:line-length
+  - image: docker.io/library/postgres:17.12-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73  # yamllint disable-line rule:line-length
   # unprivileged nginx (websites/nix, CI)
   - image: docker.io/nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e  # yamllint disable-line rule:line-length
   # Nix (config/ci/applications.json, services/voice-supply)
