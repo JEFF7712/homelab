@@ -216,6 +216,10 @@ spec:
               mountPath: /data/downloads/audiobooks
               subPath: downloads/audiobooks
               readOnly: true
+            - name: media
+              mountPath: /data/books/library
+              subPath: books/library
+              readOnly: true
       volumes:
         - name: config
           persistentVolumeClaim:
