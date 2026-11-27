@@ -66,7 +66,7 @@ from zoneinfo import ZoneInfo
 
 import yaml
 
-from scripts.ci import chart_advance
+from scripts.ci import chart_advance, postgres_backup_canary
 from scripts.registry.advance import (
     SOURCE,
     adoptions,
@@ -164,6 +164,13 @@ def ineligible(
     are still checked."""
     if repository in policy.get("deny_repositories", []):
         return "repository is denied"
+    if repository == postgres_backup_canary.REPOSITORY and (
+        not policy.get("postgres_backup_clients")
+        or major(old_tag) not in postgres_backup_canary.SERIES
+        or not documents
+        or any(not postgres_backup_canary.allowed(path, doc) for path, doc in documents)
+    ):
+        return "PostgreSQL clients require an allowlisted backup CronJob"
     if major(old_tag) is None or major(old_tag) != major(new_tag):
         return f"not a same-major update ({old_tag} -> {new_tag})"
     if not documents and not base:
@@ -242,7 +249,13 @@ def adopt_candidates(
     A repository declared under several tags yields one candidate per target.
     """
     locked = declared(lock)
-    rewrites, _ = adoptions(files, current, locked, source_tags(lock))
+    rewrites, _ = adoptions(
+        files,
+        current,
+        locked,
+        source_tags(lock),
+        series_repositories=(postgres_backup_canary.REPOSITORY,),
+    )
     by_target: dict[tuple[str, str], dict[str, dict[str, str]]] = {}
     for path, pairs in rewrites.items():
         for old, new in pairs.items():
@@ -653,7 +666,9 @@ def main() -> int:
     files = [
         (path.relative_to(root).as_posix(), path.read_text())
         for path in sorted((root / "gitops").rglob("*"))
-        if path.is_file() and path.suffix in (".yaml", ".yml")
+        if path.is_file()
+        and path.suffix in (".yaml", ".yml")
+        and not path.name.startswith("postgres-client-")
     ] + [(CONTRACTS, (root / CONTRACTS).read_text())]
     closed = recent_closed(token, time.time())
     # Settle every pending adopt; one waiting on a weekly CronJob holds only
@@ -692,12 +707,30 @@ def main() -> int:
         if not registry_serves(repository, digest):
             print(f"adopt {repository}: waiting for the import of {digest}")
             continue
+        cleanup: list[str] = []
+        if repository == postgres_backup_canary.REPOSITORY:
+            series = major(tags(lock, repository).get(digest))
+            assert series is not None
+            result, paths = postgres_backup_canary.prepare(root, series, digest)
+            print(f"adopt {repository}@{digest}: scratch restore {result}")
+            if result == "stage":
+                publish(
+                    token,
+                    f"registry-advance/postgres-{series}-{digest[7:19]}",
+                    f"backups: rehearse PostgreSQL {series} client {digest[:19]}",
+                    "Verify a fresh dump in scratch storage before updating backup clients.",
+                    paths,
+                )
+                return 0
+            if result != "ready":
+                continue
+            cleanup = postgres_backup_canary.clear(root, series)
         for path, pairs in rewrites.items():
             text = (root / path).read_text()
             for old, new in pairs.items():
                 text = text.replace(old, new)
             (root / path).write_text(text)
-        publish_adopt(token, repository, digest, sorted(rewrites))
+        publish_adopt(token, repository, digest, sorted([*rewrites, *cleanup]))
         return 0
     for pull in sorted(
         api(token, "/pulls?state=open&limit=100"), key=lambda p: p["number"]

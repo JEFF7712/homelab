@@ -5,9 +5,9 @@
     "kube-system"
   ],
   "deny_repositories": [
-    "upstream/docker.io/library/postgres",
     "upstream/docker.io/getmeili/meilisearch"
   ],
+  "postgres_backup_clients": true,
   "hold_charts": [
     "automation/renovate-forgejo",
     "cnpg-system/cloudnative-pg"
