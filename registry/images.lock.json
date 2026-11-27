@@ -12534,6 +12534,84 @@
         "repository": "matter-js/matterjs-server",
         "tag": "1.6.1"
       }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/automation/registry-sources.yaml:23"
+      ],
+      "destination_repository": "upstream/ghcr.io/renovatebot/renovate",
+      "destination_tags": [
+        "44.264.1-full",
+        "retention-deployed-65aafc5b9bd6e6c5"
+      ],
+      "digest": "sha256:65aafc5b9bd6e6c5671fe1c90bc51bf5abd9d81ee438b69e36e41119bf2e5671",
+      "id": "upstream-renovatebot-renovate-5d273a021b40",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:65aafc5b9bd6e6c5671fe1c90bc51bf5abd9d81ee438b69e36e41119bf2e5671",
+        "reference": "ghcr.io/renovatebot/renovate:44.264.1-full@sha256:65aafc5b9bd6e6c5671fe1c90bc51bf5abd9d81ee438b69e36e41119bf2e5671",
+        "registry": "ghcr.io",
+        "repository": "renovatebot/renovate",
+        "tag": "44.264.1-full"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/automation/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/ghcr.io/renovatebot/renovate",
+      "destination_tags": [
+        "44.264.1",
+        "retention-deployed-35777dd4aa87beee"
+      ],
+      "digest": "sha256:35777dd4aa87beee05ba64c7728a2c5e3c70687fdb654909710bac93c697efd1",
+      "id": "upstream-renovatebot-renovate-bd27ea9fca3a",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:35777dd4aa87beee05ba64c7728a2c5e3c70687fdb654909710bac93c697efd1",
+        "reference": "ghcr.io/renovatebot/renovate:44.264.1@sha256:35777dd4aa87beee05ba64c7728a2c5e3c70687fdb654909710bac93c697efd1",
+        "registry": "ghcr.io",
+        "repository": "renovatebot/renovate",
+        "tag": "44.264.1"
+      }
     }
   ],
   "kind": "registry-image-lock",
