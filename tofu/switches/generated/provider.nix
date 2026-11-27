@@ -52,7 +52,7 @@ rec {
   _file = "generated tplinkeasysmart provider";
   config.terraform.required_providers.tplinkeasysmart = {
     source = "registry.terraform.io/davidlukac/tplinkeasysmart";
-    version = "0.34.0";
+    version = "0.35.0";
   };
   config.generated.provider."tplinkeasysmart" = mkUnsetOption {
     type = types.attrsOf (
@@ -68,7 +68,7 @@ rec {
             _version = mkOption {
               internal = true;
               type = types.str;
-              default = "0.34.0";
+              default = "0.35.0";
             };
             alias = mkUnsetOption {
               type = types.str;
