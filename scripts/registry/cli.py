@@ -141,6 +141,7 @@ def _parser() -> argparse.ArgumentParser:
     copy.add_argument("--report", type=pathlib.Path, required=True)
     copy.add_argument("--kind", choices=("first-party", "upstream"))
     copy.add_argument("--concurrency", type=int, default=3)
+    copy.add_argument("--declared-first", action="store_true")
     copy.add_argument("--image-timeout", type=float, default=900)
     _network_options(copy)
 
@@ -437,6 +438,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.command in {"copy", "verify"}:
             lock = load_lock(args.lock)
             client = _client(args)
+            from .advance import declarations
+
+            prioritize = (
+                declarations(args.root)
+                if args.command == "copy" and args.declared_first
+                else None
+            )
             report = (
                 copy_lock(
                     client,
@@ -444,6 +452,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     kind=args.kind,
                     concurrency=args.concurrency,
                     image_timeout=args.image_timeout,
+                    prioritize=prioritize,
                     progress=lambda message: print(
                         f"[registry-copy] {message}", file=sys.stderr
                     ),

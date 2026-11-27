@@ -2671,6 +2671,7 @@ def copy_lock(
     concurrency: int = 3,
     image_timeout: float = 900,
     progress: Any = None,
+    prioritize: Mapping[str, set[str]] | None = None,
 ) -> dict[str, Any]:
     if not 1 <= concurrency <= 8:
         raise RegistryError("copy concurrency must be between 1 and 8")
@@ -2679,9 +2680,16 @@ def copy_lock(
     if progress is None:
         progress = _ignore_progress
 
+    preferred = prioritize or {}
     records = [
         record
-        for record in sorted(lock["images"], key=lambda item: item["id"])
+        for record in sorted(
+            lock["images"],
+            key=lambda item: (
+                item["digest"] not in preferred.get(item["destination_repository"], ()),
+                item["id"],
+            ),
+        )
         if kind is None or record["kind"] == kind
     ]
     with ThreadPoolExecutor(max_workers=concurrency) as executor:
