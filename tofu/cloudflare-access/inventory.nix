@@ -201,6 +201,10 @@
         }
         {
           type = "public";
+          uri = "audiobooks.rupan.dev";
+        }
+        {
+          type = "public";
           uri = "grafana.rupan.dev";
         }
         {
