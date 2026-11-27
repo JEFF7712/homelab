@@ -52,7 +52,7 @@ rec {
   _file = "generated cloudflare provider";
   config.terraform.required_providers.cloudflare = {
     source = "cloudflare/cloudflare";
-    version = "5.29.0";
+    version = "5.28.0";
   };
   config.generated.provider."cloudflare" = mkUnsetOption {
     type = types.attrsOf (
@@ -68,7 +68,7 @@ rec {
             _version = mkOption {
               internal = true;
               type = types.str;
-              default = "5.29.0";
+              default = "5.28.0";
             };
             alias = mkUnsetOption {
               type = types.str;
@@ -1651,14 +1651,6 @@ rec {
                                         );
                                         description = "Controls how cached responses vary based on request headers. `default` is required and applies to any Vary response header that does not have a per-header override. ";
                                       };
-                                      "webmcp_enabled" = mkUnsetOption {
-                                        type = (types.either referenceType (types.bool));
-                                        description = "Whether to serve the WebMCP bridge script, which exposes the page's tools to browser AI agents. ";
-                                      };
-                                      "webmcp_packs" = mkUnsetOption {
-                                        type = (types.either referenceType (types.listOf (types.either referenceType (types.str))));
-                                        description = "Bundled WebMCP tool packs to activate for matching requests. An empty list disables all packs. Omitting this parameter leaves the pack selection unchanged. Does not enable the WebMCP bridge itself. ";
-                                      };
 
                                     };
                                   }
@@ -2184,7 +2176,7 @@ rec {
                             type = (types.either referenceType (types.listOf (types.either referenceType (types.str))));
                             description = ''
                               The authenticators allowed for MFA.
-                              Available values: "totp", "biometrics", "security_key", "piv_key", "ssh_fido2_key". '';
+                              Available values: "totp", "biometrics", "security_key". '';
                           };
                           "mfa_disabled" = mkUnsetOption {
                             type = (types.either referenceType (types.bool));
@@ -2199,7 +2191,7 @@ rec {
                       }
                     )
                   );
-                  description = "Configures multi-factor authentication (MFA) settings for the application. Only valid for self_hosted, ssh, vnc, rdp, and infrastructure application types. For infrastructure applications, supported authenticators are `piv_key` and `ssh_fido2_key`; for other application types use `totp`, `biometrics`, or `security_key`. ";
+                  description = "Configures multi-factor authentication (MFA) settings for the application. Only valid for self_hosted, ssh, vnc, and rdp application types. ";
                   apply = val: if val ? __toString then builtins.toString val else val;
                 };
                 "name" = mkUnsetOption {
@@ -3215,7 +3207,7 @@ rec {
                                         type = (types.either referenceType (types.listOf (types.either referenceType (types.str))));
                                         description = ''
                                           The authenticators allowed for MFA.
-                                          Available values: "totp", "biometrics", "security_key", "piv_key", "ssh_fido2_key". '';
+                                          Available values: "totp", "biometrics", "security_key", "ssh_piv_key". '';
                                       };
                                       "mfa_disabled" = mkUnsetOption {
                                         type = (types.either referenceType (types.bool));
@@ -3230,7 +3222,7 @@ rec {
                                   }
                                 )
                               );
-                              description = "Configures multi-factor authentication (MFA) settings for this policy. For infrastructure applications, supported authenticators are `piv_key` and `ssh_fido2_key`; for other application types use `totp`, `biometrics`, or `security_key`. ";
+                              description = "Configures multi-factor authentication (MFA) settings for this policy. For infrastructure applications only `ssh_piv_key` is a supported authenticator; for other application types use `totp`, `biometrics`, or `security_key`. ";
                             };
                             "name" = mkUnsetOption {
                               type = (types.either referenceType (types.str));
@@ -4409,6 +4401,11 @@ rec {
                   description = "Identifier. ";
                   apply = val: if val ? __toString then builtins.toString val else val;
                 };
+                "app_count" = mkUnsetOption {
+                  type = (types.either referenceType (types.number));
+                  description = "Number of access applications currently using this policy. ";
+                  apply = val: if val ? __toString then builtins.toString val else val;
+                };
                 "approval_groups" = mkUnsetOption {
                   type = (
                     types.either referenceType (
@@ -4926,26 +4923,6 @@ rec {
                               );
                               description = "";
                             };
-                            "service_token_tag" = mkUnsetOption {
-                              type = (
-                                types.either referenceType (
-                                  types.submodule {
-                                    options = {
-                                      "key" = mkOption {
-                                        type = (types.either referenceType (types.str));
-                                        description = "The tag key to match. Keys are case-sensitive and may contain Unicode letters and digits, underscores, periods, and hyphens. ";
-                                      };
-                                      "value" = mkOption {
-                                        type = (types.either referenceType (types.str));
-                                        description = "The tag value to match. Values are case-sensitive, preserve whitespace, and must not contain NUL characters. ";
-                                      };
-
-                                    };
-                                  }
-                                )
-                              );
-                              description = "";
-                            };
                             "user_risk_score" = mkUnsetOption {
                               type = (
                                 types.either referenceType (
@@ -5416,26 +5393,6 @@ rec {
                               );
                               description = "";
                             };
-                            "service_token_tag" = mkUnsetOption {
-                              type = (
-                                types.either referenceType (
-                                  types.submodule {
-                                    options = {
-                                      "key" = mkOption {
-                                        type = (types.either referenceType (types.str));
-                                        description = "The tag key to match. Keys are case-sensitive and may contain Unicode letters and digits, underscores, periods, and hyphens. ";
-                                      };
-                                      "value" = mkOption {
-                                        type = (types.either referenceType (types.str));
-                                        description = "The tag value to match. Values are case-sensitive, preserve whitespace, and must not contain NUL characters. ";
-                                      };
-
-                                    };
-                                  }
-                                )
-                              );
-                              description = "";
-                            };
                             "user_risk_score" = mkUnsetOption {
                               type = (
                                 types.either referenceType (
@@ -5494,11 +5451,6 @@ rec {
                 "name" = mkOption {
                   type = (types.either referenceType (types.str));
                   description = "The name of the Access policy. ";
-                  apply = val: if val ? __toString then builtins.toString val else val;
-                };
-                "policy_resolution_account_id" = mkUnsetOption {
-                  type = (types.either referenceType (types.str));
-                  description = "The account ID used to resolve policy resources and identity for cross-account WARP authentication. The account must be trusted by the account that owns this policy. ";
                   apply = val: if val ? __toString then builtins.toString val else val;
                 };
                 "purpose_justification_prompt" = mkUnsetOption {
@@ -5943,26 +5895,6 @@ rec {
                                       "token_id" = mkOption {
                                         type = (types.either referenceType (types.str));
                                         description = "The ID of a Service Token. ";
-                                      };
-
-                                    };
-                                  }
-                                )
-                              );
-                              description = "";
-                            };
-                            "service_token_tag" = mkUnsetOption {
-                              type = (
-                                types.either referenceType (
-                                  types.submodule {
-                                    options = {
-                                      "key" = mkOption {
-                                        type = (types.either referenceType (types.str));
-                                        description = "The tag key to match. Keys are case-sensitive and may contain Unicode letters and digits, underscores, periods, and hyphens. ";
-                                      };
-                                      "value" = mkOption {
-                                        type = (types.either referenceType (types.str));
-                                        description = "The tag value to match. Values are case-sensitive, preserve whitespace, and must not contain NUL characters. ";
                                       };
 
                                     };
