@@ -23,7 +23,6 @@
   "audiobooks.rupan.dev"
   "books.rupan.dev"
   "media.rupan.dev"
-  "bookshelf.rupan.dev"
   "pod.rupan.dev"
   "arcade.rupan.dev"
   "approvals.rupan.dev"

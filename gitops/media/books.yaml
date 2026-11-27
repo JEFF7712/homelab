@@ -151,7 +151,7 @@ metadata:
   name: bookshelf
   namespace: media
 spec:
-  replicas: 1
+  replicas: 0
   strategy:
     type: Recreate
   selector:

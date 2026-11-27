@@ -89,22 +89,21 @@ Cloudflare Access public bypass configured.
 44. `qbittorrent.rupan.dev -> http://qbittorrent.media:80`
 45. `books.rupan.dev -> http://calibre-web.media:80`
 46. `media.rupan.dev -> http://filebrowser.media:80`
-47. `bookshelf.rupan.dev -> http://bookshelf.media:80`
-48. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
-49. `git.rupan.dev -> http://forgejo.cloudflare:3000`
-50. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
-51. `approvals.rupan.dev -> http://approvals.cloudflare:8020` (approvals dashboard on homelab-04, added 2026-10-21; Access app `approvals` with an Allow policy on the owner email, see [approvals](approvals.md))
-52. `ci.rupan.dev -> http://woodpecker.cloudflare:8000` (Woodpecker CI on homelab-04, added 2026-10-22; public Bypass like `rupan.dev` so the README pipeline badge loads anonymously. Access is declared in `tofu/cloudflare-access/`; DNS is dashboard-managed. Owner browser login still uses `http://ci.internal:8000`: `WOODPECKER_HOST` is unchanged, so the Forgejo OAuth callback only completes on the internal hostname)
-53. `tally.rupan.dev -> http://umami.analytics:80` (Umami web analytics, added 2026-10-22; owner-only Access login for the dashboard; path-scoped public Bypass for `/t.js` and `/api/send`. See [analytics](analytics.md))
-54. `questarr.rupan.dev -> http://questarr.media:80` (Questarr game downloads, added 2026-10-27; owner-only behind the wildcard Access app. See [games](games.md))
-55. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, declared in `tofu/cloudflare-access/`; never Bypass. See [games](games.md))
-56. `karakeep.rupan.dev -> http://karakeep.karakeep:80` (owner-only wildcard Access; see [Karakeep and RomM](karakeep-romm.md))
-57. `romm.rupan.dev -> http://romm.romm:80` (owner-only wildcard Access; see [Karakeep and RomM](karakeep-romm.md))
-58. `vault.rupan.dev -> http_status:404` (only `^/admin`; the Vaultwarden admin page is reachable only by port-forward. See [vaultwarden](vaultwarden.md))
-59. `vault.rupan.dev -> http://vaultwarden.vaultwarden:80` (Vaultwarden password manager, added 2026-11-21; Access app `Bypass - Vaultwarden` because Bitwarden clients cannot complete an Access login; country-restricted in `tofu/cloudflare/personal-apps.nix`. See [vaultwarden](vaultwarden.md))
-60. `uptime.rupan.dev -> http://uptime.cloudflare:2203` (public Gatus status page on home-pc-01, added 2026-11-24; reached through the `home-pc-01-status` relay on adguard-netbird-01; Access app `Bypass - Uptime status` declared in `tofu/cloudflare-access/`; DNS is dashboard-managed. Lists only hosts in `public` of `config/uptime/external-endpoints.json`. See [uptime monitor](uptime-monitor.md))
-61. `audiobooks.rupan.dev -> http://audiobookshelf.media:80` (Audiobookshelf login authenticates native clients.)
-62. `http_status:404`
+47. `pod.rupan.dev -> http://pod-agent-dashboard.pod-agent:80` (owner desk, added 2026-09-29; requires the Access app `pod-agent-dashboard`, see below)
+48. `git.rupan.dev -> http://forgejo.cloudflare:3000`
+49. `arcade.rupan.dev -> http://led-matrix.led-matrix:8000`
+50. `approvals.rupan.dev -> http://approvals.cloudflare:8020` (approvals dashboard on homelab-04, added 2026-10-21; Access app `approvals` with an Allow policy on the owner email, see [approvals](approvals.md))
+51. `ci.rupan.dev -> http://woodpecker.cloudflare:8000` (Woodpecker CI on homelab-04, added 2026-10-22; public Bypass like `rupan.dev` so the README pipeline badge loads anonymously. Access is declared in `tofu/cloudflare-access/`; DNS is dashboard-managed. Owner browser login still uses `http://ci.internal:8000`: `WOODPECKER_HOST` is unchanged, so the Forgejo OAuth callback only completes on the internal hostname)
+52. `tally.rupan.dev -> http://umami.analytics:80` (Umami web analytics, added 2026-10-22; owner-only Access login for the dashboard; path-scoped public Bypass for `/t.js` and `/api/send`. See [analytics](analytics.md))
+53. `questarr.rupan.dev -> http://questarr.media:80` (Questarr game downloads, added 2026-10-27; owner-only behind the wildcard Access app. See [games](games.md))
+54. `games.rupan.dev -> http://gameyfin.media:80` (Gameyfin game library, added 2026-10-27; Access app `games` with an Allow policy on named emails and one-time PIN login, declared in `tofu/cloudflare-access/`; never Bypass. See [games](games.md))
+55. `karakeep.rupan.dev -> http://karakeep.karakeep:80` (owner-only wildcard Access; see [Karakeep and RomM](karakeep-romm.md))
+56. `romm.rupan.dev -> http://romm.romm:80` (owner-only wildcard Access; see [Karakeep and RomM](karakeep-romm.md))
+57. `vault.rupan.dev -> http_status:404` (only `^/admin`; the Vaultwarden admin page is reachable only by port-forward. See [vaultwarden](vaultwarden.md))
+58. `vault.rupan.dev -> http://vaultwarden.vaultwarden:80` (Vaultwarden password manager, added 2026-11-21; Access app `Bypass - Vaultwarden` because Bitwarden clients cannot complete an Access login; country-restricted in `tofu/cloudflare/personal-apps.nix`. See [vaultwarden](vaultwarden.md))
+59. `uptime.rupan.dev -> http://uptime.cloudflare:2203` (public Gatus status page on home-pc-01, added 2026-11-24; reached through the `home-pc-01-status` relay on adguard-netbird-01; Access app `Bypass - Uptime status` declared in `tofu/cloudflare-access/`; DNS is dashboard-managed. Lists only hosts in `public` of `config/uptime/external-endpoints.json`. See [uptime monitor](uptime-monitor.md))
+60. `audiobooks.rupan.dev -> http://audiobookshelf.media:80` (Audiobookshelf login authenticates native clients.)
+61. `http_status:404`
 
 
 Removed 2026-09-15 (v72):

@@ -107,8 +107,6 @@ data:
         service: http://calibre-web.media:80
       - hostname: media.rupan.dev
         service: http://filebrowser.media:80
-      - hostname: bookshelf.rupan.dev
-        service: http://bookshelf.media:80
       - hostname: pod.rupan.dev
         service: http://pod-agent-dashboard.pod-agent:80
       - hostname: git.rupan.dev
