@@ -8,7 +8,7 @@ spec:
   chart:
     spec:
       chart: renovate
-      version: 46.448.0
+      version: 46.456.1
       sourceRef:
         kind: HelmRepository
         name: renovate
@@ -18,10 +18,10 @@ spec:
         images:
           - name: ghcr.io/renovatebot/renovate
             newName: registry.rupan.dev/upstream/ghcr.io/renovatebot/renovate  # yamllint disable-line rule:line-length
-            digest: sha256:43c7b64c9f617f35d1dbf120836de4d90f75aee5767cc51a6a8a5b5261196e6c  # yamllint disable-line rule:line-length
+            digest: sha256:65aafc5b9bd6e6c5671fe1c90bc51bf5abd9d81ee438b69e36e41119bf2e5671  # yamllint disable-line rule:line-length
   values:
     image:
-      tag: 42.70.2
+      tag: 44.264.1
       useFull: true
     securityContext:
       runAsNonRoot: true
