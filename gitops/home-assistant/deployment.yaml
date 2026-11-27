@@ -51,7 +51,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: initialize-config
-          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4  # yamllint disable-line rule:line-length
           command:
             - /bin/sh
             - -ec
@@ -101,7 +101,7 @@ spec:
             - name: tmp
               mountPath: /tmp
         - name: install-hacs
-          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4  # yamllint disable-line rule:line-length
           command:
             - /bin/sh
             - -ec
@@ -199,7 +199,7 @@ spec:
               subPath: secrets.yaml
               readOnly: true
         - name: matter-server
-          image: registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server@sha256:ee149c7c67eff0e90f131e8f0d628f7b099591ec58473c8cda1209e8ae4df66e  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/matter-js/matterjs-server@sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7  # yamllint disable-line rule:line-length
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
