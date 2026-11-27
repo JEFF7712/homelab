@@ -189,7 +189,7 @@ spec:
         # an empty TSDB before the cold-copy migration has passed its checks.
         initContainers:
           - name: require-tsdb-migration
-            image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042  # yamllint disable-line rule:line-length
+            image: registry.rupan.dev/upstream/docker.io/alpine/k8s@sha256:7a82aeefea3d554a43a8676b137f2b88bae6c1fe11c13862b191b3a086cc28c0  # yamllint disable-line rule:line-length
             command: [/bin/sh, -ec, 'test -f /prometheus/.migration-complete']
             securityContext:
               allowPrivilegeEscalation: false
