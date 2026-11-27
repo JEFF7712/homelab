@@ -1,8 +1,8 @@
+import shutil
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
-import shutil
 
 from scripts.ci import postgres_backup_canary as canary
 from scripts.ci.registry_advance import adopt_candidates, ineligible
@@ -31,7 +31,11 @@ class BackupCanaryTest(TestCase):
     def test_every_matching_restore_job_must_complete(self):
         with TemporaryDirectory() as tmp:
             checkout = Path(tmp)
-            shutil.copytree(ROOT / canary.ROOT, checkout / canary.ROOT)
+            shutil.copytree(
+                ROOT / canary.ROOT,
+                checkout / canary.ROOT,
+                copy_function=shutil.copyfile,
+            )
             result, paths = canary.prepare(checkout, "17", NEW)
             self.assertEqual(result, "stage")
             self.assertEqual(len(paths), 2)
