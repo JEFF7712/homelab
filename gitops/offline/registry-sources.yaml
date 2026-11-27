@@ -17,6 +17,6 @@ items:
   # Kiwix server and library tools (kiwix-serve, kiwix-manage)
   - image: ghcr.io/kiwix/kiwix-serve:3.8.2@sha256:e478554a9920412eeb5ce1d73f24e4b28445ebed233187cdd03c623c32be46a5  # yamllint disable-line rule:line-length
   # Valhalla routing engine: builds US routing tiles and serves directions
-  - image: ghcr.io/valhalla/valhalla:3.9.1@sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de  # yamllint disable-line rule:line-length
+  - image: ghcr.io/valhalla/valhalla:3.9.3@sha256:cf618ccafdead96829282acc81a70aa00947c2f28ddcf118f0194acf2fbc7e9d  # yamllint disable-line rule:line-length
   # Java runtime for the Photon place-search server (release jar from the archive)
   - image: docker.io/library/eclipse-temurin:21.0.12.1_1-jre@sha256:f37956012e0cb88400e5b3689aeae2d2d735364c1922ae2225536163b5a99f56  # yamllint disable-line rule:line-length

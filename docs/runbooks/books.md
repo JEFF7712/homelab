@@ -61,6 +61,8 @@ keeps warning "Enable Completed Download Handling"; that is expected.
 ## Audiobook trial
 
 Bindery and Audiobookshelf are ClusterIP services in the media namespace.
+Bindery can match against the existing Calibre catalog through a read-only
+mount at `/data/books/library`. Calibre-Web Automated owns ebook writes.
 Initialize both over port-forward before giving either a client-facing route.
 Add an Audiobookshelf book library rooted at `/audiobooks`. Configure
 Bindery's audiobook root as `/data/audiobooks` and enable the Audiobookshelf

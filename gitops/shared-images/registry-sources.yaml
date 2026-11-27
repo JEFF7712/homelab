@@ -20,7 +20,7 @@ items:
   # Python job runtime (automation, media, observability, voice, websites, CI)
   - image: docker.io/library/python:3.15-alpine@sha256:0f9552bb28711333da16915ec146f5e6bb44a7fdac9ced15dc17c2e0206346dd
   # PostgreSQL 17 (home-assistant/postgres.yaml and its dumps in backups)
-  - image: docker.io/library/postgres:17.11-alpine@sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac  # yamllint disable-line rule:line-length
+  - image: docker.io/library/postgres:17.12-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73  # yamllint disable-line rule:line-length
   # unprivileged nginx (websites/nix, CI)
   - image: docker.io/nginxinc/nginx-unprivileged:1.31-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e  # yamllint disable-line rule:line-length
   # Nix (config/ci/applications.json, services/voice-supply)
@@ -28,4 +28,4 @@ items:
   # Intel GPU device plugin (platform/intel-gpu-plugin)
   - image: docker.io/intel/intel-gpu-plugin:0.37.1@sha256:004641b2547d58f1eadce58473fa160ad71377de1eb588cf1f82832387bf3e33  # yamllint disable-line rule:line-length
   # NVIDIA device plugin (platform/nvidia-device-plugin)
-  - image: nvcr.io/nvidia/k8s-device-plugin:v0.17.0-ubi9@sha256:7089559ce6153018806857f5049085bae15b3bf6f1c8bd19d8b12f707d087dea  # yamllint disable-line rule:line-length
+  - image: nvcr.io/nvidia/k8s-device-plugin:v0.17.2-ubi9@sha256:037160a36de0f060fc21cc0cb2f795d980282ff1471b55530433ca4350b24c4f  # yamllint disable-line rule:line-length
