@@ -16,7 +16,7 @@ metadata:
   name: automation-registry-sources
 items:
   # kubectl jobs (cluster-sentinel, website-monitors)
-  - image: docker.io/alpine/k8s:1.37.2@sha256:dcb7185e112a453aa72f426754849a97357727ef8f40168fb208c8cf59952042
+  - image: docker.io/alpine/k8s:1.37.2@sha256:7a82aeefea3d554a43a8676b137f2b88bae6c1fe11c13862b191b3a086cc28c0
   # Renovate CLI for the reviewer (renovate-agent.yaml)
   - image: ghcr.io/renovatebot/renovate:44.264.1@sha256:35777dd4aa87beee05ba64c7728a2c5e3c70687fdb654909710bac93c697efd1
   # Renovate engine with its tool chain (renovate-forgejo.yaml HelmRelease)
