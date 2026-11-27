@@ -285,6 +285,62 @@
         "nix"
       ],
       "automerge": false
+    },
+    {
+      "description": "Photon uses the Java 21 release line",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchFileNames": [
+        "gitops/offline/registry-sources.yaml"
+      ],
+      "matchPackageNames": [
+        "docker.io/library/eclipse-temurin"
+      ],
+      "allowedVersions": "/^21(?:\\.|-)/"
+    },
+    {
+      "description": "RomM stays on MariaDB 11.8 until the next LTS migration is rehearsed",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchFileNames": [
+        "gitops/romm/registry-sources.yaml"
+      ],
+      "matchPackageNames": [
+        "docker.io/library/mariadb"
+      ],
+      "allowedVersions": "/^11\\.8(?:\\.|$)/"
+    },
+    {
+      "description": "Karakeep search engine upgrades require a dump and restore rehearsal",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "docker.io/getmeili/meilisearch"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "The Nix CI and voice build images move together after validation",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "docker.io/nixos/nix"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Cloudflare Access state must be compatible before a provider update enters CI",
+      "matchManagers": [
+        "terraform"
+      ],
+      "matchPackageNames": [
+        "cloudflare/cloudflare"
+      ],
+      "dependencyDashboardApproval": true
     }
   ]
 }
