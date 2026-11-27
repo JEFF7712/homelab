@@ -103,7 +103,8 @@ Cloudflare Access public bypass configured.
 58. `vault.rupan.dev -> http://vaultwarden.vaultwarden:80` (Vaultwarden password manager, added 2026-11-21; Access app `Bypass - Vaultwarden` because Bitwarden clients cannot complete an Access login; country-restricted in `tofu/cloudflare/personal-apps.nix`. See [vaultwarden](vaultwarden.md))
 59. `uptime.rupan.dev -> http://uptime.cloudflare:2203` (public Gatus status page on home-pc-01, added 2026-11-24; reached through the `home-pc-01-status` relay on adguard-netbird-01; Access app `Bypass - Uptime status` declared in `tofu/cloudflare-access/`; DNS is dashboard-managed. Lists only hosts in `public` of `config/uptime/external-endpoints.json`. See [uptime monitor](uptime-monitor.md))
 60. `audiobooks.rupan.dev -> http://audiobookshelf.media:80` (Audiobookshelf login authenticates native clients.)
-61. `http_status:404`
+61. `binder.rupan.dev -> http://bindery.media:8787` (Bindery, behind owner-only wildcard Access.)
+62. `http_status:404`
 
 
 Removed 2026-09-15 (v72):
