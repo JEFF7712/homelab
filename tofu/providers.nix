@@ -5,7 +5,7 @@
     name = "cloudflare";
     source = "cloudflare/cloudflare";
     address = "registry.opentofu.org/cloudflare/cloudflare";
-    version = "5.28.0";
+    version = "5.29.0";
     resources = [
       "cloudflare_zero_trust_tunnel_cloudflared_config"
       "cloudflare_ruleset"
