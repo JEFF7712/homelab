@@ -12174,6 +12174,373 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/shared-images/registry-sources.yaml:23"
+      ],
+      "destination_repository": "upstream/docker.io/library/postgres",
+      "destination_tags": [
+        "17.12-alpine",
+        "retention-deployed-f9cf3e1f0066f0eb"
+      ],
+      "digest": "sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73",
+      "id": "upstream-library-postgres-460fb7cbc9d3",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73",
+        "reference": "docker.io/library/postgres:17.12-alpine@sha256:f9cf3e1f0066f0eb0c48707d864f0ac5941e9ff454a072077d97a4d278d07d73",
+        "registry": "docker.io",
+        "repository": "library/postgres",
+        "tag": "17.12-alpine"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/obsidian/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/docker.io/library/couchdb",
+      "destination_tags": [
+        "retention-deployed-0ba6b4b8dd823232"
+      ],
+      "digest": "sha256:0ba6b4b8dd823232185fa2c7de04634b925be62f97c9b7cbece7dd9119470e17",
+      "id": "upstream-library-couchdb-24193a11e1e7",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64/v8",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:0ba6b4b8dd823232185fa2c7de04634b925be62f97c9b7cbece7dd9119470e17",
+        "reference": "docker.io/library/couchdb:3.5.3@sha256:0ba6b4b8dd823232185fa2c7de04634b925be62f97c9b7cbece7dd9119470e17",
+        "registry": "docker.io",
+        "repository": "library/couchdb",
+        "tag": "3.5.3"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/shared-images/registry-sources.yaml:31"
+      ],
+      "destination_repository": "upstream/nvcr.io/nvidia/k8s-device-plugin",
+      "destination_tags": [
+        "retention-deployed-037160a36de0f060",
+        "v0.17.2-ubi9"
+      ],
+      "digest": "sha256:037160a36de0f060fc21cc0cb2f795d980282ff1471b55530433ca4350b24c4f",
+      "id": "upstream-nvidia-k8s-device-plugin-2602a278b064",
+      "kind": "upstream",
+      "media_type": "application/vnd.docker.distribution.manifest.list.v2+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:037160a36de0f060fc21cc0cb2f795d980282ff1471b55530433ca4350b24c4f",
+        "reference": "nvcr.io/nvidia/k8s-device-plugin:v0.17.2-ubi9@sha256:037160a36de0f060fc21cc0cb2f795d980282ff1471b55530433ca4350b24c4f",
+        "registry": "nvcr.io",
+        "repository": "nvidia/k8s-device-plugin",
+        "tag": "v0.17.2-ubi9"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/offline/registry-sources.yaml:20"
+      ],
+      "destination_repository": "upstream/ghcr.io/valhalla/valhalla",
+      "destination_tags": [
+        "3.9.3",
+        "retention-deployed-cf618ccafdead968"
+      ],
+      "digest": "sha256:cf618ccafdead96829282acc81a70aa00947c2f28ddcf118f0194acf2fbc7e9d",
+      "id": "upstream-valhalla-valhalla-e18fb5bb30b2",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:cf618ccafdead96829282acc81a70aa00947c2f28ddcf118f0194acf2fbc7e9d",
+        "reference": "ghcr.io/valhalla/valhalla:3.9.3@sha256:cf618ccafdead96829282acc81a70aa00947c2f28ddcf118f0194acf2fbc7e9d",
+        "registry": "ghcr.io",
+        "repository": "valhalla/valhalla",
+        "tag": "3.9.3"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/automation/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/docker.io/alpine/k8s",
+      "destination_tags": [
+        "retention-deployed-7a82aeefea3d554a"
+      ],
+      "digest": "sha256:7a82aeefea3d554a43a8676b137f2b88bae6c1fe11c13862b191b3a086cc28c0",
+      "id": "upstream-alpine-k8s-e8122e82e555",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:7a82aeefea3d554a43a8676b137f2b88bae6c1fe11c13862b191b3a086cc28c0",
+        "reference": "docker.io/alpine/k8s:1.37.2@sha256:7a82aeefea3d554a43a8676b137f2b88bae6c1fe11c13862b191b3a086cc28c0",
+        "registry": "docker.io",
+        "repository": "alpine/k8s",
+        "tag": "1.37.2"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/shared-images/registry-sources.yaml:19"
+      ],
+      "destination_repository": "upstream/docker.io/library/busybox",
+      "destination_tags": [
+        "1.38.0",
+        "retention-deployed-a46257e06c82ad85"
+      ],
+      "digest": "sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4",
+      "id": "upstream-library-busybox-2d17a0c94682",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v5",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4",
+        "reference": "docker.io/library/busybox:1.38.0@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4",
+        "registry": "docker.io",
+        "repository": "library/busybox",
+        "tag": "1.38.0"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/backups/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/docker.io/library/postgres",
+      "destination_tags": [
+        "16.16-alpine",
+        "retention-deployed-f2f98726820d0342"
+      ],
+      "digest": "sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d",
+      "id": "upstream-library-postgres-928cb393f428",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/386",
+        "linux/amd64",
+        "linux/arm/v6",
+        "linux/arm/v7",
+        "linux/arm64/v8",
+        "linux/ppc64le",
+        "linux/riscv64",
+        "linux/s390x",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d",
+        "reference": "docker.io/library/postgres:16.16-alpine@sha256:f2f98726820d0342055351c6e9d36e705f5bfffb3dd53ff556325114b08afb6d",
+        "registry": "docker.io",
+        "repository": "library/postgres",
+        "tag": "16.16-alpine"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/platform/registry-sources.yaml:20"
+      ],
+      "destination_repository": "upstream/ghcr.io/stakater/reloader",
+      "destination_tags": [
+        "retention-deployed-db8b1818f5da373a",
+        "v1.4.25"
+      ],
+      "digest": "sha256:db8b1818f5da373ab85c05b30220fcae80a9ac0532052e6d68a6a5999111f18f",
+      "id": "upstream-stakater-reloader-2b275195ef5e",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm/v7",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:db8b1818f5da373ab85c05b30220fcae80a9ac0532052e6d68a6a5999111f18f",
+        "reference": "ghcr.io/stakater/reloader:v1.4.25@sha256:db8b1818f5da373ab85c05b30220fcae80a9ac0532052e6d68a6a5999111f18f",
+        "registry": "ghcr.io",
+        "repository": "stakater/reloader",
+        "tag": "v1.4.25"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/home-assistant/registry-sources.yaml:21"
+      ],
+      "destination_repository": "upstream/ghcr.io/matter-js/matterjs-server",
+      "destination_tags": [
+        "1.6.1",
+        "retention-deployed-5591f9f65926ca4b"
+      ],
+      "digest": "sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7",
+      "id": "upstream-matter-js-matterjs-server-5bb1b74d7686",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7",
+        "reference": "ghcr.io/matter-js/matterjs-server:1.6.1@sha256:5591f9f65926ca4b13b34cfd9c9888cb9d9ee9f147fe0b04c8e025cbeeee0eb7",
+        "registry": "ghcr.io",
+        "repository": "matter-js/matterjs-server",
+        "tag": "1.6.1"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/automation/registry-sources.yaml:23"
       ],
       "destination_repository": "upstream/ghcr.io/renovatebot/renovate",

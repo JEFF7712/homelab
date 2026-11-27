@@ -17,7 +17,7 @@ items:
   # external-secrets 2.15.0
   - image: ghcr.io/external-secrets/external-secrets:v2.15.0@sha256:6888f243e5f8f7592c6d7fae2a5547c9e33531441b47b53807b9093b25a00e31  # yamllint disable-line rule:line-length
   # reloader 2.2.20
-  - image: ghcr.io/stakater/reloader:v1.4.24@sha256:3ab43d3eb96c59798644bf826b0444a846c0197d22ab4b6c101c4da3e1d6ef23  # yamllint disable-line rule:line-length
+  - image: ghcr.io/stakater/reloader:v1.4.25@sha256:db8b1818f5da373ab85c05b30220fcae80a9ac0532052e6d68a6a5999111f18f  # yamllint disable-line rule:line-length
   # cilium 1.20.5 (k3s bootstraps the chart from flake/modules/k3s-server.nix)
   - image: quay.io/cilium/cilium:v1.20.5@sha256:aa72499f075ad729947ea91b026218aceba24f1a8e4534bf36b8368c7c561526  # yamllint disable-line rule:line-length
   - image: quay.io/cilium/operator-generic:v1.20.5@sha256:c6e7de6665aa9701db86c4fe46828a75a0d167afe084a9ffb5bce34b2c4fa8c4  # yamllint disable-line rule:line-length
