@@ -77,3 +77,8 @@ the existing Bookshelf ebook category and handoff active during the trial.
 Application state lives on retained local volumes on homelab-03. Export
 application backups before storing library state that needs to survive
 loss of that node.
+
+Bindery ebook downloads use the `bindery-ebooks` qBittorrent category at
+`/data/downloads/books/bindery`. Set ebook import mode to External, with a
+flat copy handoff to `/data/books/handoff`. The existing Calibre sidecar
+moves the file into ingest. Keep audiobook imports in Copy mode.
