@@ -185,11 +185,13 @@ def adoptions(
     current: Mapping[str, set[str]],
     locked: Mapping[str, set[str]],
     tags: Mapping[str, Mapping[str, str | None]] | None = None,
+    series_repositories: Iterable[str] = (),
 ) -> tuple[dict[str, dict[str, str]], list[str]]:
     """Per file, old -> new mirror references to rewrite, and what was skipped.
 
     With `tags` (from `source_tags`), a repository declared several times
     narrows to the declarations sharing the old digest's upstream tag.
+    An explicitly enabled series repository falls back to the same major.
     """
     rewrites: dict[str, dict[str, str]] = {}
     skipped: list[str] = []
@@ -203,10 +205,18 @@ def adoptions(
                 continue
             note = ""
             known = (tags or {}).get(repository, {})
-            if len(wanted) > 1 and known.get(digest) is not None:
-                tag = known[digest]
+            tag = known.get(digest)
+            if len(wanted) > 1 and tag is not None:
                 note = f", {sum(known.get(d) == tag for d in wanted)} tagged {tag}"
-                wanted = {d for d in wanted if known.get(d) == tag}
+                exact = {d for d in wanted if known.get(d) == tag}
+                if not exact and repository in series_repositories:
+                    series = tag.split(".", 1)[0]
+                    exact = {
+                        d
+                        for d in wanted
+                        if (known.get(d) or "").split(".", 1)[0] == series
+                    }
+                wanted = exact
             ready = wanted & locked.get(repository, set())
             if len(wanted) != 1 or not ready:
                 count = len(current.get(repository, set()))
