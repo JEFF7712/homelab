@@ -530,7 +530,8 @@ read-only work also shares the bounded schedule group.
 Every ordinary Woodpecker operation requires successful `validation-v2` for its
 source and the catalog's declared prerequisite. `registry-lock-import` runs on
 lock-changing main pushes and maintenance to restore the committed
-lock. `registry-update-import` is an explicitly selected candidate import.
+lock. Both process current declarations first, so maintenance retries an
+image import canceled by a newer main push before checking older retained digests. `registry-update-import` is an explicitly selected candidate import.
 Drift checks notify and fail their own workflow; they do not replace source
 validation or exact-digest verification. See [CI pipelines](ci-pipelines.md).
 
