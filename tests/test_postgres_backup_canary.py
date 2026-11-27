@@ -36,6 +36,7 @@ class BackupCanaryTest(TestCase):
                 checkout / canary.ROOT,
                 copy_function=shutil.copyfile,
             )
+            (checkout / canary.ROOT).chmod(0o700)
             result, paths = canary.prepare(checkout, "17", NEW)
             self.assertEqual(result, "stage")
             self.assertEqual(len(paths), 2)

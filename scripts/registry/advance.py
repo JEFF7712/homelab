@@ -205,8 +205,8 @@ def adoptions(
                 continue
             note = ""
             known = (tags or {}).get(repository, {})
-            if len(wanted) > 1 and known.get(digest) is not None:
-                tag = known[digest]
+            tag = known.get(digest)
+            if len(wanted) > 1 and tag is not None:
                 note = f", {sum(known.get(d) == tag for d in wanted)} tagged {tag}"
                 exact = {d for d in wanted if known.get(d) == tag}
                 if not exact and repository in series_repositories:
