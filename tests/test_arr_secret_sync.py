@@ -168,7 +168,6 @@ class TestArrSync(unittest.TestCase):
                 "sonarr": "/api/v3",
                 "radarr": "/api/v3",
                 "lidarr": "/api/v1",
-                "bookshelf": "/api/v1",
             },
         )
         mod_api = MOD["api"]

@@ -1,4 +1,11 @@
-# Book downloads (Bookshelf → qBittorrent → Calibre)
+# Book downloads
+
+Bindery manages ebook and audiobook acquisition. Calibre-Web Automated owns
+the ebook library, and Audiobookshelf owns playback. Bookshelf is stopped
+and its weekly search is suspended. The Bookshelf PVC is retained for
+rollback.
+
+## Legacy Bookshelf torrents
 
 Bookshelf (a Readarr fork) tracks authors and grabs releases through
 Prowlarr into qBittorrent's `books` category. Calibre-Web Automated
@@ -47,10 +54,10 @@ until the rescan finds the file.
 - After an NFS outage the calibre-web pod can stick in
   `CreateContainerConfigError: failed to prepare subPath`; delete the pod.
 
-## Weekly Bookshelf maintenance
+## Bookshelf rollback
 
 `bookshelf-missing-search` (`gitops/media/bookshelf-missing-search.yaml`,
-script `bookshelf-missing-search/weekly.py`, Sundays 03:47) rescans the
+script `bookshelf-missing-search/weekly.py`, Sundays 03:47 when enabled) rescans the
 library, removes queue entries whose book Calibre has imported (Bookshelf
 only: the torrent keeps seeding, nothing is blocklisted), then searches every
 monitored book with no file. It reads only `BOOKSHELF_API_KEY` from
@@ -58,9 +65,11 @@ monitored book with no file. It reads only `BOOKSHELF_API_KEY` from
 --from=cronjob/bookshelf-missing-search <name>`. Bookshelf's health page
 keeps warning "Enable Completed Download Handling"; that is expected.
 
-## Audiobook trial
+## Bindery downloads
 
 Bindery and Audiobookshelf are ClusterIP services in the media namespace.
+Bindery can match against the existing Calibre catalog through a read-only
+mount at `/data/books/library`. Calibre-Web Automated owns ebook writes.
 Initialize both over port-forward before giving either a client-facing route.
 Add an Audiobookshelf book library rooted at `/audiobooks`. Configure
 Bindery's audiobook root as `/data/audiobooks` and enable the Audiobookshelf
@@ -75,3 +84,14 @@ the existing Bookshelf ebook category and handoff active during the trial.
 Application state lives on retained local volumes on homelab-03. Export
 application backups before storing library state that needs to survive
 loss of that node.
+
+Bindery ebook downloads use the `bindery-ebooks` qBittorrent category at
+`/data/downloads/books/bindery`. Set ebook import mode to External, with a
+flat copy handoff to `/data/books/handoff`. The existing Calibre sidecar
+moves the file into ingest. Keep audiobook imports in Copy mode.
+
+Bindery scans both libraries every 15 minutes to reconcile completed ebook
+handoffs. To roll back, disable the Bindery ebook client before restoring
+Bookshelf replicas, credential sync, the weekly job, and the tunnel route
+from the corresponding Git revision. Keep existing torrents in their
+original categories so they can continue seeding.

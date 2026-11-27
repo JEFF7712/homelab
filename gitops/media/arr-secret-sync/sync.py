@@ -23,9 +23,6 @@ ARR_APPS = (
     # Lidarr still serves the v1 API (v3 returns 404).
     {"name": "lidarr", "host": "lidarr.media", "key_env": "LIDARR_API_KEY",
      "api_root": "/api/v1"},
-    # Bookshelf is a Readarr fork and serves the same v1 API.
-    {"name": "bookshelf", "host": "bookshelf.media",
-     "key_env": "BOOKSHELF_API_KEY", "api_root": "/api/v1"},
 )
 SEERR_HOST = "seerr.media"
 

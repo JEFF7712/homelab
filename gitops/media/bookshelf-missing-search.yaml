@@ -11,6 +11,7 @@ metadata:
   namespace: media
 spec:
   schedule: "47 3 * * 0"
+  suspend: true
   timeZone: America/Chicago
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
