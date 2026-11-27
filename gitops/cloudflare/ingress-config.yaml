@@ -136,4 +136,6 @@ data:
         service: http://uptime.cloudflare:2203
       - hostname: audiobooks.rupan.dev
         service: http://audiobookshelf.media:80
+      - hostname: binder.rupan.dev
+        service: http://bindery.media:8787
       - service: http_status:404
