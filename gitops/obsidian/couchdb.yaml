@@ -47,7 +47,7 @@ spec:
               mountPath: /opt/couchdb/etc/local.d
       containers:
         - name: couchdb
-          image: registry.rupan.dev/upstream/docker.io/library/couchdb@sha256:907eab5b7e55ab7cfd241d39b90b2a335ea40bef82acee5a37388c08bf201dda  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/library/couchdb@sha256:0ba6b4b8dd823232185fa2c7de04634b925be62f97c9b7cbece7dd9119470e17  # yamllint disable-line rule:line-length
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
