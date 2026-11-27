@@ -188,11 +188,11 @@ spec:
               containerPort: 8787
           env:
             - name: BINDERY_LIBRARY_DIR
-              value: /config/books
+              value: /data/books/library
             - name: BINDERY_AUDIOBOOK_DIR
               value: /data/audiobooks
             - name: BINDERY_DOWNLOAD_DIR
-              value: /data/downloads/audiobooks
+              value: /data/downloads/books/bindery
             - name: BINDERY_AUDIOBOOK_DOWNLOAD_DIR
               value: /data/downloads/audiobooks
           readinessProbe:
@@ -220,6 +220,13 @@ spec:
               mountPath: /data/books/library
               subPath: books/library
               readOnly: true
+            - name: media
+              mountPath: /data/downloads/books/bindery
+              subPath: downloads/books/bindery
+              readOnly: true
+            - name: media
+              mountPath: /data/books/handoff
+              subPath: books/handoff
       volumes:
         - name: config
           persistentVolumeClaim:
