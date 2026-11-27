@@ -112,7 +112,7 @@ spec:
                 limits:
                   memory: 1Gi
             - name: build
-              image: registry.rupan.dev/upstream/ghcr.io/valhalla/valhalla@sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/upstream/ghcr.io/valhalla/valhalla@sha256:cf618ccafdead96829282acc81a70aa00947c2f28ddcf118f0194acf2fbc7e9d  # yamllint disable-line rule:line-length
               command: [/bin/sh, /app/build-routing.sh]
               securityContext:
                 allowPrivilegeEscalation: false
@@ -413,7 +413,7 @@ spec:
               memory: 256Mi
       containers:
         - name: valhalla
-          image: registry.rupan.dev/upstream/ghcr.io/valhalla/valhalla@sha256:4fd114eb1d26b8fc2f43bcb3df234c1b63a0bf13c277405e5943d5361dc575de  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/ghcr.io/valhalla/valhalla@sha256:cf618ccafdead96829282acc81a70aa00947c2f28ddcf118f0194acf2fbc7e9d  # yamllint disable-line rule:line-length
           command: [valhalla_service, /data/valhalla.json, "2"]
           ports:
             - name: http
