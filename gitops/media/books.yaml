@@ -28,7 +28,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: fix-permissions
-          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4  # yamllint disable-line rule:line-length
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -92,7 +92,7 @@ spec:
         # Finished book downloads reach Calibre through this rename; see
         # gitops/media/books-handoff/ingest-mover.sh.
         - name: ingest-mover
-          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4  # yamllint disable-line rule:line-length
           command: ["sh", "/books-handoff/ingest-mover.sh"]
           securityContext:
             allowPrivilegeEscalation: false
@@ -170,7 +170,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: fix-permissions
-          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616  # yamllint disable-line rule:line-length
+          image: registry.rupan.dev/upstream/docker.io/library/busybox@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4  # yamllint disable-line rule:line-length
           command: ["sh", "-c", "chown -R 1000:1000 /config"]
           securityContext:
             allowPrivilegeEscalation: false
