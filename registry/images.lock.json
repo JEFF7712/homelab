@@ -12566,6 +12566,45 @@
       ],
       "destination_repository": "upstream/ghcr.io/vavallee/bindery",
       "destination_tags": [
+        "retention-deployed-ef2f2c70c55fec18",
+        "v1.53.3"
+      ],
+      "digest": "sha256:ef2f2c70c55fec187ac2a4834fa2820161dd7831503fc91e6b04f1e2e8f0d126",
+      "id": "upstream-vavallee-bindery-bd3f821971f2",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:ef2f2c70c55fec187ac2a4834fa2820161dd7831503fc91e6b04f1e2e8f0d126",
+        "reference": "ghcr.io/vavallee/bindery:v1.53.3@sha256:ef2f2c70c55fec187ac2a4834fa2820161dd7831503fc91e6b04f1e2e8f0d126",
+        "registry": "ghcr.io",
+        "repository": "vavallee/bindery",
+        "tag": "v1.53.3"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
+        "gitops/media/registry-sources.yaml:60"
+      ],
+      "destination_repository": "upstream/ghcr.io/vavallee/bindery",
+      "destination_tags": [
         "1.53.2",
         "retention-deployed-5089b373d97cd748"
       ],

@@ -57,4 +57,4 @@ items:
   - image: docker.io/library/alpine:3.24.4@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
   # Audiobook pilot applications
   - image: ghcr.io/advplyr/audiobookshelf:2.38.0@sha256:60064c23f32fd9099fd39e82c5132c51701d1221135bbca04cd099b589e1edc3  # yamllint disable-line rule:line-length
-  - image: ghcr.io/vavallee/bindery:1.53.2@sha256:5089b373d97cd74846ee5b3022844cba0d0139e57234676a57202a92bf5cec12  # yamllint disable-line rule:line-length
+  - image: ghcr.io/vavallee/bindery:v1.53.3@sha256:ef2f2c70c55fec187ac2a4834fa2820161dd7831503fc91e6b04f1e2e8f0d126  # yamllint disable-line rule:line-length
