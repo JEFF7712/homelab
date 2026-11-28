@@ -58,6 +58,13 @@ This runbook documents the dedicated 1 TB external HDD backup architecture hoste
 
 ## Operating Procedures
 
+If source validation reports that the laptop Restic repository is unreadable,
+check `stat -c '%a %U:%G' /tank/backups/restic` on `nas-01`. NixOS activation
+manages that directory as the `restic` user's home and should leave it at
+`750 restic:restic`. The `backup-reader` account needs the `restic` group to
+traverse it over read-only SFTP. Verify recovery during the next nightly cycle
+with fresh source manifests.
+
 ### 1. Manual Backup Execution
 To trigger an immediate backup outside the timer:
 ```sh
