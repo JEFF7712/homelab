@@ -9020,6 +9020,45 @@
         "status": "unsupported"
       },
       "consumers": [
+        "gitops/music-assistant/registry-sources.yaml:20"
+      ],
+      "destination_repository": "upstream/ghcr.io/music-assistant/server",
+      "destination_tags": [
+        "2.10.14",
+        "retention-deployed-7a2c25e78ed47ee2"
+      ],
+      "digest": "sha256:7a2c25e78ed47ee2752c6b6e0667e561f9c40195dd1f017d0adf20dedb7ad8e0",
+      "id": "upstream-music-assistant-server-2bca01996860",
+      "kind": "upstream",
+      "media_type": "application/vnd.oci.image.index.v1+json",
+      "platforms": [
+        "linux/amd64",
+        "linux/arm64",
+        "unknown/unknown"
+      ],
+      "producer": null,
+      "referrers": {
+        "required": [],
+        "source_status": "not-enumerated"
+      },
+      "resolution": {
+        "status": "source-registry-verified"
+      },
+      "retention_class": "deployed",
+      "source": {
+        "digest": "sha256:7a2c25e78ed47ee2752c6b6e0667e561f9c40195dd1f017d0adf20dedb7ad8e0",
+        "reference": "ghcr.io/music-assistant/server:2.10.14@sha256:7a2c25e78ed47ee2752c6b6e0667e561f9c40195dd1f017d0adf20dedb7ad8e0",
+        "registry": "ghcr.io",
+        "repository": "music-assistant/server",
+        "tag": "2.10.14"
+      }
+    },
+    {
+      "authenticity": {
+        "reason": "no source verification policy is declared for this inventory record",
+        "status": "unsupported"
+      },
+      "consumers": [
         "gitops/music-assistant/server.yaml:27"
       ],
       "destination_repository": "upstream/ghcr.io/music-assistant/server",
