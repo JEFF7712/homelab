@@ -70,7 +70,7 @@ spec:
                 name: romm-backup
           initContainers:
             - name: dump
-              image: registry.rupan.dev/upstream/docker.io/library/mariadb@sha256:e1d5495f445654134f226f55a41ce0da227116f6f27f283101f405c794d841fc  # yamllint disable-line rule:line-length
+              image: registry.rupan.dev/upstream/docker.io/library/mariadb@sha256:73c35e8483b56390cc98f8d6d9840244bd03c929aea7109490641b9389a18088  # yamllint disable-line rule:line-length
               command:
                 - sh
                 - -ec
