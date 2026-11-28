@@ -58,12 +58,15 @@ in
       extraFlags = [ "--group-accessible-repos" ];
     };
 
+    # NixOS manages the repository root as the restic user's home on every
+    # switch, even when the REST service does not restart.
+    users.users.restic.homeMode = "750";
+
     systemd.services.restic-rest-server = {
       unitConfig.RequiresMountsFor = [ cfg.dataDir ];
       # Files written before --group-accessible-repos are owner-only.
       serviceConfig.ExecStartPre = [
         "+${pkgs.writeShellScript "restic-repos-group-readable" ''
-          ${pkgs.coreutils}/bin/chmod 0750 ${cfg.dataDir}
           ${pkgs.findutils}/bin/find ${cfg.dataDir} -mindepth 1 -maxdepth 1 \
             ! -name .htpasswd -exec ${pkgs.coreutils}/bin/chmod -R g+rX {} +
         ''}"
