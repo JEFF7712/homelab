@@ -5,4 +5,4 @@ metadata:
   name: romm-registry-sources
 items:
   - image: docker.io/rommapp/romm:5.4.1@sha256:8677fb7b81b1d3db20b849e989a1dadc2a11159e51eb34a2acdcb01102274edf  # yamllint disable-line rule:line-length
-  - image: docker.io/library/mariadb:11.8@sha256:e1d5495f445654134f226f55a41ce0da227116f6f27f283101f405c794d841fc  # yamllint disable-line rule:line-length
+  - image: docker.io/library/mariadb:11.8@sha256:73c35e8483b56390cc98f8d6d9840244bd03c929aea7109490641b9389a18088  # yamllint disable-line rule:line-length
